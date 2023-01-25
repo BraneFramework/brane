@@ -4,7 +4,7 @@
 //  Created:
 //    13 Sep 2022, 16:43:11
 //  Last edited:
-//    05 Jan 2023, 16:53:18
+//    23 Jan 2023, 11:52:10
 //  Auto updated?
 //    Yes
 // 
@@ -20,27 +20,90 @@ use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuar
 use async_trait::async_trait;
 use log::info;
 
-use brane_ast::Workflow;
+use brane_ast::{DataType, Workflow};
 use brane_ast::locations::Location;
 use brane_ast::ast::{DataName, Edge, SymTable};
 use specifications::data::{AccessKind, AvailabilityKind};
 
-pub use crate::errors::VmError as Error;
+pub use crate::errors::DummyVmError as Error;
+use crate::errors::VmError;
 use crate::spec::{CustomGlobalState, RunState, TaskInfo, VmPlugin};
 use crate::value::FullValue;
 use crate::vm::Vm;
+
+
+/***** HELPER FUNCTIONS *****/
+/// Returns a default value for the given DataType.
+/// 
+/// # Arguments
+/// - `data_type`: The DataType to return the default value of.
+/// - `workflow`: A Workflow to resolve any reference in (i.e., class references).
+/// - `name`: The name of the task for which we are finding the default value. Used for debugging purposes only.
+/// - `package_name`: The name of the package in which the task we are finding the default value for lives. Used for debugging purposes only.
+/// 
+/// # Returns
+/// A FullValue that carries the default value for this type. It is guaranteed that the given FullValue has the same DataType as went in.
+/// 
+/// # Panics
+/// This function may panic if the data type made no sense for a Task return value.
+fn default_return_value(data_type: &DataType, workflow: &Workflow, name: impl AsRef<str>, package_name: impl AsRef<str>, result: &Option<String>) -> FullValue {
+    let name         : &str = name.as_ref();
+    let package_name : &str = package_name.as_ref();
+    match data_type {
+        DataType::Void => FullValue::Void,
+
+        DataType::Boolean => FullValue::Boolean(false),
+        DataType::Integer => FullValue::Integer(0),
+        DataType::Real    => FullValue::Real(0.0),
+        DataType::String  => FullValue::String("".into()),
+
+        DataType::Array{ .. }        => FullValue::Array(vec![]),
+        DataType::Class{ name }      => {
+            // Get the definition of the class
+            for def in &workflow.table.classes {
+                if &def.name == name {
+                    // Now initialize all its members with default values
+                    let mut props: HashMap<String, FullValue> = HashMap::with_capacity(def.props.len());
+                    for p in &def.props {
+                        props.insert(p.name.clone(), default_return_value(&p.data_type, workflow, name, package_name, result));
+                    }
+
+                    // Return it
+                    return FullValue::Instance(name.clone(), props);
+                }
+            }
+            panic!("Unknown class '{}'", name);
+        },
+        DataType::IntermediateResult => FullValue::IntermediateResult(result.clone().unwrap_or_else(|| panic!("Task {}::{} does not define it returns an IntermediateResult, and yet it does", package_name, name)).into()),
+
+        // Invalid types
+        DataType::Any            |
+        DataType::Numeric        |
+        DataType::Addable        |
+        DataType::Callable       |
+        DataType::NonVoid        |
+        DataType::Semver         |
+        DataType::Function{ .. } |
+        DataType::Data           => { panic!("Task {}::{} returns an {}, while a task shouldn't", package_name, name, data_type); },
+    }
+}
+
+
+
 
 
 /***** LIBRARY *****/
 /// Defines the global, shared state for the DummyVm.
 #[derive(Clone, Debug)]
 pub struct DummyState {
+    /// The workflow we are executing.
+    pub workflow : Option<Arc<Workflow>>,
+
     /// The text to buffer when writing to stdout.
     /// 
     /// It looks overkill to have a mutex here, but this is required in the test of `thread.rs` due to it not using a wrapping VM.
     pub text : Arc<Mutex<String>>,
 }
-
 impl CustomGlobalState for DummyState {}
 
 
@@ -53,10 +116,10 @@ impl VmPlugin for DummyPlugin {
     type GlobalState = DummyState;
     type LocalState  = ();
 
-    type PreprocessError = Error;
-    type ExecuteError    = Error;
-    type StdoutError     = Error;
-    type CommitError     = Error;
+    type PreprocessError = std::convert::Infallible;
+    type ExecuteError    = std::convert::Infallible;
+    type StdoutError     = std::convert::Infallible;
+    type CommitError     = std::convert::Infallible;
 
 
     async fn preprocess(_global: Arc<RwLock<Self::GlobalState>>, _local: Self::LocalState, _loc: Location, name: DataName, _preprocess: specifications::data::PreprocessKind) -> Result<AccessKind, Self::PreprocessError> {
@@ -66,7 +129,7 @@ impl VmPlugin for DummyPlugin {
         Ok(AccessKind::File{ path: PathBuf::new() })
     }
 
-    async fn execute(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
+    async fn execute(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
         info!("Processing dummy call to '{}'@'{}' with {} in {}[{}]...",
             info.name,
             info.location,
@@ -75,14 +138,12 @@ impl VmPlugin for DummyPlugin {
             info.package_version,
         );
 
-        // Return according to the name of the function called
-        match info.name {
-            "hello_world"   => Ok(Some(FullValue::String("Hello, world!".into()))),
-            "run_script"    => Ok(Some(FullValue::Void)),
-            "aggregate"     => Ok(Some(FullValue::Void)),
-            "local_compute" => Ok(Some(FullValue::Void)),
-            _               => Ok(None),
-        }
+        // Get a lock on the state
+        let state: RwLockReadGuard<Self::GlobalState> = global.read().unwrap();
+
+        // Returns default values for the various types a function can have
+        let ret: &DataType = &state.workflow.as_ref().unwrap().table.tasks[info.id].func().ret;
+        Ok(Some(default_return_value(ret, state.workflow.as_ref().unwrap(), info.name, info.package_name, info.result)))
     }
 
     async fn stdout(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, text: &str, newline: bool) -> Result<(), Self::StdoutError> {
@@ -120,8 +181,7 @@ impl VmPlugin for DummyPlugin {
 
 
 /// Defines a Dummy planner that simply assigns 'localhost' to every task it can find.
-pub struct DummyPlanner {}
-
+pub struct DummyPlanner;
 impl DummyPlanner {
     /// Helper function that plans the given list of edges for the dummy VM.
     /// 
@@ -233,8 +293,53 @@ impl DummyVm {
     #[inline]
     pub fn new() -> Self {
         Self {
-            state : Self::new_state(DummyState{ text: Arc::new(Mutex::new(String::new())) }),
+            state : Self::new_state(DummyState{ workflow: None, text: Arc::new(Mutex::new(String::new())) }),
         }
+    }
+
+
+
+    /// Runs the given workflow on this VM.
+    /// 
+    /// There is a bit of ownership awkwardness going on, but that's due to the need for the struct to outlive threads.
+    /// 
+    /// # Arguments
+    /// - `workflow`: The Workflow to execute.
+    /// 
+    /// # Returns
+    /// The result of the workflow, if any. It also returns `self` again for subsequent runs.
+    pub async fn exec(self, workflow: Workflow) -> (Self, Result<FullValue, Error>) {
+        // Step 1: Plan
+        let plan: Workflow = DummyPlanner::plan(workflow);
+
+
+
+        // Step 2: Execution
+        // Inject the workflow
+        self.state.global.write().unwrap().workflow = Some(Arc::new(plan.clone()));
+
+        // Now wrap ourselves in a lock so that we can run the internal vm
+        let this: Arc<RwLock<Self>> = Arc::new(RwLock::new(self));
+
+        // Run the VM and get self back
+        let result: Result<FullValue, VmError> = Self::run::<DummyPlugin>(this.clone(), plan).await;
+        let this: Self = match Arc::try_unwrap(this) {
+            Ok(this) => this.into_inner().unwrap(),
+            Err(_)   => { panic!("Could not get self back"); },
+        };
+
+
+
+        // Step 3: Result
+        // Match the result to potentially error
+        let value: FullValue = match result {
+            Ok(value) => value,
+            Err(err)  => { return (this, Err(Error::ExecError{ err })); },
+        };
+
+        // Done, return - but because this is a dummy VM, also flush the text buffer
+        this.flush_stdout();
+        (this, Ok(value))
     }
 
 
@@ -279,7 +384,7 @@ impl Vm for DummyVm {
     /// # Errors
     /// This function may error for its own reasons.
     #[inline]
-    fn store_state(this: &Arc<RwLock<Self>>, state: RunState<Self::GlobalState>) -> Result<(), Error> {
+    fn store_state(this: &Arc<RwLock<Self>>, state: RunState<Self::GlobalState>) -> Result<(), VmError> {
         // Get a lock and store it
         let mut lock: RwLockWriteGuard<Self> = this.write().unwrap();
         lock.state = state;
@@ -296,7 +401,7 @@ impl Vm for DummyVm {
     /// # Errors
     /// This function may error for its own reasons.
     #[inline]
-    fn load_state(this: &Arc<RwLock<Self>>) -> Result<RunState<Self::GlobalState>, Error> {
+    fn load_state(this: &Arc<RwLock<Self>>) -> Result<RunState<Self::GlobalState>, VmError> {
         // Get a lock and read it
         let lock: RwLockReadGuard<Self> = this.read().unwrap();
         Ok(lock.state.clone())

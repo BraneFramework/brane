@@ -4,7 +4,7 @@
 //  Created:
 //    05 Sep 2022, 09:27:32
 //  Last edited:
-//    14 Nov 2022, 10:22:52
+//    23 Jan 2023, 11:41:11
 //  Auto updated?
 //    Yes
 // 
@@ -571,6 +571,85 @@ impl EdgeBuffer {
             // If there is no start node yet, set it
             self.start = Some(node.clone());
             self.end   = Some(node);
+        } else {
+            // We can simply add the connection
+            self.end.as_ref().unwrap().borrow_mut().connect_linear(node.clone());
+            self.end = Some(node);
+        }
+    }
+
+    /// Adds a new edge to the end of this EdgeBuffer, although it is added _before_ any stop/return/jump whatever.
+    /// 
+    /// Note that the function itself is agnostic to the specific kind of edge. The only requirement is that, when using `EdgeBuffer::write()`, the last non-returning edge in the buffer can linearly connect to this one. Be aware of this when writing non-Linear edges using this function.
+    /// 
+    /// # Arguments
+    /// - `edge`: The Edge to append.
+    /// 
+    /// # Returns
+    /// Nothing, but does add it internally.
+    pub fn insert_at_end(&mut self, edge: Edge) {
+        // Create a new EdgeBufferNode for this Edge and add it
+        let node: EdgeBufferNodePtr = EdgeBufferNode::new(edge);
+        if self.start.is_none() {
+            // If there is no start node yet, set it
+            self.start = Some(node.clone());
+            self.end   = Some(node);
+
+        } else if matches!(self.end.as_ref().unwrap().borrow().next, EdgeBufferNodeLink::End) {
+            // Simply insert it after the last one, carrying over the link
+            let prev_link: EdgeBufferNodeLink = {
+                let mut end: RefMut<EdgeBufferNode> = self.end.as_ref().unwrap().borrow_mut();
+
+                // Get the last link
+                let mut prev_link: EdgeBufferNodeLink = EdgeBufferNodeLink::None;
+                std::mem::swap(&mut end.next, &mut prev_link);
+
+                // Connect & insert
+                end.connect_linear(node.clone());
+                prev_link
+            };
+            self.end = Some(node.clone());
+
+            // Insert the link
+            node.borrow_mut().next = prev_link;
+
+        } else if matches!(self.end.as_ref().unwrap().borrow().next, EdgeBufferNodeLink::Stop) {
+            // In the case of stops it's slightly more complicated since we also have to move the previous node
+
+            // Find the node preceding the last one
+            let mut prev: Option<EdgeBufferNodePtr> = None;
+            let mut this: Option<EdgeBufferNodePtr> = self.start.clone();
+            while let Some(this_node) = this.clone() {
+                // Borrow the node
+                let this_node: Ref<EdgeBufferNode> = this_node.borrow();
+
+                // Advance it
+                if let Some(next_node) = this_node.next() {
+                    prev = this;
+                    this = Some(next_node);
+                } else {
+                    break;
+                }
+            }
+
+            // Now match on whether we found a prev or not
+            if let Some(prev) = prev {
+                // There is, so connect from that node onwards
+                let mut prev: RefMut<EdgeBufferNode> = prev.borrow_mut();
+
+                // Get its link
+                let mut prev_link: EdgeBufferNodeLink = EdgeBufferNodeLink::None;
+                std::mem::swap(&mut prev.next, &mut prev_link);
+
+                // Insert the new node
+                prev.connect_linear(node.clone());
+                node.borrow_mut().next = prev_link;
+            } else {
+                // There isn't so add as start
+                self.start = Some(node.clone());
+                node.borrow_mut().connect_linear(self.end.as_ref().unwrap().clone());
+            }
+
         } else {
             // We can simply add the connection
             self.end.as_ref().unwrap().borrow_mut().connect_linear(node.clone());

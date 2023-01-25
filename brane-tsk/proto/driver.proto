@@ -5,6 +5,7 @@ package driver;
 service DriverService {
     rpc CreateSession (CreateSessionRequest) returns (CreateSessionReply);
     rpc Execute (ExecuteRequest) returns (stream ExecuteReply);
+    rpc Test(TestRequest) returns (TestReply);
 }
 
 message CreateSessionRequest { }
@@ -18,10 +19,54 @@ message ExecuteRequest {
     string input = 2;
 }
 
+message PlannerProfile {
+    string snippet = 1;
+
+    string request_overhead     = 2;
+    string workflow_parse       = 3;
+    string information_overhead = 4;
+
+    string planning       = 5;
+    string main_planning  = 6;
+    string funcs_planning = 7;
+    string func_planning  = 8;
+}
+message VmProfile {
+    string snippet = 1;
+
+    string planning                 = 2;
+    PlannerProfile planning_details = 3;
+}
+message DriverProfile {
+    string snippet = 1;
+
+    string request_overhead   = 2;
+    string request_processing = 3;
+    string workflow_parse     = 4;
+
+    string execution            = 6;
+    VmProfile execution_details = 7;
+}
 message ExecuteReply {
     bool close = 1;
     optional string debug = 2;
     optional string stderr = 3;
     optional string stdout = 4;
     optional string value  = 5;
+
+    // Profiling information
+    optional DriverProfile profile = 6;
+}
+
+message TestRequest {
+    oneof widget {
+        int32 test = 1;
+        string bar = 2;
+    }
+}
+message TestReply {
+    oneof widget {
+        int32 test = 1;
+        string bar = 2;
+    }
 }

@@ -4,7 +4,7 @@
 //  Created:
 //    18 Aug 2022, 09:48:12
 //  Last edited:
-//    21 Sep 2022, 14:04:03
+//    17 Jan 2023, 14:55:18
 //  Auto updated?
 //    Yes
 // 
@@ -28,53 +28,6 @@ pub mod bscript;
 
 
 // Declare macros
-/// Wrapper around enter_pp that is only enabled if print_parser_path is enabled
-#[cfg(feature = "print_parser_path")]
-macro_rules! enter_pp {
-    ($($arg:tt)+) => {
-        crate::enter_pp!($($arg)+)
-    };
-}
-/// Wrapper around enter_pp that is only enabled if print_parser_path is enabled
-#[cfg(not(feature = "print_parser_path"))]
-macro_rules! enter_pp {
-    ($($arg:tt)+) => {};
-}
-pub(crate) use enter_pp;
-
-/// Wrapper around exit_pp that is only enabled if print_parser_path is enabled
-#[cfg(feature = "print_parser_path")]
-macro_rules! exit_pp {
-    ($res:expr, $($arg:tt)+) => {
-        crate::exit_pp!($res, $($arg)+)
-    };
-}
-/// Wrapper around exit_pp that is only enabled if print_parser_path is enabled
-#[cfg(not(feature = "print_parser_path"))]
-macro_rules! exit_pp {
-    ($res:expr, $($arg:tt)+) => {
-        $res
-    };
-}
-pub(crate) use exit_pp;
-
-/// Wrapper around wrap_pp that is only enabled if print_parser_path is enabled
-#[cfg(feature = "print_parser_path")]
-macro_rules! wrap_pp {
-    ($res:expr, $($arg:tt)+) => {
-        crate::wrap_pp!($res, $($arg)+)
-    };
-}
-/// Wrapper around wrap_pp that is only enabled if print_parser_path is enabled
-#[cfg(not(feature = "print_parser_path"))]
-macro_rules! wrap_pp {
-    ($res:expr, $($arg:tt)+) => {
-        $res
-    };
-}
-pub(crate) use wrap_pp;
-
-
 /// Defines a macro that parses the given token from the given stream of tokens.
 #[macro_export]
 macro_rules! tag_token (

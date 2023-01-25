@@ -21,6 +21,7 @@ console = "0.15"
 cwl = { git = "https://github.com/onnovalkering/cwl-rs" }
 dialoguer = "0.10"
 dotenvy = "0.15"
+enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
 env_logger = "0.10"
 file-lock = "2.1.6"
 filetime = "0.2.15"
@@ -69,6 +70,4 @@ specifications = { path = "../specifications" }
 
 
 [features]
-print_scanner_path = [ "brane-exe/print_scanner_path" ]
-print_parser_path  = [ "brane-exe/print_parser_path" ]
-print_exec_path    = [ "brane-exe/print_exec_path" ]
+print_exec_path = [ "brane-exe/print_exec_path" ]

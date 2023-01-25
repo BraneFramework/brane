@@ -4,7 +4,7 @@
 //  Created:
 //    10 Aug 2022, 14:00:59
 //  Last edited:
-//    19 Dec 2022, 10:02:11
+//    17 Jan 2023, 15:13:46
 //  Auto updated?
 //    Yes
 // 
@@ -1639,7 +1639,7 @@ impl Literal {
     pub fn data_type(&self) -> DataType {
         use Literal::*;
         match self {
-            Null{ .. }    => DataType::Null,
+            Null{ .. }    => DataType::Any,
             Boolean{ .. } => DataType::Boolean,
             Integer{ .. } => DataType::Integer,
             Real{ .. }    => DataType::Real,

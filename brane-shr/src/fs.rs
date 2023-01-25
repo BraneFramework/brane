@@ -4,7 +4,7 @@
 //  Created:
 //    09 Nov 2022, 11:12:06
 //  Last edited:
-//    14 Nov 2022, 11:37:37
+//    23 Jan 2023, 16:17:27
 //  Auto updated?
 //    Yes
 // 
@@ -160,7 +160,7 @@ pub mod tests {
                 };
 
                 // Compare it
-                if contents != file2 { panic!("Contents of '{}' (pre-archivation) VS '{}'( post-archivation) don't actually match;\n\n'{}':\n{}\n\n'{}':\n{}\n\n", source_path2.display(), path.display(), source_path2.display(), BlockFormatter::new(HexFormatter::new(&file2)), path.display(), BlockFormatter::new(HexFormatter::new(&contents))); }
+                if contents != file2 { panic!("Contents of '{}' (pre-archivation) VS '{}' (post-archivation) don't actually match;\n\n'{}':\n{}\n\n'{}':\n{}\n\n", source_path2.display(), path.display(), source_path2.display(), BlockFormatter::new(HexFormatter::new(&file2)), path.display(), BlockFormatter::new(HexFormatter::new(&contents))); }
 
             } else if path == &target_path3 {
                 // Load it as a string
@@ -394,8 +394,9 @@ pub async fn archive_async(source: impl AsRef<Path>, tarball: impl AsRef<Path>, 
     };
 
     // Create the encoder & tarfile around this file
-    let enc     : GzipEncoder<_>          = GzipEncoder::new(handle);
-    let mut tar : Builder<GzipEncoder<_>> = Builder::new(enc);
+    // let enc     : GzipEncoder<_>          = GzipEncoder::new(handle);
+    // let mut tar : Builder<GzipEncoder<_>> = Builder::new(enc);
+    let mut tar : Builder<_> = Builder::new(handle);
 
     // Now add the source recursively
     let mut is_root_dir: bool = true;
@@ -481,9 +482,11 @@ pub async fn unarchive_async(tarball: impl AsRef<Path>, target: impl AsRef<Path>
     };
 
     // Create the decoder & tarfile around this file
-    let dec         : GzipDecoder<_>          = GzipDecoder::new(tio::BufReader::new(handle));
-    let mut tar     : Archive<GzipDecoder<_>> = Archive::new(dec);
-    let mut entries : Entries<GzipDecoder<_>> = match tar.entries() {
+    // let dec         : GzipDecoder<_>          = GzipDecoder::new(tio::BufReader::new(handle));
+    // let mut tar     : Archive<GzipDecoder<_>> = Archive::new(dec);
+    let mut tar     : Archive<_>              = Archive::new(tio::BufReader::new(handle));
+    // let mut entries : Entries<GzipDecoder<_>> = match tar.entries() {
+    let mut entries : Entries<_> = match tar.entries() {
         Ok(entries) => entries,
         Err(err)    => { return Err(Error::TarEntriesError{ path: tarball.into(), err }); },
     };
@@ -492,7 +495,8 @@ pub async fn unarchive_async(tarball: impl AsRef<Path>, target: impl AsRef<Path>
     let mut i: usize = 0;
     while let Some(entry) = entries.next().await {
         // Unwrap the entry
-        let mut entry: Entry<Archive<GzipDecoder<_>>> = match entry {
+        // let mut entry: Entry<Archive<GzipDecoder<_>>> = match entry {
+        let mut entry: Entry<Archive<_>> = match entry {
             Ok(entry) => entry,
             Err(err)  => { return Err(Error::TarEntryError{ path: tarball.into(), entry: i, err }); },
         };

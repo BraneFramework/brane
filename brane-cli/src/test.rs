@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 16:23:37
 //  Last edited:
-//    19 Dec 2022, 11:08:19
+//    17 Jan 2023, 15:38:01
 //  Auto updated?
 //    Yes
 // 
@@ -348,7 +348,6 @@ fn write_value(value: FullValue) -> String {
         FullValue::Real(value)    => format!("{}", value),
         FullValue::String(value)  => format!("\"{}\"", value.replace('\\', "\\\\").replace('\"', "\\\"")),
 
-        FullValue::Null => "null".into(),
         FullValue::Void => String::new(),
     }
 }

@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2022, 11:21:14
 //  Last edited:
-//    05 Jan 2023, 15:33:27
+//    23 Jan 2023, 11:53:01
 //  Auto updated?
 //    Yes
 // 
@@ -15,12 +15,13 @@
 // 
 
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use std::sync::Arc;
 
 use bollard::{API_DEFAULT_VERSION, ClientVersion};
 use chrono::Utc;
+use enum_debug::EnumDebug as _;
 use futures_util::StreamExt;
 use hyper::body::Bytes;
 use log::{debug, error, info, warn};
@@ -33,7 +34,7 @@ use tonic::{Response, Request, Status};
 
 use brane_ast::Workflow;
 use brane_ast::locations::Location;
-use brane_ast::ast::DataName;
+use brane_ast::ast::{ComputeTaskDef, DataName, TaskDef};
 use brane_cfg::backend::{BackendFile, Credentials};
 use brane_cfg::node::NodeConfig;
 use brane_cfg::policies::{ContainerPolicy, PolicyFile};
@@ -44,13 +45,14 @@ use brane_shr::debug::BlockFormatter;
 use brane_shr::fs::{copy_dir_recursively_async, unarchive_async};
 use brane_tsk::errors::{AuthorizeError, CommitError, ExecuteError, PreprocessError};
 use brane_tsk::spec::JobStatus;
-use brane_tsk::grpc::{CommitReply, CommitRequest, DataKind, JobService, PreprocessKind, PreprocessReply, PreprocessRequest, TaskReply, TaskRequest, TaskStatus};
 use brane_tsk::tools::decode_base64;
 use brane_tsk::docker::{self, ExecuteInfo, ImageSource, Network};
 use specifications::container::{Image, VolumeBind};
 use specifications::data::{AccessKind, AssetInfo};
 use specifications::package::{Capability, PackageIndex, PackageInfo, PackageKind};
+use specifications::profiling::TimingReport;
 use specifications::version::Version;
+use specifications::working::{CommitReply, CommitRequest, ExecuteReply, ExecuteRequest, JobService, PreprocessKind, PreprocessReply, PreprocessRequest, TaskStatus, TransferRegistryTar};
 
 
 /***** CONSTANTS *****/
@@ -91,12 +93,12 @@ macro_rules! err {
 /// 
 /// # Errors
 /// This function may error if we failed to update the client.
-async fn update_client(tx: &Sender<Result<TaskReply, Status>>, status: JobStatus) -> Result<(), ExecuteError> {
+async fn update_client(tx: &Sender<Result<ExecuteReply, Status>>, status: JobStatus) -> Result<(), ExecuteError> {
     // Convert the JobStatus into a code and (possible) value
     let (status, value): (TaskStatus, Option<String>) = status.into();
 
     // Put that in an ExecuteReply
-    let reply: TaskReply = TaskReply {
+    let reply: ExecuteReply = ExecuteReply {
         status : status as i32,
         value,
     };
@@ -246,10 +248,15 @@ pub async fn preprocess_transfer_tar(node_config: &NodeConfig, proxy: Arc<ProxyC
     let address: &str  = address.as_ref();
     debug!("Downloading from {} ({})", location, address);
 
+    // Prepare profiling
+    let report = TimingReport::auto_report("brane-job preprocess transfer tar", std::io::stdout());
+    let _guard = report.guard("total");
+
 
 
     // Prepare the folder where we will download the data to
     debug!("Preparing filesystem...");
+    let pre = report.guard("preparation");
     let tar_path  : PathBuf = PathBuf::from("/tmp/tars");
     if !tar_path.is_dir() {
         if tar_path.exists() {
@@ -308,11 +315,13 @@ pub async fn preprocess_transfer_tar(node_config: &NodeConfig, proxy: Arc<ProxyC
             (tar_path.join(format!("res_{}.tar.gz", name)), res_path)
         },
     };
+    pre.stop();
 
 
 
     // Send a reqwest
     debug!("Sending download request...");
+    let download = report.guard("download");
     let res = match proxy.get(address, Some(NewPathRequestTlsOptions{ location: location.clone(), use_client_auth: true })).await {
         Ok(result) => match result {
             Ok(res)  => res,
@@ -347,12 +356,13 @@ pub async fn preprocess_transfer_tar(node_config: &NodeConfig, proxy: Arc<ProxyC
             }
         }
     }
+    download.stop();
 
 
 
     // It took a while, but we now have the tar file; extract it
     debug!("Unpacking '{}' to '{}'...", tar_path.display(), data_path.display());
-    if let Err(err) = unarchive_async(tar_path, &data_path).await {
+    if let Err(err) = report.fut("unpacking", unarchive_async(tar_path, &data_path)).await {
         return Err(PreprocessError::DataExtractError{ err });
     }
 
@@ -381,6 +391,10 @@ pub async fn preprocess_transfer_tar(node_config: &NodeConfig, proxy: Arc<ProxyC
 /// This function errors if we failed to reach the checker, or the checker itself crashed.
 async fn assert_workflow_permission(node_config: &NodeConfig, _workflow: &Workflow, container_hash: impl AsRef<str>) -> Result<bool, AuthorizeError> {
     let container_hash : &str = container_hash.as_ref();
+
+    // Prepare profiling
+    let report = TimingReport::auto_report("brane-job workflow checker", std::io::stdout());
+    let _guard = report.guard("total");
 
     // // Prepare the input struct
     // let body: CheckerRequestBody<&Workflow> = CheckerRequestBody {
@@ -455,6 +469,27 @@ async fn assert_workflow_permission(node_config: &NodeConfig, _workflow: &Workfl
 
 
 
+/// Returns the path of a cached container file if it is cached.
+/// 
+/// # Arguments
+/// - `node_config`: The configuration for this node's environment. For us, contains if and where we should proxy the request through and where we may download package images to.
+/// - `image`: The image name of the image we want to have.
+/// 
+/// # Returns
+/// The path to the file if it exists (and is thus cached), or `None` otherwise. Note that the existance of the image file itself does not mean the hash and ID cache files are there too.
+#[inline]
+fn get_cached_container(node_config: &NodeConfig, image: &Image) -> Option<PathBuf> {
+    // Generate the path
+    let image_path: PathBuf = node_config.paths.packages.join(format!("{}-{}.tar", image.name, image.version.as_ref().unwrap_or(&"latest".into())));
+
+    // Whether we return it determines if it exists
+    if image_path.exists() {
+        Some(image_path)
+    } else {
+        None
+    }
+}
+
 /// Downloads a container to the local registry.
 /// 
 /// # Arguments
@@ -470,65 +505,9 @@ async fn assert_workflow_permission(node_config: &NodeConfig, _workflow: &Workfl
 /// 
 /// # Errors
 /// This function may error if we failed to reach the remote host, download the file or write the file.
-async fn download_container(node_config: &NodeConfig, proxy: Arc<ProxyClient>, endpoint: impl AsRef<str>, image: &mut Image) -> Result<(PathBuf, String), ExecuteError> {
+async fn get_container(node_config: &NodeConfig, proxy: Arc<ProxyClient>, endpoint: impl AsRef<str>, image: &Image) -> Result<PathBuf, ExecuteError> {
     let endpoint: &str = endpoint.as_ref();
     debug!("Downloading image '{}' from '{}'...", image, endpoint);
-
-    // Check if we have already downloaded it, by any chance
-    let image_path : PathBuf = node_config.paths.packages.join(format!("{}-{}.tar", image.name, image.version.as_ref().unwrap_or(&"latest".into())));
-    let hash_path  : PathBuf = node_config.paths.packages.join(format!("{}-{}.sha256", image.name, image.version.as_ref().unwrap_or(&"latest".into())));
-    if image_path.exists() {
-        debug!("Image file '{}' already exists; checking if it's up-to-date...", image_path.display());
-
-        // Get the digest of the local image
-        let image_digest: String = match docker::get_digest(&image_path).await {
-            Ok(digest) => digest,
-            Err(err)   => { return Err(ExecuteError::DigestError{ path: image_path, err }); },
-        };
-
-        // Compare the digests if they've given us one as well
-        match &image.digest {
-            Some(digest) => {
-                if digest == &image_digest {
-                    debug!("Local image is up-to-date");
-
-                    debug!("Seeing if hash has already been computed...");
-                    let hash: String = if hash_path.exists() {
-                        debug!("Loading hash...");
-                        match tfs::read_to_string(&hash_path).await {
-                            Ok(hash) => hash,
-                            Err(err) => { return Err(ExecuteError::HashReadError{ path: hash_path, err }); },
-                        }
-                    } else {
-                        debug!("Hashing image (this might take a while)...");
-                        // Get the image hash
-                        let hash: String = match docker::hash_container(&image_path).await {
-                            Ok(hash) => hash,
-                            Err(err) => { return Err(ExecuteError::HashError{ err }); },
-                        };
-
-                        // Write it
-                        if let Err(err) = tfs::write(&hash_path, hash.as_bytes()).await {
-                            return Err(ExecuteError::HashWriteError{ path: hash_path, err });
-                        }
-
-                        // Done, return the hash
-                        hash
-                    };
-
-                    // Return both of them
-                    return Ok((image_path, hash));
-                }
-            },
-            None => {
-                warn!("No digest given in request; assuming local image is out-of-date");
-                image.digest = Some(image_digest);
-            },
-        };
-
-        // Otherwise, they don't compare
-        debug!("Local image is outdated; overwriting...");
-    }
 
     // Send a GET-request to the correct location
     let address: String = format!("{}/packages/{}/{}", endpoint, image.name, image.version.as_ref().unwrap_or(&"latest".into()));
@@ -545,6 +524,7 @@ async fn download_container(node_config: &NodeConfig, proxy: Arc<ProxyClient>, e
     }
 
     // With the request success, download it in parts
+    let image_path: PathBuf = node_config.paths.packages.join(format!("{}-{}.tar", image.name, image.version.as_ref().unwrap_or(&"latest".into())));
     debug!("Writing request stream to '{}'...", image_path.display());
     {
         let mut handle: tfs::File = match tfs::File::create(&image_path).await {
@@ -566,26 +546,133 @@ async fn download_container(node_config: &NodeConfig, proxy: Arc<ProxyClient>, e
         }
     }
 
-    // Hash the image while at it
-    debug!("Hashing image (this might take a while)...");
-    let hash: String = {
-        // Get the image hash
-        let hash: String = match docker::hash_container(&image_path).await {
-            Ok(hash) => hash,
-            Err(err) => { return Err(ExecuteError::HashError{ err }); },
-        };
+    // That's OK - now return
+    Ok(image_path)
+}
 
-        // Write it
-        if let Err(err) = tfs::write(&hash_path, hash.as_bytes()).await {
-            return Err(ExecuteError::HashWriteError{ path: hash_path, err });
-        }
+/// Returns the hash and identifier of the given image file.
+/// 
+/// The hash is meant to represent some cryptographically secure footprint, whereas the identifier is the Docker ID of the image we can use to refer to this unique instance in the Docker daemon.
+/// 
+/// Note that the ID itself is _not_ cryptographically secure, since it is not computed but read from the image file. It may thus be tempered with by the sender.
+/// 
+/// # Arguments
+/// - `node_config`: The configuration for this node's environment. For us, contains the location to the `backend` file that determines if we need to compute a hash or not.
+/// - `image_path`: The path to the image file to compute the hash and ID of.
+/// 
+/// # Returns
+/// The ID and hash of this container, respectively. Note that the hash may be empty, in which case the system admin disabled container security.
+/// 
+/// Also note that, for performance reasons, the function generates cache files alongside the image file if they are not present already.
+/// 
+/// # Errors
+/// This function errors if we failed to read the given image file or any other associated cache file.
+async fn get_container_ids(node_config: &NodeConfig, image_path: impl AsRef<Path>) -> Result<(String, Option<String>), ExecuteError> {
+    let image_path: &Path = image_path.as_ref();
+    debug!("Computing ID and hash for '{}'...", image_path.display());
 
-        // Done, return the hash
-        hash
+    // Open the backend file
+    let backend: BackendFile = match BackendFile::from_path(&node_config.node.worker().paths.backend) {
+        Ok(backend) => backend,
+        Err(err)    => { return Err(ExecuteError::BackendFileError { path: node_config.node.worker().paths.backend.clone(), err }); },
     };
 
-    // That's OK - now return
-    Ok((image_path, hash))
+    // Get the directory of the image
+    let dir       : &Path  = image_path.parent().unwrap_or(image_path);
+    let file_name : &OsStr = image_path.file_stem().unwrap_or_else(|| OsStr::new(""));
+
+    // Check the image ID
+    let id: String = {
+        // Check if the cache file exists
+        let cache_file: PathBuf = dir.join(format!("{}-id.sha256", file_name.to_string_lossy()));
+        if cache_file.exists() {
+            // Attempt to read it
+            match tfs::read_to_string(&cache_file).await {
+                Ok(id)   => id,
+                Err(err) => { return Err(ExecuteError::IdReadError{ path: cache_file, err }); },
+            }
+
+        } else {
+            // Get the ID from the image
+            let id: String = match docker::get_digest(image_path).await {
+                Ok(id)   => id,
+                Err(err) => { return Err(ExecuteError::DigestError{ path: image_path.into(), err }); },
+            };
+
+            // Write it to the cache file
+            if let Err(err) = tfs::write(&cache_file, &id).await { return Err(ExecuteError::IdWriteError { path: cache_file, err }); }
+
+            // Return the ID
+            id
+        }
+    };
+
+    // Check the image hash
+    let hash: Option<String> = if backend.hash_containers() {
+        // Check if the hash file exists
+        let cache_file: PathBuf = dir.join(format!("{}-hash.sha256", file_name.to_string_lossy()));
+        if cache_file.exists() {
+            // Attempt to read it
+            match tfs::read_to_string(&cache_file).await {
+                Ok(hash) => Some(hash),
+                Err(err) => { return Err(ExecuteError::HashReadError{ path: cache_file, err }); },
+            }
+        } else {
+            // Compute the hash
+            let hash: String = match docker::hash_container(image_path).await {
+                Ok(hash) => hash,
+                Err(err) => { return Err(ExecuteError::HashError { err }); },
+            };
+
+            // Write it to the cache file
+            if let Err(err) = tfs::write(&cache_file, &hash).await { return Err(ExecuteError::HashWriteError { path: cache_file, err }); }
+
+            // Return the hash
+            Some(hash)
+        }
+    } else {
+        None
+    };
+
+    // Done
+    Ok((id, hash))
+}
+
+/// Ensures the given image exists, either by finding it in the local cache or by downloading it from the central node.
+/// 
+/// # Arguments
+/// - `node_config`: The configuration for this node's environment. For us, contains if and where we should proxy the request through and where we may download package images to.
+/// - `proxy`: The proxy client we use to proxy the data transfer.
+/// - `endpoint`: The address where to download the container from.
+/// - `image`: The image name (including digest, for caching) to download.
+/// 
+/// # Returns
+/// The path of the downloaded image file combined with the ID of the image and the hash of the image, respectively.
+/// 
+/// It's very good practise to use this path, since the cached path might be changed in this function.
+/// 
+/// The ID may be used to communicate the container to Docker, but it is not cryptographically secure (it is provided by the remote party as-is). Use the hash instead for policies.
+/// 
+/// Also note that if the hash is missing (`None`), then the system administrator disabled container security and no consulting of the checker on this respect should occur.
+/// 
+/// # Errors
+/// This function may error if we failed to reach the remote host, download the file or write the file. If it is cached, then we may fail if we failed to read any of the cached files.
+async fn ensure_container(node_config: &NodeConfig, proxy: Arc<ProxyClient>, endpoint: impl AsRef<str>, image: &Image) -> Result<(PathBuf, String, Option<String>), ExecuteError> {
+    // Prepare profiling
+    let report = TimingReport::auto_report("brane-job download container", std::io::stdout());
+    let _guard = report.guard("total");
+
+    // Download the file if we don't have it locally already
+    let image_path: PathBuf = match report.func("cache checking", || get_cached_container(node_config, image)) {
+        Some(path) => path,
+        None       => report.fut("container downloading", get_container(node_config, proxy, endpoint, image)).await?,
+    };
+
+    // Compute the ID and hash for it
+    let (id, hash): (String, Option<String>) = report.fut("container ID & hash computation", get_container_ids(node_config, &image_path)).await?;
+
+    // Done, return
+    Ok((image_path, id, hash))
 }
 
 
@@ -605,14 +692,18 @@ async fn download_container(node_config: &NodeConfig, proxy: Arc<ProxyClient>, e
 /// 
 /// # Errors
 /// This function errors if the task fails for whatever reason or we didn't even manage to launch it.
-async fn execute_task_local(node_config: &NodeConfig, dinfo: DockerInfo, tx: &Sender<Result<TaskReply, Status>>, container_path: impl AsRef<Path>, tinfo: TaskInfo, keep_container: bool) -> Result<FullValue, JobStatus> {
+async fn execute_task_local(node_config: &NodeConfig, dinfo: DockerInfo, tx: &Sender<Result<ExecuteReply, Status>>, container_path: impl AsRef<Path>, tinfo: TaskInfo, keep_container: bool) -> Result<FullValue, JobStatus> {
     let container_path : &Path    = container_path.as_ref();
     let mut tinfo      : TaskInfo = tinfo;
     let image          : Image    = tinfo.image.unwrap();
     debug!("Spawning container '{}' as a local container...", image);
 
+    // Prepare profiling
+    let report = TimingReport::auto_report("brane-job local task execution", std::io::stdout());
+    let _guard = report.guard("total");
+
     // First, we preprocess the arguments
-    let binds: Vec<VolumeBind> = match docker::preprocess_args(&mut tinfo.args, &tinfo.input, &tinfo.result, Some(&node_config.node.worker().paths.data), &node_config.node.worker().paths.results).await {
+    let binds: Vec<VolumeBind> = match report.fut("preprocessing", docker::preprocess_args(&mut tinfo.args, &tinfo.input, &tinfo.result, Some(&node_config.node.worker().paths.data), &node_config.node.worker().paths.results)).await {
         Ok(binds) => binds,
         Err(err)  => { return Err(JobStatus::CreationFailed(format!("Failed to preprocess arguments: {}", err))); },
     };
@@ -646,7 +737,8 @@ async fn execute_task_local(node_config: &NodeConfig, dinfo: DockerInfo, tx: &Se
     );
 
     // Now we can launch the container...
-    let name: String = match docker::launch(info, &dinfo.socket_path, dinfo.client_version).await {
+    let exec = report.guard("execution");
+    let name: String = match report.fut("spawn overhead", docker::launch(info, &dinfo.socket_path, dinfo.client_version)).await {
         Ok(name) => name,
         Err(err) => { return Err(JobStatus::CreationFailed(format!("Failed to spawn container: {}", err))); },
     };
@@ -658,6 +750,7 @@ async fn execute_task_local(node_config: &NodeConfig, dinfo: DockerInfo, tx: &Se
         Ok(name) => name,
         Err(err) => { return Err(JobStatus::CompletionFailed(format!("Failed to join container: {}", err))); },
     };
+    exec.stop();
     debug!("Container return code: {}", code);
     debug!("Container stdout/stderr:\n\nstdout:\n{}\n\nstderr:\n{}\n", BlockFormatter::new(&stdout), BlockFormatter::new(&stderr));
     if let Err(err) = update_client(tx, JobStatus::Completed).await { error!("{}", err); }
@@ -668,6 +761,7 @@ async fn execute_task_local(node_config: &NodeConfig, dinfo: DockerInfo, tx: &Se
     }
 
     // Otherwise, decode the output of branelet to the value returned
+    let decode = report.guard("decode");
     let output = stdout.lines().last().unwrap_or_default().to_string();
     let raw: String = match decode_base64(output) {
         Ok(raw)  => raw,
@@ -677,6 +771,7 @@ async fn execute_task_local(node_config: &NodeConfig, dinfo: DockerInfo, tx: &Se
         Ok(value) => value.unwrap_or(FullValue::Void),
         Err(err)  => { return Err(JobStatus::DecodingFailed(format!("Failed to decode output as JSON: {}", err))); },
     };
+    decode.stop();
 
     // Done
     debug!("Task '{}' returned value: '{:?}'", tinfo.name, value);
@@ -701,16 +796,22 @@ async fn execute_task_local(node_config: &NodeConfig, dinfo: DockerInfo, tx: &Se
 /// 
 /// # Errors
 /// This fnction may error for many many reasons, but chief among those are unavailable backends or a crashing task.
-async fn execute_task(node_config: &NodeConfig, proxy: Arc<ProxyClient>, tx: Sender<Result<TaskReply, Status>>, workflow: Workflow, cinfo: ControlNodeInfo, tinfo: TaskInfo, keep_container: bool) -> Result<(), ExecuteError> {
+async fn execute_task(node_config: &NodeConfig, proxy: Arc<ProxyClient>, tx: Sender<Result<ExecuteReply, Status>>, workflow: Workflow, cinfo: ControlNodeInfo, tinfo: TaskInfo, keep_container: bool) -> Result<(), ExecuteError> {
     let mut tinfo          = tinfo;
 
     // We update the user first on that the job has been received
     info!("Starting execution of task '{}'", tinfo.name);
     if let Err(err) = update_client(&tx, JobStatus::Received).await { error!("{}", err); }
 
+    // Prepare profiling
+    let report = TimingReport::auto_report("brane-job task execution", std::io::stdout());
+    let _guard = report.guard("total");
+
 
 
     /* CALL PREPARATION */
+    let pre = report.guard("preparation");
+
     // Next, query the API for a package index.
     let index: PackageIndex = match proxy.get_package_index(&format!("{}/graphql", cinfo.api_endpoint)).await {
         Ok(result) => match result {
@@ -737,32 +838,40 @@ async fn execute_task(node_config: &NodeConfig, proxy: Arc<ProxyClient>, tx: Sen
     };
 
     // Download the container from the central node
-    let (container_path, container_hash): (PathBuf, String) = download_container(node_config, proxy, &cinfo.api_endpoint, tinfo.image.as_mut().unwrap()).await?;
+    let (container_path, container_id, container_hash): (PathBuf, String, Option<String>) = ensure_container(node_config, proxy, &cinfo.api_endpoint, tinfo.image.as_ref().unwrap()).await?;
+    tinfo.image.as_mut().unwrap().digest = Some(container_id);
+    pre.stop();
 
 
 
     /* AUTHORIZATION */
-    // First: make sure that the workflow is allowed by the checker
-    match assert_workflow_permission(node_config, &workflow, container_hash).await {
-        Ok(true) => {
-            debug!("Checker accepted incoming workflow");
-            if let Err(err) = update_client(&tx, JobStatus::Authorized).await { error!("{}", err); }
-        },
-        Ok(false) => {
-            debug!("Checker rejected incoming workflow");
-            if let Err(err) = update_client(&tx, JobStatus::Denied).await { error!("{}", err); }
-            return Err(ExecuteError::AuthorizationFailure{ checker: node_config.node.worker().services.reg.clone() });
-        },
+    // We only do the container security thing if the user told us to; otherwise, the hash will be empty
+    if let Some(container_hash) = container_hash {
+        // First: make sure that the workflow is allowed by the checker
+        let auth = report.guard("authorization");
+        match assert_workflow_permission(node_config, &workflow, container_hash).await {
+            Ok(true) => {
+                debug!("Checker accepted incoming workflow");
+                if let Err(err) = update_client(&tx, JobStatus::Authorized).await { error!("{}", err); }
+            },
+            Ok(false) => {
+                debug!("Checker rejected incoming workflow");
+                if let Err(err) = update_client(&tx, JobStatus::Denied).await { error!("{}", err); }
+                return Err(ExecuteError::AuthorizationFailure{ checker: node_config.node.worker().services.reg.clone() });
+            },
 
-        Err(err) => {
-            return err!(tx, JobStatus::AuthorizationFailed, ExecuteError::AuthorizationError{ checker: node_config.node.worker().services.reg.clone(), err });
-        },
+            Err(err) => {
+                return err!(tx, JobStatus::AuthorizationFailed, ExecuteError::AuthorizationError{ checker: node_config.node.worker().services.reg.clone(), err });
+            },
+        }
+        auth.stop();
     }
 
 
 
     /* SCHEDULE */
     // Match on the specific type to find the specific backend
+    let exec = report.guard("execution");
     let value: FullValue = match creds.method {
         Credentials::Local { path, version } => {
             // Prepare the DockerInfo
@@ -796,6 +905,7 @@ async fn execute_task(node_config: &NodeConfig, proxy: Arc<ProxyClient>, tx: Sen
             return Ok(())
         },
     };
+    exec.stop();
     debug!("Job completed");
 
 
@@ -822,6 +932,10 @@ async fn commit_result(node_config: &NodeConfig, name: impl AsRef<str>, data_nam
     let name         : &str  = name.as_ref();
     let data_name    : &str  = data_name.as_ref();
     debug!("Commit intermediate result '{}' as '{}'...", name, data_name);
+
+    // Prepare profiling
+    let report = TimingReport::auto_report("brane-job result committing", std::io::stdout());
+    let _guard = report.guard("total");
 
 
 
@@ -972,7 +1086,7 @@ async fn commit_result(node_config: &NodeConfig, name: impl AsRef<str>, data_nam
 
 /***** LIBRARY *****/
 /// Defines a server for incoming worker requests.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct WorkerServer {
     /// The path to the node config file that we store.
     node_config_path : PathBuf,
@@ -1005,40 +1119,28 @@ impl WorkerServer {
 
 #[tonic::async_trait]
 impl JobService for WorkerServer {
-    type ExecuteStream = ReceiverStream<Result<TaskReply, Status>>;
+    type ExecuteStream = ReceiverStream<Result<ExecuteReply, Status>>;
 
     async fn preprocess(&self, request: Request<PreprocessRequest>) -> Result<Response<PreprocessReply>, Status> {
         let request = request.into_inner();
         debug!("Receiving preprocess request");
 
+        // Do the profiling
+        let report = TimingReport::auto_report("brane-job WorkerServer::preprocess", std::io::stdout());
+        let _guard = report.guard("total");
+
         // Fetch the data kind
-        let data_name: DataName = match DataKind::from_i32(request.data_kind) {
-            Some(DataKind::Data)               => DataName::Data(request.data_name),
-            Some(DataKind::IntermediateResult) => DataName::IntermediateResult(request.data_name),
-            None                               => {
-                debug!("Incoming request has invalid data kind '{}' (dropping it)", request.data_kind);
-                return Err(Status::invalid_argument(format!("Unknown data kind '{}'", request.data_kind)));
+        let data_name: DataName = match request.data {
+            Some(name) => name.into(),
+            None       => {
+                debug!("Incoming request has invalid data name (dropping it)");
+                return Err(Status::invalid_argument("Unknown data name"));
             }
         };
 
         // Parse the preprocess kind
-        match PreprocessKind::from_i32(request.kind) {
-            Some(PreprocessKind::TransferRegistryTar) => {
-                // The given piece of data is the address
-                let (location, address): (String, String) = match request.data {
-                    Some(data) => match serde_json::from_str(&data) {
-                        Ok(res)  => res,
-                        Err(err) => {
-                            debug!("Incoming request has invalid (location, address) pair: {} (dropping it)", err);
-                            return Err(Status::invalid_argument("Illegal data field for TransferRegistryTar".to_string()));
-                        },
-                    },
-                    None => {
-                        debug!("Incoming request missing data field (dropping it)");
-                        return Err(Status::invalid_argument("Missing data field for TransferRegistryTar".to_string()));
-                    },
-                };
-
+        match request.kind {
+            Some(PreprocessKind::TransferRegistryTar(TransferRegistryTar{ location, address })) => {
                 // Load the node config file
                 let node_config: NodeConfig = match NodeConfig::from_path(&self.node_config_path) {
                     Ok(config) => config,
@@ -1069,26 +1171,29 @@ impl JobService for WorkerServer {
                 // Done
                 debug!("File transfer complete.");
                 Ok(Response::new(PreprocessReply {
-                    ok     : true,
                     access : saccess,
                 }))
             },
 
             None => {
-                debug!("Incoming request has invalid preprocess kind '{}' (dropping it)", request.kind);
-                Err(Status::invalid_argument(format!("Unknown preprocesskind '{}'", request.kind)))
+                debug!("Incoming request has invalid preprocess kind (dropping it)");
+                Err(Status::invalid_argument("Unknown preprocesskind"))
             },
         }
     }
 
 
 
-    async fn execute(&self, request: Request<TaskRequest>) -> Result<Response<Self::ExecuteStream>, Status> {
+    async fn execute(&self, request: Request<ExecuteRequest>) -> Result<Response<Self::ExecuteStream>, Status> {
         let request = request.into_inner();
         debug!("Receiving execute request");
 
+        // Do the profiling
+        let report   = TimingReport::auto_report("brane-job WorkerServer::preprocess", std::io::stdout());
+        let overhead = report.guard("handler overhead");
+
         // Prepare gRPC stream between client and (this) job delegate.
-        let (tx, rx) = mpsc::channel::<Result<TaskReply, Status>>(10);
+        let (tx, rx) = mpsc::channel::<Result<ExecuteReply, Status>>(10);
 
         // Attempt to parse the workflow
         let workflow: Workflow = match serde_json::from_str(&request.workflow) {
@@ -1101,14 +1206,19 @@ impl JobService for WorkerServer {
             },
         };
 
-        // Attempt to parse the version
-        let version: Version = match Version::from_str(&request.package_version) {
-            Ok(version) => version,
-            Err(err)    => {
-                error!("Failed to deserialize version '{}': {}", request.package_version, err);
-                if let Err(err) = tx.send(Err(Status::invalid_argument(format!("Failed to deserialize version '{}': {}", request.package_version, err)))).await { error!("{}", err); }
+        // Fetch the task ID
+        if request.task as usize >= workflow.table.tasks.len() {
+            error!("Given task ID '{}' is out-of-bounds for workflow with {} tasks", request.task, workflow.table.tasks.len());
+            if let Err(err) = tx.send(Err(Status::invalid_argument(format!("Given task ID '{}' is out-of-bounds for workflow with {} tasks", request.task, workflow.table.tasks.len())))).await { error!("{}", err); }
+            return Ok(Response::new(ReceiverStream::new(rx)));
+        }
+        let task: &ComputeTaskDef = match &workflow.table.tasks[request.task as usize] {
+            TaskDef::Compute(def) => def,
+            _                     => {
+                error!("A task of type '{}' is not yet supported", workflow.table.tasks[request.task as usize].variant());
+                if let Err(err) = tx.send(Err(Status::invalid_argument(format!("A task of type '{}' is not yet supported", workflow.table.tasks[request.task as usize].variant())))).await { error!("{}", err); }
                 return Ok(Response::new(ReceiverStream::new(rx)));
-            },
+            }
         };
 
         // Attempt to parse the input
@@ -1131,20 +1241,6 @@ impl JobService for WorkerServer {
             },
         };
 
-        // Attempt to parse the requirements
-        let mut requirements: HashSet<Capability> = HashSet::with_capacity(request.requirements.len());
-        for r in request.requirements {
-            // Parse it using serde
-            requirements.insert(match serde_json::from_str(&r) {
-                Ok(c)    => c,
-                Err(err) => {
-                    error!("Failed to deserialize capability '{}': {}", r, err);
-                    if let Err(err) = tx.send(Err(Status::invalid_argument(format!("Failed to deserialize capability '{}': {}", r, err)))).await { error!("{}", err); }
-                    return Ok(Response::new(ReceiverStream::new(rx)));
-                }
-            });
-        }
-
         // Load the node config file
         let node_config: NodeConfig = match NodeConfig::from_path(&self.node_config_path) {
             Ok(config) => config,
@@ -1157,22 +1253,23 @@ impl JobService for WorkerServer {
         // Collect some request data into ControlNodeInfo's and TaskInfo's.
         let cinfo : ControlNodeInfo = ControlNodeInfo::new(request.api);
         let tinfo : TaskInfo        = TaskInfo::new(
-            request.name,
-            request.package_name,
-            version,
+            task.function.name.clone(),
+            task.package.clone(),
+            task.version.clone(),
 
             input,
             request.result,
             args,
-            requirements,
+            task.requirements.clone(),
         );
 
         // Now move the rest to a separate task so we can return the start of the stream
+        overhead.stop();
         let keep_containers : bool             = self.keep_containers;
         let proxy           : Arc<ProxyClient> = self.proxy.clone();
         tokio::spawn(async move {
             let node_config: NodeConfig = node_config;
-            execute_task(&node_config, proxy, tx, workflow, cinfo, tinfo, keep_containers).await
+            report.fut("execution", execute_task(&node_config, proxy, tx, workflow, cinfo, tinfo, keep_containers)).await
         });
 
         // Return the stream so the user can get updates
@@ -1185,6 +1282,10 @@ impl JobService for WorkerServer {
         let request = request.into_inner();
         debug!("Receiving commit request");
 
+        // Do the profiling
+        let report = TimingReport::auto_report("brane-job WorkerServer::commit", std::io::stdout());
+        let _guard = report.guard("total");
+
         // Load the node config file
         let node_config: NodeConfig = match NodeConfig::from_path(&self.node_config_path) {
             Ok(config) => config,
@@ -1195,12 +1296,12 @@ impl JobService for WorkerServer {
         };
 
         // Run the function
-        if let Err(err) = commit_result(&node_config, &request.name, &request.data_name).await {
+        if let Err(err) = commit_result(&node_config, &request.result_name, &request.data_name).await {
             error!("{}", err);
             return Err(Status::internal("An internal error occurred"));
         }
 
         // Be done without any error
-        Ok(Response::new(CommitReply{ ok: true, error: None }))
+        Ok(Response::new(CommitReply{}))
     }
 }

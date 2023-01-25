@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 17:41:33
 //  Last edited:
-//    23 Dec 2022, 16:37:08
+//    19 Jan 2023, 15:17:39
 //  Auto updated?
 //    Yes
 // 
@@ -36,7 +36,7 @@ pub mod tests {
     use specifications::data::DataIndex;
     use specifications::package::PackageIndex;
     use super::*;
-    use crate::dummy::{DummyPlanner, DummyPlugin, DummyVm};
+    use crate::dummy::DummyVm;
 
 
     /// Tests the traversal by generating symbol tables for every file.
@@ -62,9 +62,9 @@ pub mod tests {
                 let dindex: DataIndex    = create_data_index();
 
                 // Run the program but now line-by-line (to test the snippet function)
-                let mut source: String = String::new();
-                let mut state: CompileState = CompileState::new();
-                let vm: Arc<RwLock<DummyVm>> = Arc::new(RwLock::new(DummyVm::new()));
+                let mut source : String       = String::new();
+                let mut state  : CompileState = CompileState::new();
+                let mut vm     : DummyVm      = DummyVm::new();
                 let mut iter = code.split('\n');
                 for (offset, l) in SnippetFetcher::new(|| { Ok(iter.next().map(|l| l.into())) }) {
                     // Append the source (for errors only)
@@ -95,26 +95,24 @@ pub mod tests {
                         _ => { unreachable!(); },
                     };
 
-                    // Run the dummy planner on the workflow
-                    let workflow: Workflow = DummyPlanner::plan(workflow);
-
                     // Print the file itself
                     let workflow = ast::do_traversal(workflow, std::io::stdout()).unwrap();
                     println!("{}", (0..40).map(|_| "- ").collect::<String>());
 
                     // Run the VM on this snippet
-                    match DummyVm::run::<DummyPlugin>(vm.clone(), workflow).await {
-                        Ok(value) => {
+                    vm = match vm.exec(workflow).await {
+                        (vm, Ok(value)) => {
                             println!("Workflow stdout:");
-                            vm.read().unwrap().flush_stdout();
+                            vm.flush_stdout();
                             println!();
                             println!("Workflow returned: {:?}", value);
+                            vm
                         },
-                        Err(err)  => {
-                            err.prettyprint();
+                        (_, Err(err)) => {
+                            eprintln!("{}", err);
                             panic!("Failed to execute workflow (snippet) (see output above)");
                         },
-                    }
+                    };
 
                     // Increment the state offset
                     state.offset += offset.line;
@@ -186,18 +184,10 @@ pub trait Vm {
     /// Runs the given workflow, possibly asynchronously (if a parallel is encountered / there are external functions calls and the given closure runs this asynchronously.)
     /// 
     /// # Generic arguments
-    /// - `F1`: The closure that performs an external function call for us. See the definition for `ExtCall` to learn how it looks like.
-    /// - `F2`: The closure that performs a stdout write to whatever stdout is being used. See the definition for `ExtStdout` to learn how it looks like.
-    /// - `F3`: The closure that commits an intermediate results to a full on dataset. This function hides a lot of complexity, and will probably involve contacting the job node to update its datasets in a distributed setting. See the definition for `ExtCommit` to learn how it looks like.
-    /// - `E1`: The error type for the `external_call` closure. See the definition of `ExtError` to learn how it looks like.
-    /// - `E2`: The error type for the `external_stdout` closure. See the definition of `ExtError` to learn how it looks like.
-    /// - `E3`: The error type for the `external_commit` closure. See the definition of `ExtError` to learn how it looks like.
+    /// - `P`: The "VM plugin" that will fill in the blanks with respect to interacting with the outside world.
     /// 
     /// # Arguments
     /// - `snippet`: The snippet to compile. This is either the entire workflow, or a snippet of it. In the case of the latter, the internal state will be used (and updated).
-    /// - `external_call`: A function that performs the external function call for the poll. It should make use of `.await` if it needs to block the thread somehow.
-    /// - `external_stdout`: A function that performs a write to stdout for the poll. It should make use of `.await` if it needs to block the thread somehow.
-    /// - `external_commit`: A function that promotes an intermediate result to a fully-fledged, permanent dataset. It should make use of `.await` if it needs to block the thread somehow.
     /// 
     /// # Returns
     /// The result if the Workflow returned any.

@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    05 Jan 2023, 15:07:07
+//    18 Jan 2023, 17:28:09
 //  Auto updated?
 //    Yes
 // 
@@ -484,6 +484,7 @@ pub fn infra(locations: Vec<LocationPair<':', String>>, fix_dirs: bool, path: im
 /// - `fix_dirs`: if true, will generate missing directories instead of complaining.
 /// - `path`: The path to write the `creds.yml` to.
 /// - `capabilities`: A list of Capabilities to advertise for this domain.
+/// - `hash_container`: Whether the hashing-containers feature should be enabled or not.
 /// - `command`: The command with the type of backend (and associated properties) encoded in it.
 /// 
 /// # Returns
@@ -491,7 +492,7 @@ pub fn infra(locations: Vec<LocationPair<':', String>>, fix_dirs: bool, path: im
 /// 
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub fn backend(fix_dirs: bool, path: impl Into<PathBuf>, capabilities: Vec<Capability>, command: GenerateBackendSubcommand) -> Result<(), Error> {
+pub fn backend(fix_dirs: bool, path: impl Into<PathBuf>, capabilities: Vec<Capability>, hash_containers: bool, command: GenerateBackendSubcommand) -> Result<(), Error> {
     let path: PathBuf = path.into();
     info!("Generating backend.yml for a {} backend...", command.variant());
 
@@ -501,8 +502,9 @@ pub fn backend(fix_dirs: bool, path: impl Into<PathBuf>, capabilities: Vec<Capab
         GenerateBackendSubcommand::Local{ socket, client_version } => {
             // Generate the creds file we want
             BackendFile {
-                capabilities : Some(capabilities.into_iter().collect()),
-                method       : Credentials::Local{ path: Some(socket), version: client_version.map(|v| (v.0.major_version, v.0.minor_version)) },
+                capabilities    : Some(capabilities.into_iter().collect()),
+                hash_containers : Some(hash_containers),
+                method          : Credentials::Local{ path: Some(socket), version: client_version.map(|v| (v.0.major_version, v.0.minor_version)) },
             }
         },
     };

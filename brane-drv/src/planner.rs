@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    28 Nov 2022, 16:13:48
+//    16 Jan 2023, 11:46:34
 //  Auto updated?
 //    Yes
 // 
@@ -33,8 +33,9 @@ use brane_ast::Workflow;
 use brane_cfg::node::NodeConfig;
 use brane_shr::kafka::{ensure_topics, restore_committed_offsets};
 use brane_tsk::errors::PlanError;
-use brane_tsk::spec::{Planner, TaskId};
+use brane_tsk::spec::TaskId;
 use specifications::planning::{PlanningStatus, PlanningStatusKind, PlanningUpdate};
+use specifications::profiling::TimingReport;
 
 
 /***** CONSTANTS *****/
@@ -261,7 +262,7 @@ impl InstancePlanner {
         if let Err(err) = restore_committed_offsets(&consumer, &self.node_config.node.central().topics.planner_results) { return Err(PlanError::KafkaOffsetsError { err }); }
 
         // Run the Kafka consumer to monitor the planning events on a new thread (or at least, concurrently)
-        let waker   : Arc<Mutex<Option<Waker>>>            = self.waker.clone();
+        let waker   : Arc<Mutex<Option<Waker>>>                                      = self.waker.clone();
         let updates : Arc<DashMap<String, PlanningStatus>> = self.updates.clone();
         tokio::spawn(async move {
             loop {
@@ -278,7 +279,7 @@ impl InstancePlanner {
                                 Ok(msg)  => msg,
                                 Err(err) => { error!("Failed to decode incoming PlanningUpdate: {}", err); return Ok(()); },
                             };
-        
+
                             // Match on the kind, inserting the proper states
                             match PlanningStatusKind::from_i32(msg.kind) {
                                 Some(PlanningStatusKind::Started) => {
@@ -334,11 +335,25 @@ impl InstancePlanner {
         // Done
         Ok(())
     }
-}
 
-#[async_trait::async_trait]
-impl Planner for InstancePlanner {
-    async fn plan(&self, workflow: Workflow) -> Result<Workflow, PlanError> {
+
+
+    /// Plans the given workflow.
+    /// 
+    /// Will populate the planning timings in the given profile struct if the planner reports them.
+    /// 
+    /// # Arguments
+    /// - `workflow`: The Workflow to plan.
+    /// 
+    /// # Returns
+    /// The same workflow as given, but now with all tasks and data transfers planned.
+    pub async fn plan(&self, workflow: Workflow) -> Result<Workflow, PlanError> {
+        let prof = TimingReport::auto_report("brane-drv planning", std::io::stdout());
+
+        // Generate the ID
+        let correlation_id: String = format!("{}", TaskId::generate());
+        let _guard = prof.guard(format!("workflow '{}'", correlation_id));
+
         // Ensure that the to-be-send-on topic exists
         let brokers: String = self.node_config.node.central().services.brokers.iter().map(|a| a.to_string()).collect::<Vec<String>>().join(",");
         if let Err(err) = ensure_topics(vec![ &self.node_config.node.central().topics.planner_command ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.node_config.node.central().topics.planner_command.clone() ], err }); };
@@ -350,20 +365,26 @@ impl Planner for InstancePlanner {
         };
 
         // Populate a "PlanningCommand" with that (i.e., just populate a future record with the string)
-        let correlation_id: String = format!("{}", TaskId::generate());
         let message: FutureRecord<String, [u8]> = FutureRecord::to(&self.node_config.node.central().topics.planner_command)
             .key(&correlation_id)
             .payload(swork.as_bytes());
 
         // Send the message
+        let remote = prof.guard(format!("workflow '{}' on brane-plr", correlation_id));
         if let Err((err, _)) = self.producer.send(message, Timeout::After(Duration::from_secs(5))).await {
             return Err(PlanError::KafkaSendError { correlation_id, topic: self.node_config.node.central().topics.planner_command.clone(), err });
         }
 
         // Now we wait until the message has been planned.
         let plan: Workflow = wait_planned(&correlation_id, self.waker.clone(), self.updates.clone()).await?;
+        remote.stop();
 
         // Done
         Ok(plan)
     }
 }
+
+// #[async_trait::async_trait]
+// impl Planner for InstancePlanner {
+    
+// }

@@ -4,7 +4,7 @@
 //  Created:
 //    26 Aug 2022, 18:26:40
 //  Last edited:
-//    05 Jan 2023, 16:48:23
+//    19 Jan 2023, 15:46:48
 //  Auto updated?
 //    Yes
 // 
@@ -82,7 +82,9 @@ pub trait VmPlugin: 'static + Send + Sync {
     /// - `preprocess`: The PreprocessKind that determines what you must do to make the dataset available.
     /// 
     /// # Returns
-    /// This function should return an AccessKind that describes how to access the preprocessed data. It is expected to be available as such the moment this function returns.
+    /// This function should return an AccessKind which describes how to access the preprocessed data.
+    /// 
+    /// It is expected that the preprocessed data is available the moment the function returns.
     /// 
     /// # Errors
     /// This function may error whenever it likes.
@@ -205,6 +207,9 @@ impl<G: CustomGlobalState> RunState<G> {
 /// Defines that which the execute closure needs to know about a task.
 #[derive(Clone, Debug)]
 pub struct TaskInfo<'a> {
+    /// The identifier of the task itself.
+    pub id : usize,
+
     /// The name of the task to execute.
     pub name            : &'a str,
     /// The package name of the task to execute.

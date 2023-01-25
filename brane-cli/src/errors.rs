@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    05 Jan 2023, 12:16:36
+//    19 Jan 2023, 14:01:09
 //  Auto updated?
 //    Yes
 // 
@@ -686,6 +686,9 @@ impl Error for ReplError {}
 /// Collects errors during the run subcommand.
 #[derive(Debug)]
 pub enum RunError {
+    /// Failed to write to the given formatter.
+    WriteError{ err: std::io::Error },
+
     /// Failed to create the local package index.
     LocalPackageIndexError{ err: brane_tsk::local::Error },
     /// Failed to create the local data index.
@@ -706,7 +709,7 @@ pub enum RunError {
     /// Failed to pull the delegate map from the remote delegate index(ish - `brane-api`)
     RemoteDelegatesError{ address: String, err: DelegatesError },
     /// Could not connect to the given address
-    ClientConnectError{ address: String, err: tonic::transport::Error },
+    ClientConnectError{ address: String, err: specifications::driving::Error },
     /// Failed to parse the AppId send by the remote driver.
     AppIdError{ address: String, raw: String, err: brane_tsk::errors::IdError },
     /// Could not create a new session on the given address
@@ -721,7 +724,7 @@ pub enum RunError {
     /// Failed to parse the value returned by the remote driver.
     ValueParseError{ address: String, raw: String, err: serde_json::Error },
     /// Failed to run the workflow
-    ExecError{ err: OfflineVmError },
+    ExecError{ err: Box<dyn Error> },
 
     /// The returned dataset was unknown.
     UnknownDataset{ name: String },
@@ -743,6 +746,8 @@ impl Display for RunError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use RunError::*;
         match self {
+            WriteError{ err } => write!(f, "Failed to write to the given formatter: {}", err),
+
             LocalPackageIndexError{ err }  => write!(f, "Failed to fetch local package index: {}", err),
             LocalDataIndexError{ err }     => write!(f, "Failed to fetch local data index: {}", err),
             PackagesDirError{ err }        => write!(f, "Failed to get packages directory: {}", err),
@@ -774,6 +779,11 @@ impl Display for RunError {
 }
 
 impl Error for RunError {}
+
+impl From<std::io::Error> for RunError {
+    #[inline]
+    fn from(value: std::io::Error) -> Self { RunError::WriteError{ err: value } }
+}
 
 
 

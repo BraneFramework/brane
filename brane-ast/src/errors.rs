@@ -4,7 +4,7 @@
 //  Created:
 //    10 Aug 2022, 13:52:37
 //  Last edited:
-//    23 Dec 2022, 16:08:21
+//    09 Jan 2023, 13:19:38
 //  Auto updated?
 //    Yes
 // 
@@ -936,3 +936,21 @@ impl Display for FlattenError {
 }
 
 impl Error for FlattenError {}
+
+
+
+/// A very small error type for converting DataNames around.
+#[derive(Debug)]
+pub enum DataNameDeserializeError {
+    /// The given DataName was unknown to us.
+    UnknownDataName,
+}
+impl Display for DataNameDeserializeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use DataNameDeserializeError::*;
+        match self {
+            UnknownDataName => write!(f, "Unknown data name in prost message"),
+        }
+    }
+}
+impl Error for DataNameDeserializeError {}

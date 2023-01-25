@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    05 Jan 2023, 12:03:58
+//    18 Jan 2023, 17:29:12
 //  Auto updated?
 //    Yes
 // 
@@ -170,7 +170,10 @@ enum GenerateSubcommand {
 
         /// The list of capabilities to advertise for this domain.
         #[clap(short, long, help = "The list of capabilities to advertise for this domain. Use '--list-capabilities' to see them.")]
-        capabilities : Vec<Capability>,
+        capabilities    : Vec<Capability>,
+        /// Whether to hash containers or not (but inverted).
+        #[clap(short, long, help = "If given, disables the container security hash, forgoing the need for hashing (saves time on the first execution of a container on a domain)")]
+        disable_hashing : bool,
 
         /// Defines the possible backends to generate a new backend.yml file for.
         #[clap(subcommand)]
@@ -261,9 +264,9 @@ async fn main() {
                 if let Err(err) = generate::infra(locations, fix_dirs, path, names, reg_ports, job_ports) { error!("{}", err); std::process::exit(1); }
             },
 
-            GenerateSubcommand::Backend{ fix_dirs, path, capabilities,kind } => {
+            GenerateSubcommand::Backend{ fix_dirs, path, capabilities, disable_hashing, kind } => {
                 // Call the thing
-                if let Err(err) = generate::backend(fix_dirs, path, capabilities, *kind) { error!("{}", err); std::process::exit(1); }
+                if let Err(err) = generate::backend(fix_dirs, path, capabilities, !disable_hashing, *kind) { error!("{}", err); std::process::exit(1); }
             },
             GenerateSubcommand::Policy{ fix_dirs, path, allow_all } => {
                 // Call the thing

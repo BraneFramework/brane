@@ -4,7 +4,7 @@
 //  Created:
 //    25 Aug 2022, 11:01:39
 //  Last edited:
-//    14 Nov 2022, 09:54:22
+//    17 Jan 2023, 14:55:05
 //  Auto updated?
 //    Yes
 // 
@@ -26,21 +26,3 @@ pub use scanning::scan_tokens;
 // Define some useful types for this module
 /// Shortcut for a LocatedSpan that carries a &str and no additional data.
 pub type Span<'a> = nom_locate::LocatedSpan<&'a str>;
-
-
-// Define some useful macros for this module
-/// Wrapper around wrap_pp that is only enabled if print_scanner_path is enabled
-#[cfg(feature = "print_scanner_path")]
-macro_rules! wrap_pp {
-    ($res:expr, $($arg:tt)+) => {
-        crate::wrap_pp!($res, $($arg)+)
-    };
-}
-/// Wrapper around wrap_pp that is only enabled if print_scanner_path is enabled
-#[cfg(not(feature = "print_scanner_path"))]
-macro_rules! wrap_pp {
-    ($res:expr, $($arg:tt)+) => {
-        $res
-    };
-}
-pub(crate) use wrap_pp;

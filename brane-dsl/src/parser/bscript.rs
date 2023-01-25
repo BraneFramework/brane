@@ -4,7 +4,7 @@
 //  Created:
 //    17 Aug 2022, 16:01:41
 //  Last edited:
-//    14 Nov 2022, 09:59:01
+//    17 Jan 2023, 14:53:31
 //  Auto updated?
 //    Yes
 // 
@@ -19,7 +19,6 @@ use nom::error::{ContextError, ErrorKind, ParseError, VerboseError};
 use nom::{branch, combinator as comb, multi, sequence as seq};
 use nom::{IResult, Parser};
 
-use super::{enter_pp, exit_pp, wrap_pp};
 use super::ast::{Block, Identifier, Literal, Node, Program, Property, Stmt};
 use crate::spec::{TextPos, TextRange};
 use crate::data_type::DataType;
@@ -76,8 +75,6 @@ impl Node for ClassStmt {
 fn block<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Block, E> {
-    enter_pp!("BLOCK");
-
     // Parse the left brace
     let (r, left) = tag_token!(Token::LeftBrace).parse(input)?;
     // Parse the statements
@@ -86,12 +83,10 @@ fn block<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     let (r, right) = tag_token!(Token::RightBrace).parse(r)?;
 
     // Put it in a Block, done
-    exit_pp!(
-        Ok((r, Block::new(
-            stmts,
-            TextRange::from((left.tok[0].inner(), right.tok[0].inner())),
-        ))),
-    "BLOCK")
+    Ok((r, Block::new(
+        stmts,
+        TextRange::from((left.tok[0].inner(), right.tok[0].inner())),
+    )))
 }
 
 /// Parses a single (identifier, type) pair (separated by a colon).
@@ -107,8 +102,6 @@ fn block<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 fn property<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Property, E> {
-    enter_pp!("PROPERTY");
-
     // Parse as a separated pair
     let (r, (name, data_type)) = seq::separated_pair(
         identifier::parse,
@@ -120,14 +113,12 @@ fn property<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 
     // Put as the tuple and return it
     let range: TextRange = TextRange::new(name.start().clone(), TextPos::end_of(s.tok[0].inner()));
-    exit_pp!(
-        Ok((r, Property::new(
-            name,
-            DataType::from(data_type.tok[0].as_string()),
+    Ok((r, Property::new(
+        name,
+        DataType::from(data_type.tok[0].as_string()),
 
-            range,
-        ))),
-    "PROPERTY")
+        range,
+    )))
 }
 
 /// Parses a single 'class statement', i.e., a property or method declaration.
@@ -144,18 +135,16 @@ fn class_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, ClassStmt, E> {
     // Parse either as one or the other
-    wrap_pp!(
-        branch::alt((
-            comb::map(
-                property,
-                ClassStmt::Property,
-            ),
-            comb::map(
-                declare_func_stmt,
-                |m| ClassStmt::Method(Box::new(m)),
-            )
-        )).parse(input),
-    "CLASS_STMT")
+    branch::alt((
+        comb::map(
+            property,
+            ClassStmt::Property,
+        ),
+        comb::map(
+            declare_func_stmt,
+            |m| ClassStmt::Method(Box::new(m)),
+        )
+    )).parse(input)
 }
 
 
@@ -174,19 +163,15 @@ fn class_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 /// # Errors
 /// This function may error if the tokens do not comprise valid BraneScript.
 pub fn parse_ast(input: Tokens) -> IResult<Tokens, Program, VerboseError<Tokens>> {
-    enter_pp!("AST");
-
     // Parse it all as statements
     let (r, stmts) = comb::all_consuming(multi::many0(parse_stmt))(input)?;
 
     // Wrap it in a program and done
     let start_pos : TextPos = stmts.first().map(|s| s.start().clone()).unwrap_or(TextPos::none());
     let end_pos   : TextPos = stmts.iter().last().map(|s| s.end().clone()).unwrap_or(TextPos::none());
-    exit_pp!(
-        Ok((r, Program {
-            block : Block::new(stmts, TextRange::new(start_pos, end_pos)),
-        })),
-    "AST")
+    Ok((r, Program {
+        block : Block::new(stmts, TextRange::new(start_pos, end_pos)),
+    }))
 }
 
 
@@ -207,32 +192,28 @@ pub fn parse_ast(input: Tokens) -> IResult<Tokens, Program, VerboseError<Tokens>
 pub fn parse_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("STMT");
-
-    // If there are no more tokens, then easy
+        // If there are no more tokens, then easy
     if input.tok.is_empty() {
         return Err(nom::Err::Error(nom::error_position!(input, ErrorKind::Tag)));
     }
 
     // Otherwise, parse one of the following statements
-    exit_pp!(
-        branch::alt((
-            for_stmt,
-            assign_stmt,
-            on_stmt,
-            block_stmt,
-            parallel_stmt,
-            declare_class_stmt,
-            declare_func_stmt,
-            expr_stmt,
-            if_stmt,
-            import_stmt,
-            let_assign_stmt,
-            return_stmt,
-            while_stmt,
-        ))
-        .parse(input),
-    "STMT")
+    branch::alt((
+        for_stmt,
+        assign_stmt,
+        on_stmt,
+        block_stmt,
+        parallel_stmt,
+        declare_class_stmt,
+        declare_func_stmt,
+        expr_stmt,
+        if_stmt,
+        import_stmt,
+        let_assign_stmt,
+        return_stmt,
+        while_stmt,
+    ))
+    .parse(input)
 }
 
 
@@ -255,9 +236,7 @@ pub fn parse_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn let_assign_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("LET_ASSIGN");
-
-    // Parse the 'let' first
+        // Parse the 'let' first
     let (r, l) = tag_token!(Token::Let).parse(input)?;
     // Then, parse the body of the statement
     let (r, (name, value)) = comb::cut(seq::separated_pair(identifier::parse, tag_token!(Token::Assign), expression::parse)).parse(r)?;
@@ -265,14 +244,12 @@ pub fn let_assign_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>
     let (r, s) = tag_token!(Token::Semicolon).parse(r)?;
 
     // Put it in a letassign and done
-    exit_pp!(
-        Ok((r, Stmt::new_letassign(
-            name,
-            value,
+    Ok((r, Stmt::new_letassign(
+        name,
+        value,
 
-            TextRange::from((l.tok[0].inner(), s.tok[0].inner())),
-        ))),
-    "LET_ASSIGN")
+        TextRange::from((l.tok[0].inner(), s.tok[0].inner())),
+    )))
 }
 
 /// Parses an assign statement.
@@ -293,23 +270,19 @@ pub fn let_assign_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>
 pub fn assign_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("ASSIGN");
-
-    // Parse the body of the statement
+        // Parse the body of the statement
     let (r, (name, value)) = seq::separated_pair(identifier::parse, tag_token!(Token::Assign), expression::parse).parse(input)?;
     // Parse the semicolon
     let (r, s) = comb::cut(tag_token!(Token::Semicolon)).parse(r)?;
 
     // Put it in an assign and done
     let range: TextRange = TextRange::new(name.start().clone(), TextPos::end_of(s.tok[0].inner()));
-    exit_pp!(
-        Ok((r, Stmt::new_assign(
-            name,
-            value,
+    Ok((r, Stmt::new_assign(
+        name,
+        value,
 
-            range,
-        ))),
-    "ASSIGN")
+        range,
+    )))
 }
 
 /// Parses an on-statement.
@@ -332,9 +305,7 @@ pub fn assign_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn on_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("ON");
-
-    // Parse the 'on' first
+        // Parse the 'on' first
     let (r, o) = tag_token!(Token::On).parse(input)?;
     // Parse the location
     let (r, location) = comb::cut(expression::parse).parse(r)?;
@@ -343,14 +314,12 @@ pub fn on_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 
     // Put it in an on and done
     let range: TextRange = TextRange::new(o.tok[0].inner().into(), block.end().clone());
-    exit_pp!(
-        Ok((r, Stmt::On {
-            location,
-            block : Box::new(block),
+    Ok((r, Stmt::On {
+        location,
+        block : Box::new(block),
 
-            range,
-        })),
-    "ON")
+        range,
+    }))
 }
 
 /// Parses a Block-statement.
@@ -375,9 +344,7 @@ pub fn block_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
     // Simply map the block helper function
-    wrap_pp!(
-        block(input).map(|(r, b)| (r, Stmt::Block{ block: Box::new(b) })),
-    "BLOCK_STMT")
+    block(input).map(|(r, b)| (r, Stmt::Block{ block: Box::new(b) }))
 }
 
 /// Parses a Parallel-statement.
@@ -402,9 +369,7 @@ pub fn block_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn parallel_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("PARALLEL");
-
-    // Quick helper function that parses either an on- or a block statement
+        // Quick helper function that parses either an on- or a block statement
     let block_or_on = |input| branch::alt((on_stmt, block_stmt)).parse(input);
 
     // Plausibly, parse a preceded part
@@ -440,15 +405,13 @@ pub fn parallel_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     }).unwrap_or_default();
 
     // Put it in a Parallel and return
-    exit_pp!(
-        Ok((r, Stmt::new_parallel(
-            identifier,
-            blocks,
-            m,
+    Ok((r, Stmt::new_parallel(
+        identifier,
+        blocks,
+        m,
 
-            TextRange::from(((l.unwrap_or(p)).tok[0].inner(), s.tok[0].inner())),
-        ))),
-    "PARALLEL")
+        TextRange::from(((l.unwrap_or(p)).tok[0].inner(), s.tok[0].inner())),
+    )))
 }
 
 /// Parses a ClassDef-statement.
@@ -477,9 +440,7 @@ pub fn parallel_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn declare_class_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("CLASS");
-
-    // Parse the class keyword first
+        // Parse the class keyword first
     let (r, c) = tag_token!(Token::Class).parse(input)?;
     // Parse the class body
     let (r, (ident, body)) = seq::pair(
@@ -503,15 +464,13 @@ pub fn declare_class_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a
     }
 
     // Done, wrap in the class
-    exit_pp!(
-        Ok((r, Stmt::new_classdef(
-            ident,
-            props,
-            methods,
+    Ok((r, Stmt::new_classdef(
+        ident,
+        props,
+        methods,
 
-            TextRange::from((c.tok[0].inner(), b.tok[0].inner())),
-        ))),
-    "CLASS")
+        TextRange::from((c.tok[0].inner(), b.tok[0].inner())),
+    )))
 }
 
 /// Parses a FuncDef-statement.
@@ -540,9 +499,7 @@ pub fn declare_class_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a
 pub fn declare_func_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("FUNC");
-
-    // Hit the function token first
+        // Hit the function token first
     let (r, f) = tag_token!(Token::Function).parse(input)?;
     // Parse everything else
     let (r, ((ident, params), code)) = seq::tuple((
@@ -570,15 +527,13 @@ pub fn declare_func_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>
 
     // Put in a FuncDef and done
     let range: TextRange = TextRange::new(f.tok[0].inner().into(), code.end().clone());
-    exit_pp!(
-        Ok((r, Stmt::new_funcdef(
-            ident,
-            params,
-            Box::new(code),
+    Ok((r, Stmt::new_funcdef(
+        ident,
+        params,
+        Box::new(code),
 
-            range,
-        ))),
-    "FUNC")
+        range,
+    )))
 }
 
 /// Parses an if-statement.
@@ -603,9 +558,7 @@ pub fn declare_func_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>
 pub fn if_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("IF");
-
-    // As usual, parse the token first
+        // As usual, parse the token first
     let (r, f) = tag_token!(Token::If).parse(input)?;
     // Parse the expression followed by the body that is always there + optionally and else
     let (r, (cond, consequent, alternative)) = comb::cut(seq::tuple((
@@ -623,15 +576,13 @@ pub fn if_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 
     // Put it in a Stmt::If and done
     let range: TextRange = TextRange::new(f.tok[0].inner().into(), alternative.as_ref().map(|b| b.end().clone()).unwrap_or_else(|| consequent.end().clone()));
-    exit_pp!(
-        Ok((r, Stmt::If {
-            cond,
-            consequent  : Box::new(consequent),
-            alternative : alternative.map(Box::new),
+    Ok((r, Stmt::If {
+        cond,
+        consequent  : Box::new(consequent),
+        alternative : alternative.map(Box::new),
 
-            range,
-        })),
-    "IF")
+        range,
+    }))
 }
 
 /// Parses an import-statement.
@@ -652,9 +603,7 @@ pub fn if_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn import_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("IMPORT");
-
-    // Parse the import token first
+        // Parse the import token first
     let (r, i) = nom::error::context("'import' statement", tag_token!(Token::Import)).parse(input)?;
     // Parse the identifier followed by an optional version number
     let (r, (package, version)) = nom::error::context("'import' statement", comb::cut(
@@ -671,14 +620,12 @@ pub fn import_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     let (r, s) = nom::error::context("'import' statement", tag_token!(Token::Semicolon)).parse(r)?;
 
     // Put it in an Import and done
-    exit_pp!(
-        Ok((r, Stmt::new_import(
-            package,
-            version.map(|t| Literal::Semver{ value: t.tok[0].inner().fragment().to_string(), range: t.tok[0].inner().into() }).unwrap_or(Literal::Semver{ value: "latest".into(), range: TextRange::none() }),
+    Ok((r, Stmt::new_import(
+        package,
+        version.map(|t| Literal::Semver{ value: t.tok[0].inner().fragment().to_string(), range: t.tok[0].inner().into() }).unwrap_or(Literal::Semver{ value: "latest".into(), range: TextRange::none() }),
 
-            TextRange::from((i.tok[0].inner(), s.tok[0].inner())),
-        ))),
-    "IMPORT")
+        TextRange::from((i.tok[0].inner(), s.tok[0].inner())),
+    )))
 }
 
 /// Parses a for-loop.
@@ -701,9 +648,7 @@ pub fn import_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn for_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("FOR");
-
-    // Parse the for token first
+        // Parse the for token first
     let (r, f) = nom::error::context("'for' statement", tag_token!(Token::For)).parse(input)?;
     // Parse the rest
     let (r, ((initializer, condition, increment), consequent)) = nom::error::context("'for' statement",
@@ -737,16 +682,14 @@ pub fn for_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 
     // Hey-ho, let's go put it in a struct
     let range: TextRange = TextRange::new(f.tok[0].inner().into(), consequent.end().clone());
-    exit_pp!(
-        Ok((r, Stmt::For {
-            initializer : Box::new(initializer),
-            condition,
-            increment   : Box::new(increment),
-            consequent  : Box::new(consequent),
+    Ok((r, Stmt::For {
+        initializer : Box::new(initializer),
+        condition,
+        increment   : Box::new(increment),
+        consequent  : Box::new(consequent),
 
-            range,
-        })),
-    "FOR")
+        range,
+    }))
 }
 
 /// Parses a while-loop.
@@ -769,9 +712,7 @@ pub fn for_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn while_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("WHILE");
-
-    // Parse the for token first
+        // Parse the for token first
     let (r, w) = tag_token!(Token::While).parse(input)?;
     // Parse the rest
     let (r, (condition, consequent)) = seq::pair(
@@ -785,14 +726,12 @@ pub fn while_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 
     // Return it as a result
     let range: TextRange = TextRange::new(w.tok[0].inner().into(), consequent.end().clone());
-    exit_pp!(
-        Ok((r, Stmt::While {
-            condition,
-            consequent : Box::new(consequent),
+    Ok((r, Stmt::While {
+        condition,
+        consequent : Box::new(consequent),
 
-            range,
-        })),
-    "WHILE")
+        range,
+    }))
 }
 
 /// Parses a return-statement.
@@ -813,9 +752,7 @@ pub fn while_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn return_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("RETURN");
-
-    // Parse the return token first
+        // Parse the return token first
     let (r, ret) = tag_token!(Token::Return).parse(input)?;
     // Parse the expression, optionally
     let (r, expression) = comb::opt(expression::parse).parse(r)?;
@@ -823,13 +760,11 @@ pub fn return_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     let (r, s) = comb::cut(tag_token!(Token::Semicolon)).parse(r)?;
 
     // Put it in a return statement
-    exit_pp!(
-        Ok((r, Stmt::new_return(
-            expression,
+    Ok((r, Stmt::new_return(
+        expression,
 
-            TextRange::from((ret.tok[0].inner(), s.tok[0].inner())),
-        ))),
-    "RETURN")
+        TextRange::from((ret.tok[0].inner(), s.tok[0].inner())),
+    )))
 }
 
 /// Parses a loose expression-statement.
@@ -854,19 +789,15 @@ pub fn return_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn expr_stmt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Stmt, E> {
-    enter_pp!("EXPR_STMT");
-
-    // Simply do an expression + semicolon
+        // Simply do an expression + semicolon
     let (r, expr) = expression::parse(input)?;
     let (r, s) = comb::cut(tag_token!(Token::Semicolon)).parse(r)?;
 
     // Return as Stmt::Expr
     let range: TextRange = TextRange::new(expr.start().clone(), TextPos::end_of(s.tok[0].inner()));
-    exit_pp!(
-        Ok((r, Stmt::new_expr(
-            expr,
+    Ok((r, Stmt::new_expr(
+        expr,
 
-            range,
-        ))),
-    "EXPR_STMT")
+        range,
+    )))
 }

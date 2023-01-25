@@ -4,7 +4,7 @@
 //  Created:
 //    28 Nov 2022, 16:08:36
 //  Last edited:
-//    29 Nov 2022, 12:55:42
+//    09 Jan 2023, 13:41:25
 //  Auto updated?
 //    Yes
 // 
@@ -21,7 +21,7 @@ use tonic::Status;
 use brane_exe::spec::CustomGlobalState;
 use brane_prx::client::ProxyClient;
 use brane_tsk::spec::AppId;
-use brane_tsk::grpc::ExecuteReply;
+use specifications::driving::ExecuteReply;
 
 
 /***** LIBRARY *****/

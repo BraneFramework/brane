@@ -4,7 +4,7 @@
 //  Created:
 //    10 Aug 2022, 17:20:47
 //  Last edited:
-//    14 Nov 2022, 10:44:25
+//    17 Jan 2023, 15:00:28
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,6 @@ use nom::error::{ContextError, ParseError};
 use nom::{combinator as comb, multi, sequence as seq};
 use nom::{IResult, Parser};
 
-use super::{enter_pp, exit_pp};
 use super::ast::{Expr, Identifier, Node, PropertyExpr};
 use crate::spec::{TextPos, TextRange};
 use crate::parser::{expression, identifier};
@@ -37,8 +36,6 @@ use crate::tag_token;
 pub fn instance_property<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, PropertyExpr, E> {
-    enter_pp!("PROPERTY_EXPR");
-
     // Parse the head stuff
     let (r, (name, value)) = seq::separated_pair(identifier::parse, tag_token!(Token::Assign), expression::parse).parse(input)?;
     // Parse the closing comma (if any)
@@ -46,14 +43,12 @@ pub fn instance_property<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>
 
     // Return and put it in a PropertyExpr
     let range: TextRange = TextRange::new(name.start().clone(), c.map(|t| TextPos::end_of(t.tok[0].inner())).unwrap_or_else(|| value.end().clone()));
-    exit_pp!(
-        Ok((r, PropertyExpr {
-            name,
-            value : Box::new(value),
+    Ok((r, PropertyExpr {
+        name,
+        value : Box::new(value),
 
-            range,
-        })),
-    "PROPERTY_EXPR")
+        range,
+    }))
 }
 
 
@@ -69,8 +64,6 @@ pub fn instance_property<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>
 /// # Returns
 /// The remaining list of tokens and the parsed Expr if there was anything to parse. Otherwise, a `nom::Error` is returned (which may be a real error or simply 'could not parse').
 pub fn parse<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(input: Tokens<'a>) -> IResult<Tokens, Expr, E> {
-    enter_pp!("INSTANCE");
-
     // Get the new token first
     let (r, n): (Tokens<'a>, Tokens<'a>) = tag_token!(Token::New)(input)?;
     // Parse the main body
@@ -89,12 +82,10 @@ pub fn parse<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(input: To
     let (r, b): (Tokens<'a>, Tokens<'a>) = comb::cut(tag_token!(Token::RightBrace))(r)?;
 
     // Now put that in an Expr and return
-    exit_pp!(
-        Ok((r, Expr::new_instance(
-            class,
-            properties.unwrap_or_default(),
+    Ok((r, Expr::new_instance(
+        class,
+        properties.unwrap_or_default(),
 
-            TextRange::from((n.tok[0].inner(), b.tok[0].inner())),
-        ))),
-    "INSTANCE")
+        TextRange::from((n.tok[0].inner(), b.tok[0].inner())),
+    )))
 }

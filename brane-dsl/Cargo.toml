@@ -20,7 +20,3 @@ thiserror = "1"
 
 brane-shr = { path = "../brane-shr" }
 specifications = { path = "../specifications" }
-
-[features]
-print_scanner_path = []
-print_parser_path = []

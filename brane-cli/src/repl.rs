@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:47
 //  Last edited:
-//    08 Dec 2022, 14:21:06
+//    06 Jan 2023, 12:47:51
 //  Auto updated?
 //    Yes
 // 
@@ -179,10 +179,11 @@ impl Validator for ReplHelper {
 /// - `attach`: If not None, defines the session ID of an existing session to connect to.
 /// - `language`: The language with which to compile the file.
 /// - `clear`: Whether or not to clear the history of the REPL before beginning.
+/// - `profile`: If given, prints the profile timings to stdout if available.
 /// 
 /// # Errors
 /// This function errors if we could not properly read from/write to the terminal. Additionally, it may error if any of the given statements fails for whatever reason.
-pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remote: Option<String>, attach: Option<AppId>, language: Language, clear: bool) -> Result<(), Error> {
+pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remote: Option<String>, attach: Option<AppId>, language: Language, clear: bool, profile: bool) -> Result<(), Error> {
     // Build the config for the rustyline REPL.
     let config = Config::builder()
         .history_ignore_space(true)
@@ -225,7 +226,7 @@ pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remo
     // Initialization done; run the REPL
     println!("Welcome to the Brane REPL, press Ctrl+D to exit.\n");
     if let Some(remote) = remote {
-        remote_repl(&mut rl, certs_dir, proxy_addr, remote, attach, options).await?;
+        remote_repl(&mut rl, certs_dir, proxy_addr, remote, attach, options, profile).await?;
     } else {
         local_repl(&mut rl, options).await?;
     }
@@ -250,10 +251,11 @@ pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remo
 /// - `endpoint`: The `brane-drv` endpoint to connect to.
 /// - `attach`: If given, uses the given ID to attach to an existing session instead of creating a new one.
 /// - `options`: The ParseOptions that specify how to parse the incoming source.
+/// - `profile`: If given, prints the profile timings to stdout if reported by the remote.
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-async fn remote_repl(rl: &mut Editor<ReplHelper>, certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, endpoint: impl AsRef<str>, attach: Option<AppId>, options: ParserOptions) -> Result<(), Error> {
+async fn remote_repl(rl: &mut Editor<ReplHelper>, certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, endpoint: impl AsRef<str>, attach: Option<AppId>, options: ParserOptions, profile: bool) -> Result<(), Error> {
     let certs_dir : &Path = certs_dir.as_ref();
     let endpoint  : &str  = endpoint.as_ref();
 
@@ -282,7 +284,7 @@ async fn remote_repl(rl: &mut Editor<ReplHelper>, certs_dir: impl AsRef<Path>, p
                 if let Some(quit) = repl_magicks(&line) { if quit { break; } else { continue; } }
 
                 // Next, we run the VM (one snippet only ayway)
-                let res: FullValue = match run_instance_vm(endpoint, &mut state, "<stdin>", &line).await {
+                let res: FullValue = match run_instance_vm(endpoint, &mut state, "<stdin>", &line, profile).await {
                     Ok(res) => res,
                     Err(_)  => { continue; },
                 };

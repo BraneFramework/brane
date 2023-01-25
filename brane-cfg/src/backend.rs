@@ -4,7 +4,7 @@
 //  Created:
 //    18 Oct 2022, 13:50:11
 //  Last edited:
-//    05 Jan 2023, 15:06:44
+//    23 Jan 2023, 11:52:42
 //  Auto updated?
 //    Yes
 // 
@@ -73,9 +73,11 @@ pub enum Credentials {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct BackendFile {
     /// The capabilities advertised by this domain.
-    pub capabilities : Option<HashSet<Capability>>,
+    pub capabilities    : Option<HashSet<Capability>>,
+    /// Can be specified to disable container hash checking.
+    pub hash_containers : Option<bool>,
     /// The method of connecting
-    pub method       : Credentials,
+    pub method          : Credentials,
 }
 
 impl BackendFile {
@@ -130,4 +132,13 @@ impl BackendFile {
         // Done
         Ok(())
     }
+
+
+
+    /// Returns whether the user wants hash containers to be hashed, generating a default value if they didn't specify it.
+    /// 
+    /// # Returns
+    /// Whether container hash security should be enabled (true) or not (false).
+    #[inline]
+    pub fn hash_containers(&self) -> bool { self.hash_containers.unwrap_or(true) }
 }

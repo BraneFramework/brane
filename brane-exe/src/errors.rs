@@ -4,7 +4,7 @@
 //  Created:
 //    26 Aug 2022, 18:01:09
 //  Last edited:
-//    03 Jan 2023, 12:07:29
+//    23 Jan 2023, 10:46:59
 //  Auto updated?
 //    Yes
 // 
@@ -170,6 +170,14 @@ pub enum FrameStackError {
     /// The FrameStack overflowed.
     OverflowError{ size: usize },
 
+    /// A certain variable was not declared before it was set/gotten.
+    UndeclaredVariable{ name: String },
+    /// A certain variable was declared twice.
+    DuplicateDeclaration{ name: String },
+    /// A certain variable was undeclared without it ever being declared.
+    UndeclaredUndeclaration{ name: String },
+    /// The given variable was declared but not initialized.
+    UninitializedVariable{ name: String },
     /// The new value of a variable did not match the expected.
     VarTypeError{ name: String, got: DataType, expected: DataType },
     /// The given variable was not known in the FrameStack.
@@ -184,6 +192,10 @@ impl Display for FrameStackError {
             EmptyError            => write!(f, "Frame stack empty"),
             OverflowError{ size } => write!(f, "Frame stack overflow occurred (has space for {} frames/nested calls)", size),
 
+            UndeclaredVariable{ name }          => write!(f, "Undeclared variable '{}'", name),
+            DuplicateDeclaration{ name }        => write!(f, "Cannot declare variable '{}' if it is already declared", name),
+            UndeclaredUndeclaration{ name }     => write!(f, "Cannot undeclare variable '{}' that was never declared", name),
+            UninitializedVariable{ name }       => write!(f, "Uninitialized variable '{}'", name),
             VarTypeError{ name, got, expected } => write!(f, "Cannot assign value of type {} to variable '{}' of type {}", got, name, expected),
             VariableNotInScope{ name }          => write!(f, "Variable '{}' is declared but not currently in scope", name),
         }
@@ -247,6 +259,10 @@ pub enum VmError {
     ArrIdxOutOfBoundsError{ edge: usize, instr: usize, got: i64, max: usize },
     /// The given field was not present in the given class
     ProjUnknownFieldError{ edge: usize, instr: usize, class: String, field: String },
+    /// Could not declare the variable.
+    VarDecError{ edge: usize, instr: usize, err: FrameStackError },
+    /// Could not un-declare the variable.
+    VarUndecError{ edge: usize, instr: usize, err: FrameStackError },
     /// Could not get the value of a variable.
     VarGetError{ edge: usize, instr: usize, err: FrameStackError },
     /// Could not set the value of a variable.
@@ -311,6 +327,8 @@ impl VmError {
             CastError{ edge, instr, .. }               => prettyprint_err_instr(*edge, Some(*instr), self),
             ArrIdxOutOfBoundsError { edge, instr, .. } => prettyprint_err_instr(*edge, Some(*instr), self),
             ProjUnknownFieldError{ edge, instr, .. }   => prettyprint_err_instr(*edge, Some(*instr), self),
+            VarDecError{ edge, instr, .. }             => prettyprint_err_instr(*edge, Some(*instr), self),
+            VarUndecError{ edge, instr, .. }           => prettyprint_err_instr(*edge, Some(*instr), self),
             VarGetError{ edge, instr, .. }             => prettyprint_err_instr(*edge, Some(*instr), self),
             VarSetError{ edge, instr, .. }             => prettyprint_err_instr(*edge, Some(*instr), self),
 
@@ -356,6 +374,8 @@ impl Display for VmError {
             CastError{ err, .. }                                 => write!(f, "Failed to cast top value on the stack: {}", err),
             ArrIdxOutOfBoundsError { got, max, .. }              => write!(f, "Index {} is out-of-bounds for an array of length {}", got, max),
             ProjUnknownFieldError{ class, field, .. }            => write!(f, "Class '{}' has not field '{}'", class, field),
+            VarDecError{ err, .. }                               => write!(f, "Could not declare variable: {}", err),
+            VarUndecError{ err, .. }                             => write!(f, "Could not undeclare variable: {}", err),
             VarGetError{ err, .. }                               => write!(f, "Could not get variable: {}", err),
             VarSetError{ err, .. }                               => write!(f, "Could not set variable: {}", err),
 
@@ -426,3 +446,23 @@ impl Display for LocalVmError {
 }
 
 impl Error for LocalVmError {}
+
+
+
+/// Defines errors for the DummyVm.
+#[derive(Debug)]
+pub enum DummyVmError {
+    /// Failed to run a workflow.
+    ExecError{ err: VmError },
+}
+
+impl Display for DummyVmError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use DummyVmError::*;
+        match self {
+            ExecError{ err } => write!(f, "Failed to execute workflow: {}", err),
+        }
+    }
+}
+
+impl Error for DummyVmError {}

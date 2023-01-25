@@ -4,7 +4,7 @@
 //  Created:
 //    10 Aug 2022, 17:16:11
 //  Last edited:
-//    21 Dec 2022, 11:15:16
+//    17 Jan 2023, 15:01:02
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,6 @@ use nom::error::{ContextError, ParseError};
 use nom::{branch, combinator as comb, sequence as seq};
 use nom::{IResult, Parser};
 
-use super::wrap_pp;
 use super::ast::{BinOp, Operator, UnaOp};
 use crate::spec::TextRange;
 use crate::scanner::{Token, Tokens};
@@ -32,13 +31,11 @@ use crate::tag_token;
 pub fn parse<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Operator, E> {
-    wrap_pp!(
-        branch::alt((
-            comb::map(binary_operator, Operator::Binary),
-            comb::map(unary_operator,  Operator::Unary),
-        ))
-        .parse(input),
-    "OPERATOR")
+    branch::alt((
+        comb::map(binary_operator, Operator::Binary),
+        comb::map(unary_operator,  Operator::Unary),
+    ))
+    .parse(input)
 }
 
 
@@ -55,24 +52,22 @@ pub fn parse<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn binary_operator<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, BinOp, E> {
-    wrap_pp!(
-        branch::alt((
-            comb::map(seq::pair(tag_token!(Token::And), tag_token!(Token::And)), |t| BinOp::And  { range: TextRange::from((t.0.tok[0].inner(), t.1.tok[0].inner())) }),
-            comb::map(tag_token!(Token::Equal),                                  |t| BinOp::Eq   { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(tag_token!(Token::Greater),                                |t| BinOp::Gt   { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(tag_token!(Token::GreaterOrEqual),                         |t| BinOp::Ge   { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(tag_token!(Token::Less),                                   |t| BinOp::Lt   { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(tag_token!(Token::LessOrEqual),                            |t| BinOp::Le   { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(tag_token!(Token::Minus),                                  |t| BinOp::Sub  { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(tag_token!(Token::NotEqual),                               |t| BinOp::Ne   { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(seq::pair(tag_token!(Token::Or), tag_token!(Token::Or)),   |t| BinOp::Or  { range: TextRange::from((t.0.tok[0].inner(), t.1.tok[0].inner())) }),
-            comb::map(tag_token!(Token::Percentage),                             |t| BinOp::Mod  { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(tag_token!(Token::Plus),                                   |t| BinOp::Add  { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(tag_token!(Token::Slash),                                  |t| BinOp::Div  { range: TextRange::from(t.tok[0].inner()) }),
-            comb::map(tag_token!(Token::Star),                                   |t| BinOp::Mul  { range: TextRange::from(t.tok[0].inner()) }),
-        ))
-        .parse(input),
-    "BINARY OPERATOR")
+    branch::alt((
+        comb::map(seq::pair(tag_token!(Token::And), tag_token!(Token::And)), |t| BinOp::And  { range: TextRange::from((t.0.tok[0].inner(), t.1.tok[0].inner())) }),
+        comb::map(tag_token!(Token::Equal),                                  |t| BinOp::Eq   { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(tag_token!(Token::Greater),                                |t| BinOp::Gt   { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(tag_token!(Token::GreaterOrEqual),                         |t| BinOp::Ge   { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(tag_token!(Token::Less),                                   |t| BinOp::Lt   { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(tag_token!(Token::LessOrEqual),                            |t| BinOp::Le   { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(tag_token!(Token::Minus),                                  |t| BinOp::Sub  { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(tag_token!(Token::NotEqual),                               |t| BinOp::Ne   { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(seq::pair(tag_token!(Token::Or), tag_token!(Token::Or)),   |t| BinOp::Or  { range: TextRange::from((t.0.tok[0].inner(), t.1.tok[0].inner())) }),
+        comb::map(tag_token!(Token::Percentage),                             |t| BinOp::Mod  { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(tag_token!(Token::Plus),                                   |t| BinOp::Add  { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(tag_token!(Token::Slash),                                  |t| BinOp::Div  { range: TextRange::from(t.tok[0].inner()) }),
+        comb::map(tag_token!(Token::Star),                                   |t| BinOp::Mul  { range: TextRange::from(t.tok[0].inner()) }),
+    ))
+    .parse(input)
 }
 
 /// Parses a unary operator to a UnaOp.
@@ -85,13 +80,11 @@ pub fn binary_operator<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>
 pub fn unary_operator<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, UnaOp, E> {
-    wrap_pp!(
-        branch::alt((
-            comb::map(tag_token!(Token::Not),         |t| UnaOp::Not  { range: t.tok[0].inner().into() }),
-            comb::map(tag_token!(Token::Minus),       |t| UnaOp::Neg  { range: t.tok[0].inner().into() }),
-            comb::map(tag_token!(Token::LeftBracket), |t| UnaOp::Idx  { range: t.tok[0].inner().into() }),
-            comb::map(tag_token!(Token::LeftParen),   |t| UnaOp::Prio { range: t.tok[0].inner().into() }),
-        ))
-        .parse(input),
-    "UNARY OPERATOR")
+    branch::alt((
+        comb::map(tag_token!(Token::Not),         |t| UnaOp::Not  { range: t.tok[0].inner().into() }),
+        comb::map(tag_token!(Token::Minus),       |t| UnaOp::Neg  { range: t.tok[0].inner().into() }),
+        comb::map(tag_token!(Token::LeftBracket), |t| UnaOp::Idx  { range: t.tok[0].inner().into() }),
+        comb::map(tag_token!(Token::LeftParen),   |t| UnaOp::Prio { range: t.tok[0].inner().into() }),
+    ))
+    .parse(input)
 }

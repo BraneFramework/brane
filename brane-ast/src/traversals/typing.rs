@@ -4,7 +4,7 @@
 //  Created:
 //    19 Aug 2022, 16:34:16
 //  Last edited:
-//    23 Dec 2022, 16:35:38
+//    17 Jan 2023, 15:14:50
 //  Auto updated?
 //    Yes
 // 
@@ -491,7 +491,7 @@ fn pass_stmt(stmt: &mut Stmt, symbol_table: &Rc<RefCell<SymbolTable>>, warnings:
             };
 
             // If the data type is Null or Any, then we might override the value instead of casting
-            if data_type == DataType::Null || data_type == DataType::Any {
+            if data_type == DataType::Any {
                 let expr_type: DataType = pass_expr(value, symbol_table, errors);
                 st_entry.as_ref().unwrap().borrow_mut().data_type = expr_type;
             } else {

@@ -29,7 +29,5 @@ simplelog = "0.12.0"
 brane-shr = { path = "../brane-shr" }
 
 [features]
-print_scanner_path = [ "brane-ast/print_scanner_path" ]
-print_parser_path  = [ "brane-ast/print_parser_path" ]
-print_exec_path    = []
-test_logging       = []
+print_exec_path = []
+test_logging    = []

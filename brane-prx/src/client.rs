@@ -4,7 +4,7 @@
 //  Created:
 //    25 Nov 2022, 15:09:17
 //  Last edited:
-//    12 Dec 2022, 13:14:50
+//    09 Jan 2023, 13:07:45
 //  Auto updated?
 //    Yes
 // 
@@ -19,12 +19,11 @@ use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use log::{debug, info};
 use reqwest::{Client, Response, Request};
-use tonic::transport::Channel;
 use url::Url;
 
 use brane_cfg::spec::Address;
-use brane_tsk::grpc::JobServiceClient;
 use specifications::package::PackageIndex;
+use specifications::working::{Error as JobServiceError, JobServiceClient};
 
 pub use crate::errors::ClientError as Error;
 use crate::spec::{NewPathRequest, NewPathRequestTlsOptions};
@@ -291,11 +290,11 @@ impl ProxyClient {
     /// - `address`: The address of the remote to connect to.
     /// 
     /// # Returns
-    /// The result of the connection, as a `Result<JobServiceClient<Channel>, tonic::transport::Error>`.
+    /// The result of the connection, as a `Result<JobServiceClient, tonic::transport::Error>`.
     /// 
     /// # Errors
     /// This function errors if we fail to reserve any new paths if necessary.
-    pub async fn connect_to_job(&self, address: impl AsRef<str>) -> Result<Result<JobServiceClient<Channel>, tonic::transport::Error>, Error> {
+    pub async fn connect_to_job(&self, address: impl AsRef<str>) -> Result<Result<JobServiceClient, JobServiceError>, Error> {
         let address: &str = address.as_ref();
 
         // Parse the address as a URL

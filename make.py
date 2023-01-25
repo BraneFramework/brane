@@ -5,7 +5,7 @@
 # Created:
 #   09 Jun 2022, 12:20:28
 # Last edited:
-#   12 Dec 2022, 15:53:49
+#   24 Jan 2023, 16:35:35
 # Auto updated?
 #   Yes
 #
@@ -466,7 +466,7 @@ def update_flags(args: argparse.Namespace, name: str):
     except IOError as e:
         pwarning(f"Could not write flags cache file '{fsrc}': {e} (recompilation will occur for this target until fixed)")
 
-def deduce_toml_src_dirs(toml: str) -> list[str] | None:
+def deduce_toml_src_dirs(toml: str) -> typing.List[str] | None:
     """
         Given a Cargo.toml file, attempts to deduce the (local) source crates.
 
@@ -718,11 +718,11 @@ class CargoTomlParser:
         """
 
         is_term : bool
-        start   : tuple[int, int]
-        end     : tuple[int, int]
+        start   : typing.Tuple[int, int]
+        end     : typing.Tuple[int, int]
 
 
-        def __init__(self, is_term: bool, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, is_term: bool, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the Symbol.
 
@@ -744,7 +744,7 @@ class CargoTomlParser:
             Baseclass for all the parser tokens.
         """
 
-        def __init__(self, start: tuple[int, int], end: tuple[int, int]):
+        def __init__(self, start: typing.Tuple[int, int], end: typing.Tuple[int, int]):
             """
                 Constructor for the Terminal.
 
@@ -763,7 +763,7 @@ class CargoTomlParser:
             Baseclass for all the parser nonterminals.
         """
 
-        def __init__(self, start: tuple[int, int], end: tuple[int, int]):
+        def __init__(self, start: typing.Tuple[int, int], end: typing.Tuple[int, int]):
             """
                 Constructor for the Nonterminal.
 
@@ -787,7 +787,7 @@ class CargoTomlParser:
         value : str
 
 
-        def __init__(self, value: str, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, value: str, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the String
 
@@ -812,7 +812,7 @@ class CargoTomlParser:
         value : str
 
 
-        def __init__(self, value: str, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, value: str, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the String
 
@@ -837,7 +837,7 @@ class CargoTomlParser:
         value : bool
 
 
-        def __init__(self, value: bool, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, value: bool, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the Boolean
 
@@ -860,7 +860,7 @@ class CargoTomlParser:
         """
 
 
-        def __init__(self, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the Equals
 
@@ -880,7 +880,7 @@ class CargoTomlParser:
         """
 
 
-        def __init__(self, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the Comma
 
@@ -900,7 +900,7 @@ class CargoTomlParser:
         """
 
 
-        def __init__(self, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the LCurly
 
@@ -920,7 +920,7 @@ class CargoTomlParser:
         """
 
 
-        def __init__(self, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the RCurly
 
@@ -940,7 +940,7 @@ class CargoTomlParser:
         """
 
 
-        def __init__(self, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the LSquare
 
@@ -960,7 +960,7 @@ class CargoTomlParser:
         """
 
 
-        def __init__(self, start: tuple[int, int], end: tuple[int, int]) -> None:
+        def __init__(self, start: typing.Tuple[int, int], end: typing.Tuple[int, int]) -> None:
             """
                 Constructor for the RSquare
 
@@ -982,10 +982,10 @@ class CargoTomlParser:
         """
 
         header : CargoTomlParser.SectionHeader
-        pairs  : list[CargoTomlParser.KeyValuePair]
+        pairs  : typing.List[CargoTomlParser.KeyValuePair]
 
 
-        def __init__(self, header: CargoTomlParser.SectionHeader, pairs: list[CargoTomlParser.KeyValuePair], start: tuple[int, int], end: tuple[int, int]):
+        def __init__(self, header: CargoTomlParser.SectionHeader, pairs: typing.List[CargoTomlParser.KeyValuePair], start: typing.Tuple[int, int], end: typing.Tuple[int, int]):
             """
                 Constructor for the SectionHeader nonterminal.
 
@@ -1011,7 +1011,7 @@ class CargoTomlParser:
 
         name : str
 
-        def __init__(self, name: str, start: tuple[int, int], end: tuple[int, int]):
+        def __init__(self, name: str, start: typing.Tuple[int, int], end: typing.Tuple[int, int]):
             """
                 Constructor for the SectionHeader nonterminal.
 
@@ -1037,7 +1037,7 @@ class CargoTomlParser:
         value : CargoTomlParser.Value
 
 
-        def __init__(self, key: CargoTomlParser.Identifier, value: CargoTomlParser.Value, start: tuple[int, int], end: tuple[int, int]):
+        def __init__(self, key: CargoTomlParser.Identifier, value: CargoTomlParser.Value, start: typing.Tuple[int, int], end: typing.Tuple[int, int]):
             """
                 Constructor for the SectionHeader nonterminal.
 
@@ -1063,7 +1063,7 @@ class CargoTomlParser:
 
         value : CargoTomlParser.String | CargoTomlParser.Boolean | CargoTomlParser.List | CargoTomlParser.Dict
 
-        def __init__(self, value: CargoTomlParser.String | CargoTomlParser.Boolean | CargoTomlParser.List | CargoTomlParser.Dict, start: tuple[int, int], end: tuple[int, int]):
+        def __init__(self, value: CargoTomlParser.String | CargoTomlParser.Boolean | CargoTomlParser.List | CargoTomlParser.Dict, start: typing.Tuple[int, int], end: typing.Tuple[int, int]):
             """
                 Constructor for the SectionHeader nonterminal.
 
@@ -1085,10 +1085,10 @@ class CargoTomlParser:
             Represents a dictionary of key/value pairs.
         """
 
-        pairs : list[CargoTomlParser.KeyValuePair]
+        pairs : typing.List[CargoTomlParser.KeyValuePair]
 
 
-        def __init__(self, pairs: list[CargoTomlParser.KeyValuePair], start: tuple[int, int], end: tuple[int, int]):
+        def __init__(self, pairs: typing.List[CargoTomlParser.KeyValuePair], start: typing.Tuple[int, int], end: typing.Tuple[int, int]):
             """
                 Constructor for the SectionHeader nonterminal.
 
@@ -1113,10 +1113,10 @@ class CargoTomlParser:
             Represents a list of values.
         """
 
-        values : list[CargoTomlParser.Value]
+        values : typing.List[CargoTomlParser.Value]
 
 
-        def __init__(self, values: list[CargoTomlParser.Value], start: tuple[int, int], end: tuple[int, int]):
+        def __init__(self, values: typing.List[CargoTomlParser.Value], start: typing.Tuple[int, int], end: typing.Tuple[int, int]):
             """
                 Constructor for the SectionHeader nonterminal.
 
@@ -1139,7 +1139,7 @@ class CargoTomlParser:
 
 
 
-    _lines : list[str]
+    _lines : typing.List[str]
     _col   : int
     _line  : int
 
@@ -1323,7 +1323,7 @@ class CargoTomlParser:
                 raise ValueError(f"Unknown mode '{mode}'; this should never happen!")
         return None
 
-    def _reduce(self, stack: list[Symbol]) -> tuple[list[Symbol], str | None | Exception]:
+    def _reduce(self, stack: typing.List[Symbol]) -> typing.Tuple[typing.List[Symbol], str | None | Exception]:
         """
             Attempts to apply one of the reduction rules to the current stack of tokens.
 
@@ -1542,7 +1542,7 @@ class CargoTomlParser:
                     if type(s) == CargoTomlParser.LSquare:
                         # End of the list
                         list_values.reverse()
-                        new_l = CargoTomlParser.List(typing.cast(list[CargoTomlParser.Value], list_values), stack[i].start, stack[len(stack) - 1].end)
+                        new_l = CargoTomlParser.List(typing.cast(typing.List[CargoTomlParser.Value], list_values), stack[i].start, stack[len(stack) - 1].end)
                         return (stack[:i] + [ new_l ], "list")
 
                     elif type(s) == CargoTomlParser.Comma:
@@ -1600,7 +1600,7 @@ class CargoTomlParser:
         return (stack, None)
 
 
-    def parse(self) -> tuple[list[str], list[Exception]]:
+    def parse(self) -> typing.Tuple[typing.List[str], typing.List[Exception]]:
         """
             Parses the internal Cargo.toml file to extract the list of
             dependencies from it.
@@ -1611,7 +1611,7 @@ class CargoTomlParser:
 
         # Parse the tokens using a shift-reduce parser
         errs = []
-        stack: list[CargoTomlParser.Symbol] = []
+        stack: typing.List[CargoTomlParser.Symbol] = []
         while True:
             # Get a new token
             token = self._token()
@@ -1943,7 +1943,7 @@ class ShellCommand(Command):
     """
 
     _exec        : str
-    _args        : list[str]
+    _args        : typing.List[str]
     _cwd         : str | None
     _env         : dict[str, str | None]
     _description : str | None
@@ -2029,7 +2029,7 @@ class ShellCommand(Command):
 
         self._args += list(args)
 
-    def add_env(self, *args: tuple[str, str | None]) -> None:
+    def add_env(self, *args: typing.Tuple[str, str | None]) -> None:
         """
             Sets the given (string, value) pair as an environment variable for this command.
 
@@ -2133,14 +2133,14 @@ class Target(abc.ABC):
     name        : str
     description : str
 
-    _srcs      : list[str]
-    _srcs_deps : dict[str, list[str] | None]
-    _dsts      : list[str]
-    _deps      : list[str]
+    _srcs      : typing.List[str]
+    _srcs_deps : dict[str, typing.List[str] | None]
+    _dsts      : typing.List[str]
+    _deps      : typing.List[str]
 
 
     @abc.abstractmethod
-    def __init__(self, name: str, srcs: list[str], srcs_deps: dict[str, list[str] | None], dsts: list[str], deps: list[str], description: str) -> None:
+    def __init__(self, name: str, srcs: typing.List[str], srcs_deps: dict[str, typing.List[str] | None], dsts: typing.List[str], deps: typing.List[str], description: str) -> None:
         """
             Baseclass constructor for the Target.
 
@@ -2163,7 +2163,7 @@ class Target(abc.ABC):
 
 
 
-    def srcs(self, args: argparse.Namespace) -> list[str]:
+    def srcs(self, args: argparse.Namespace) -> typing.List[str]:
         """
             Returns the list of source files upon which this Target relies.
 
@@ -2172,7 +2172,7 @@ class Target(abc.ABC):
 
         return [ resolve_args(s, args) for s in self._srcs ]
 
-    def srcs_deps(self, args: argparse.Namespace) -> dict[str, list[str] | None]:
+    def srcs_deps(self, args: argparse.Namespace) -> dict[str, typing.List[str] | None]:
         """
             Returns a dict that maps dependency-generated source files upon which this Target relies.
 
@@ -2181,7 +2181,7 @@ class Target(abc.ABC):
 
         return { dep: ((resolve_args(s, args) for s in srcs) if srcs is not None else srcs) for (dep, srcs) in self._srcs_deps.items() }
 
-    def dsts(self, args: argparse.Namespace) -> list[str]:
+    def dsts(self, args: argparse.Namespace) -> typing.List[str]:
         """
             Returns the list of source files upon which this Target relies.
 
@@ -2190,7 +2190,7 @@ class Target(abc.ABC):
 
         return [ resolve_args(d, args) for d in self._dsts ]
 
-    def deps(self, _args: argparse.Namespace) -> list[str]:
+    def deps(self, _args: argparse.Namespace) -> typing.List[str]:
         """
             Returns the dependencies of this Target.
 
@@ -2266,7 +2266,7 @@ class Target(abc.ABC):
 
 
 
-    def had_effect(self, args: argparse.Namespace, files: list[str] | None = None) -> bool:
+    def had_effect(self, args: argparse.Namespace, files: typing.List[str] | None = None) -> bool:
         """
             Returns whether any of the destination files have changed since last compilation.
 
@@ -2371,7 +2371,7 @@ class Target(abc.ABC):
         update_flags(args, self.name)
 
     @abc.abstractmethod
-    def _cmds(self, _args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, _args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -2387,7 +2387,7 @@ class AbstractTarget(Target):
         other targets.
     """
 
-    def __init__(self, name: str, deps: list[str], description: str = "") -> None:
+    def __init__(self, name: str, deps: typing.List[str], description: str = "") -> None:
         """
             Constructor for the AbstractTarget.
 
@@ -2409,7 +2409,7 @@ class AbstractTarget(Target):
 
 
 
-    def srcs(self, args: argparse.Namespace) -> list[str]:
+    def srcs(self, args: argparse.Namespace) -> typing.List[str]:
         """
             Returns the list of source files upon which this Target relies.
 
@@ -2421,7 +2421,7 @@ class AbstractTarget(Target):
         # Run the function on that target instead
         return (target.srcs(args) if self != target else super().srcs(args))
 
-    def srcs_deps(self, _args: argparse.Namespace) -> dict[str, list[str] | None]:
+    def srcs_deps(self, _args: argparse.Namespace) -> dict[str, typing.List[str] | None]:
         """
             Returns a dict that maps dependency-generated source files upon which this Target relies.
 
@@ -2433,7 +2433,7 @@ class AbstractTarget(Target):
         # Run the function on that target instead
         return (target.srcs_deps(args) if self != target else super().srcs_deps(args))
 
-    def dsts(self, _args: argparse.Namespace) -> list[str]:
+    def dsts(self, _args: argparse.Namespace) -> typing.List[str]:
         """
             Returns the list of source files upon which this Target relies.
 
@@ -2445,7 +2445,7 @@ class AbstractTarget(Target):
         # Run the function on that target instead
         return (target.dsts(args) if self != target else super().dsts(args))
 
-    def deps(self, _args: argparse.Namespace) -> list[str]:
+    def deps(self, _args: argparse.Namespace) -> typing.List[str]:
         """
             Returns the dependencies of this Target.
 
@@ -2488,7 +2488,7 @@ class AbstractTarget(Target):
 
 
 
-    def had_effect(self, args: argparse.Namespace, files: list[str] | None = None) -> bool:
+    def had_effect(self, args: argparse.Namespace, files: typing.List[str] | None = None) -> bool:
         """
             Returns whether any of the destination files have changed since last compilation.
         """
@@ -2520,7 +2520,7 @@ class VoidTarget(AbstractTarget):
     """
 
 
-    def __init__(self, name: str, deps: list[str] = [], description: str = "") -> None:
+    def __init__(self, name: str, deps: typing.List[str] = [], description: str = "") -> None:
         """
             Constructor for the AbstractTarget class.
 
@@ -2543,7 +2543,7 @@ class VoidTarget(AbstractTarget):
 
 
 
-    def _cmds(self, _args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, _args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -2563,7 +2563,7 @@ class EitherTarget(AbstractTarget):
     _opt_name : str
 
 
-    def __init__(self, name: str, opt_name: str, targets: dict[typing.Any, Target], deps: list[str] = [], description: str = "") -> None:
+    def __init__(self, name: str, opt_name: str, targets: dict[typing.Any, Target], deps: typing.List[str] = [], description: str = "") -> None:
         """
             Constructor for the EitherTarget class.
 
@@ -2595,7 +2595,7 @@ class EitherTarget(AbstractTarget):
         # No redirection needs to happen
         return self._targets[val]
 
-    def _cmds(self, args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -2616,10 +2616,10 @@ class ShellTarget(Target):
         A very simple Target that executed one or more Commands.
     """
 
-    _commands : list[Command]
+    _commands : typing.List[Command]
 
 
-    def __init__(self, name: str, commands: list[Command], srcs: list[str] = [], srcs_deps: dict[str, list[str] | None] = {}, dsts: list[str] = [], deps: list[str] = [], description: str = "") -> None:
+    def __init__(self, name: str, commands: typing.List[Command], srcs: typing.List[str] = [], srcs_deps: dict[str, typing.List[str] | None] = {}, dsts: typing.List[str] = [], deps: typing.List[str] = [], description: str = "") -> None:
         """
             Baseclass constructor for the ShellTarget.
 
@@ -2648,7 +2648,7 @@ class ShellTarget(Target):
         pdebug(f"Target '{self.name}' is marked as outdated because it executes arbitrary commands and we don't know when to execute them")
         return True
 
-    def _cmds(self, _args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, _args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -2664,7 +2664,7 @@ class CrateTarget(Target):
         Defines a build target that relies on Cargo for build caching.
     """
 
-    _pkgs                       : list[str]
+    _pkgs                       : typing.List[str]
     _target                     : str | None
     _give_target_on_unspecified : bool
     _force_dev                  : bool
@@ -2672,7 +2672,7 @@ class CrateTarget(Target):
     _support_checker            : typing.Callable[[Target, argparse.Namespace], str | None]
 
 
-    def __init__(self, name: str, packages: str | list[str], target: str | None = None, give_target_on_unspecified: bool = False, force_dev: bool = False, env: dict[str, str | None] = {}, support_checker: typing.Callable[[Target, argparse.Namespace], str | None] = lambda _this, _args: None, srcs: list[str] = [], srcs_deps: dict[str, list[str] | None] = {}, dsts: list[str] = [], deps: list[str] = [], description: str = "") -> None:
+    def __init__(self, name: str, packages: str | typing.List[str], target: str | None = None, give_target_on_unspecified: bool = False, force_dev: bool = False, env: dict[str, str | None] = {}, support_checker: typing.Callable[[Target, argparse.Namespace], str | None] = lambda _this, _args: None, srcs: typing.List[str] = [], srcs_deps: dict[str, typing.List[str] | None] = {}, dsts: typing.List[str] = [], deps: typing.List[str] = [], description: str = "") -> None:
         """
             Constructor for the CrateTarget class.
 
@@ -2726,7 +2726,7 @@ class CrateTarget(Target):
         pdebug(f"Target '{self.name}' is marked as outdated because it relies on Cargo")
         return True
 
-    def _cmds(self, args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -2754,7 +2754,7 @@ class DownloadTarget(Target):
     _addr : str
 
 
-    def __init__(self, name: str, output: str, address: str, deps: list[str] = [], description: str = "") -> None:
+    def __init__(self, name: str, output: str, address: str, deps: typing.List[str] = [], description: str = "") -> None:
         """
             Constructor for the DownloadTarget class.
 
@@ -2784,7 +2784,7 @@ class DownloadTarget(Target):
         pdebug(f"Target '{self.name}' is marked as outdated because it relies on a to-be-downloaded asset")
         return True
 
-    def _cmds(self, args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -2861,7 +2861,7 @@ class ImageTarget(Target):
     _build_args  : dict[str, str]
 
 
-    def __init__(self, name: str, dockerfile: str, destination: str, context: str = ".", target: str | None = None, build_args: dict[str, str] = {}, srcs: list[str] = [], srcs_deps: dict[str, list[str] | None] = {}, deps: list[str] = [], description: str = ""):
+    def __init__(self, name: str, dockerfile: str, destination: str, context: str = ".", target: str | None = None, build_args: dict[str, str] = {}, srcs: typing.List[str] = [], srcs_deps: dict[str, typing.List[str] | None] = {}, deps: typing.List[str] = [], description: str = ""):
         """
             Constructor for the ImageTarget.
 
@@ -2889,7 +2889,7 @@ class ImageTarget(Target):
 
 
 
-    def _cmds(self, args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -2925,7 +2925,7 @@ class ImagePullTarget(Target):
     _registry : str
 
 
-    def __init__(self, name: str, output: str, registry: str, deps: list[str] = [], description: str = "") -> None:
+    def __init__(self, name: str, output: str, registry: str, deps: typing.List[str] = [], description: str = "") -> None:
         """
             Constructor for the DownloadTarget class.
 
@@ -2945,7 +2945,7 @@ class ImagePullTarget(Target):
 
 
 
-    def _cmds(self, args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -2971,12 +2971,12 @@ class InContainerTarget(Target):
     _attach_stdout : bool
     _attach_stderr : bool
     _keep_alive    : bool
-    _volumes       : list[tuple[str, str]]
+    _volumes       : typing.List[typing.Tuple[str, str]]
     _context       : str
-    _command       : list[str]
+    _command       : typing.List[str]
 
 
-    def __init__(self, name: str, image: str, attach_stdin: bool = True, attach_stdout: bool = True, attach_stderr: bool = True, keep_alive: bool = False, volumes: list[tuple[str, str]] = [], context: str = ".", command: list[str] = [], srcs: list[str] = [], srcs_deps: dict[str, list[str] | None] = {}, dsts: list[str] = [], deps: list[str] = [], description: str = "") -> None:
+    def __init__(self, name: str, image: str, attach_stdin: bool = True, attach_stdout: bool = True, attach_stderr: bool = True, keep_alive: bool = False, volumes: typing.List[typing.Tuple[str, str]] = [], context: str = ".", command: typing.List[str] = [], srcs: typing.List[str] = [], srcs_deps: dict[str, typing.List[str] | None] = {}, dsts: typing.List[str] = [], deps: typing.List[str] = [], description: str = "") -> None:
         """
             Constructor for the ImageTarget.
 
@@ -3012,7 +3012,7 @@ class InContainerTarget(Target):
 
 
 
-    def _cmds(self, args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -3065,7 +3065,7 @@ class InContainerTarget(Target):
                 cmds.append(ShellCommand("sudo", "chown", "-R", f"{uid}:{gid}", src, description=f"Restoring user permissions to '{src}' ($CMD)..."))
 
             # Return the commands
-            return typing.cast(list[Command], cmds)
+            return typing.cast(typing.List[Command], cmds)
 
         else:
             # Do a fire-and-then-remove run of the container
@@ -3096,7 +3096,7 @@ class InContainerTarget(Target):
                 cmds.append(ShellCommand("sudo", "chown", "-R", f"{uid}:{gid}", src, description=f"Restoring user permissions to '{src}' ($CMD)..."))
 
             # Done, return it
-            return typing.cast(list[Command], cmds)
+            return typing.cast(typing.List[Command], cmds)
 
 
 
@@ -3129,7 +3129,7 @@ class InstallTarget(Target):
 
 
 
-    def _cmds(self, args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -3138,7 +3138,7 @@ class InstallTarget(Target):
         """
 
         # Resolve the source and target paths
-        source = resolve_args(typing.cast(list[str], self._srcs_deps[self._deps[0]])[0], args)
+        source = resolve_args(typing.cast(typing.List[str], self._srcs_deps[self._deps[0]])[0], args)
         target = resolve_args(self._dsts[0], args)
 
         # Add a command that makes the directory
@@ -3182,7 +3182,7 @@ class InstallImageTarget(Target):
 
 
 
-    def _cmds(self, args: argparse.Namespace) -> list[Command]:
+    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
         """
             Returns the commands to run to build the target given the given
             architecture and release mode.
@@ -3191,7 +3191,7 @@ class InstallImageTarget(Target):
         """
 
         # Resolve the source path
-        source = resolve_args(typing.cast(list[str], self._srcs_deps[self._deps[0]])[0], args)
+        source = resolve_args(typing.cast(typing.List[str], self._srcs_deps[self._deps[0]])[0], args)
 
         # Load the image digest
         digest = get_image_digest(source)
@@ -3258,13 +3258,23 @@ targets = {
 
 
     "cli" : EitherTarget("cli",
-        "down", {
-            True  : DownloadTarget("cli-download",
-                "./target/$RELEASE/brane", "https://github.com/epi-project/brane/releases/download/v$VERSION/brane-$OS-$ARCH"
+        "con", {
+            True  : InContainerTarget("cli-con",
+                "brane-build", volumes=[ ("$CWD", "/build") ], command=["brane-cli", "--arch", "$ARCH"],
+                keep_alive=True,
+                dsts=["./target/containers/x86_64-unknown-linux-musl/release/brane"],
+                deps=["install-build-image"],
             ),
-            False : CrateTarget("cli-compiled",
-                "brane-cli", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=False
-            )
+            False : EitherTarget("cli-not-con",
+                "down", {
+                    True  : DownloadTarget("cli-download",
+                        "./target/$RELEASE/brane", "https://github.com/epi-project/brane/releases/download/v$VERSION/brane-$OS-$ARCH"
+                    ),
+                    False : CrateTarget("cli-compiled",
+                        "brane-cli", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=False
+                    )
+                },
+            ),
         },
         description = "Builds the Brane Command-Line Interface (Brane CLI). You may use '--precompiled' to download it from the internet instead."
     ),
@@ -3422,7 +3432,7 @@ for svc in CENTRAL_SERVICES + WORKER_SERVICES:
         "dev", {
             False : ImageTarget(f"{svc}-image-release",
                 "./Dockerfile.rls", f"./target/release/brane-{svc}.tar", target=f"brane-{svc}",
-                srcs=typing.cast(list[str], instance_srcs[svc]),
+                srcs=typing.cast(typing.List[str], instance_srcs[svc]),
             ),
             True  : ImageTarget(f"{svc}-image-debug",
                 "./Dockerfile.dev", f"./target/debug/brane-{svc}.tar", target=f"brane-{svc}", build_args={ "ARCH": "$ARCH" },
@@ -3521,8 +3531,8 @@ def show_targets(args: argparse.Namespace) -> typing.NoReturn:
     end   = "\033[0m" if supports_color() else ""
 
     # Sort them
-    supported   : list[Target] = []
-    unsupported : list[tuple[Target, str]] = []
+    supported   : typing.List[Target] = []
+    unsupported : typing.List[typing.Tuple[Target, str]] = []
     for target_name in targets:
         # Get the resolved target
         target = targets[target_name]
@@ -3603,7 +3613,7 @@ def inspect(args: argparse.Namespace) -> typing.NoReturn:
 
     # Print the dependency tree
     print(f" {grey}-{end} Dependency tree{grey}:{end}")
-    to_traverse: list[tuple[list[str], tuple[str, list[typing.Any]]]] = [ ([], build_dependency_tree(target.name, args)) ]
+    to_traverse: typing.List[typing.Tuple[typing.List[str], typing.Tuple[str, typing.List[typing.Any]]]] = [ ([], build_dependency_tree(target.name, args)) ]
     while len(to_traverse) > 0:
         # Pop the last node
         (indents, (name, node)) = to_traverse.pop()
@@ -3647,7 +3657,7 @@ def should_rebuild(args: argparse.Namespace) -> typing.NoReturn:
 
 
 
-def build_dependency_tree(target_name: str, args: argparse.Namespace, parent_name: str = "<root>", acyclic: set[str] = set()) -> tuple[str, list[typing.Any]]:
+def build_dependency_tree(target_name: str, args: argparse.Namespace, parent_name: str = "<root>", acyclic: set[str] = set()) -> typing.Tuple[str, typing.List[typing.Any]]:
     """
         Builds the dependency tree of the given target.
 
@@ -3678,7 +3688,7 @@ def build_dependency_tree(target_name: str, args: argparse.Namespace, parent_nam
 
 
 
-def deduce_build_steps(target_name: str, args: argparse.Namespace) -> list[set[tuple[Target, bool]]]:
+def deduce_build_steps(target_name: str, args: argparse.Namespace) -> typing.List[set[typing.Tuple[Target, bool]]]:
     """
         Builds a list of things to build and the order in which to build them
         based on the target's dependency. This respects whether a Target should
@@ -3701,7 +3711,7 @@ def deduce_build_steps(target_name: str, args: argparse.Namespace) -> list[set[t
         empty list is returned.
     """
 
-    def recursive_rewrite(name: str, node: list[typing.Any], wip: list[set[str]], parent_name: str = "<root>", depth: int = 0):
+    def recursive_rewrite(name: str, node: typing.List[typing.Any], wip: typing.List[set[str]], parent_name: str = "<root>", depth: int = 0):
         """
             Nested function that performs the recursive rewrite of the
             dependency tree.
@@ -3723,7 +3733,7 @@ def deduce_build_steps(target_name: str, args: argparse.Namespace) -> list[set[t
 
 
     # Step 2: rewrite the tree into the names only, separated in sets that may be done in parallel
-    build_steps : list[set[str]] = []
+    build_steps : typing.List[set[str]] = []
     recursive_rewrite(target_name, dep_tree, build_steps)
     build_steps.reverse()
 
@@ -3744,7 +3754,7 @@ def deduce_build_steps(target_name: str, args: argparse.Namespace) -> list[set[t
 
 
     # Step 4: resolve to Targets and discard those that are not needed to be build
-    result: list[set[tuple[Target, bool]]] = []
+    result: typing.List[set[typing.Tuple[Target, bool]]] = []
     for step in build_steps:
         new_step = set()
         for dep_name in step:

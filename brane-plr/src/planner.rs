@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    05 Jan 2023, 14:44:34
+//    18 Jan 2023, 10:23:17
 //  Auto updated?
 //    Yes
 // 
@@ -35,7 +35,7 @@ use reqwest::Response;
 
 use brane_ast::Workflow;
 use brane_ast::locations::Locations;
-use brane_ast::ast::{DataName, Edge, SymTable, TaskDef};
+use brane_ast::ast::{ComputeTaskDef, DataName, Edge, SymTable, TaskDef};
 use brane_cfg::spec::Address;
 use brane_cfg::infra::InfraFile;
 use brane_cfg::node::{CentralConfig, NodeConfig, NodeKindConfig};
@@ -45,6 +45,7 @@ use brane_tsk::api::get_data_index;
 use specifications::data::{AccessKind, AvailabilityKind, DataIndex, PreprocessKind};
 use specifications::package::Capability;
 use specifications::planning::{PlanningStatus, PlanningStatusKind, PlanningUpdate};
+use specifications::profiling::TimingReport;
 
 
 /***** HELPER FUNCTIONS *****/
@@ -183,7 +184,7 @@ async fn plan_edges(table: &mut SymTable, edges: &mut [Edge], api_addr: &Address
                 };
 
                 // Assert that this is what we need
-                if let TaskDef::Compute{ function, requirements, .. } = &table.tasks[*task] {
+                if let TaskDef::Compute(ComputeTaskDef{ function, requirements, .. }) = &table.tasks[*task] {
                     if !capabilities.is_superset(requirements) { return Err(PlanError::UnsupportedCapabilities{ task: function.name.clone(), loc: location.into(), expected: requirements.clone(), got: capabilities }); }
                 } else {
                     panic!("Non-compute tasks are not (yet) supported.");
@@ -557,6 +558,8 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
 
         // Do the rest in a future that takes ownership of the clones
         async move {
+            let prof: TimingReport = TimingReport::auto_report("brane-plr", std::io::stdout());
+
             // Fetch the most recent NodeConfig
             let node_config: NodeConfig = match NodeConfig::from_path(node_config_path) {
                 Ok(config) => config,
@@ -574,9 +577,12 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
             // Parse the key
             let id: String = String::from_utf8_lossy(owned_message.key().unwrap_or(&[])).to_string();
             info!("Received new plan request with ID '{}' on topic '{}'", id, central.topics.planner_command);
+            let _wf = prof.guard(format!("workflow '{}'", id));
 
             // Parse the payload, if any
             if let Some(payload) = owned_message.payload() {
+                let timing = prof.guard(format!("workflow '{}' parsing", id));
+
                 // Parse as UTF-8
                 debug!("Message: \"\"\"{}\"\"\"", String::from_utf8_lossy(payload));
                 let message: String = String::from_utf8_lossy(payload).to_string();
@@ -590,9 +596,20 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
                         return Ok(());
                     }
                 };
+                timing.stop();
 
                 // Send that we've started planning
                 if let Err(err) = send_update(producer.clone(), &central.topics.planner_results, &id, PlanningStatus::Started(None)).await { error!("Failed to update client that planning has started: {}", err); };
+
+                // Load the infrastructure file
+                let timing = prof.guard(format!("workflow '{}' information", id));
+                let infra: InfraFile = match InfraFile::from_path(&central.paths.infra) {
+                    Ok(infra) => infra,
+                    Err(err)  => {
+                        error!("Failed to load infrastructure file '{}': {}", central.paths.infra.display(), err);
+                        return Ok(());
+                    }
+                };
 
                 // Fetch the data index
                 let data_index_addr: String = format!("{}/data/info", central.services.api);
@@ -603,17 +620,12 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
                         return Ok(());
                     }
                 };
+                timing.stop();
 
                 // Now we do the planning
                 {
-                    // Load the infrastructure file
-                    let infra: InfraFile = match InfraFile::from_path(&central.paths.infra) {
-                        Ok(infra) => infra,
-                        Err(err)  => {
-                            error!("Failed to load infrastructure file '{}': {}", central.paths.infra.display(), err);
-                            return Ok(());
-                        }
-                    };
+                    let report = prof.nested_report(format!("workflow '{}' algorithm", id));
+                    let _guard = report.guard("total");
 
                     // Get the symbol table muteable, so we can... mutate... it
                     let mut table: Arc<SymTable> = Arc::new(SymTable::new());
@@ -629,7 +641,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
 
                         // Plan them
                         debug!("Planning main edges...");
-                        if let Err(err) = plan_edges(&mut table, &mut edges, &central.services.api, &dindex, &infra, 0, None, false, &mut HashSet::new()).await {
+                        if let Err(err) = report.fut("<<<main>>>", plan_edges(&mut table, &mut edges, &central.services.api, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
                             error!("Failed to plan main edges for workflow with correlation ID '{}': {}", id, err);
                             if let Err(err) = send_update(producer.clone(), &central.topics.planner_results, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
                             return Ok(());
@@ -650,7 +662,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
                         // Iterate through all of the edges
                         for (idx, edges) in &mut funcs {
                             debug!("Planning '{}' edges...", table.funcs[*idx].name);
-                            if let Err(err) = plan_edges(&mut table, edges, &central.services.api, &dindex, &infra, 0, None, false, &mut HashSet::new()).await {
+                            if let Err(err) = report.fut(workflow.table.funcs[*idx].name.to_string(), plan_edges(&mut table, edges, &central.services.api, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
                                 error!("Failed to plan function '{}' edges for workflow with correlation ID '{}': {}", table.funcs[*idx].name, id, err);
                                 if let Err(err) = send_update(producer.clone(), &central.topics.planner_results, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
                                 return Ok(());
@@ -669,6 +681,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
 
                 // With the planning done, re-serialize
                 debug!("Serializing plan...");
+                let timing = prof.guard(format!("workflow '{}' post", id));
                 let splan: String = match serde_json::to_string(&workflow) {
                     Ok(splan) => splan,
                     Err(err)  => {
@@ -677,6 +690,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
                         return Ok(());
                     },
                 };
+                timing.stop();
 
                 // Send the result
                 if let Err(err) = send_update(producer.clone(), &central.topics.planner_results, &id, PlanningStatus::Success(splan)).await { error!("Failed to update client that planning has succeeded: {}", err); }

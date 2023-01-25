@@ -4,7 +4,7 @@
 //  Created:
 //    09 Sep 2022, 13:23:41
 //  Last edited:
-//    06 Jan 2023, 11:30:02
+//    23 Jan 2023, 10:43:31
 //  Auto updated?
 //    Yes
 // 
@@ -27,7 +27,7 @@ use tokio::task::JoinHandle;
 use brane_ast::{DataType, MergeStrategy, Workflow};
 use brane_ast::spec::{BuiltinClasses, BuiltinFunctions};
 use brane_ast::locations::Location;
-use brane_ast::ast::{ClassDef, DataName, Edge, EdgeInstr, FunctionDef, TaskDef};
+use brane_ast::ast::{ClassDef, ComputeTaskDef, DataName, Edge, EdgeInstr, FunctionDef, TaskDef};
 use specifications::data::{AccessKind, AvailabilityKind};
 
 use crate::dbg_node;
@@ -101,12 +101,12 @@ mod tests {
                 let workflow: Workflow = DummyPlanner::plan(workflow);
 
                 // Now print the file for prettyness
-                let workflow: Workflow = ast::do_traversal(workflow, std::io::stdout()).unwrap();
+                let workflow: Arc<Workflow> = Arc::new(ast::do_traversal(workflow, std::io::stdout()).unwrap());
                 println!("{}", (0..40).map(|_| "- ").collect::<String>());
 
                 // Run the program
                 let text: Arc<Mutex<String>>     = Arc::new(Mutex::new(String::new()));
-                let main: Thread<DummyState, ()> = Thread::new(&workflow, DummyState{ text: text.clone() });
+                let main: Thread<DummyState, ()> = Thread::new(&workflow, DummyState{ workflow: Some(workflow.clone()), text: text.clone() });
                 match main.run::<DummyPlugin>().await {
                     Ok(value) => {
                         println!("Workflow stdout:");
@@ -133,9 +133,9 @@ mod tests {
 /// Defines the result of an Edge execution.
 #[derive(Debug)]
 enum EdgeResult {
-    /// The Edge completed the thread, returning a (maybe) value.
+    /// The Edge completed the thread, returning a value. It also contains the timings it took to do the last instruction.
     Ok(Value),
-    /// The Edge execution was a success but the workflow continues (to the given body and the given edge in that body, in fact).
+    /// The Edge execution was a success but the workflow continues (to the given body and the given edge in that body, in fact). It also contains the timings it took to do the last instruction.
     Pending((usize, usize)),
     /// The Edge execution was a disaster and something went wrong.
     Err(Error),
@@ -149,9 +149,17 @@ enum EdgeResult {
 /// Preprocesses any datasets / intermediate results in the given value.
 /// 
 /// # Arguments
+/// - `global`: The global VM plugin state to use when actually preprocessing a dataset.
+/// - `local`: The local VM plugin state to use when actually preprocessing a dataset.
+/// - `pc`: The current program counter index.
+/// - `task`: The Task definition for which we are preprocessing.
+/// - `at`: The location where we are preprocessing.
+/// - `value`: The FullValue that might contain a to-be-processed dataset or intermediate result (or recurse into a value that does).
+/// - `input`: The input map for the upcoming task so that we know where the value is planned to be.
+/// - `data`: The map that we will populate with the access methods once available.
 /// 
 /// # Returns
-/// Nothing, but does add any preprocessed datasets to `data`.
+/// Adds any preprocessed datasets to `data`, then returns the ValuePreprocessProfile to discover how long it took us to do so.
 /// 
 /// # Errors
 /// This function may error if the given `input` does not contain any of the data in the value _or_ if the referenced input is not yet planned.
@@ -165,8 +173,18 @@ async fn preprocess_value<P: VmPlugin>(global: &Arc<RwLock<P::GlobalState>>, loc
         FullValue::IntermediateResult(name) => DataName::IntermediateResult(name.into()),
 
         // Also handle any nested stuff
-        FullValue::Array(values)      => { for v in values { preprocess_value::<P>(global, local, pc, task, at, v, input, data).await?; } return Ok(()); },
-        FullValue::Instance(_, props) => { for v in props.values() { preprocess_value::<P>(global, local, pc, task, at, v, input, data).await?; } return Ok(()); },
+        FullValue::Array(values)      => {
+            for v in values {
+                preprocess_value::<P>(global, local, pc, task, at, v, input, data).await?;
+            }
+            return Ok(());
+        },
+        FullValue::Instance(_, props) => {
+            for v in props.values() {
+                preprocess_value::<P>(global, local, pc, task, at, v, input, data).await?;
+            }
+            return Ok(());
+        },
 
         // The rest is irrelevant
         _ => { return Ok(()); },
@@ -182,7 +200,7 @@ async fn preprocess_value<P: VmPlugin>(global: &Arc<RwLock<P::GlobalState>>, loc
     };
 
     // If it is unavailable, download it and make it available
-    let access: JoinHandle<_> = match avail {
+    let access: JoinHandle<Result<AccessKind, P::PreprocessError>> = match avail {
         AvailabilityKind::Available { how }   => {
             debug!("{} '{}' is locally available", name.variant(), name.name());
             tokio::spawn(async move { Ok(how) })
@@ -787,6 +805,16 @@ fn exec_instr(edge: usize, idx: usize, instr: &EdgeInstr, stack: &mut Stack, fst
             1
         },
 
+        VarDec{ def } => {
+            // Simply declare it
+            if let Err(err) = fstack.declare(*def) { return Err(Error::VarDecError{ edge, instr: idx, err }); }
+            1
+        },
+        VarUndec{ def } => {
+            // Simply undeclare it
+            if let Err(err) = fstack.undeclare(*def) { return Err(Error::VarUndecError{ edge, instr: idx, err }); }
+            1
+        },
         VarGet{ def } => {
             // Attempt to get the value from the variable register
             let value: Value = match fstack.get(*def) {
@@ -810,11 +838,6 @@ fn exec_instr(edge: usize, idx: usize, instr: &EdgeInstr, stack: &mut Stack, fst
             1
         },
 
-        Null{} => {
-            // Push a null
-            stack.push(Value::Null).to_instr(edge, idx)?;
-            1
-        },
         Boolean{ value } => {
             // Push a boolean with the given value
             stack.push(Value::Boolean { value: *value }).to_instr(edge, idx)?;
@@ -983,12 +1006,14 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
         if pc.0 == usize::MAX {
             if pc.1 >= self.graph.len() {
                 debug!("Nothing to do (main, PC {} >= #edges {})", pc.1, self.graph.len());
+                // We didn't really execute anything, so no timing taken
                 return EdgeResult::Ok(Value::Void);
             }
         } else {
             let f: &[Edge] = self.funcs.get(&pc.0).unwrap_or_else(|| panic!("Failed to find function with index '{}'", pc.0));
             if pc.1 >= f.len() {
                 debug!("Nothing to do ({}, PC {} >= #edges {})", pc.0, pc.1, f.len());
+                // We didn't really execute anything, so no timing taken
                 return EdgeResult::Ok(Value::Void);
             }
         }
@@ -1004,13 +1029,13 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
         // Match on the specific edge
         use Edge::*;
         let next: (usize, usize) = match edge {
-            Node{ task, at, input, result, next, .. } => {
+            Node{ task: task_id, at, input, result, next, .. } => {
                 // Resolve the task
-                let task: &TaskDef = self.fstack.table().task(*task);
+                let task: &TaskDef = self.fstack.table().task(*task_id);
 
                 // Match the thing to do
                 match task {
-                    TaskDef::Compute { package, version, function, args_names, requirements } => {
+                    TaskDef::Compute(ComputeTaskDef{ package, version, function, args_names, requirements }) => {
                         debug!("Calling compute task '{}' ('{}' v{})", task.name(), package, version);
 
                         // Collect the arguments from the stack (remember, reverse order)
@@ -1043,7 +1068,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         let mut handles: HashMap<DataName, JoinHandle<Result<AccessKind, P::PreprocessError>>> = HashMap::new();
                         for value in args.values() {
                             // Preprocess the given value
-                            if let Err(err) = preprocess_value::<P>(&self.global, &self.local, pc, task, at, value, input, &mut handles).await { return EdgeResult::Err(err); };
+                            if let Err(err) = preprocess_value::<P>(&self.global, &self.local, pc, task, at, value, input, &mut handles).await { return EdgeResult::Err(err); }
                         }
                         // Join the handles
                         let mut data: HashMap<DataName, AccessKind> = HashMap::with_capacity(handles.len());
@@ -1059,6 +1084,8 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
 
                         // Prepare the TaskInfo for the call
                         let info: TaskInfo = TaskInfo {
+                            id : *task_id,
+
                             name            : &function.name,
                             package_name    : package,
                             package_version : version,
@@ -1077,7 +1104,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         };
 
                         // If the function returns an intermediate result but returned nothing, that's fine; we inject the result here
-                        if function.ret == DataType::IntermediateResult && (res.is_none() || res.as_ref().unwrap() == &Value::Null || res.as_ref().unwrap() == &Value::Void) {
+                        if function.ret == DataType::IntermediateResult && (res.is_none() || res.as_ref().unwrap() == &Value::Void) {
                             // Make the intermediate result available for next steps by possible pushing it to the next registry
                             let name: &str = result.as_ref().unwrap();
                             if let Err(err) = P::publicize(&self.global, &self.local, at, name, &PathBuf::from(name)).await {
@@ -1512,7 +1539,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     /// Runs the thread once until it is pending for something (either other threads or external function calls).
     /// 
     /// # Returns
-    /// A ThreadStatus that indicates the current position of the thread.
+    /// The value that this thread returns once it is done.
     /// 
     /// # Errors
     /// This function may error if execution of an edge or instruction failed. This is typically due to incorrect runtime typing.
@@ -1522,9 +1549,12 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
             loop {
                 // Run the edge
                 self.pc = match self.exec_edge::<P>(self.pc).await {
+                    // Either quit or continue, noting down the time taken
                     EdgeResult::Ok(value)     => { return Ok(value); },
                     EdgeResult::Pending(next) => next,
-                    EdgeResult::Err(err)      => { return Err(err); },
+
+                    // We failed
+                    EdgeResult::Err(err) => { return Err(err); },
                 };
             }
         }.boxed()
@@ -1535,7 +1565,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     /// This overload supports snippet execution, returning the state that is necessary for the next repl-loop together with the result.
     /// 
     /// # Returns
-    /// A tuple of a new VmState and a ThreadStatus that indicates the current position of the thread.
+    /// A tuple of the value that is returned by this thread and the running state used to refer to variables produced in this run, respectively.
     /// 
     /// # Errors
     /// This function may error if execution of an edge or instruction failed. This is typically due to incorrect runtime typing.
@@ -1545,10 +1575,13 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
             loop {
                 // Run the edge
                 self.pc = match self.exec_edge::<P>(self.pc).await {
+                    // Either quit or continue, noting down the time taken
                     // Return not just the value, but also the VmState part of this thread to keep.
                     EdgeResult::Ok(value)     => { return Ok((value, self.into_state())); },
                     EdgeResult::Pending(next) => next,
-                    EdgeResult::Err(err)      => { return Err(err); },
+
+                    // We failed
+                    EdgeResult::Err(err) => { return Err(err); },
                 };
             }
         }.boxed()

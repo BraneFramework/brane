@@ -4,7 +4,7 @@
 //  Created:
 //    16 Aug &2022, 14:42:43
 //  Last edited:
-//    14 Nov 2022, 09:55:36
+//    17 Jan 2023, 14:59:54
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,6 @@ use nom::error::{ContextError, ParseError};
 use nom::{branch, combinator as comb, multi, sequence as seq};
 use nom::{IResult, Parser};
 
-use super::{enter_pp, exit_pp, wrap_pp};
 use super::ast::{Expr, Identifier, Node, Operator, UnaOp};
 use crate::spec::{TextPos, TextRange};
 use crate::parser::{identifier, instance, literal, operator};
@@ -39,7 +38,7 @@ use crate::location::AllowedLocations;
 /// This function returns a nom::Error if it failed to parse an expression.
 pub fn parse<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(input: Tokens<'a>) -> IResult<Tokens, Expr, E> {
     // Use a pratt parser(?) to actually parse it
-    wrap_pp!(expr_pratt(input, 0), "EXPR")
+    expr_pratt(input, 0)
 }
 
 /// Parses the expressions in a pratt-parser style.
@@ -59,8 +58,6 @@ fn expr_pratt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>,
     min_bp: u8,
 ) -> IResult<Tokens, Expr, E> {
-    enter_pp!("EXPR_PRATT");
-
     // Attempt to parse a unary operator first
     let (mut remainder, mut lhs) = match operator::unary_operator::<E>(input) {
         Ok((r, UnaOp::Idx{ range })) => {
@@ -145,9 +142,7 @@ fn expr_pratt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
         }
     }
 
-    exit_pp!(
-        Ok((remainder, lhs)),
-    "EXPR_PRATT")
+    Ok((remainder, lhs))
 }
 
 /// Parses the given token stream as a literal or a variable reference.
@@ -163,16 +158,14 @@ fn expr_pratt<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn expr_atom<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Expr, E> {
-    wrap_pp!(
-        branch::alt((
-            instance::parse,
-            call_expr,
-            comb::map(literal::parse,    |l| Expr::Literal{ literal: l }),
-            proj_expr,
-            comb::map(identifier::parse, Expr::new_varref),
-        ))
-        .parse(input),
-    "ATOM")
+    branch::alt((
+        instance::parse,
+        call_expr,
+        comb::map(literal::parse,    |l| Expr::Literal{ literal: l }),
+        proj_expr,
+        comb::map(identifier::parse, Expr::new_varref),
+    ))
+    .parse(input)
 }
 
 /// Parses the given token stream as a call expression.
@@ -190,8 +183,6 @@ pub fn expr_atom<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 pub fn call_expr<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     input: Tokens<'a>
 ) -> IResult<Tokens, Expr, E> {
-    enter_pp!("CALL");
-
     // Parse optionally annotations
     let (r, at) = comb::opt(tag_token!(Token::At)).parse(input)?;
     let (r, annot) = if at.is_some() {
@@ -240,16 +231,13 @@ pub fn call_expr<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
 
     // Put it in an Expr::Call and return
     let range: TextRange = TextRange::new(at.map(|a| a.tok[0].inner().into()).unwrap_or_else(|| expr.start().clone()), TextPos::end_of(paren.tok[0].inner()));
-    exit_pp!(
-        Ok((r, Expr::new_call(
-            Box::new(expr),
-            args,
+    Ok((r, Expr::new_call(
+        Box::new(expr),
+        args,
 
-            range,
-            annot.map(|l| AllowedLocations::Exclusive(l.into_iter().map(|l| l.tok[0].as_string().into()).collect())).unwrap_or(AllowedLocations::All),
-        ))),
-        // Ok((input, Expr::Literal { literal: crate::ast::Literal::String{ value: "HELLO THERE".into(), range: TextRange::none() } })),
-    "CALL")
+        range,
+        annot.map(|l| AllowedLocations::Exclusive(l.into_iter().map(|l| l.tok[0].as_string().into()).collect())).unwrap_or(AllowedLocations::All),
+    )))
 }
 
 /// Parses the given token stream as a projection expression.

@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    23 Dec 2022, 16:41:00
+//    19 Jan 2023, 14:04:09
 //  Auto updated?
 //    Yes
 // 
@@ -21,16 +21,15 @@ use std::sync::Arc;
 
 use console::style;
 use tempfile::{tempdir, TempDir};
-use tonic::transport::Channel;
 
 use brane_ast::{compile_snippet, CompileResult, ParserOptions, Workflow};
 use brane_ast::state::CompileState;
-// use brane_cfg::certs::{load_cert, load_keypair};
 use brane_dsl::Language;
 use brane_exe::FullValue;
+use brane_exe::dummy::{DummyVm, Error as DummyVmError};
 use brane_tsk::spec::{LOCALHOST, AppId};
-use brane_tsk::grpc::{CreateSessionRequest, DriverServiceClient, ExecuteRequest};
 use specifications::data::{AccessKind, DataIndex, DataInfo};
+use specifications::driving::{CreateSessionRequest, DriverServiceClient, ExecuteRequest};
 use specifications::package::PackageIndex;
 use specifications::registry::RegistryConfig;
 
@@ -41,7 +40,172 @@ use crate::utils::{ensure_datasets_dir, ensure_packages_dir, get_datasets_dir, g
 use crate::vm::OfflineVm;
 
 
+/***** HELPER MACROS *****/
+// /// A helper macro for computing the number of digits in a number.
+// macro_rules! digits {
+//     ($n:expr) => {
+//         (($n as f32).log10() + 1.0) as usize
+//     };
+// }
+
+// /// A helper macro for generating the given number of strings.
+// macro_rules! spaces {
+//     ($n:expr) => {
+//         (0..($n)).map(|_| ' ').collect::<String>()
+//     };
+// }
+
+// /// A helper macro that wraps the normal write to do some other things
+// macro_rules! write {
+//     // Nothing given
+//     ($f:expr) => {
+//         core::write!($f)
+//     };
+
+//     // Only format string
+//     ($f:expr, $fmt:literal) => {
+//         core::write!($f, $fmt)
+//     };
+//     // Format string with bonus
+//     ($f:expr, $fmt:literal, $($t:tt)+) => {
+//         core::write!($f, $fmt, $($t)+)
+//     };
+
+//     // Indent given
+//     ($f:expr, $indent:expr, $fmt:literal) => {
+//         core::write!($f, concat!("{}", $fmt), spaces!($indent))
+//     };
+//     // Indent given with bonus
+//     ($f:expr, $indent:expr, $fmt:literal, $($t:tt)+) => {
+//         core::write!($f, concat!("{}", $fmt), spaces!($indent), $($t)+)
+//     };
+// }
+// /// A helper macro that wraps the normal writeln to do some other things
+// macro_rules! writeln {
+//     // Nothing given
+//     ($f:expr) => {
+//         core::writeln!($f)
+//     };
+
+//     // Only format string
+//     ($f:expr, $fmt:literal) => {
+//         core::writeln!($f, $fmt)
+//     };
+//     // Format string with bonus
+//     ($f:expr, $fmt:literal, $($t:tt)+) => {
+//         core::writeln!($f, $fmt, $($t)+)
+//     };
+
+//     // Indent given
+//     ($f:expr, $indent:expr, $fmt:literal) => {
+//         core::writeln!($f, concat!("{}", $fmt), spaces!($indent))
+//     };
+//     // Indent given with bonus
+//     ($f:expr, $indent:expr, $fmt:literal, $($t:tt)+) => {
+//         core::writeln!($f, concat!("{}", $fmt), spaces!($indent), $($t)+)
+//     };
+// }
+
+
+
+
+
+/***** FORMATTING FUNCTIONS *****/
+
+
+
+
+
 /***** HELPER FUNCTIONS *****/
+// /// Shows the profiles for the given ThreadProfile.
+// /// 
+// /// # Arguments
+// /// - `f`: The Formatter to write the timings to.
+// /// - `profile`: The ThreadProfile to show.
+// /// - `workflow`: The Workflow we can use to resolve indices to variant names and such.
+// /// - `indent`: The amount of indents (as number of spaces) to print before the whole thing.
+// /// 
+// /// # Errors
+// /// This function might error if we failed to write to the given formatter.
+// /// 
+// /// It might also print some errors to stderr if they are not fatal.
+// fn show_thread_profile(out: &mut impl Write, profile: ThreadProfile, workflow: &Workflow, indent: usize) -> Result<(), Error> {
+//     // Compute the longest edge we have
+//     let mut longest_edge: usize = 0;
+//     for e in &profile.edges {
+//         let edge_len: usize = workflow.edge((e.func as usize, e.edge as usize)).variant().to_string().len();
+//         if edge_len > longest_edge {
+//             longest_edge = edge_len;
+//         }
+//     }
+
+//     // Print all them edges
+//     for e in profile.edges {
+//         // Get the edge's type
+//         let edge: &Edge  = workflow.edge((e.func as usize, e.edge as usize));
+//         let kind: String = edge.variant().to_string();
+
+//         // Get the main edge timing
+//         let timings: EdgeTimings = match e.timings {
+//             Some(timings) => timings,
+//             None          => { error!("Edge {}:{} ({}) has no timings", e.func, e.edge, kind); continue; }
+//         };
+
+//         // We always show the edge itself
+//         writeln!(out, "{} - {} {}:{}{} : {}", spaces!(indent), kind, e.func, e.edge, (0..(longest_edge - kind.len())).map(|_| ' ').collect::<String>(), timings.edge_timing().display())?;
+
+//         // Show more complex timings, if need be
+//         match timings {
+//             // A Node has some of the most extensive profiling attached to it
+//             EdgeTimings::Node(prof) => {
+//                 /* TODO */
+//             },
+//             // A Linear edge shows the per-instruction profiles
+//             EdgeTimings::Linear(prof) => {
+//                 // Get the list of instructions
+//                 let instrs: &[EdgeInstr] = if let Edge::Linear{ instrs, .. } = edge {
+//                     instrs
+//                 } else {
+//                     error!("Edge {}:{} ({}) is not a linear edge, but has a linear timing", e.func, e.edge, kind);
+//                     continue;
+//                 };
+
+//                 // Print their timings
+//                 let longest_instr: usize = (0..prof.instrs.len()).map(|i| instrs[i].variant().to_string().len()).max().unwrap_or(0);
+//                 writeln!(out, "{}   Instructions :", spaces!(indent))?;
+//                 for timing in prof.instrs {
+//                     let instr_kind: String = instrs[timing.index as usize].variant().to_string();
+//                     writeln!(out, "{}    - {}: {}{} : {}", spaces!(indent), timing.index, instr_kind, (0..(longest_instr - instr_kind.len())).map(|_| ' ').collect::<String>(), timing.timing.display())?;
+//                 }
+//             },
+//             // A Join edge shows the per-branch individual timings (as nested threads)
+//             EdgeTimings::Join(prof) => {
+//                 // Show the threadprofiles with extra indentation
+//                 writeln!(out, "{}   Branches times :", spaces!(indent))?;
+//                 for b in prof.branches {
+//                     show_thread_profile(out, b, workflow, indent + 3)?;
+//                 }
+//             },
+//             // A Call edge shows any potential builtin timings
+//             EdgeTimings::Call(prof) => {
+//                 // If there is any, show the builtin timing
+//                 write!(out, "{}   To '{}'", spaces!(indent), prof.name)?;
+//                 if let Some(timing) = prof.builtin {
+//                     writeln!(out, " : {}", timing.display())?;
+//                 } else {
+//                     writeln!(out)?;
+//                 }
+//             },
+
+//             // Other edge just show their own timing, which we already did
+//             EdgeTimings::Other(_) => {}
+//         }
+//     }
+
+//     // Done
+//     Ok(())
+// }
+
 /// Compiles the given worfklow string to a Workflow.
 /// 
 /// # Arguments
@@ -106,6 +270,24 @@ fn compile(state: &mut CompileState, source: &mut String, pindex: &PackageIndex,
 
 
 /***** AUXILLARY *****/
+/// A helper struct that contains what we need to know about a compiler + VM state for the dummy use-case.
+pub struct DummyVmState {
+    /// The package index for this session.
+    pub pindex : Arc<PackageIndex>,
+    /// The data index for this session.
+    pub dindex : Arc<DataIndex>,
+
+    /// The state of the compiler.
+    pub state   : CompileState,
+    /// The associated source string, which we use for debugging.
+    pub source  : String,
+    /// Any compiler options we apply.
+    pub options : ParserOptions,
+
+    /// The state of the VM, i.e., the VM. This is wrapped in an 'Option' so we can easily take it if the DummyVmState is only mutably borrowed.
+    pub vm : Option<DummyVm>,
+}
+
 /// A helper struct that contains what we need to know about a compiler + VM state for the offline use-case.
 pub struct OfflineVmState {
     /// The temporary directory where we store results.
@@ -143,10 +325,68 @@ pub struct InstanceVmState {
     /// The ID for this session.
     pub session : AppId,
     /// The client which we use to communicate to the VM.
-    pub client  : DriverServiceClient<Channel>,
+    pub client  : DriverServiceClient,
 }
 
 
+
+/// Function that prepares a local, offline virtual machine that never runs any jobs.
+/// 
+/// It does read the local index to determine if packages are legal.
+/// 
+/// # Arguments
+/// - `options`: The ParserOptions that describe how to parse the given source.
+/// 
+/// # Returns
+/// The newly created virtual machine together with associated states as a DummyVmState.
+/// 
+/// # Errors
+/// This function errors if we failed to get the new package indices or other information.
+pub fn initialize_dummy_vm(options: ParserOptions) -> Result<DummyVmState, Error> {
+    // Get the directory with the packages
+    let packages_dir = match ensure_packages_dir(false) {
+        Ok(dir)  => dir,
+        Err(err) => { return Err(Error::PackagesDirError{ err }); }
+    };
+    // Get the directory with the datasets
+    let datasets_dir = match ensure_datasets_dir(false) {
+        Ok(dir)  => dir,
+        Err(err) => { return Err(Error::DatasetsDirError{ err }); }
+    };
+
+    // Get the package index for the local repository
+    let package_index: Arc<PackageIndex> = match brane_tsk::local::get_package_index(packages_dir) {
+        Ok(index) => Arc::new(index),
+        Err(err)  => { return Err(Error::LocalPackageIndexError{ err }); }
+    };
+    // Get the data index for the local repository
+    let data_index: Arc<DataIndex> = match brane_tsk::local::get_data_index(datasets_dir) {
+        Ok(index) => Arc::new(index),
+        Err(err)  => { return Err(Error::LocalDataIndexError{ err }); }
+    };
+
+    // // Get the local package & dataset directories
+    // let packages_dir: PathBuf = match get_packages_dir() {
+    //     Ok(dir)  => dir,
+    //     Err(err) => { return Err(Error::PackagesDirError{ err }); },
+    // };
+    // let datasets_dir: PathBuf = match get_datasets_dir() {
+    //     Ok(dir)  => dir,
+    //     Err(err) => { return Err(Error::DatasetsDirError{ err }); },
+    // };
+
+    // Prepare some states & options used across loops and return them
+    Ok(DummyVmState {
+        pindex      : package_index,
+        dindex      : data_index,
+
+        state  : CompileState::new(),
+        source : String::new(),
+        options,
+
+        vm : Some(DummyVm::new()),
+    })
+}
 
 /// Function that prepares a local, offline virtual machine by initializing the proper indices and whatnot.
 /// 
@@ -248,7 +488,7 @@ pub async fn initialize_instance_vm(endpoint: impl AsRef<str>, attach: Option<Ap
 
     // Connect to the server with gRPC
     debug!("Connecting to driver '{}'...", endpoint);
-    let mut client: DriverServiceClient<Channel> = match DriverServiceClient::connect(endpoint.to_string()).await {
+    let mut client: DriverServiceClient = match DriverServiceClient::connect(endpoint.to_string()).await {
         Ok(client) => client,
         Err(err)   => { return Err(Error::ClientConnectError{ address: endpoint.into(), err }); }
     };
@@ -290,6 +530,41 @@ pub async fn initialize_instance_vm(endpoint: impl AsRef<str>, attach: Option<Ap
 
 
 
+/// Function that executes the given workflow snippet to completion on the dummy machine, returning the result it returns.
+/// 
+/// # Arguments
+/// - `state`: The DummyVmState that we use to run the dummy VM.
+/// - `what`: The thing we're running. Either a filename, or something like '<stdin>'.
+/// - `snippet`: The snippet (as raw text) to compile and run.
+/// 
+/// # Returns
+/// The FullValue that the workflow returned, if any. If there was no value, returns FullValue::Void instead.
+/// 
+/// # Errors
+/// This function errors if we failed to compile or run the workflow somehow.
+pub async fn run_dummy_vm(state: &mut DummyVmState, what: impl AsRef<str>, snippet: impl AsRef<str>) -> Result<FullValue, Error> {
+    let what: &str     = what.as_ref();
+    let snippet: &str  = snippet.as_ref();
+
+    // Compile the workflow
+    let workflow: Workflow = compile(&mut state.state, &mut state.source, &state.pindex, &state.dindex, &state.options, what, snippet)?;
+
+    // Run it in the local VM (which is a bit ugly do to the need to consume the VM itself)
+    let res: (DummyVm, Result<FullValue, DummyVmError>) = state.vm.take().unwrap().exec(workflow).await;
+    state.vm = Some(res.0);
+    let res: FullValue = match res.1 {
+        Ok(res)  => res,
+        Err(err) => {
+            error!("{}", err);
+            state.state.offset += 1 + snippet.chars().filter(|c| *c == '\n').count();
+            return Err(Error::ExecError{ err: Box::new(err) });
+        }
+    };
+
+    // Done
+    Ok(res)
+}
+
 /// Function that executes the given workflow snippet to completion on the local machine, returning the result it returns.
 /// 
 /// # Arguments
@@ -317,7 +592,7 @@ pub async fn run_offline_vm(state: &mut OfflineVmState, what: impl AsRef<str>, s
         Err(err) => {
             error!("{}", err);
             state.state.offset += 1 + snippet.chars().filter(|c| *c == '\n').count();
-            return Err(Error::ExecError{ err });
+            return Err(Error::ExecError{ err: Box::new(err) });
         }
     };
 
@@ -332,13 +607,14 @@ pub async fn run_offline_vm(state: &mut OfflineVmState, what: impl AsRef<str>, s
 /// - `state`: The InstanceVmState that we use to connect to the driver.
 /// - `what`: The thing we're running. Either a filename, or something like '<stdin>'.
 /// - `snippet`: The snippet (as raw text) to compile and run.
+/// - `profile`: If given, prints the profile timings to stdout if reported by the remote.
 /// 
 /// # Returns
 /// The FullValue that the workflow returned, if any. If there was no value, returns FullValue::Void instead.
 /// 
 /// # Errors
 /// This function errors if we failed to compile the workflow, communicate with the remote driver or remote execution failed somehow.
-pub async fn run_instance_vm(endpoint: impl AsRef<str>, state: &mut InstanceVmState, what: impl AsRef<str>, snippet: impl AsRef<str>) -> Result<FullValue, Error> {
+pub async fn run_instance_vm(endpoint: impl AsRef<str>, state: &mut InstanceVmState, what: impl AsRef<str>, snippet: impl AsRef<str>, profile: bool) -> Result<FullValue, Error> {
     let endpoint: &str = endpoint.as_ref();
     let what: &str     = what.as_ref();
     let snippet: &str  = snippet.as_ref();
@@ -372,6 +648,11 @@ pub async fn run_instance_vm(endpoint: impl AsRef<str>, state: &mut InstanceVmSt
         match stream.message().await {
             // The message itself went alright
             Ok(Some(reply)) => {
+                // Show profile times
+                if profile {
+                    /* TODO */
+                }
+
                 // The remote send us some debug message
                 if let Some(debug) = reply.debug {
                     debug!("Remote: {}", debug);
@@ -425,6 +706,38 @@ pub async fn run_instance_vm(endpoint: impl AsRef<str>, state: &mut InstanceVmSt
 }
 
 
+
+/// Processes the given result of a dummy workflow execution.
+/// 
+/// # Arguments
+/// - `result`: The value to process.
+/// 
+/// # Returns
+/// Nothing, but does print any result to stdout.
+pub fn process_dummy_result(result: FullValue) {
+    // We only print
+    if result != FullValue::Void {
+        println!("\nWorkflow returned value {}", style(format!("'{}'", result)).bold().cyan());
+
+        // Treat some values special
+        match result {
+            // Print sommat additional if it's an intermediate result.
+            FullValue::IntermediateResult(_) => {
+                println!("(Intermediate results are not available; promote it using 'commit_result()')");
+            },
+
+            // If it's a dataset, attempt to download it
+            FullValue::Data(_) => {
+                println!("(Datasets are not committed; run the workflow without '--dummy' to actually create it)");
+            },
+
+            // Nothing for the rest
+            _ => {},
+        }
+    }
+
+    // DOne
+}
 
 /// Processes the given result of an offline workflow execution.
 /// 
@@ -572,13 +885,15 @@ pub async fn process_instance_result(certs_dir: impl AsRef<Path>, proxy_addr: &O
 /// # Arguments
 /// - `certs_dir`: The directory with certificates proving our identity.
 /// - `proxy_addr`: The address to proxy any data transfers through if they occur.
+/// - `dummy`: If given, uses a Dummy VM as backend instead of actually running any jobs.
 /// - `remote`: Whether to (and what) remote Brane instance to run the file on instead.
 /// - `language`: The language with which to compile the file.
 /// - `file`: The file to read and run. Can also be '-', in which case it is read from stdin instead.
+/// - `profile`: If given, prints the profile timings to stdout if available.
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-pub async fn handle(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, language: Language, file: PathBuf, remote: Option<String>) -> Result<(), Error> {
+pub async fn handle(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, language: Language, file: PathBuf, dummy: bool, remote: Option<String>, profile: bool) -> Result<(), Error> {
     // Either read the file or read stdin
     let (what, source_code): (Cow<str>, String) = if file == PathBuf::from("-") {
         let mut result: String = String::new();
@@ -594,40 +909,39 @@ pub async fn handle(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, lan
     // Prepare the parser options
     let options: ParserOptions = ParserOptions::new(language);
 
-    // Now switch on remote or local mode
-    if let Some(remote) = remote {
-        remote_run(certs_dir, proxy_addr, remote, options, what, source_code).await
+    // Now switch on dummy, local or remote mode
+    if !dummy {
+        if let Some(remote) = remote {
+            remote_run(certs_dir, proxy_addr, remote, options, what, source_code, profile).await
+        } else {
+            local_run(options, what, source_code).await
+        }
     } else {
-        local_run(options, what, source_code).await
+        dummy_run(options, what, source_code).await
     }
 }
 
 
 
-/// Runs the given file on the remote instance.
+/// Runs the given file in a dummy VM, that is to say, ignore jobs with some default values.
 /// 
 /// # Arguments
-/// - `certs_dir`: The directory with certificates proving our identity.
-/// - `proxy_addr`: The address to proxy any data transfers through if they occur.
-/// - `endpoint`: The `brane-drv` endpoint to connect to.
 /// - `options`: The ParseOptions that specify how to parse the incoming source.
 /// - `what`: A description of the source we're reading (e.g., the filename or `<stdin>`)
 /// - `source`: The source code to read.
 /// 
 /// # Returns
-/// Nothing, but does print results and such to stdout. Might also produce new datasets.
-async fn remote_run(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, endpoint: impl AsRef<str>, options: ParserOptions, what: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), Error> {
-    let certs_dir : &Path = certs_dir.as_ref();
-    let endpoint  : &str  = endpoint.as_ref();
+/// Nothing, but does print results and such to stdout. Does not produce new datasets.
+async fn dummy_run(options: ParserOptions, what: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), Error> {
     let what      : &str  = what.as_ref();
     let source    : &str  = source.as_ref();
 
-    // First we initialize the remote thing
-    let mut state: InstanceVmState = initialize_instance_vm(endpoint, None, options).await?;
+    // First we initialize the VM
+    let mut state: DummyVmState = initialize_dummy_vm(options)?;
     // Next, we run the VM (one snippet only ayway)
-    let res: FullValue = run_instance_vm(endpoint, &mut state, what, source).await?;
+    let res: FullValue = run_dummy_vm(&mut state, what, source).await?;
     // Then, we collect and process the result
-    process_instance_result(certs_dir, &proxy_addr, res).await?;
+    process_dummy_result(res);
 
     // Done
     Ok(())
@@ -652,6 +966,36 @@ async fn local_run(options: ParserOptions, what: impl AsRef<str>, source: impl A
     let res: FullValue = run_offline_vm(&mut state, what, source).await?;
     // Then, we collect and process the result
     process_offline_result(res)?;
+
+    // Done
+    Ok(())
+}
+
+/// Runs the given file on the remote instance.
+/// 
+/// # Arguments
+/// - `certs_dir`: The directory with certificates proving our identity.
+/// - `proxy_addr`: The address to proxy any data transfers through if they occur.
+/// - `endpoint`: The `brane-drv` endpoint to connect to.
+/// - `options`: The ParseOptions that specify how to parse the incoming source.
+/// - `what`: A description of the source we're reading (e.g., the filename or `<stdin>`)
+/// - `source`: The source code to read.
+/// - `profile`: If given, prints the profile timings to stdout if reported by the remote.
+/// 
+/// # Returns
+/// Nothing, but does print results and such to stdout. Might also produce new datasets.
+async fn remote_run(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, endpoint: impl AsRef<str>, options: ParserOptions, what: impl AsRef<str>, source: impl AsRef<str>, profile: bool) -> Result<(), Error> {
+    let certs_dir : &Path = certs_dir.as_ref();
+    let endpoint  : &str  = endpoint.as_ref();
+    let what      : &str  = what.as_ref();
+    let source    : &str  = source.as_ref();
+
+    // First we initialize the remote thing
+    let mut state: InstanceVmState = initialize_instance_vm(endpoint, None, options).await?;
+    // Next, we run the VM (one snippet only ayway)
+    let res: FullValue = run_instance_vm(endpoint, &mut state, what, source, profile).await?;
+    // Then, we collect and process the result
+    process_instance_result(certs_dir, &proxy_addr, res).await?;
 
     // Done
     Ok(())

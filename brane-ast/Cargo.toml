@@ -17,7 +17,3 @@ uuid = { version = "0.8", features = ["v4"] }
 brane-dsl = { path = "../brane-dsl" }
 brane-shr = { path = "../brane-shr" }
 specifications = { path = "../specifications" }
-
-[features]
-print_scanner_path = [ "brane-dsl/print_scanner_path" ]
-print_parser_path = [ "brane-dsl/print_parser_path" ]

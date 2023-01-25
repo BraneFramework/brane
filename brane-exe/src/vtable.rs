@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:42:52
 //  Last edited:
-//    14 Nov 2022, 11:50:10
+//    19 Jan 2023, 15:23:07
 //  Auto updated?
 //    Yes
 // 
@@ -133,6 +133,7 @@ impl VirtualSymTable {
     /// 
     /// # Returns
     /// Nothing, but does change the VirtualTable to also contain this scope.
+    #[inline]
     pub fn push(&mut self, table: Arc<SymTable>) {
         // Simply add references to all scopes
         self.scopes.push(table);
@@ -141,13 +142,17 @@ impl VirtualSymTable {
     /// Pops the top TableState off the internal scopes.
     /// 
     /// # Returns
-    /// Nothing, but does change the VirtualTable to not contain the most nested scope anymore.
+    /// The popped SymTable that can be used to determine what variable have been declared in this scope.
     /// 
     /// # Panics
     /// This function may panic if there are no scopes anymore.
-    pub fn pop(&mut self) {
+    #[inline]
+    pub fn pop(&mut self) -> Arc<SymTable> {
         // Simply add references to all scopes
-        if self.scopes.pop().is_none() { panic!("Attempted to pop scope, but no scopes left"); };
+        match self.scopes.pop() {
+            Some(scope) => scope,
+            None        => { panic!("Attempted to pop scope, but no scopes left"); },
+        }
     }
 
 

@@ -2,7 +2,3 @@
 let test := null;
 test := 42;
 println(test);
-
-// This is actually allowed to work too, since we can cast nulls to Strings (like anything)
-let test2 := null;
-println(test2);

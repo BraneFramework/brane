@@ -4,7 +4,7 @@
 //  Created:
 //    19 Dec 2022, 10:04:38
 //  Last edited:
-//    03 Jan 2023, 13:24:43
+//    19 Jan 2023, 10:32:24
 //  Auto updated?
 //    Yes
 // 
@@ -13,9 +13,6 @@
 //!   resolving them with more proper types.
 // 
 
-use std::mem;
-
-use brane_dsl::DataType;
 use brane_dsl::ast::{Block, Expr, Literal, Program, Stmt};
 
 pub use crate::errors::NullError as Error;
@@ -198,20 +195,8 @@ fn pass_expr(expr: &mut Expr, errors: &mut Vec<Error>) {
     // Match the expression given
     use Expr::*;
     match expr {
-        Cast{ expr: cast_expr, target, .. } => {
-            // If this is a null-cast, then we can remove it
-            if target == &DataType::Null {
-                // Remove this cast from the equation
-                let mut new_expr: Box<Expr> = Box::new(Expr::Empty{});
-                mem::swap(&mut new_expr, cast_expr);
-                *expr = *new_expr;
-
-                // Recurse deeper into the expression
-                pass_expr(expr, errors);
-            } else {
-                // Just recurse
-                pass_expr(cast_expr, errors);
-            }
+        Cast{ expr, .. } => {
+            pass_expr(expr, errors);
         },
 
         Call{ expr, args, .. } => {

@@ -4,7 +4,7 @@
 //  Created:
 //    09 Sep 2022, 16:35:48
 //  Last edited:
-//    19 Dec 2022, 11:02:05
+//    17 Jan 2023, 15:17:05
 //  Auto updated?
 //    Yes
 // 
@@ -26,7 +26,7 @@ use crate::value::Value;
 #[derive(Clone, Debug)]
 pub struct VariableRegister {
     /// Contains the variables, groups by identifier.
-    register : HashMap<usize, (String, DataType, Value)>,
+    register : HashMap<usize, (String, DataType, Option<Value>)>,
 }
 
 impl VariableRegister {
@@ -60,7 +60,7 @@ impl VariableRegister {
     /// This function errors if the given variable was already declared.
     pub fn declare<S: Into<String>>(&mut self, id: usize, name: S, data_type: DataType) -> Result<(), Error> {
         let name: String = name.into();
-        match self.register.insert(id, (name.clone(), data_type.clone(), Value::Null)) {
+        match self.register.insert(id, (name.clone(), data_type.clone(), None)) {
             Some(old) => Err(Error::DuplicateDeclaration { id, old_name: old.0, old_type: old.1, new_name: name, new_type: data_type }),
             None      => Ok(()),
         }
@@ -77,7 +77,7 @@ impl VariableRegister {
     #[inline]
     pub fn store(&mut self, id: usize, value: Value) -> Result<(), Error> {
         match self.register.get_mut(&id) {
-            Some((_, _, ref mut var_val)) => { *var_val = value; Ok(()) },
+            Some((_, _, ref mut var_val)) => { *var_val = Some(value); Ok(()) },
             None                          => Err(Error::UndeclaredVariable{ id }),
         }
     }
@@ -95,8 +95,11 @@ impl VariableRegister {
     #[inline]
     pub fn load(&self, id: usize) -> Result<&Value, Error> {
         match self.register.get(&id) {
-            Some((_, _, var_val)) => Ok(var_val),
-            None                  => Err(Error::UndeclaredVariable{ id }),
+            Some((_, _, var_val)) => match var_val {
+                Some(val) => Ok(val),
+                None      => Err(Error::UninitializedVariable { id }),
+            },
+            None => Err(Error::UndeclaredVariable{ id }),
         }
     }
 

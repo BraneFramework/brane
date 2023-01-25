@@ -4,7 +4,7 @@
 //  Created:
 //    31 Aug 2022, 09:25:11
 //  Last edited:
-//    05 Jan 2023, 13:15:02
+//    23 Jan 2023, 10:50:23
 //  Auto updated?
 //    Yes
 // 
@@ -88,17 +88,17 @@ fn pass_table(writer: &mut impl Write, table: &SymTable, indent: usize) -> std::
     // ...and all tasks
     for t in &table.tasks {
         match t {
-            TaskDef::Compute { package, version, function, args_names, requirements }  => {
-                if !requirements.is_empty() { writeln!(writer, "{}#[requirements = {:?}]", indent!(indent), requirements)?; }
+            TaskDef::Compute(def)  => {
+                if !def.requirements.is_empty() { writeln!(writer, "{}#[requirements = {:?}]", indent!(indent), def.requirements)?; }
                 writeln!(writer, "{}Task<Compute> {}{}::{}({}){};", indent!(indent),
-                    package,
-                    if !version.is_latest() { format!("<{}>", version) } else { String::new() },
-                    &function.name,
-                    function.args.iter().enumerate().map(|(i, a)| format!("{}: {}", args_names[i], a)).collect::<Vec<String>>().join(", "),
-                    if function.ret != DataType::Void { format!(" -> {}", function.ret) } else { String::new() },
+                    def.package,
+                    if !def.version.is_latest() { format!("<{}>", def.version) } else { String::new() },
+                    &def.function.name,
+                    def.function.args.iter().enumerate().map(|(i, a)| format!("{}: {}", def.args_names[i], a)).collect::<Vec<String>>().join(", "),
+                    if def.function.ret != DataType::Void { format!(" -> {}", def.function.ret) } else { String::new() },
                 )?;
             },
-            TaskDef::Transfer {} => writeln!(writer, "Task<Transfer>;")?,
+            TaskDef::Transfer => writeln!(writer, "Task<Transfer>;")?,
         }
     }
     if !table.vars.is_empty() || !table.funcs.is_empty() || !table.tasks.is_empty() { writeln!(writer)?; }
@@ -167,8 +167,8 @@ fn pass_edges(writer: &mut impl Write, index: usize, edges: &[Edge], table: &Vir
                     line_number!(i),
                     indent!(indent),
                     match &table.task(*task) {
-                        TaskDef::Compute { package, version, function, .. } => format!("{}{}::{}", package, if !version.is_latest() { format!("<{}>", version) } else { String::new() }, function.name),
-                        TaskDef::Transfer {}                                => "__builtin::transfer".into(),
+                        TaskDef::Compute(def) => format!("{}{}::{}", def.package, if !def.version.is_latest() { format!("<{}>", def.version) } else { String::new() }, def.function.name),
+                        TaskDef::Transfer     => "__builtin::transfer".into(),
                     },
                     if locs.is_restrictive() { format!(" <limited to: {}>", locs.restricted().join(",")) } else { String::new() },
                     if let Some(at) = at { format!(" @{}", at) } else { String::new() },
@@ -333,8 +333,10 @@ fn pass_edge_instr(writer: &mut impl Write, instr: &EdgeInstr, table: &VirtualSy
         ArrayIndex{ res_type }    => { write!(writer, "{} {}", instr, res_type)?; },
         Instance{ def }           => { write!(writer, "{} {}", instr, table.class(*def).name)?; },
 
-        VarGet{ def } => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
-        VarSet{ def } => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
+        VarDec{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
+        VarUndec{ def } => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
+        VarGet{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
+        VarSet{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
 
         Boolean{ value } => { write!(writer, "{} {}", instr, value)?; },
         Integer{ value } => { write!(writer, "{} {}", instr, value)?; },

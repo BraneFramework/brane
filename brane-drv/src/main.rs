@@ -4,7 +4,7 @@
 //  Created:
 //    30 Sep 2022, 11:59:58
 //  Last edited:
-//    29 Nov 2022, 13:20:53
+//    09 Jan 2023, 13:58:15
 //  Auto updated?
 //    Yes
 // 
@@ -22,7 +22,7 @@ use tonic::transport::Server;
 
 use brane_cfg::node::NodeConfig;
 use brane_prx::client::ProxyClient;
-use brane_tsk::grpc::DriverServiceServer;
+use specifications::driving::DriverServiceServer;
 
 use brane_drv::planner::InstancePlanner;
 use brane_drv::handler::DriverHandler;

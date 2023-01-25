@@ -4,7 +4,7 @@
 //  Created:
 //    30 Aug 2022, 11:55:49
 //  Last edited:
-//    05 Jan 2023, 13:06:58
+//    23 Jan 2023, 10:42:50
 //  Auto updated?
 //    Yes
 // 
@@ -30,6 +30,7 @@ use specifications::data::AvailabilityKind;
 use specifications::package::Capability;
 use specifications::version::Version;
 
+use crate::errors::DataNameDeserializeError;
 use crate::data_type::DataType;
 use crate::locations::{Location, Locations};
 use crate::state::TableList;
@@ -75,6 +76,36 @@ impl Workflow {
 
             graph : Arc::new(graph),
             funcs : Arc::new(funcs),
+        }
+    }
+
+
+
+    /// Returns the edge pointed to by the given PC.
+    /// 
+    /// # Arguments
+    /// - `pc`: The position of the Edge to return. Given as a pair of `(function index, edge index in that function)`, where a function index of `usize::MAX` means it's the main script function.
+    /// 
+    /// # Returns
+    /// A reference to the Edge pointed to by the given PC.
+    /// 
+    /// # Panics
+    /// This function panics if either part of the `pc` is out-of-bounds _and_ the function index is not `usize::MAX`.
+    #[inline]
+    pub fn edge(&self, pc: (usize, usize)) -> &Edge {
+        if pc.0 == usize::MAX {
+            // Main
+            if pc.1 >= self.graph.len() { panic!("Edge index {} is out-of-bounds for main function of {} edges", pc.1, self.graph.len()); }
+            &self.graph[pc.1]
+        } else {
+            // It's a function
+            match self.funcs.get(&pc.0) {
+                Some(graph) => {
+                    if pc.1 >= graph.len() { panic!("Edge index {} is out-of-bounds for function '{}' of {} edges", pc.1, self.table.funcs[pc.0].name, graph.len()); }
+                    &graph[pc.1]
+                },
+                None => { panic!("Function index {} is unknown", pc.0); },
+            }
         }
     }
 }
@@ -181,33 +212,16 @@ pub struct FunctionDef {
 
 
 /// Defines a Task (i.e., a Node) in the Workflow graph.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, EnumDebug, Serialize)]
 #[serde(tag = "kind")]
 pub enum TaskDef {
     /// Defines a compute task, i.e., a task that is externally called.
     #[serde(rename = "cmp")]
-    Compute {
-        /// The name of the package that this task belongs to.
-        #[serde(rename = "p")]
-        package    : String,
-        /// The version of the package that this task belongs to.
-        #[serde(rename = "v")]
-        version    : Version,
-
-        /// The definition of the function that this package implements.
-        #[serde(rename = "d")]
-        function   : Box<FunctionDef>,
-        /// A list of names for every argument.
-        #[serde(rename = "a")]
-        args_names : Vec<String>,
-        /// Any requirements required for this task.
-        #[serde(rename = "r")]
-        requirements : HashSet<Capability>,
-    },
+    Compute(ComputeTaskDef),
 
     /// Defines a transfer task, i.e., a data transfer between two domains.
     #[serde(rename = "trf")]
-    Transfer {},
+    Transfer,
 }
 
 impl TaskDef {
@@ -216,8 +230,8 @@ impl TaskDef {
     pub fn name(&self) -> &str {
         use TaskDef::*;
         match self {
-            Compute{ function, .. } => &function.name,
-            Transfer{ .. }          => &TRANSFER_FUNC.name,
+            Compute(def) => &def.function.name,
+            Transfer     => &TRANSFER_FUNC.name,
         }
     }
 
@@ -226,10 +240,31 @@ impl TaskDef {
     pub fn func(&self) -> &FunctionDef {
         use TaskDef::*;
         match self {
-            Compute{ function, .. } => function,
-            Transfer{ .. }          => &TRANSFER_FUNC,
+            Compute(def) => &def.function,
+            Transfer     => &TRANSFER_FUNC,
         }
     }
+}
+
+/// Defines the contents of a compute task.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ComputeTaskDef {
+    /// The name of the package that this task belongs to.
+    #[serde(rename = "p")]
+    pub package    : String,
+    /// The version of the package that this task belongs to.
+    #[serde(rename = "v")]
+    pub version    : Version,
+
+    /// The definition of the function that this package implements.
+    #[serde(rename = "d")]
+    pub function   : Box<FunctionDef>,
+    /// A list of names for every argument.
+    #[serde(rename = "a")]
+    pub args_names : Vec<String>,
+    /// Any requirements required for this task.
+    #[serde(rename = "r")]
+    pub requirements : HashSet<Capability>,
 }
 
 
@@ -452,22 +487,90 @@ impl Display for DataName {
 }
 
 impl From<&brane_dsl::ast::Data> for DataName {
-    fn from(value: &brane_dsl::ast::Data) -> Self {
-        Self::from(value.clone())
-    }
+    #[inline]
+    fn from(value: &brane_dsl::ast::Data) -> Self { Self::from(value.clone()) }
 }
 impl From<&mut brane_dsl::ast::Data> for DataName {
+    #[inline]
     fn from(value: &mut brane_dsl::ast::Data) -> Self {
         Self::from(value.clone())
     }
 }
 impl From<brane_dsl::ast::Data> for DataName {
+    #[inline]
     fn from(value: brane_dsl::ast::Data) -> Self {
         match value {
             brane_dsl::ast::Data::Data(name)               => Self::Data(name),
             brane_dsl::ast::Data::IntermediateResult(name) => Self::IntermediateResult(name),
         }
     }
+}
+
+impl From<specifications::working::DataName> for DataName {
+    #[inline]
+    fn from(value: specifications::working::DataName) -> Self {
+        match value {
+            specifications::working::DataName::Data(name)               => Self::Data(name),
+            specifications::working::DataName::IntermediateResult(name) => Self::IntermediateResult(name),
+        }
+    }
+}
+impl From<&specifications::working::DataName> for DataName {
+    #[inline]
+    fn from(value: &specifications::working::DataName) -> Self {
+        Self::from(value.clone())
+    }
+}
+impl From<&mut specifications::working::DataName> for DataName {
+    #[inline]
+    fn from(value: &mut specifications::working::DataName) -> Self {
+        Self::from(value.clone())
+    }
+}
+impl TryFrom<Option<specifications::working::DataName>> for DataName {
+    type Error = DataNameDeserializeError;
+
+    #[inline]
+    fn try_from(value: Option<specifications::working::DataName>) -> Result<Self, Self::Error> {
+        match value {
+            Some(specifications::working::DataName::Data(name))               => Ok(Self::Data(name)),
+            Some(specifications::working::DataName::IntermediateResult(name)) => Ok(Self::IntermediateResult(name)),
+            None                                                              => Err(DataNameDeserializeError::UnknownDataName),
+        }
+    }
+}
+impl TryFrom<&Option<specifications::working::DataName>> for DataName {
+    type Error = DataNameDeserializeError;
+
+    #[inline]
+    fn try_from(value: &Option<specifications::working::DataName>) -> Result<Self, Self::Error> {
+        Self::try_from(value.clone())
+    }
+}
+impl TryFrom<&mut Option<specifications::working::DataName>> for DataName {
+    type Error = DataNameDeserializeError;
+
+    #[inline]
+    fn try_from(value: &mut Option<specifications::working::DataName>) -> Result<Self, Self::Error> {
+        Self::try_from(value.clone())
+    }
+}
+impl From<DataName> for specifications::working::DataName {
+    #[inline]
+    fn from(value: DataName) -> Self {
+        match value {
+            DataName::Data(name)               => specifications::working::DataName::Data(name),
+            DataName::IntermediateResult(name) => specifications::working::DataName::IntermediateResult(name),
+        }
+    }
+}
+impl From<&DataName> for specifications::working::DataName {
+    #[inline]
+    fn from(value: &DataName) -> Self { Self::from(value.clone()) }
+}
+impl From<&mut DataName> for specifications::working::DataName {
+    #[inline]
+    fn from(value: &mut DataName) -> Self { Self::from(value.clone()) }
 }
 
 
@@ -674,6 +777,24 @@ pub enum EdgeInstr {
         field : String,
     },
 
+    /// Declares the given variable in the framestack.
+    /// 
+    /// It is a bit of an artificial instruction, mainly used to keep track of initialization status at runtime.
+    #[serde(rename = "vrd")]
+    VarDec {
+        /// The identifier of the variable to declare.
+        #[serde(rename = "d")]
+        def : usize,
+    },
+    /// Undeclares the given variable in the framestack.
+    /// 
+    /// It's a bit of an artificial instruction, mainly used to keep track of initialization status at runtime.
+    #[serde(rename = "vru")]
+    VarUndec {
+        /// The identifier of the variable to undeclare.
+        #[serde(rename = "d")]
+        def : usize,
+    },
     /// Puts the value of the given variable on top of the stack.
     /// 
     /// # Stack layout
@@ -693,9 +814,6 @@ pub enum EdgeInstr {
     },
 
     // Literals
-    /// Pushes an "uninitialized value" onto the stack.
-    #[serde(rename = "nul")]
-    Null {},
     /// Pushes a boolean value onto the stack.
     #[serde(rename = "bol")]
     Boolean {
@@ -770,10 +888,11 @@ impl Display for EdgeInstr {
             Instance{ .. }   => write!(f, ".inst"),
             Proj{ .. }       => write!(f, ".proj"),
 
-            VarGet { .. } => write!(f, ".get"),
-            VarSet { .. } => write!(f, ".set"),
+            VarDec { .. }   => write!(f, ".dec"),
+            VarUndec { .. } => write!(f, ".undec"),
+            VarGet { .. }   => write!(f, ".get"),
+            VarSet { .. }   => write!(f, ".set"),
 
-            Null{ .. }     => write!(f, ".null"),
             Boolean{ .. }  => write!(f, ".bool"),
             Integer{ .. }  => write!(f, ".int"),
             Real{ .. }     => write!(f, ".real"),

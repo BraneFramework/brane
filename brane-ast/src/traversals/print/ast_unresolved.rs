@@ -4,7 +4,7 @@
 //  Created:
 //    05 Sep 2022, 11:08:57
 //  Last edited:
-//    23 Dec 2022, 16:19:33
+//    23 Jan 2023, 10:50:33
 //  Auto updated?
 //    Yes
 // 
@@ -332,8 +332,10 @@ pub fn pass_edge_instr(writer: &mut impl Write, instr: &EdgeInstr, table: &mut V
         ArrayIndex{ res_type }    => { write!(writer, "{} {}", instr, res_type)?; },
         Instance{ def }           => { write!(writer, "{} {}", instr, table.class(*def).name)?; },
 
-        VarSet{ def } => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
-        VarGet{ def } => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
+        VarDec{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
+        VarUndec{ def } => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
+        VarSet{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
+        VarGet{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
 
         Boolean{ value } => { write!(writer, "{} {}", instr, value)?; },
         Integer{ value } => { write!(writer, "{} {}", instr, value)?; },

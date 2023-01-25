@@ -6,11 +6,16 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1"
+async-trait = "0.1.60"
 base64 = "0.13"
 chrono = { version = "0.4.23", features = ["serde"] }
 const_format = "0.2.22"
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
+log = "0.4.17"
+num-traits = "0.2.15"
+parking_lot = "0.12.1"
 prost = "0.11"
+prost-types = "0.11"
 reqwest = { version = "0.11", features = ["json", "stream"] }
 semver = "1.0"
 serde = { version = "1", features = ["derive"] }
@@ -21,4 +26,5 @@ serde_with = "1.9"
 serde_yaml = "0.9"
 strum = "0.23.0"
 strum_macros = "0.23"
+tonic = "0.8.3"
 uuid = { version = "0.8", features = ["serde", "v4"] }

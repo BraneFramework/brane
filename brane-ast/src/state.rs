@@ -4,7 +4,7 @@
 //  Created:
 //    16 Sep 2022, 08:22:47
 //  Last edited:
-//    05 Jan 2023, 13:14:49
+//    09 Jan 2023, 13:31:09
 //  Auto updated?
 //    Yes
 // 
@@ -28,7 +28,7 @@ use specifications::package::Capability;
 use specifications::version::Version;
 
 use crate::spec::{BuiltinClasses, BuiltinFunctions};
-use crate::ast::{ClassDef, Edge, FunctionDef, SymTable, TaskDef, VarDef};
+use crate::ast::{ClassDef, ComputeTaskDef, Edge, FunctionDef, SymTable, TaskDef, VarDef};
 
 
 /***** STATICS *****/
@@ -778,7 +778,7 @@ impl From<&TaskState> for FunctionEntry {
 impl From<TaskState> for TaskDef {
     #[inline]
     fn from(value: TaskState) -> Self {
-        Self::Compute {
+        Self::Compute(ComputeTaskDef {
             package : value.package_name,
             version : value.package_version,
 
@@ -791,7 +791,7 @@ impl From<TaskState> for TaskDef {
             }),
             args_names   : value.arg_names,
             requirements : value.requirements,
-        }
+        })
     }
 }
 

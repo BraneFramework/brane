@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 10:45:50
 //  Last edited:
-//    14 Nov 2022, 10:42:01
+//    23 Jan 2023, 10:46:22
 //  Auto updated?
 //    Yes
 // 
@@ -33,7 +33,7 @@ struct Frame {
     /// The offsets of this function's variable TableList.
     offset : usize,
     /// The variables that live within this frame, mapped by their definition index.
-    vars   : HashMap<usize, Value>,
+    vars   : HashMap<usize, Option<Value>>,
     /// The return address to return to after returning from this frame.
     ret    : (usize, usize),
 }
@@ -105,7 +105,7 @@ impl FrameStack {
         let table: SymTable = self.table.flatten();
 
         // Collect all variables into one thingamabob
-        let vars: HashMap<usize, Value> = table.vars.enumerate().map(|(i, _)| (i, self.get(i).unwrap_or(&Value::Void).clone())).collect();
+        let vars: HashMap<usize, Option<Value>> = table.vars.enumerate().map(|(i, _)| (i, Some(self.get(i).unwrap_or(&Value::Void).clone()))).collect();
 
         // Now manually create the stack with a custom frame
         let mut data: Vec<Frame> = Vec::with_capacity(self.data.capacity());
@@ -178,7 +178,7 @@ impl FrameStack {
                     DataType::Any
                 };
 
-                // Pop the thing from the thing and return
+                // Return the next pointer after having popped the scope
                 self.table.pop();
                 Ok((frame.ret, ret_type))
             },
@@ -187,6 +187,64 @@ impl FrameStack {
     }
 
 
+
+    /// Declares a variable with the given index.
+    /// 
+    /// # Arguments
+    /// - `def`: The variable to declare.
+    /// 
+    /// # Returns
+    /// Nothing, but does allow the variable to have a value from this point onwards.
+    /// 
+    /// # Errors
+    /// This function may error if the given definition is unknown.
+    pub fn declare(&mut self, def: usize) -> Result<(), Error> {
+        // Throw a special error if the stack is empty
+        if self.data.is_empty() { return Err(Error::EmptyError); }
+
+        // Search the frames (in reverse order)
+        for f in self.data.iter_mut().rev() {
+            if def >= f.offset {
+                // Insert it, possibly overriding the old one
+                if f.vars.insert(def, None).is_some() {
+                    return Err(Error::DuplicateDeclaration{ name: self.table.var(def).name.clone() });
+                }
+                break;
+            }
+        }
+
+        // Done
+        Ok(())
+    }
+
+    /// DUndclares a variable with the given index, effectively brining it back to uninitialized status.
+    /// 
+    /// # Arguments
+    /// - `def`: The variable to undeclare.
+    /// 
+    /// # Returns
+    /// Nothing, but does require the variable to be declared before it can be used.
+    /// 
+    /// # Errors
+    /// This function may error if the given definition is unknown.
+    pub fn undeclare(&mut self, def: usize) -> Result<(), Error> {
+        // Throw a special error if the stack is empty
+        if self.data.is_empty() { return Err(Error::EmptyError); }
+
+        // Search the frames (in reverse order)
+        for f in self.data.iter_mut().rev() {
+            if def >= f.offset {
+                // Insert it, possibly overriding the old one
+                if f.vars.remove(&def).is_none() {
+                    return Err(Error::UndeclaredUndeclaration{ name: self.table.var(def).name.clone() });
+                }
+                break;
+            }
+        }
+
+        // Done
+        Ok(())
+    }
 
     /// Sets the variable with the given index to the given Value.
     /// 
@@ -214,7 +272,7 @@ impl FrameStack {
         for f in self.data.iter_mut().rev() {
             if def >= f.offset {
                 // Insert it, possibly overriding the old one
-                f.vars.insert(def, value);
+                if f.vars.insert(def, Some(value)).is_none() { return Err(Error::UndeclaredVariable{ name: var.name.clone() }); }
                 break;
             }
         }
@@ -240,7 +298,10 @@ impl FrameStack {
         // Search the frames (in reverse order)
         for f in self.data.iter().rev() {
             if let Some(v) = f.vars.get(&def) {
-                return Ok(v)
+                match v {
+                    Some(v) => { return Ok(v); },
+                    None    => { return Err(Error::UninitializedVariable{ name: self.table.var(def).name.clone() }) },
+                }
             }
         }
 

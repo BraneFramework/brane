@@ -4,7 +4,7 @@
 //  Created:
 //    09 Sep 2022, 11:54:53
 //  Last edited:
-//    09 Nov 2022, 11:00:11
+//    19 Jan 2023, 15:46:52
 //  Auto updated?
 //    Yes
 // 
@@ -22,7 +22,6 @@ pub mod varreg;
 pub mod frame_stack;
 pub mod thread;
 pub mod vm;
-#[cfg(test)]
 pub mod dummy;
 
 // Pull some stuff into the crate namespace
@@ -31,8 +30,6 @@ pub use spec::RunState;
 pub use value::{FullValue, Value};
 pub use thread::Thread;
 pub use vm::Vm;
-#[cfg(test)]
-pub use dummy::DummyVm;
 
 
 // A few useful macros

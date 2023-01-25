@@ -4,7 +4,7 @@
 //  Created:
 //    10 Aug 2022, 15:39:44
 //  Last edited:
-//    19 Dec 2022, 09:47:39
+//    17 Jan 2023, 15:00:42
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,6 @@ use nom::error::{ContextError, ParseError};
 use nom::{branch, combinator as comb};
 use nom::{IResult, Parser};
 
-use super::wrap_pp;
 use super::ast::Literal;
 
 use crate::spec::TextRange;
@@ -79,41 +78,39 @@ fn resolve_escape(raw: String) -> String {
 /// # Returns
 /// The remaining list of tokens and the parsed Literal if there was anything to parse. Otherwise, a `nom::Error` is returned (which may be a real error or simply 'could not parse').
 pub fn parse<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(input: Tokens<'a>) -> IResult<Tokens, Literal, E> {
-    wrap_pp!(
-        branch::alt((
-            comb::map(tag_token!(Token::Null), |t| Literal::Null {
-                range : TextRange::from(t.tok[0].inner()),
-            }),
-            comb::map(tag_token!(Token::Boolean), |t| Literal::Boolean {
-                value : t.tok[0].as_bool(),
+    branch::alt((
+        comb::map(tag_token!(Token::Null), |t| Literal::Null {
+            range : TextRange::from(t.tok[0].inner()),
+        }),
+        comb::map(tag_token!(Token::Boolean), |t| Literal::Boolean {
+            value : t.tok[0].as_bool(),
 
-                range : TextRange::from(t.tok[0].inner()),
-            }),
-            comb::map(tag_token!(Token::Integer), |t| Literal::Integer {
-                value : t.tok[0].as_i64(),
+            range : TextRange::from(t.tok[0].inner()),
+        }),
+        comb::map(tag_token!(Token::Integer), |t| Literal::Integer {
+            value : t.tok[0].as_i64(),
 
-                range : TextRange::from(t.tok[0].inner()),
-            }),
-            comb::map(tag_token!(Token::Real),    |t| Literal::Real {
-                value : t.tok[0].as_f64(),
+            range : TextRange::from(t.tok[0].inner()),
+        }),
+        comb::map(tag_token!(Token::Real),    |t| Literal::Real {
+            value : t.tok[0].as_f64(),
 
-                range : TextRange::from(t.tok[0].inner()),
-            }),
-            comb::map(tag_token!(Token::String),  |t| Literal::String {
-                value : resolve_escape(t.tok[0].as_string()),
+            range : TextRange::from(t.tok[0].inner()),
+        }),
+        comb::map(tag_token!(Token::String),  |t| Literal::String {
+            value : resolve_escape(t.tok[0].as_string()),
 
-                range : {
-                    // Wrap one back and forth for the quotes
-                    let mut r = TextRange::from(t.tok[0].inner());
-                    r.start.col -= 1;
-                    r.end.col += 1;
-                    r
-                },
-            }),
-            comb::map(tag_token!(Token::Unit),    |t| Literal::Void {
-                range : TextRange::from(t.tok[0].inner()),
-            }),
-        ))
-        .parse(input),
-    "LITERAL")
+            range : {
+                // Wrap one back and forth for the quotes
+                let mut r = TextRange::from(t.tok[0].inner());
+                r.start.col -= 1;
+                r.end.col += 1;
+                r
+            },
+        }),
+        comb::map(tag_token!(Token::Unit),    |t| Literal::Void {
+            range : TextRange::from(t.tok[0].inner()),
+        }),
+    ))
+    .parse(input)
 }
