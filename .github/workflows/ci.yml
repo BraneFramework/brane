@@ -4,16 +4,49 @@ on:
   push:
 
 jobs:
-  unit-tests:
-    name: Unit Tests (${{ matrix.os }})
+  unit-tests-linux:
+    name: Unit Tests (linux)
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [ubuntu-latest]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+
+      - name: Installing dependencies to build `protoc`...
+        run: sudo apt-get update && sudo apt-get install -y curl cmake gcc g++ make
+
+      - name: Install `protoc` to compile protobuf files
+        run: |
+          curl -L https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.21.11.tar.gz | tar -xz \
+          && cd ./protobuf-3.21.11 \
+          && cmake -Dprotobuf_BUILD_TESTS=off . \
+          && cmake --build . -j $(nproc) \
+          && sudo mv $(readlink protoc) /usr/bin/protoc \
+          && cd ../ \
+          && rm -r ./protobuf-3.21.11
+
+      - name: Build project
+        run: PROTOC="./protoc" cargo build -v
+      
+      - name: Run unit tests
+        run: cargo test -v --lib
+
+  unit-tests-macos:
+    name: Unit Tests (macos)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install `protoc` to compile protobuf files
+        run: brew install protobuf
       
       - name: Build project
         run: cargo build -v

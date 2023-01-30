@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    18 Jan 2023, 17:28:09
+//    26 Jan 2023, 09:58:30
 //  Auto updated?
 //    Yes
 // 
@@ -22,11 +22,11 @@ use console::style;
 use enum_debug::EnumDebug as _;
 use log::{debug, info, warn};
 
-use brane_cfg::spec::Address;
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::backend::{BackendFile, Credentials};
 use brane_cfg::node::{CentralConfig, CentralKafkaTopics, CentralNames, CentralPaths, CentralPorts, CentralServices, CommonNames, CommonPaths, CommonPorts, CommonServices, NodeConfig, NodeKindConfig, WorkerConfig, WorkerNames, WorkerPaths, WorkerPorts, WorkerServices};
 use brane_cfg::policies::{ContainerPolicy, PolicyFile, UserPolicy};
+use specifications::address::Address;
 use specifications::package::Capability;
 
 pub use crate::errors::GenerateError as Error;

@@ -4,7 +4,7 @@
 //  Created:
 //    04 Feb 2022, 10:35:12
 //  Last edited:
-//    05 Jan 2023, 11:18:14
+//    26 Jan 2023, 09:58:44
 //  Auto updated?
 //    Yes
 // 
@@ -20,9 +20,9 @@ use enum_debug::EnumDebug as _;
 use reqwest::StatusCode;
 use scylla::transport::errors::NewSessionError;
 
-use brane_cfg::spec::Address;
 use brane_cfg::node::NodeKind;
 use brane_shr::debug::PrettyListFormatter;
+use specifications::address::Address;
 use specifications::version::Version;
 
 

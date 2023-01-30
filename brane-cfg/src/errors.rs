@@ -4,7 +4,7 @@
 //  Created:
 //    04 Oct 2022, 11:09:56
 //  Last edited:
-//    12 Dec 2022, 13:56:25
+//    26 Jan 2023, 13:28:31
 //  Auto updated?
 //    Yes
 // 
@@ -21,6 +21,11 @@ use std::path::PathBuf;
 /// Errors that relate to certificate loading and such.
 #[derive(Debug)]
 pub enum CertsError {
+    /// A given certificate file could not be parsed.
+    ClientCertParseError{ err: x509_parser::nom::Err<x509_parser::error::X509Error> },
+    /// A given certificate did not have the `CN`-field specified.
+    ClientCertNoCN{ subject: String },
+
     /// Failed to open a given file.
     FileOpenError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to read a given file.
@@ -43,6 +48,9 @@ impl Display for CertsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use CertsError::*;
         match self {
+            ClientCertParseError{ err } => write!(f, "Failed to parse given client certificate file: {}", err),
+            ClientCertNoCN{ subject }   => write!(f, "Certificate subject field '{}' does not specify a CN", subject),
+
             FileOpenError{ what, path, err } => write!(f, "Failed to open {} file '{}': {}", what, path.display(), err),
             FileReadError{ what, path, err } => write!(f, "Failed to read {} file '{}': {}", what, path.display(), err),
             UnknownItemError{ what, path }   => write!(f, "Encountered non-certificate, non-key item in {} file '{}'", what, path.display()),
@@ -73,7 +81,6 @@ pub enum InfraFileError {
     /// Failed to serialze the NodeConfig.
     ConfigSerializeError{ err: serde_yaml::Error },
 }
-
 impl Display for InfraFileError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use InfraFileError::*;
@@ -86,7 +93,6 @@ impl Display for InfraFileError {
         }
     }
 }
-
 impl Error for InfraFileError {}
 
 
@@ -104,7 +110,6 @@ pub enum CredsFileError {
     /// Failed to serialze the NodeConfig.
     ConfigSerializeError{ err: serde_yaml::Error },
 }
-
 impl Display for CredsFileError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use CredsFileError::*;
@@ -117,31 +122,7 @@ impl Display for CredsFileError {
         }
     }
 }
-
 impl Error for CredsFileError {}
-
-
-
-/// Errors that relate to parsing Addresses.
-#[derive(Debug)]
-pub enum AddressParseError {
-    /// Missing the colon separator (':') in the address.
-    MissingColon{ raw: String },
-    /// Invalid port number.
-    IllegalPortNumber{ raw: String, err: std::num::ParseIntError },
-}
-
-impl Display for AddressParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use AddressParseError::*;
-        match self {
-            MissingColon{ raw }           => write!(f, "Missing address/port separator ':' in '{}' (did you forget to define a port?)", raw),
-            IllegalPortNumber{ raw, err } => write!(f, "Illegal port number '{}': {}", raw, err),
-        }
-    }
-}
-
-impl Error for AddressParseError {}
 
 
 
@@ -168,7 +149,6 @@ pub enum NodeConfigError {
     /// Failed to write to the given writer.
     WriterWriteError{ err: std::io::Error },
 }
-
 impl Display for NodeConfigError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use NodeConfigError::*;
@@ -187,7 +167,6 @@ impl Display for NodeConfigError {
         }
     }
 }
-
 impl Error for NodeConfigError {}
 
 
@@ -205,7 +184,6 @@ pub enum PolicyFileError {
     /// Failed to serialze the NodeConfig.
     ConfigSerializeError{ err: serde_yaml::Error },
 }
-
 impl Display for PolicyFileError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use PolicyFileError::*;
@@ -218,5 +196,4 @@ impl Display for PolicyFileError {
         }
     }
 }
-
 impl Error for PolicyFileError {}

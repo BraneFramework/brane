@@ -4,7 +4,7 @@
 //  Created:
 //    09 Nov 2022, 11:12:06
 //  Last edited:
-//    23 Jan 2023, 16:17:27
+//    30 Jan 2023, 13:50:17
 //  Auto updated?
 //    Yes
 // 
@@ -254,7 +254,6 @@ pub enum Error {
     /// Failed to extract the given tarball.
     TarExtractError{ tarball: PathBuf, entry: PathBuf, target: PathBuf, err: std::io::Error },
 }
-
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Error::*;
@@ -284,7 +283,6 @@ impl Display for Error {
         }
     }
 }
-
 impl std::error::Error for Error {}
 
 

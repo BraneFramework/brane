@@ -4,7 +4,7 @@
 //  Created:
 //    16 Nov 2022, 16:54:43
 //  Last edited:
-//    05 Jan 2023, 11:40:32
+//    26 Jan 2023, 09:56:22
 //  Auto updated?
 //    Yes
 // 
@@ -25,8 +25,9 @@ use std::str::FromStr;
 use enum_debug::EnumDebug;
 use serde::{Deserialize, Serialize};
 
+use specifications::address::Address;
+
 pub use crate::errors::NodeConfigError as Error;
-use crate::spec::Address;
 
 
 /***** AUXILLARY *****/

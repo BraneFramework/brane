@@ -12,17 +12,18 @@
  *   Implements version queriers for the Brane framework.
 **/
 
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use log::debug;
 use reqwest::{Response, StatusCode};
 
 use specifications::arch::Arch;
-use specifications::registry::RegistryConfig;
 use specifications::version::Version;
 
 use crate::errors::VersionError;
 use crate::utils::get_config_dir;
+use crate::instance::InstanceInfo;
 
 
 /***** HELPER STRUCTS *****/
@@ -87,32 +88,26 @@ impl RemoteVersion {
 
         // Try to get the registry file path
         debug!(" > Reading registy.yml...");
-        let config_file = match get_config_dir() {
-            Ok(dir)  => dir.join("registry.yml"),
-            Err(err) => { return Err(VersionError::ConfigDirError{ err }); }
-        };
-
-        // We are, so load the registry file
-        let registry = match RegistryConfig::from_path(&config_file) {
-            Ok(registry) => registry,
-            Err(err)     => { return Err(VersionError::RegistryFileError{ err }); }
+        let config: InstanceInfo = match InstanceInfo::from_active_path() {
+            Ok(config) => config,
+            Err(err)   => { return Err(VersionError::InstanceInfoError{ err }); }
         };
 
         // Pass to the other constructor
-        Self::from_registry_file(registry).await
+        Self::from_instance_info(config).await
     }
 
-    /// Constructor for the RemoteVersion, which creates it from a given RegistryConfig.
+    /// Constructor for the RemoteVersion, which creates it from a given IdentityFile.
     /// 
     /// # Arguments
-    /// - `registry`: The RegistryConfig file to use to find the remote registry properties.
+    /// - `info`: The InstanceInfo file to use to find the remote registry's properties.
     /// 
     /// # Returns
     /// A new RemoteVersion instance on success, or else a VersionError.
-    async fn from_registry_file(registry: RegistryConfig) -> Result<Self, VersionError> {
+    async fn from_instance_info(info: InstanceInfo) -> Result<Self, VersionError> {
         // Use reqwest for the API call
         debug!(" > Querying...");
-        let mut url: String = registry.url.clone(); url.push_str("/version");
+        let mut url: String = info.api.to_string(); url.push_str("/version");
         let response: Response = match reqwest::get(&url).await {
             Ok(version) => version,
             Err(err)    => { return Err(VersionError::RequestError{ url, err }); }
@@ -197,22 +192,22 @@ pub async fn handle() -> Result<(), VersionError> {
     println!();
 
     // If the registry file exists, then also do the remote
-    let config_file = match get_config_dir() {
+    let config_file: PathBuf = match get_config_dir() {
         Ok(dir)  => dir.join("registry.yml"),
         Err(err) => { return Err(VersionError::ConfigDirError{ err }); }
     };
     if config_file.exists() {
         // Get the registry file from it
-        let registry = match RegistryConfig::from_path(&config_file) {
-            Ok(registry) => registry,
-            Err(err)     => { return Err(VersionError::RegistryFileError{ err }); }
+        let config = match InstanceInfo::from_path(&config_file) {
+            Ok(config) => config,
+            Err(err)   => { return Err(VersionError::InstanceInfoError{ err }); }
         };
 
         // Print the URL
-        println!("Remote Brane instance at '{}'", &registry.url);
+        println!("Remote Brane instance at '{}'", &config.api);
         
         // Get the version
-        let remote = RemoteVersion::from_registry_file(registry).await?;
+        let remote = RemoteVersion::from_instance_info(config).await?;
         println!(" - Version      : v{}", remote.version);
         println!(" - Architecture : <TBD>");
         println!();

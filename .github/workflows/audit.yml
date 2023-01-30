@@ -54,6 +54,19 @@ jobs:
           override: true
           components: clippy, rustfmt
 
+      - name: Installing dependencies to build `protoc`...
+        run: sudo apt-get update && sudo apt-get install -y curl cmake gcc g++ make
+
+      - name: Install `protoc` to compile protobuf files
+        run: |
+          curl -L https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.21.11.tar.gz | tar -xz \
+          && cd ./protobuf-3.21.11 \
+          && cmake -Dprotobuf_BUILD_TESTS=off . \
+          && cmake --build . -j $(nproc) \
+          && sudo mv $(readlink protoc) /usr/bin/protoc \
+          && cd ../ \
+          && rm -r ./protobuf-3.21.11
+
       - name: Run linter (clippy)
         uses: actions-rs/cargo@v1
         with:
