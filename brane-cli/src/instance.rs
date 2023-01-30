@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    30 Jan 2023, 13:41:01
+//    30 Jan 2023, 14:12:56
 //  Auto updated?
 //    Yes
 // 
@@ -389,7 +389,7 @@ pub async fn list(show_status: bool) -> Result<(), Error> {
     }
 
     // Fetch the instances directory
-    let instances_dir: PathBuf = match ensure_instances_dir(false) {
+    let instances_dir: PathBuf = match ensure_instances_dir(true) {
         Ok(dir)  => dir,
         Err(err) => { return Err(Error::InstancesDirError{ err }); },
     };
