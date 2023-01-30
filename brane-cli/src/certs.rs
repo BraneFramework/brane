@@ -4,7 +4,7 @@
 //  Created:
 //    30 Jan 2023, 09:35:00
 //  Last edited:
-//    30 Jan 2023, 13:45:21
+//    30 Jan 2023, 15:01:58
 //  Auto updated?
 //    Yes
 // 
@@ -444,7 +444,7 @@ pub fn list(instance_name: Option<String>, all: bool) -> Result<(), Error> {
     let instances: Vec<(String, PathBuf)> = if all {
         // Get the instances dir
         debug!("Finding instances...");
-        let instances_dir: PathBuf = match ensure_instances_dir(false) {
+        let instances_dir: PathBuf = match ensure_instances_dir(true) {
             Ok(dir)  => dir,
             Err(err) => { return Err(Error::InstancesDirError{ err }); },
         };
