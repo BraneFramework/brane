@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    30 Jan 2023, 14:12:56
+//    30 Jan 2023, 14:36:13
 //  Auto updated?
 //    Yes
 // 
@@ -519,7 +519,9 @@ pub fn select(name: String) -> Result<(), Error> {
         Ok(path) => path,
         Err(err) => { return Err(Error::ActiveInstancePathError{ err }); },
     };
-    if link_path.exists() {
+    // We do the check a bit ambigiously to not check for the file's existance but for the link's
+    let res: Result<_, std::io::Error> = fs::read_link(&link_path);
+    if res.is_ok() || res.unwrap_err().kind() != std::io::ErrorKind::NotFound {
         debug!("Removing previous active instance links...");
         if !link_path.is_symlink() { return Err(Error::ActiveInstanceNotASoftlinkError{ path: link_path }); }
         if let Err(err) = fs::remove_file(&link_path) { return Err(Error::ActiveInstanceRemoveError{ path: link_path, err }); }
