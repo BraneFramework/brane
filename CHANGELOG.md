@@ -2,7 +2,7 @@
 
 All notable changes to the Brane framework will be documented in this file.
 
-## [1.1.0] - 2023-01-17
+## [2.0.0] - 2023-01-30
 ### Added
 - Timing prints to various parts of the framework. They are a bit crude, still, but do the job.
 
