@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    30 Jan 2023, 12:56:15
+//    30 Jan 2023, 13:53:06
 //  Auto updated?
 //    Yes
 // 
@@ -309,6 +309,9 @@ impl Error for BuildError {}
 /// Collects errors relating to certificate management.
 #[derive(Debug)]
 pub enum CertsError {
+    /// The active instance file exists but is not a softlink.
+    ActiveInstanceNotASoftlinkError{ path: PathBuf },
+
     /// Failed to parse the name in a certificate.
     CertParseError{ path: PathBuf, i: usize, err: x509_parser::nom::Err<x509_parser::error::X509Error> },
     /// Failed to get the extensions from the given certificate.
@@ -366,6 +369,8 @@ impl Display for CertsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use CertsError::*;
         match self {
+            ActiveInstanceNotASoftlinkError{ path } => write!(f, "Active instance link '{}' exists but is not a symlink", path.display()),
+
             CertParseError{ path, i, err }      => write!(f, "Failed to parse certificate {} in file '{}': {}", i, path.display(), err),
             CertExtensionsError{ path, i, err } => write!(f, "Failed to get extensions in certificate {} in file '{}': {}", i, path.display(), err),
             CertNoKeyUsageError{ path, i }      => write!(f, "Certificate {} in file '{}' does not have key usage defined (extension)", i, path.display()),
@@ -376,7 +381,7 @@ impl Display for CertsError {
             InstanceDirError{ err }              => write!(f, "Failed to get instance directory: {}", err),
             UnknownInstance{ name }              => write!(f, "Unknown instance '{}'", name),
             ActiveInstancePathError{ err }       => write!(f, "Failed to get active instance symlink path: {}", err),
-            NoActiveInstance                     => write!(f, "No active instance is set (run 'brane instance select' first, or specify '--instance' in this subcommand to specify one manually)"),
+            NoActiveInstance                     => write!(f, "No active instance is set (run 'brane instance select' first)"),
             ActiveInstanceReadError{ path, err } => write!(f, "Failed to read active instance link '{}': {}", path.display(), err),
             PemLoadError{ path, err }            => write!(f, "Failed to load PEM file '{}': {}", path.display(), err),
             NoCaCert                             => write!(f, "No CA certificate given (specify at least one certificate that has 'CRL Sign' key usage flag set)"),
@@ -415,6 +420,8 @@ pub enum DataError {
     // StoreLoadError{ err: brane_cfg::certs::Error },
     /// Failed to open/read a given file.
     FileReadError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to get the directory of the certificates.
+    CertsDirError{ err: CertsError },
     /// Failed to parse an identity file.
     IdentityFileError{ path: PathBuf, err: reqwest::Error },
     /// Failed to parse a certificate.
@@ -443,12 +450,13 @@ pub enum DataError {
     DownloadStreamError{ address: String, err: reqwest::Error },
     /// Failed to create the file to which we write the download stream.
     TarCreateError{ path: PathBuf, err: std::io::Error },
-    /// Failed to (re-)open the file to which we've written the download stream.
-    TarOpenError{ path: PathBuf, err: std::io::Error },
+    // /// Failed to (re-)open the file to which we've written the download stream.
+    // TarOpenError{ path: PathBuf, err: std::io::Error },
     /// Failed to write to the file where we write the download stream.
     TarWriteError{ path: PathBuf, err: std::io::Error },
     /// Failed to extract the downloaded tar.
-    TarExtractError{ source: PathBuf, target: PathBuf, err: std::io::Error },
+    // TarExtractError{ source: PathBuf, target: PathBuf, err: std::io::Error },
+    TarExtractError{ err: brane_shr::fs::Error },
 
     /// Failed to get the datasets folder
     DatasetsError{ err: UtilError },
@@ -475,7 +483,7 @@ pub enum DataError {
     /// The given "keypair" was not a keypair at all
     NoEqualsInKeyPair{ raw: String },
     /// Failed to fetch the login file.
-    LoginFileError{ err: UtilError },
+    InstanceInfoError{ err: InstanceError },
     /// Failed to create the remote data index.
     RemoteDataIndexError{ address: String, err: brane_tsk::errors::ApiError },
     /// Failed to select the download location in case there are multiple.
@@ -506,6 +514,7 @@ impl Display for DataError {
             // KeypairLoadError{ err }                          => write!(f, "Failed to load keypair: {}", err),
             // StoreLoadError{ err }                            => write!(f, "Failed to load root store: {}", err),
             FileReadError{ what, path, err }         => write!(f, "Failed to read {} file '{}': {}", what, path.display(), err),
+            CertsDirError{ err }                     => write!(f, "Failed to get certificates directory for active instance: {}", err),
             IdentityFileError{ path, err }           => write!(f, "Failed to parse identity file '{}': {}", path.display(), err),
             CertificateError{ path, err }            => write!(f, "Failed to parse certificate '{}': {}", path.display(), err),
             DirNotADirError{ what, path }            => write!(f, "{} directory '{}' is not a directory", what, path.display()),
@@ -520,9 +529,9 @@ impl Display for DataError {
             ClientCreateError{ err }                 => write!(f, "Failed to create new client: {}", err),
             DownloadStreamError{ address, err }      => write!(f, "Failed to get next chunk in download stream from '{}': {}", address, err),
             TarCreateError{ path, err }              => write!(f, "Failed to create tarball file '{}': {}", path.display(), err),
-            TarOpenError{ path, err }                => write!(f, "Failed to re-open tarball file '{}': {}", path.display(), err),
+            // TarOpenError{ path, err }                => write!(f, "Failed to re-open tarball file '{}': {}", path.display(), err),
             TarWriteError{ path, err }               => write!(f, "Failed to write to tarball file '{}': {}", path.display(), err),
-            TarExtractError{ source, target, err }   => write!(f, "Failed to extract '{}' to '{}': {}", source.display(), target.display(), err),
+            TarExtractError{ err }                   => write!(f, "Failed to extract downloaded archive: {}", err),
 
             DatasetsError{ err }       => write!(f, "Failed to get datasets folder: {}", err),
             LocalDataIndexError{ err } => write!(f, "Failed to get local data index: {}", err),
@@ -537,7 +546,7 @@ impl Display for DataError {
             DataInfoWriteError{ err }          => write!(f, "Failed to write DataInfo file: {}", err),
 
             NoEqualsInKeyPair{ raw }             => write!(f, "Missing '=' in key/value pair '{}'", raw),
-            LoginFileError{ err }                => write!(f, "Could not read login file: {}", err),
+            InstanceInfoError{ err }             => write!(f, "Could not read active instance info file: {}", err),
             RemoteDataIndexError{ address, err } => write!(f, "Failed to fetch remote data index from '{}': {}", address, err),
             DataSelectError{ err }               => write!(f, "Failed to ask the user (you!) to select a download location: {}", err),
             UnknownLocation{ name }              => write!(f, "Unknown location '{}'", name),
@@ -669,7 +678,7 @@ impl Display for InstanceError {
             ActiveInstanceRemoveError{ path, err }         => write!(f, "Failed to remove existing active instance link '{}': {}", path.display(), err),
             ActiveInstanceCreateError{ path, target, err } => write!(f, "Failed to create active instance link '{}' (points to '{}'): {}", path.display(), target.display(), err),
 
-            NoActiveInstance => write!(f, "No instance is access"),
+            NoActiveInstance => write!(f, "No active instance is set (run 'brane instance select' first)"),
         }
     }
 }
@@ -731,7 +740,7 @@ impl std::error::Error for PackageError {}
 #[derive(Debug)]
 pub enum RegistryError {
     /// Wrapper error indeed.
-    ConfigFileError{ err: UtilError },
+    InstanceInfoError{ err: InstanceError },
 
     /// Failed to successfully send the package pull request
     PullRequestError{ url: String, err: reqwest::Error },
@@ -792,7 +801,7 @@ impl Display for RegistryError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use RegistryError::*;
         match self {
-            ConfigFileError{ err } => write!(f, "{}", err),
+            InstanceInfoError{ err } => write!(f, "{}", err),
 
             PullRequestError{ url, err }             => write!(f, "Could not send the request to pull pacakge to '{}': {}", url, err),
             PullRequestFailure{ url, status }        => write!(f, "Request to pull package from '{}' was met with status code {} ({})", url, status.as_u16(), status.canonical_reason().unwrap_or("???")),
@@ -838,7 +847,7 @@ pub enum ReplError {
     /// Failed to create the new rustyline editor.
     EditorCreateError{ err: rustyline::error::ReadlineError },
     /// Failed to load the login file.
-    LoginFileError{ err: UtilError },
+    InstanceInfoError{ err: InstanceError },
 
     /// Failed to initialize one of the states.
     InitializeError{ what: &'static str, err: RunError },
@@ -854,7 +863,7 @@ impl Display for ReplError {
             ConfigDirCreateError{ err } => write!(f, "Could not create the configuration directory for the REPL history: {}", err),
             HistoryFileError{ err }     => write!(f, "Could not get REPL history file location: {}", err),
             EditorCreateError{ err }    => write!(f, "Failed to create new rustyline editor: {}", err),
-            LoginFileError{ err }       => write!(f, "{}", err),
+            InstanceInfoError{ err }    => write!(f, "{}", err),
 
             InitializeError{ what, err } => write!(f, "Failed to initialize {} and associated structures: {}", what, err),
             RunError{ what, err }        => write!(f, "Failed to execute workflow on {}: {}", what, err),
@@ -884,7 +893,7 @@ pub enum RunError {
     ResultsDirCreateError{ err: std::io::Error },
 
     /// Failed to fetch the login file.
-    RegistryFileError{ err: UtilError },
+    InstanceInfoError{ err: InstanceError },
     /// Failed to create the remote package index.
     RemotePackageIndexError{ address: String, err: brane_tsk::errors::ApiError },
     /// Failed to create the remote data index.
@@ -938,7 +947,7 @@ impl Display for RunError {
             DatasetsDirError{ err }        => write!(f, "Failed to get datasets directory: {}", err),
             ResultsDirCreateError{ err }   => write!(f, "Failed to create new temporary directory as an intermediate result directory: {}", err),
 
-            RegistryFileError{ err }                => write!(f, "Could not read registry file: {}", err),
+            InstanceInfoError{ err }                => write!(f, "{}", err),
             RemotePackageIndexError{ address, err } => write!(f, "Failed to fetch remote package index from '{}': {}", address, err),
             RemoteDataIndexError{ address, err }    => write!(f, "Failed to fetch remote data index from '{}': {}", address, err),
             RemoteDelegatesError{ address, err }    => write!(f, "Failed to fetch delegates map from '{}': {}", address, err),
@@ -1070,7 +1079,7 @@ pub enum VersionError {
     /// Could not get the configuration directory
     ConfigDirError{ err: UtilError },
     /// Could not open the login file
-    IdentityFileError{ err: UtilError },
+    InstanceInfoError{ err: InstanceError },
     /// Could not perform the request
     RequestError{ url: String, err: reqwest::Error },
     /// The request returned a non-200 exit code
@@ -1087,7 +1096,7 @@ impl Display for VersionError {
             VersionParseError{ raw, err } => write!(f, "Could parse '{}' as Version: {}", raw, err),
 
             ConfigDirError{ err }         => write!(f, "Could not get the Brane configuration directory: {}", err),
-            IdentityFileError{ err }      => write!(f, "{}", err),
+            InstanceInfoError{ err }      => write!(f, "{}", err),
             RequestError{ url, err }      => write!(f, "Could not perform request to '{}': {}", url, err),
             RequestFailure{ url, status } => write!(f, "Request to '{}' returned non-zero exit code {} ({})", url, status.as_u16(), status.canonical_reason().unwrap_or("<???>")),
             RequestBodyError{ url, err }  => write!(f, "Could not get body from response from '{}': {}", url, err),
@@ -1185,11 +1194,6 @@ pub enum UtilError {
     /// The instance folder for a specific instance did not exist.
     BraneInstanceDirNotFound{ path: PathBuf, name: String },
 
-    /// Did not find the identity file.
-    IdentityFileNotFound{ path: PathBuf },
-    /// Could not get the registry login info
-    IdentityFileError{ err: specifications::identity::IdentityFileError },
-
     /// The given name is not a valid bakery name.
     InvalidBakeryName{ name: String },
 }
@@ -1198,9 +1202,6 @@ impl Display for UtilError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use UtilError::*;
         match self {
-            IdentityFileNotFound{ .. } => write!(f, "Identity file not found (login first; run `brane login`)"),
-            IdentityFileError{ err }   => write!(f, "Could not get the identity file: {}", err),
-
             DockerConnectionFailed{ err }        => write!(f, "Could not connect to local Docker instance: {}", err),
             DockerVersionError{ err }            => write!(f, "Could not get version of the local Docker instance: {}", err),
             DockerNoVersion                      => write!(f, "Local Docker instance doesn't report a version number"),

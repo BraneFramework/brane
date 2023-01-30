@@ -25,7 +25,8 @@ use specifications::package::{PackageKind, PackageInfo};
 use specifications::version::Version;
 
 use crate::errors::RegistryError;
-use crate::utils::{get_packages_dir, get_login_file, ensure_package_dir, ensure_packages_dir};
+use crate::utils::{get_packages_dir, ensure_package_dir, ensure_packages_dir};
+use crate::instance::InstanceInfo;
 
 
 type DateTimeUtc = DateTime<Utc>;
@@ -41,7 +42,7 @@ type DateTimeUtc = DateTime<Utc>;
 /// This function may error if we could not find, read or parse the config file with the login data. If not found, this likely indicates the user hasn't logged-in yet.
 #[inline]
 pub fn get_graphql_endpoint() -> Result<String, RegistryError> {
-    Ok(format!("{}/graphql", get_login_file().map_err(|err| RegistryError::ConfigFileError{ err })?.api_service))
+    Ok(format!("{}/graphql", InstanceInfo::from_active_path().map_err(|err| RegistryError::InstanceInfoError{ err })?.api))
 }
 
 /// Get the package endpoint of the Brane API.
@@ -53,7 +54,7 @@ pub fn get_graphql_endpoint() -> Result<String, RegistryError> {
 /// This function may error if we could not find, read or parse the config file with the login data. If not found, this likely indicates the user hasn't logged-in yet.
 #[inline]
 pub fn get_packages_endpoint() -> Result<String, RegistryError> {
-    Ok(format!("{}/packages", get_login_file().map_err(|err| RegistryError::ConfigFileError{ err })?.api_service))
+    Ok(format!("{}/packages", InstanceInfo::from_active_path().map_err(|err| RegistryError::InstanceInfoError{ err })?.api))
 }
 
 /// Get the data endpoint of the Brane API.
@@ -65,7 +66,7 @@ pub fn get_packages_endpoint() -> Result<String, RegistryError> {
 /// This function may error if we could not find, read or parse the config file with the login data. If not found, this likely indicates the user hasn't logged-in yet.
 #[inline]
 pub fn get_data_endpoint() -> Result<String, RegistryError> {
-    Ok(format!("{}/data", get_login_file().map_err(|err| RegistryError::ConfigFileError{ err })?.api_service))
+    Ok(format!("{}/data", InstanceInfo::from_active_path().map_err(|err| RegistryError::InstanceInfoError{ err })?.api))
 }
 
 

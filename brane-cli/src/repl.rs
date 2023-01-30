@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:47
 //  Last edited:
-//    26 Jan 2023, 14:19:23
+//    30 Jan 2023, 13:31:50
 //  Auto updated?
 //    Yes
 // 
@@ -14,7 +14,6 @@
 
 use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs;
-use std::path::Path;
 
 use log::warn;
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
@@ -29,10 +28,10 @@ use brane_ast::ParserOptions;
 use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_tsk::spec::AppId;
-use specifications::identity::IdentityFile;
 
 pub use crate::errors::ReplError as Error;
-use crate::utils::{ensure_config_dir, get_history_file, get_login_file};
+use crate::utils::{ensure_config_dir, get_history_file};
+use crate::instance::InstanceInfo;
 use crate::run::{initialize_instance_vm, initialize_offline_vm, process_instance_result, process_offline_result, run_instance_vm, run_offline_vm, InstanceVmState, OfflineVmState};
 
 
@@ -174,7 +173,6 @@ impl Validator for ReplHelper {
 /// Entrypoint to the REPL, which performs the required initialization.
 /// 
 /// # Arguments
-/// - `certs_dir`: The directory with certificates proving our identity.
 /// - `proxy_addr`: The address to proxy any data transfers through if they occur.
 /// - `remote`: Whether to use the remote Brane instance in the login file to run the on instead.
 /// - `attach`: If not None, defines the session ID of an existing session to connect to.
@@ -184,7 +182,7 @@ impl Validator for ReplHelper {
 /// 
 /// # Errors
 /// This function errors if we could not properly read from/write to the terminal. Additionally, it may error if any of the given statements fails for whatever reason.
-pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remote: bool, attach: Option<AppId>, language: Language, clear: bool, profile: bool) -> Result<(), Error> {
+pub async fn start(proxy_addr: Option<String>, remote: bool, attach: Option<AppId>, language: Language, clear: bool, profile: bool) -> Result<(), Error> {
     // Build the config for the rustyline REPL.
     let config = Config::builder()
         .history_ignore_space(true)
@@ -228,13 +226,13 @@ pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remo
     println!("Welcome to the Brane REPL, press Ctrl+D to exit.\n");
     if remote {
         // Open the login file to find the remote location
-        let config: IdentityFile = match get_login_file() {
-            Ok(config) => config,
-            Err(err)   => { return Err(Error::LoginFileError{ err }); },
+        let info: InstanceInfo = match InstanceInfo::from_active_path() {
+            Ok(info) => info,
+            Err(err) => { return Err(Error::InstanceInfoError{ err }); },
         };
 
         // Run the thing
-        remote_repl(&mut rl, certs_dir, proxy_addr, config.drv_service.to_string(), attach, options, profile).await?;
+        remote_repl(&mut rl, info.api.to_string(), info.drv.to_string(), proxy_addr, attach, options, profile).await?;
     } else {
         local_repl(&mut rl, options).await?;
     }
@@ -254,21 +252,21 @@ pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remo
 /// 
 /// # Arguments
 /// - `rl`: The REPL interface we use to do the R-part of a REPL.
-/// - `certs_dir`: The directory with certificates proving our identity.
+/// - `api_endpoint`: The `brane-api` endpoint to connect to.
+/// - `drv_endpoint`: The `brane-drv` endpoint to connect to.
 /// - `proxy_addr`: The address to proxy any data transfers through if they occur.
-/// - `endpoint`: The `brane-drv` endpoint to connect to.
 /// - `attach`: If given, uses the given ID to attach to an existing session instead of creating a new one.
 /// - `options`: The ParseOptions that specify how to parse the incoming source.
 /// - `profile`: If given, prints the profile timings to stdout if reported by the remote.
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-async fn remote_repl(rl: &mut Editor<ReplHelper>, certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, endpoint: impl AsRef<str>, attach: Option<AppId>, options: ParserOptions, profile: bool) -> Result<(), Error> {
-    let certs_dir : &Path = certs_dir.as_ref();
-    let endpoint  : &str  = endpoint.as_ref();
+async fn remote_repl(rl: &mut Editor<ReplHelper>, api_endpoint: impl AsRef<str>, drv_endpoint: impl AsRef<str>, proxy_addr: Option<String>, attach: Option<AppId>, options: ParserOptions, profile: bool) -> Result<(), Error> {
+    let api_endpoint: &str  = api_endpoint.as_ref();
+    let drv_endpoint: &str  = drv_endpoint.as_ref();
 
     // First we initialize the remote thing
-    let mut state: InstanceVmState = match initialize_instance_vm(endpoint, attach, options).await {
+    let mut state: InstanceVmState = match initialize_instance_vm(api_endpoint, drv_endpoint, attach, options).await {
         Ok(state) => state,
         Err(err)  => { return Err(Error::InitializeError{ what: "remote instance client", err }); },
     };
@@ -292,13 +290,13 @@ async fn remote_repl(rl: &mut Editor<ReplHelper>, certs_dir: impl AsRef<Path>, p
                 if let Some(quit) = repl_magicks(&line) { if quit { break; } else { continue; } }
 
                 // Next, we run the VM (one snippet only ayway)
-                let res: FullValue = match run_instance_vm(endpoint, &mut state, "<stdin>", &line, profile).await {
+                let res: FullValue = match run_instance_vm(drv_endpoint, &mut state, "<stdin>", &line, profile).await {
                     Ok(res) => res,
                     Err(_)  => { continue; },
                 };
 
                 // Then, we collect and process the result
-                if let Err(err) = process_instance_result(certs_dir, &proxy_addr, res).await {
+                if let Err(err) = process_instance_result(api_endpoint, &proxy_addr, res).await {
                     error!("{}", Error::ProcessError { what: "remote instance VM", err });
                     continue;
                 }

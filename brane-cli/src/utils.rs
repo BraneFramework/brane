@@ -4,7 +4,7 @@
 //  Created:
 //    21 Feb 2022, 14:43:30
 //  Last edited:
-//    27 Jan 2023, 09:03:04
+//    30 Jan 2023, 13:12:46
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,6 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use specifications::identity::{IdentityFile, IdentityFileError};
 use specifications::package::PackageKind;
 use specifications::version::Version;
 
@@ -40,7 +39,6 @@ pub enum DependencyError {
     /// The Buildkit plugin has an incorrect version
     BuildKitMinNotMet{ got: Version, expected: Version },
 }
-
 impl Display for DependencyError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
@@ -52,7 +50,6 @@ impl Display for DependencyError {
         }
     }
 }
-
 impl Error for DependencyError {}
 
 
@@ -749,27 +746,6 @@ pub fn get_active_instance_link() -> Result<PathBuf, UtilError> {
 
     // Simply return that with the file's path
     Ok(config_dir.join("active_instance"))
-}
-
-
-
-/// Reads an IdentityFile from the local configuration (`config_dir/login.json`).
-/// 
-/// # Returns
-/// The parsed IdentityFile.
-/// 
-/// # Errors
-/// This function may error if we could not find, read or parse the config file that is the IdentityFile. If not found, this likely indicates the user hasn't logged-in yet.
-pub fn get_login_file() -> Result<IdentityFile, UtilError> {
-    // Get the configuration file path
-    let config_file = get_config_dir()?.join("login.json");
-
-    // Attempt to load it
-    match IdentityFile::from_path(&config_file) {
-        Ok(config)                                    => Ok(config),
-        Err(IdentityFileError::FileNotFound { path }) => Err(UtilError::IdentityFileNotFound{ path }),
-        Err(err)                                      => Err(UtilError::IdentityFileError{ err }),
-    }
 }
 
 

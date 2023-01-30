@@ -4,7 +4,7 @@
 //  Created:
 //    30 Jan 2023, 09:35:00
 //  Last edited:
-//    30 Jan 2023, 13:06:34
+//    30 Jan 2023, 13:45:21
 //  Auto updated?
 //    Yes
 // 
@@ -16,7 +16,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs::{self, DirEntry, File, ReadDir};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use console::{pad_str, style, Alignment};
 use dialoguer::Confirm;
@@ -161,7 +161,37 @@ enum CertificateKind {
 
 
 
-/***** LIBRARY *****/
+/***** SERVICE FUNCTIONS *****/
+/// Retrieves the path to the certificate directory of the active instance.
+/// 
+/// # Arguments
+/// - `domain`: The name of the domain for which we want to get certificates.
+/// 
+/// # Returns
+/// The path to the directory with the certificates of the active instance.
+/// 
+/// # Errors
+/// This function may error if there was no active instance or we failed to get/read its directory.
+pub fn get_active_certs_dir(domain: impl AsRef<Path>) -> Result<PathBuf, Error> {
+    // Attempt to get the active link
+    let link_path: PathBuf = match get_active_instance_link() {
+        Ok(path) => path,
+        Err(err) => { return Err(Error::ActiveInstancePathError{ err }); },
+    };
+
+    // Match valid links
+    if !link_path.exists() { return Err(Error::NoActiveInstance); }
+    if !link_path.is_symlink() { return Err(Error::ActiveInstanceNotASoftlinkError{ path: link_path }); }
+
+    // OK return the thing
+    Ok(link_path.join("certs").join(domain))
+}
+
+
+
+
+
+/***** SUBCOMMANDS *****/
 /// Adds the given certificate(s) as the certificate(s) for the given domain.
 /// 
 /// # Arguments

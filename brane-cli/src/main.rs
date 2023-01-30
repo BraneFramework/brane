@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 14:34:28
 //  Last edited:
-//    30 Jan 2023, 11:38:28
+//    30 Jan 2023, 13:58:39
 //  Auto updated?
 //    Yes
 // 
@@ -175,8 +175,6 @@ enum SubCommand {
 
     #[clap(name = "repl", about = "Start an interactive DSL session")]
     Repl {
-        #[clap(long, default_value = "./config/certs", value_names = &["path"], help = "Path to the directory with certificates that can help us prove who we are and who registries are. Specifically, the path must point to a directory with nested directories, each of which with the name of a location for which we have certificates. Then, each entry in that directory must contain `client-id.pem` (the issued client identity certificate/key) and `ca.pem` files (root certificate so we know how to trust the registry). Irrelevant if not running remotely.")]
-        certs_dir  : PathBuf,
         #[clap(short, long, value_names = &["address[:port]"], help = "If given, proxies any data transfers to this machine through the proxy at the given address. Irrelevant if not running remotely.")]
         proxy_addr : Option<String>,
 
@@ -196,8 +194,6 @@ enum SubCommand {
 
     #[clap(name = "run", about = "Run a DSL script locally")]
     Run {
-        #[clap(long, default_value = "./config/certs", value_names = &["path"], help = "Path to the directory with certificates that can help us prove who we are and who registries are. Specifically, the path must point to a directory with nested directories, each of which with the name of a location for which we have certificates. Then, each entry in that directory must contain `client-id.pem` (the issued client identity certificate/key) and `ca.pem` files (root certificate so we know how to trust the registry). Irrelevant if not running remotely.")]
-        certs_dir  : PathBuf,
         #[clap(short, long, value_names = &["address[:port]"], help = "If given, proxies any data transfers to this machine through the proxy at the given address. Irrelevant if not running remotely.")]
         proxy_addr : Option<String>,
 
@@ -329,9 +325,6 @@ enum DataSubcommand {
         #[clap(short, long, help = "The location identifiers from which we download each dataset, as `name=location` pairs.")]
         locs  : Vec<String>,
 
-        /// The folder with the certificates that we use to identify ourselves.
-        #[clap(short, long, default_value = "./config/certs", help = "Path to the certificates with which we identify ourselves to download the datasets. This should be a folder with nested folders, one for each location (and named as such) with in it 'ca.pem' and 'client-id.pem'.")]
-        certs_dir  : PathBuf,
         /// The address to proxy the transfer through.
         #[clap(short, long, help = "If given, proxies the transfer through the given proxy.")]
         proxy_addr : Option<String>,
@@ -364,8 +357,8 @@ enum DataSubcommand {
 /// Defines the subcommands for the instance subommand
 #[derive(Parser)]
 enum InstanceSubcommand {
-    #[clap(name = "new", about = "Defines a new instance to connect to.")]
-    New {
+    #[clap(name = "add", about = "Defines a new instance to connect to.")]
+    Add {
         /// The instance's hostname.
         #[clap(name = "HOSTNAME", help = "The hostname of the instance to connect to. Should not contain any ports or paths, and any scheme (e.g., 'http://') is ignored.")]
         hostname : Hostname,
@@ -562,8 +555,8 @@ async fn run(options: Cli) -> Result<(), CliError> {
                 Build { file, workdir, keep_files, no_links } => {
                     if let Err(err) = data::build(&file, workdir.unwrap_or_else(|| file.parent().map(|p| p.into()).unwrap_or_else(|| PathBuf::from("./"))), keep_files, no_links).await { return Err(CliError::DataError { err }); }
                 },
-                Download{ names, locs, certs_dir, proxy_addr, force } => {
-                    if let Err(err) = data::download(names, locs, certs_dir, &proxy_addr, force).await { return Err(CliError::DataError { err }); }
+                Download{ names, locs, proxy_addr, force } => {
+                    if let Err(err) = data::download(names, locs, &proxy_addr, force).await { return Err(CliError::DataError { err }); }
                 },
 
                 List {} => {
@@ -654,8 +647,8 @@ async fn run(options: Cli) -> Result<(), CliError> {
             // Switch on the subcommand
             use InstanceSubcommand::*;
             match subcommand {
-                New{ hostname, api_port, drv_port, name, use_immediately, unchecked, force } => {
-                    if let Err(err) = instance::new(name.unwrap_or_else(|| hostname.hostname.clone()), hostname, api_port, drv_port, use_immediately, unchecked, force).await { return Err(CliError::InstanceError{ err }); }
+                Add{ hostname, api_port, drv_port, name, use_immediately, unchecked, force } => {
+                    if let Err(err) = instance::add(name.unwrap_or_else(|| hostname.hostname.clone()), hostname, api_port, drv_port, use_immediately, unchecked, force).await { return Err(CliError::InstanceError{ err }); }
                 }
                 Remove{ names, force } => {
                     if let Err(err) = instance::remove(names, force) { return Err(CliError::InstanceError{ err }); }
@@ -721,11 +714,11 @@ async fn run(options: Cli) -> Result<(), CliError> {
             // Now delegate the parsed pairs to the actual remove() function
             if let Err(err) = packages::remove(force, parsed).await { return Err(CliError::PackageError{ err }); };
         }
-        Repl { certs_dir, proxy_addr, bakery, clear, remote, attach, profile } => {
-            if let Err(err) = repl::start(certs_dir, proxy_addr, remote, attach, if bakery { Language::Bakery } else { Language::BraneScript }, clear, profile).await { return Err(CliError::ReplError{ err }); };
+        Repl { proxy_addr, bakery, clear, remote, attach, profile } => {
+            if let Err(err) = repl::start(proxy_addr, remote, attach, if bakery { Language::Bakery } else { Language::BraneScript }, clear, profile).await { return Err(CliError::ReplError{ err }); };
         }
-        Run { certs_dir, proxy_addr, bakery, file, dry_run, remote, profile } => {
-            if let Err(err) = run::handle(certs_dir, proxy_addr, if bakery { Language::Bakery } else { Language::BraneScript }, file, dry_run, remote, profile).await { return Err(CliError::RunError{ err }); };
+        Run { proxy_addr, bakery, file, dry_run, remote, profile } => {
+            if let Err(err) = run::handle(proxy_addr, if bakery { Language::Bakery } else { Language::BraneScript }, file, dry_run, remote, profile).await { return Err(CliError::RunError{ err }); };
         }
         Test { name, version, show_result } => {
             if let Err(err) = test::handle(name, version, show_result).await { return Err(CliError::TestError{ err }); };

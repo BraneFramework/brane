@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    30 Jan 2023, 11:28:58
+//    30 Jan 2023, 13:41:01
 //  Auto updated?
 //    Yes
 // 
@@ -67,7 +67,7 @@ impl InstanceInfo {
         if !link_path.is_symlink() { return Err(Error::ActiveInstanceNotASoftlinkError{ path: link_path }); }
 
         // Now return the path
-        Self::from_path(link_path.join("infra.yml"))
+        Self::from_path(link_path.join("info.yml"))
     }
 
     /// Reads this InstanceInfo from the default path in the local configuration directory.
@@ -216,7 +216,7 @@ impl InstanceInfo {
 /// 
 /// # Errors
 /// This function errors if we failed to generate any files, or if some check failed for this instance.
-pub async fn new(name: String, hostname: Hostname, api_port: u16, drv_port: u16, use_immediately: bool, unchecked: bool, force: bool) -> Result<(), Error> {
+pub async fn add(name: String, hostname: Hostname, api_port: u16, drv_port: u16, use_immediately: bool, unchecked: bool, force: bool) -> Result<(), Error> {
     info!("Creating new instance '{}'...", name);
 
     // Assert the name is valid

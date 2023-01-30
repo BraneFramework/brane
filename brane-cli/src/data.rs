@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 17:39:06
 //  Last edited:
-//    26 Jan 2023, 14:07:49
+//    30 Jan 2023, 13:55:04
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use async_compression::tokio::bufread::GzipDecoder;
 use chrono::Utc;
 use console::{pad_str, style, Alignment, Term};
 use dialoguer::{Confirm, Select};
@@ -33,17 +32,17 @@ use reqwest::tls::{Certificate, Identity};
 use specifications::data::{AccessKind, AssetInfo, DataIndex, DataInfo};
 use tempfile::TempDir;
 use tokio::fs as tfs;
-use tokio::io::{AsyncWriteExt, BufReader};
+use tokio::io::AsyncWriteExt;
 use tokio_stream::StreamExt;
-use tokio_tar::Archive;
 
 use brane_shr::fs::copy_dir_recursively_async;
 use brane_shr::utilities::is_ip_addr;
 use brane_tsk::spec::LOCALHOST;
-use specifications::identity::IdentityFile;
 
 use crate::errors::DataError;
-use crate::utils::{ensure_dataset_dir, ensure_datasets_dir, get_dataset_dir, get_login_file};
+use crate::instance::InstanceInfo;
+use crate::utils::{ensure_dataset_dir, ensure_datasets_dir, get_dataset_dir};
+use crate::certs::get_active_certs_dir;
 
 
 /***** LIBRARY *****/
@@ -52,8 +51,7 @@ use crate::utils::{ensure_dataset_dir, ensure_datasets_dir, get_dataset_dir, get
 /// For now, this function uses a random selection since it assumes there will usually only be one location that advertises having it. However, this is super bad practise and will lead to undefined results if there are multiple.
 /// 
 /// # Arguments
-/// - `certs_dir`: The folder with certificates that we can use to prove who we are to each location.
-/// - `endpoint`: The remote `brane-api` endpoint that we use to download the possible registries.
+/// - `api_endpoint`: The remote `brane-api` endpoint that we use to download the possible registries.
 /// - `proxy_addr`: If given, the any data transfers will be proxied through this address.
 /// - `name`: The name of the dataset to download.
 /// - `access`: The locations where it is available.
@@ -63,10 +61,9 @@ use crate::utils::{ensure_dataset_dir, ensure_datasets_dir, get_dataset_dir, get
 /// 
 /// # Errors
 /// This function errors if we failed to download the dataset somehow.
-pub async fn download_data(certs_dir: impl AsRef<Path>, endpoint: impl AsRef<str>, proxy_addr: &Option<String>, name: impl AsRef<str>, access: &HashMap<String, AccessKind>) -> Result<Option<AccessKind>, DataError> {
-    let certs_dir : &Path = certs_dir.as_ref();
-    let endpoint  : &str  = endpoint.as_ref();
-    let name      : &str  = name.as_ref();
+pub async fn download_data(api_endpoint: impl AsRef<str>, proxy_addr: &Option<String>, name: impl AsRef<str>, access: &HashMap<String, AccessKind>) -> Result<Option<AccessKind>, DataError> {
+    let api_endpoint : &str  = api_endpoint.as_ref();
+    let name         : &str  = name.as_ref();
 
 
 
@@ -77,7 +74,7 @@ pub async fn download_data(certs_dir: impl AsRef<Path>, endpoint: impl AsRef<str
     let location: &str = access.keys().choose(&mut rng).unwrap();
 
     // Send a GET-request to resolve that location to a delegate
-    let registry_addr: String = format!("{}/infra/registries/{}", endpoint, location);
+    let registry_addr: String = format!("{}/infra/registries/{}", api_endpoint, location);
     let res: Response = match reqwest::get(&registry_addr).await {
         Ok(res)  => res,
         Err(err) => { return Err(DataError::RequestError{ what: "registry", address: registry_addr, err }); },
@@ -99,7 +96,7 @@ pub async fn download_data(certs_dir: impl AsRef<Path>, endpoint: impl AsRef<str
     debug!("Loading certificate for location '{}'...", location);
     let (identity, ca_cert): (Identity, Certificate) = {
         // Compute the paths
-        let cert_dir : PathBuf = certs_dir.join(location);
+        let cert_dir : PathBuf = match get_active_certs_dir(location) { Ok(path) => path, Err(err) => { return Err(DataError::CertsDirError{ err }); }, };
         let idfile   : PathBuf = cert_dir.join("client-id.pem");
         let cafile   : PathBuf = cert_dir.join("ca.pem");
 
@@ -148,11 +145,6 @@ pub async fn download_data(certs_dir: impl AsRef<Path>, endpoint: impl AsRef<str
     if data_path.exists() {
         if !data_path.is_dir() { return Err(DataError::DirNotADirError{ what: "target data", path: data_path }); }
         if let Err(err) = tfs::remove_dir_all(&data_path).await { return Err(DataError::DirRemoveError{ what: "target data", path: data_path, err }); }
-    }
-
-    // Create a fresh one
-    if let Err(err) = tfs::create_dir(&data_path).await {
-        return Err(DataError::DirCreateError{ what: "target data", path: data_path, err });
     }
 
 
@@ -213,17 +205,7 @@ pub async fn download_data(certs_dir: impl AsRef<Path>, endpoint: impl AsRef<str
 
     /* Step 6: Extract the tar. */
     debug!("Unpacking '{}' to '{}'...", tar_path.display(), data_path.display());
-    {
-        let tar_gz: tfs::File = match tfs::File::open(&tar_path).await {
-            Ok(handle) => handle,
-            Err(err)   => { return Err(DataError::TarOpenError{ path: tar_path, err }); },
-        };
-        let tar         : GzipDecoder<_>          = GzipDecoder::new(BufReader::new(tar_gz));
-        let mut archive : Archive<GzipDecoder<_>> = Archive::new(tar);
-        if let Err(err) = archive.unpack(&data_path).await {
-            return Err(DataError::TarExtractError{ source: tar_path, target: data_path, err });
-        }
-    }
+    if let Err(err) = brane_shr::fs::unarchive_async(tar_path, &data_path).await { return Err(DataError::TarExtractError { err }); }
 
 
 
@@ -356,7 +338,6 @@ pub async fn build(file: impl AsRef<Path>, workdir: impl AsRef<Path>, _keep_file
 /// # Arguments
 /// - `names`: The names of the dataset to download.
 /// - `locs`: A name=loc keymap to specify locations for each dataset.
-/// - `certs_dir`: The directory where all the certificates live.
 /// - `proxy_addr`: The proxy address to proxy the transfer through, if any.
 /// - `force`: Forces a download, even if the dataset is already available.
 /// 
@@ -365,9 +346,7 @@ pub async fn build(file: impl AsRef<Path>, workdir: impl AsRef<Path>, _keep_file
 /// 
 /// # Errors
 /// This function may error if the download failed for any reason.
-pub async fn download(names: Vec<String>, locs: Vec<String>, certs_dir: impl AsRef<Path>, proxy_addr: &Option<String>, force: bool) -> Result<(), DataError> {
-    let certs_dir: &Path = certs_dir.as_ref();
-
+pub async fn download(names: Vec<String>, locs: Vec<String>, proxy_addr: &Option<String>, force: bool) -> Result<(), DataError> {
     // Parse the locations into a map
     let mut locations: HashMap<String, String> = HashMap::with_capacity(locs.len());
     for l in locs {
@@ -384,13 +363,13 @@ pub async fn download(names: Vec<String>, locs: Vec<String>, certs_dir: impl AsR
     }
 
     // Fetch the endpoint from the login file
-    let config: IdentityFile = match get_login_file() {
-        Ok(config) => config,
-        Err(err)   => { return Err(DataError::LoginFileError{ err }); }
+    let instance_info: InstanceInfo = match InstanceInfo::from_active_path() {
+        Ok(info) => info,
+        Err(err) => { return Err(DataError::InstanceInfoError{ err }); }
     };
 
     // Fetch a new, remote DataIndex to get up-to-date entries
-    let data_addr: String = format!("{}/data/info", config.api_service);
+    let data_addr: String = format!("{}/data/info", instance_info.api);
     let index: DataIndex = match brane_tsk::api::get_data_index(&data_addr).await {
         Ok(dindex) => dindex,
         Err(err)   => { return Err(DataError::RemoteDataIndexError{ address: data_addr, err }); },
@@ -457,7 +436,7 @@ pub async fn download(names: Vec<String>, locs: Vec<String>, certs_dir: impl AsR
             Some(access) => access.clone(),
             None         => {
                 // Attempt to download it instead
-                match download_data(certs_dir, config.api_service.to_string(), proxy_addr, &name, &access).await? {
+                match download_data(instance_info.api.to_string(), proxy_addr, &name, &access).await? {
                     Some(access) => access,
                     None         => { return Err(DataError::UnavailableDataset{ name, locs: info.access.keys().cloned().collect() }); },
                 }

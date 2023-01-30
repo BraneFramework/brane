@@ -8,9 +8,10 @@ All notable changes to the Brane framework will be documented in this file.
 
 ### Changed
 - Protobuf descriptions to be in pure Rust instead of `.proto` files. This should allow use to re-use Rust structs in a more ergonimic style, as well as get rid of the very annoying `protoc` dependency.
+- `brane login` to be more like a keymanager instead. Check `brane instance` and `brane certs` instead, and consult the [wiki](https://wiki.enablingpersonalizedinterventions.nl/user-guide) for how to use this new system.
 
 ### Fixed
-- The previous version not making it through the tests
+- The previous version not making it through the tests.
 
 ## [1.0.0] - 2023-01-06
 **IMPORTANT NOTICE**: From now on, the framework will stick to [semantic versioning](https://semver.org). Because we are still in development, however, we will consider any API-breaking change to be any change relating to the _usage_ of the program, not to any Rust-API the library provides. However, that will likely change once the framework is more mature.

@@ -19,11 +19,11 @@ use log::debug;
 use reqwest::{Response, StatusCode};
 
 use specifications::arch::Arch;
-use specifications::identity::{IdentityFile, IdentityFileError};
 use specifications::version::Version;
 
-use crate::errors::{UtilError, VersionError};
-use crate::utils::{get_config_dir, get_login_file};
+use crate::errors::VersionError;
+use crate::utils::get_config_dir;
+use crate::instance::InstanceInfo;
 
 
 /***** HELPER STRUCTS *****/
@@ -88,26 +88,26 @@ impl RemoteVersion {
 
         // Try to get the registry file path
         debug!(" > Reading registy.yml...");
-        let config: IdentityFile = match get_login_file() {
+        let config: InstanceInfo = match InstanceInfo::from_active_path() {
             Ok(config) => config,
-            Err(err)   => { return Err(VersionError::IdentityFileError{ err }); }
+            Err(err)   => { return Err(VersionError::InstanceInfoError{ err }); }
         };
 
         // Pass to the other constructor
-        Self::from_identity_file(config).await
+        Self::from_instance_info(config).await
     }
 
     /// Constructor for the RemoteVersion, which creates it from a given IdentityFile.
     /// 
     /// # Arguments
-    /// - `config`: The IdentityFile file to use to find the remote registry's properties.
+    /// - `info`: The InstanceInfo file to use to find the remote registry's properties.
     /// 
     /// # Returns
     /// A new RemoteVersion instance on success, or else a VersionError.
-    async fn from_identity_file(config: IdentityFile) -> Result<Self, VersionError> {
+    async fn from_instance_info(info: InstanceInfo) -> Result<Self, VersionError> {
         // Use reqwest for the API call
         debug!(" > Querying...");
-        let mut url: String = config.api_service.to_string(); url.push_str("/version");
+        let mut url: String = info.api.to_string(); url.push_str("/version");
         let response: Response = match reqwest::get(&url).await {
             Ok(version) => version,
             Err(err)    => { return Err(VersionError::RequestError{ url, err }); }
@@ -198,17 +198,16 @@ pub async fn handle() -> Result<(), VersionError> {
     };
     if config_file.exists() {
         // Get the registry file from it
-        let config = match IdentityFile::from_path(&config_file) {
-            Ok(config)                                    => config,
-            Err(IdentityFileError::FileNotFound { path }) => { return Err(VersionError::IdentityFileError{ err: UtilError::IdentityFileNotFound { path } }); }
-            Err(err)                                      => { return Err(VersionError::IdentityFileError{ err: UtilError::IdentityFileError{ err } }); }
+        let config = match InstanceInfo::from_path(&config_file) {
+            Ok(config) => config,
+            Err(err)   => { return Err(VersionError::InstanceInfoError{ err }); }
         };
 
         // Print the URL
-        println!("Remote Brane instance at '{}'", &config.api_service);
+        println!("Remote Brane instance at '{}'", &config.api);
         
         // Get the version
-        let remote = RemoteVersion::from_identity_file(config).await?;
+        let remote = RemoteVersion::from_instance_info(config).await?;
         println!(" - Version      : v{}", remote.version);
         println!(" - Architecture : <TBD>");
         println!();
