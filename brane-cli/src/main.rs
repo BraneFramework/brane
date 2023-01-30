@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 14:34:28
 //  Last edited:
-//    27 Jan 2023, 16:10:13
+//    30 Jan 2023, 11:38:28
 //  Auto updated?
 //    Yes
 // 
@@ -33,7 +33,7 @@ use specifications::arch::Arch;
 use specifications::package::PackageKind;
 use specifications::version::Version as SemVersion;
 
-use brane_cli::{build_ecu, build_oas, data, instance, packages, registry, repl, run, test, verify, version};
+use brane_cli::{build_ecu, build_oas, certs, data, instance, packages, registry, repl, run, test, verify, version};
 use brane_cli::errors::{CliError, BuildError, ImportError};
 use brane_cli::spec::Hostname;
 
@@ -42,9 +42,9 @@ use brane_cli::spec::Hostname;
 #[derive(Parser)]
 #[clap(name = "brane", about = "The Brane command-line interface.")]
 struct Cli {
-    #[clap(short, long, action, help = "Enable debug mode")]
+    #[clap(long, global = true, action, help = "Enable debug mode")]
     debug: bool,
-    #[clap(short, long, action, help = "Skip dependencies check")]
+    #[clap(long, global = true, action, help = "Skip dependencies check")]
     skip_check: bool,
     #[clap(subcommand)]
     sub_command: SubCommand,
@@ -66,6 +66,13 @@ enum SubCommand {
         init: Option<PathBuf>,
         #[clap(long, action, help = "Don't delete build files")]
         keep_files: bool,
+    },
+
+    #[clap(name = "certs", about = "Manage certificates for connecting to remote instances.")]
+    Certs {
+        // We subcommand further
+        #[clap(subcommand)]
+        subcommand : CertsSubcommand,
     },
 
     #[clap(name = "data", about = "Data-related commands.")]
@@ -252,6 +259,52 @@ enum SubCommand {
     },
 }
 
+/// Defines the subcommands for the `instance certs` subommand
+#[derive(Parser)]
+enum CertsSubcommand {
+    #[clap(name = "add", about = "Adds a new CA/client certificate pair to this instance. If there are already certificates defined for this domain, will override them.")]
+    Add {
+        /// The path(s) to the certificate(s) to load.
+        #[clap(name = "PATHS", help = "The path(s) to the certificate(s) to load. This should include at least the CA certificate for this domain, as well as a signed client certificate. Since a single certificate file may contain multiple certificates, however, specify how many you need.")]
+        paths : Vec<PathBuf>,
+
+        /// The instance for which to add it.
+        #[clap(short, long, help = "The name of the instance to add the certificate to. If omitted, will add to the active instance instead (i.e., the one set with `brane instance select`). Use 'brane instance list' for an overview.")]
+        instance : Option<String>,
+        /// Any custom domain name.
+        #[clap(short, long, help = "If given, overrides the location name found in the certificates. Note, however, that this name is used when we need to download from the domain, so should match the name of the location for which the certificates are valid.")]
+        domain   : Option<String>,
+
+        /// Whether to ask for permission before overwriting old certificates (but negated).
+        #[clap(short, long, help = "If given, does not ask for permission before overwriting old certificates. Use at your own risk.")]
+        force : bool,
+    },
+    #[clap(name = "remove", about = "Removes the certificates for a certain domain within this instance.")]
+    Remove {
+        /// The name(s) of the certificate(s) to remove.
+        #[clap(name = "DOMAINS", help = "The name(s) of the domain(s) for which to remove the certificates. If in doubt, consult `brane certs list`.")]
+        domains : Vec<String>,
+
+        /// The instance from which to remove them.
+        #[clap(short, long, help = "The name of the instance to remove the certificates from. If omitted, will be removed from the active instance instead (i.e., the one set with `brane instance select`). Use 'brane instance list' for an overview.")]
+        instance : Option<String>,
+
+        /// Whether to query for permission or not (but negated).
+        #[clap(short, long, help = "If given, does not ask for permission before removing the certificates. Use at your own risk.")]
+        force : bool,
+    },
+
+    #[clap(name = "list", about = "Lists the domains for which certificates are given.")]
+    List {
+        /// The instance from which to show the certificates
+        #[clap(short, long, conflicts_with = "all", help = "The name of the instance to show the registered certificates in. If omitted, will list in the active instance instead (i.e., the one set with `brane instance select`). Use 'brane instance list' for an overview.")]
+        instance : Option<String>,
+        /// Whether to show all instances or only the given/active one.
+        #[clap(short, long, conflicts_with = "instance", help = "If given, shows all certificates across all instances.")]
+        all      : bool,
+    },
+}
+
 /// Defines the subsubcommands for the data subcommand.
 #[derive(Parser)]
 enum DataSubcommand {
@@ -332,6 +385,9 @@ enum InstanceSubcommand {
         /// Whether to skip checking if the instance is alive or not.
         #[clap(long, help = "If given, skips checking if the instance is reachable.")]
         unchecked       : bool,
+        /// Whether to ask for permission before overwriting old certificates (but negated).
+        #[clap(short, long, help = "If given, does not ask for permission before overwriting old certificates. Use at your own risk.")]
+        force           : bool,
     },
     #[clap(name = "remove", about = "Deletes a registered instance.")]
     Remove {
@@ -373,47 +429,6 @@ enum InstanceSubcommand {
         #[clap(short, long, help = "If given, changes the port of the driver service for this instance to this.")]
         drv_port : Option<u16>,
     },
-    #[clap(name = "certs", about = "Manages authentication certificates for this instance.")]
-    Certs {
-        /// The name of the instance for which to manage the certificates.
-        #[clap(name = "NAME", help = "The name of the instance for which to manage the certificates. If in doubt, consult `brane instance list`.")]
-        name : String,
-
-        /// Subcommand further
-        #[clap(subcommand)]
-        subcommand : InstanceCertsSubcommand,
-    },
-}
-/// Defines the subcommands for the `instance certs` subommand
-#[derive(Parser)]
-enum InstanceCertsSubcommand {
-    #[clap(name = "add", about = "Adds a new CA/client certificate pair to this instance. If there are already certificates defined for this domain, will override them.")]
-    Add {
-        /// The path(s) to the certificate(s) to load.
-        #[clap(name = "PATHS", help = "The path(s) to the certificate(s) to load. This should include at least the CA certificate for this domain, as well as a signed client certificate. Since a single certificate file may contain multiple certificates, however, specify how many you need.")]
-        paths : Vec<PathBuf>,
-
-        /// Any custom domain name.
-        #[clap(short, long, help = "If given, overrides the location name found in the certificates. Note, however, that this name is used when we need to download from the domain, so should match the name of the location for which the certificates are valid.")]
-        name : Option<String>,
-
-        /// Whether to ask for permission before overwriting old certificates (but negated).
-        #[clap(short, long, help = "If given, does not ask for permission before overwriting old certificates. Use at your own risk.")]
-        force : bool,
-    },
-    #[clap(name = "remove", about = "Removes the certificates for a certain domain within this instance.")]
-    Remove {
-        /// The name(s) of the certificate(s) to remove.
-        #[clap(name = "NAMES", help = "The name(s) of the domain(s) for which to remove the certificates. If in doubt, consult `brane instance <name> certs list`.")]
-        names : Vec<String>,
-
-        /// Whether to query for permission or not (but negated).
-        #[clap(short, long, help = "If given, does not ask for permission before removing the certificates. Use at your own risk.")]
-        force : bool,
-    },
-
-    #[clap(name = "list", about = "Lists the domains for which certificates are given.")]
-    List {},
 }
 
 /// Defines the subcommands for the verify subcommand.
@@ -525,6 +540,21 @@ async fn run(options: Cli) -> Result<(), CliError> {
                 _                => eprintln!("Unsupported package kind: {}", kind),
             }
         }
+        Certs { subcommand } => {
+            use CertsSubcommand::*;
+            match subcommand {
+                Add{ paths, domain, instance, force } => {
+                    if let Err(err) = certs::add(instance, paths, domain, force) { return Err(CliError::CertsError{ err }); }
+                }
+                Remove{ domains, instance, force } => {
+                    if let Err(err) = certs::remove(domains, instance, force) { return Err(CliError::CertsError{ err }); }
+                }
+
+                List{ instance, all } => {
+                    if let Err(err) = certs::list(instance, all) { return Err(CliError::CertsError{ err }); }
+                }
+            }
+        }
         Data { subcommand } => {
             // Match again
             use DataSubcommand::*;
@@ -620,12 +650,12 @@ async fn run(options: Cli) -> Result<(), CliError> {
         Inspect { name, version, syntax } => {
             if let Err(err) = packages::inspect(name, version, syntax) { return Err(CliError::OtherError{ err }); };
         }
-        Instance{ subcommand } => {
+        Instance { subcommand } => {
             // Switch on the subcommand
             use InstanceSubcommand::*;
             match subcommand {
-                New{ hostname, api_port, drv_port, name, use_immediately, unchecked } => {
-                    if let Err(err) = instance::new(name.unwrap_or_else(|| hostname.hostname.clone()), hostname, api_port, drv_port, use_immediately, unchecked).await { return Err(CliError::InstanceError{ err }); }
+                New{ hostname, api_port, drv_port, name, use_immediately, unchecked, force } => {
+                    if let Err(err) = instance::new(name.unwrap_or_else(|| hostname.hostname.clone()), hostname, api_port, drv_port, use_immediately, unchecked, force).await { return Err(CliError::InstanceError{ err }); }
                 }
                 Remove{ names, force } => {
                     if let Err(err) = instance::remove(names, force) { return Err(CliError::InstanceError{ err }); }
@@ -640,22 +670,6 @@ async fn run(options: Cli) -> Result<(), CliError> {
 
                 Edit{ name, hostname, api_port, drv_port } => {
                     if let Err(err) = instance::edit(name, hostname, api_port, drv_port) { return Err(CliError::InstanceError{ err }); }
-                }
-                Certs{ name, subcommand } => {
-                    // Switch on the subcommand one last ime
-                    use InstanceCertsSubcommand::*;
-                    match subcommand {
-                        Add{ paths, name: domain_name, force } => {
-                            if let Err(err) = instance::add_cert(name, paths, domain_name, force) { return Err(CliError::InstanceError{ err }); }
-                        }
-                        Remove{ names: domain_names, force } => {
-
-                        }
-
-                        List{} => {
-                            
-                        }
-                    }
                 }
             }
         }
@@ -679,7 +693,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
             // Now delegate the parsed pairs to the actual pull() function
             if let Err(err) = registry::pull(parsed).await { return Err(CliError::RegistryError{ err }); };
         }
-        Push{ packages } => {
+        Push { packages } => {
             // Parse the NAME:VERSION pairs into a name and a version
             if packages.is_empty() { println!("Nothing to do."); return Ok(()); }
             let mut parsed: Vec<(String, SemVersion)> = Vec::with_capacity(packages.len());
@@ -722,7 +736,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
         Unpublish { name, version, force } => {
             if let Err(err) = registry::unpublish(name, version, force).await { return Err(CliError::OtherError{ err }); };
         }
-        Verify{ subcommand } => {
+        Verify { subcommand } => {
             // Match the subcommand in question
             use VerifySubcommand::*;
             match subcommand {

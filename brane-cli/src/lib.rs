@@ -11,6 +11,7 @@ extern crate lazy_static;
 pub mod build_common;
 pub mod build_ecu;
 pub mod build_oas;
+pub mod certs;
 pub mod data;
 pub mod errors;
 pub mod instance;

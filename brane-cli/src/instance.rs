@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    27 Jan 2023, 16:51:14
+//    30 Jan 2023, 11:28:58
 //  Auto updated?
 //    Yes
 // 
@@ -14,7 +14,6 @@
 // 
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs::{self, DirEntry, File, ReadDir};
 use std::io::{Read, Write};
@@ -27,160 +26,14 @@ use dialoguer::Confirm;
 use log::{debug, info, warn};
 use prettytable::Table;
 use prettytable::format::FormatBuilder;
-use rustls::{Certificate, PrivateKey};
 use serde::{Deserialize, Serialize};
-use x509_parser::certificate::X509Certificate;
-use x509_parser::oid_registry::OID_X509_EXT_KEY_USAGE;
-use x509_parser::prelude::{FromDer as _, X509Extension};
 
-use brane_cfg::certs::load_all;
 use brane_shr::debug::PrettyListFormatter;
 use specifications::address::Address;
 
 pub use crate::errors::InstanceError as Error;
 use crate::spec::Hostname;
 use crate::utils::{ensure_instance_dir, ensure_instances_dir, get_active_instance_link, get_instance_dir};
-
-
-// /***** AUXILLARY FUNCTIONS *****/
-// /// Extracts the username from the given Identity.
-// /// 
-// /// # Arguments
-// /// - `identity`: The Identity to fetch the username from.
-// /// 
-// /// # Returns
-// /// The username found in the identity, as a Cow.
-// /// 
-// /// # Errors
-// /// This file may error if the given identity was a Certificate and we failed to load it or parse it.
-// pub fn get_username_from_identity(identity: &Identity) -> Result<Cow<'_, str>, Error> {
-//     // Match on the type of identity
-//     match identity {
-//         Identity::Username(username) => Ok(Cow::Borrowed(username)),
-//         Identity::Certificate(path)  => {
-//             // A bit more thorny case; read the certificate file
-//             let cert: Certificate = match load_cert(path) {
-//                 Ok(mut cert) => if !cert.is_empty() {
-//                     cert.swap_remove(0)
-//                 } else {
-//                     return Err(Error::CertEmptyError{ path: path.clone() });
-//                 },
-//                 Err(err) => { return Err(Error::CertLoadError{ err }); },
-//             };
-
-//             // Extract the client's name
-//             match extract_client_name(cert) {
-//                 Ok(name) => Ok(Cow::Owned(name)),
-//                 Err(err) => Err(Error::CertParseError{ path: path.clone(), err }),
-//             }
-//         },
-//     }
-// }
-
-
-
-
-
-// /***** LIBRARY *****/
-// /// "Logs the user in" to the remote instance.
-// /// 
-// /// Effectively only checks if the credentials are valid (unless `unchecked` is true), and otherwise just stores the credentials for later subcommands.
-// /// 
-// /// # Arguments
-// /// - `host`: The Hostname of the remote instance to connect to.
-// /// - `identity`: The way the user identifies themselves.
-// /// - `api_port`: The port of the remote API service.
-// /// - `drv_port`: The port of the remote driver service.
-// /// 
-// /// # Errors
-// /// This function may error if we failed to create any relevant files, or if the instance refused our login.
-// pub async fn login(host: Hostname, identity: Identity, api_port: u16, drv_port: u16, unchecked: bool) -> Result<(), Error> {
-//     // We convert the hostname to an address a bit indirectly to catch any IP addresses given
-//     debug!("Generating LoginFile...");
-//     let api_service: Address = match Address::from_str(&format!("http://{}:{}", host.hostname, api_port)) {
-//         Ok(service) => service,
-//         Err(err)    => { return Err(Error::IllegalHostname{ err }); },
-//     };
-//     let drv_service: Address = match Address::from_str(&format!("grpc://{}:{}", host.hostname, drv_port)) {
-//         Ok(service) => service,
-//         Err(err)    => { return Err(Error::IllegalHostname{ err }); },
-//     };
-
-//     // Generate a LoginFile with that.
-//     let identity_file: IdentityFile = IdentityFile {
-//         api_service,
-//         drv_service,
-
-//         identity,
-//     };
-
-//     // Check this config's validity if the user _didn't_ tell us to _not_.
-//     let name: Option<Cow<str>> = if !unchecked {
-//         debug!("Checking credential validity at instance '{}'...", host);
-
-//         // At least make sure the instance is alive at the target port
-//         let res: reqwest::Response = match reqwest::get(identity_file.api_service.to_string()).await {
-//             Ok(res)  => res,
-//             Err(err) => { return Err(Error::RequestError{ address: identity_file.api_service, err }); },
-//         };
-//         if !res.status().is_success() { return Err(Error::InstanceNotAvailable{ address: identity_file.api_service, code: res.status(), err: res.text().await.ok() }); }
-
-//         /* TODO */
-
-//         // Return the extracted name
-//         Some(get_username_from_identity(&identity_file.identity)?)
-//     } else {
-//         None
-//     };
-
-//     // Find where to write it to
-//     let config: PathBuf = match ensure_config_dir(true) {
-//         Ok(config) => config,
-//         Err(err)   => { return Err(Error::ConfigDirError{ err }); },
-//     };
-//     let login_file: PathBuf = config.join("login.json");
-
-//     // Write it to the given path
-//     debug!("Writing file to '{}'...", login_file.display());
-//     if let Err(err) = identity_file.to_path(login_file) { return Err(Error::LoginFileWriteError{ err }); }
-
-//     // Done
-//     println!("Successfully logged in{} to instance {}", if let Some(name) = name { format!(" as {}", style(name).cyan().bold()) } else { String::new() }, style(host.hostname).cyan().bold());
-//     Ok(())
-// }
-
-
-
-// /// "Logs the user out" from the remote instance.
-// /// 
-// /// Effectively only removes any cached credentials.
-// /// 
-// /// # Errors
-// /// This function may error if we failed to remove the loginfile for some reason.
-// pub fn logout() -> Result<(), Error> {
-//     debug!("Logging out...");
-
-//     // Get the path to the login file
-//     let config: PathBuf = match get_config_dir() {
-//         Ok(config) => config,
-//         Err(err)   => { return Err(Error::ConfigDirError{ err }); },
-//     };
-//     let login_file: PathBuf = config.join("login.json");
-
-//     // Simply attempt to remove the login file, if any
-//     if login_file.exists() {
-//         debug!("File '{}' exists; removing...", login_file.display());
-//         if let Err(err) = fs::remove_file(&login_file) { return Err(Error::FileRemoveError{ path: login_file, err }); }
-//     } else {
-//         debug!("File '{}' does not exist (already logged out)", login_file.display());
-//     }
-
-//     // Done
-//     Ok(())
-// }
-
-
-
 
 
 /***** FILE STRUCTS *****/
@@ -264,24 +117,24 @@ impl InstanceInfo {
 
 
 
-    /// Writes this InstanceInfo to the active path in the local configuration directory.
-    /// 
-    /// # Errors
-    /// This function errors if we failed to get the local path, there is no active instance, if we failed to write the file or if we failed to serialize ourselves.
-    fn to_active_path(&self) -> Result<(), Error> {
-        // Get the active path
-        let link_path: PathBuf = match get_active_instance_link() {
-            Ok(link_path) => link_path,
-            Err(err)      => { return Err(Error::ActiveInstancePathError{ err }); },
-        };
+    // /// Writes this InstanceInfo to the active path in the local configuration directory.
+    // /// 
+    // /// # Errors
+    // /// This function errors if we failed to get the local path, there is no active instance, if we failed to write the file or if we failed to serialize ourselves.
+    // fn to_active_path(&self) -> Result<(), Error> {
+    //     // Get the active path
+    //     let link_path: PathBuf = match get_active_instance_link() {
+    //         Ok(link_path) => link_path,
+    //         Err(err)      => { return Err(Error::ActiveInstancePathError{ err }); },
+    //     };
 
-        // Assert it exists
-        if !link_path.exists() { return Err(Error::NoActiveInstance); }
-        if !link_path.is_symlink() { return Err(Error::ActiveInstanceNotASoftlinkError{ path: link_path }); }
+    //     // Assert it exists
+    //     if !link_path.exists() { return Err(Error::NoActiveInstance); }
+    //     if !link_path.is_symlink() { return Err(Error::ActiveInstanceNotASoftlinkError{ path: link_path }); }
 
-        // Now return the path
-        self.to_path(link_path.join("infra.yml"))
-    }
+    //     // Now return the path
+    //     self.to_path(link_path.join("infra.yml"))
+    // }
 
     /// Writes this InstanceInfo to the its path in the local configuration directory.
     /// 
@@ -349,53 +202,6 @@ impl InstanceInfo {
 
 
 
-/***** HELPER FUNCTIONS *****/
-/// Reads a certificate and extracts the issued usage and, if present, the domain for which it is intended.
-/// 
-/// # Arguments
-/// - `cert`: The raw Certificate to analyze.
-/// - `path`: The path to this certificate. Only used for debugging purposes.
-/// - `i`: The number of this certificate in that file.
-/// 
-/// # Returns
-/// A tuple of the issued usage and the name of the domain for which it is intended (or `None` if the latter was missing).
-/// 
-/// # Errors
-/// This function may error if we failed to parse the certificate or extract the required fields.
-fn analyse_cert(cert: &Certificate, path: impl Into<PathBuf>, i: usize) -> Result<(String, Option<String>), Error> {
-    // Attempt to parse the certificate as a real x509 one
-    let cert: X509Certificate = match X509Certificate::from_der(&cert.0) {
-        Ok((_, cert)) => cert,
-        Err(err)      => { return Err(Error::CertParseError { path: path.into(), i, err }); },
-    };
-
-    // Try to find the list of allowed usages
-    let exts: HashMap<_, _> = match cert.extensions_map() {
-        Ok(exts) => exts,
-        Err(err) => { return Err(Error::CertExtensionsError{ path: path.into(), i, err }); },
-    };
-    let usage: &X509Extension = match exts.get(&OID_X509_EXT_KEY_USAGE) {
-        Some(usage) => usage,
-        None        => { return Err(Error::CertNoKeyUsageError{ path: path.into(), i }); },
-    };
-
-    // Attempt to find the CA one
-    
-
-    // Done
-    Ok(())
-}
-
-
-
-
-
-/***** SERVICE FUNCTIONS *****/
-
-
-
-
-
 /***** SUBCOMMANDS *****/
 /// Registers a new instance to which we can hot-swap using switch.
 /// 
@@ -406,16 +212,38 @@ fn analyse_cert(cert: &Certificate, path: impl Into<PathBuf>, i: usize) -> Resul
 /// - `drv_port`: The port where we can find the driver service.
 /// - `use_immediately`: Whether to switch to it or not.
 /// - `unchecked`: Whether to skip instance alive checking (true) or not (false).
+/// - `force`: Whether to ask for permission before overwriting an existing instance.
 /// 
 /// # Errors
 /// This function errors if we failed to generate any files, or if some check failed for this instance.
-pub async fn new(name: String, hostname: Hostname, api_port: u16, drv_port: u16, use_immediately: bool, unchecked: bool) -> Result<(), Error> {
+pub async fn new(name: String, hostname: Hostname, api_port: u16, drv_port: u16, use_immediately: bool, unchecked: bool, force: bool) -> Result<(), Error> {
     info!("Creating new instance '{}'...", name);
 
     // Assert the name is valid
     debug!("Asserting name validity...");
     for c in name.chars() {
         if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' && c > '9') && c != '_' && c != '.' && c != '-' { return Err(Error::IllegalInstanceName{ raw: name, illegal_char: c }); }
+    }
+
+    // Attempt to find out if the instance exists
+    if !force {
+        debug!("Checking if instance already exists...");
+        let instance_path: PathBuf = match get_instance_dir(&name) {
+            Ok(path) => path,
+            Err(err) => { return Err(Error::InstanceDirError { err }); },
+        };
+        if instance_path.exists() {
+            debug!("Asking for confirmation...");
+            println!("An instance with the name {} already exists. Overwrite?", style(&name).cyan().bold());
+            let consent: bool = match Confirm::new().interact() {
+                Ok(consent) => consent,
+                Err(err)    => { return Err(Error::ConfirmationError{ err }); }
+            };
+            if !consent {
+                println!("Not overwriting, aborted.");
+                return Ok(());
+            }
+        }
     }
 
     // Convert the hostname and ports to Addresses
@@ -774,43 +602,3 @@ pub fn edit(name: Option<String>, hostname: Option<Hostname>, api_port: Option<u
     }
     Ok(())
 }
-
-
-
-/// Adds the given certificate(s) as the certificate(s) for the given domain.
-/// 
-/// # Arguments
-/// - `name`: The name of the instance for which to add them.
-/// - `paths`: The paths of the certificate files to add.
-/// - `domain_name`: The name of the domain to add. If it is not present, then the function is supposed to deduce it from the given certificates.
-/// - `force`: Whether to override existing certificates without asking (true) or not (false).
-/// 
-/// # Errors
-/// This function errors if we failed to read any of the certificates, parse them, if not all the required certificates were given, if we failed to write them and create the directory structure _or_ if we are asked to deduce the domain name but failed.
-pub fn add_cert(name: String, paths: Vec<PathBuf>, domain_name: Option<String>, force: bool) -> Result<(), Error> {
-    info!("Adding certificate file(s) '{:?}' to instance '{}'", paths, name);
-
-    // First attempt to load the given certificates using rustls
-    let mut ca_certs     : Vec<Certificate> = vec![];
-    let mut client_certs : Vec<Certificate> = vec![];
-    let mut client_keys  : Vec<PrivateKey>  = vec![];
-    for path in paths {
-        // Load any certificate and key we can find in this file
-        let (certs, keys): (Vec<Certificate>, Vec<PrivateKey>) = match load_all(&path) {
-            Ok(res)  => res,
-            Err(err) => { return Err(Error::PemLoadError{ path, err }); },
-        };
-        if certs.is_empty() && keys.is_empty() { warn!("Empty file '{}' (at least, no valid certificates or keys found)", path.display()); continue; }
-
-        // We can add the keys by-default, since we know what they are used for
-        client_keys.extend(keys);
-
-        // Sort the certificates based on their allowed usage
-        for c in certs {
-            let (usage, domain): (String, Option<String>) = analyse_cert(&c)?;
-        }
-    }
-
-    Ok(())
-}
- 

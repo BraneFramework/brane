@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    27 Jan 2023, 16:50:27
+//    30 Jan 2023, 12:56:15
 //  Auto updated?
 //    Yes
 // 
@@ -19,7 +19,6 @@ use std::path::PathBuf;
 use reqwest::StatusCode;
 
 use brane_shr::debug::PrettyListFormatter;
-use specifications::address::Address;
 use specifications::package::{PackageInfoError, PackageKindError};
 use specifications::container::{ContainerInfoError, Image, LocalContainerInfoError};
 use specifications::version::{ParseError as VersionParseError, Version};
@@ -39,6 +38,8 @@ pub enum CliError {
     // Toplevel errors for the subcommands
     /// Errors that occur during the build command
     BuildError{ err: BuildError },
+    /// Errors that occur when managing certificates.
+    CertsError{ err: CertsError },
     /// Errors that occur during any of the data(-related) command(s)
     DataError{ err: DataError },
     /// Errors that occur during the import command
@@ -79,6 +80,7 @@ impl Display for CliError {
         use CliError::*;
         match self {
             BuildError{ err }    => write!(f, "{}", err),
+            CertsError{ err }    => write!(f, "{}", err),
             DataError{ err }     => write!(f, "{}", err),
             ImportError{ err }   => write!(f, "{}", err),
             InstanceError{ err } => write!(f, "{}", err),
@@ -304,6 +306,100 @@ impl Error for BuildError {}
 
 
 
+/// Collects errors relating to certificate management.
+#[derive(Debug)]
+pub enum CertsError {
+    /// Failed to parse the name in a certificate.
+    CertParseError{ path: PathBuf, i: usize, err: x509_parser::nom::Err<x509_parser::error::X509Error> },
+    /// Failed to get the extensions from the given certificate.
+    CertExtensionsError{ path: PathBuf, i: usize, err: x509_parser::error::X509Error },
+    /// Did not find the key usage extension in the given certificate.
+    CertNoKeyUsageError{ path: PathBuf, i: usize },
+    /// The given certificate had an ambigious key usage flag set.
+    CertAmbigiousUsageError{ path: PathBuf, i: usize },
+    /// The given certificate had no (valid) key usage flag set.
+    CertNoUsageError{ path: PathBuf, i: usize },
+    /// Failed to get the issuer CA string.
+    CertIssuerCaError{ path: PathBuf, i: usize, err: x509_parser::error::X509Error },
+
+    /// Failed to load instance directory.
+    InstanceDirError{ err: UtilError },
+    /// An unknown instance was given.
+    UnknownInstance{ name: String },
+    /// Failed to load the active instance symbol link path.
+    ActiveInstancePathError{ err: UtilError },
+    /// No active instance was present.
+    NoActiveInstance,
+    /// Failed to read the directory behind the active instance link.
+    ActiveInstanceReadError{ path: PathBuf, err: std::io::Error },
+    /// Did not manage to load (one of) the given PEM files.
+    PemLoadError{ path: PathBuf, err: brane_cfg::certs::Error },
+    /// No CA certificate was provided.
+    NoCaCert,
+    /// No client certificate was provided.
+    NoClientCert,
+    /// The no client key was provided.
+    NoClientKey,
+    /// No domain name found in the certificates.
+    NoDomainName,
+    /// Failed to ask the user for confirmation.
+    ConfirmationError{ err: std::io::Error },
+    /// The given certs directory existed but was not a directory.
+    CertsDirNotADir{ path: PathBuf },
+    /// Failed to remove the certificates directory.
+    CertsDirRemoveError{ path: PathBuf, err: std::io::Error },
+    /// Failed to create the certificates directory.
+    CertsDirCreateError{ path: PathBuf, err: std::io::Error },
+    /// Failed to open the given file in append mode.
+    FileOpenError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to write to the given file.
+    FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
+
+    /// Failed to load instances directory.
+    InstancesDirError{ err: UtilError },
+    /// Failed to read the directory with instances.
+    DirReadError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to read a specific entry within the directory with instances.
+    DirEntryReadError{ what: &'static str, path: PathBuf, entry: usize, err: std::io::Error },
+}
+impl Display for CertsError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use CertsError::*;
+        match self {
+            CertParseError{ path, i, err }      => write!(f, "Failed to parse certificate {} in file '{}': {}", i, path.display(), err),
+            CertExtensionsError{ path, i, err } => write!(f, "Failed to get extensions in certificate {} in file '{}': {}", i, path.display(), err),
+            CertNoKeyUsageError{ path, i }      => write!(f, "Certificate {} in file '{}' does not have key usage defined (extension)", i, path.display()),
+            CertAmbigiousUsageError{ path, i }  => write!(f, "Certificate {} in file '{}' has both Digital Signature and CRL Sign flags set (ambigious usage)", i, path.display()),
+            CertNoUsageError{ path, i }         => write!(f, "Certificate {} in file '{}' has neither Digital Signature, nor CRL Sign flags set (cannot determine usage)", i, path.display()),
+            CertIssuerCaError{ path, i, err }   => write!(f, "Failed to get the CA field in the issuer field of certificate {} in file '{}': {}", i, path.display(), err),
+
+            InstanceDirError{ err }              => write!(f, "Failed to get instance directory: {}", err),
+            UnknownInstance{ name }              => write!(f, "Unknown instance '{}'", name),
+            ActiveInstancePathError{ err }       => write!(f, "Failed to get active instance symlink path: {}", err),
+            NoActiveInstance                     => write!(f, "No active instance is set (run 'brane instance select' first, or specify '--instance' in this subcommand to specify one manually)"),
+            ActiveInstanceReadError{ path, err } => write!(f, "Failed to read active instance link '{}': {}", path.display(), err),
+            PemLoadError{ path, err }            => write!(f, "Failed to load PEM file '{}': {}", path.display(), err),
+            NoCaCert                             => write!(f, "No CA certificate given (specify at least one certificate that has 'CRL Sign' key usage flag set)"),
+            NoClientCert                         => write!(f, "No client certificate given (specify at least one certificate that has 'Digital Signature' key usage flag set)"),
+            NoClientKey                          => write!(f, "No client private key given (specify at least one private key)"),
+            NoDomainName                         => write!(f, "Domain name not specified in certificates; specify the target domain name manually using '--domain'"),
+            ConfirmationError{ err }             => write!(f, "Failed to ask the user (you!) for confirmation: {} (if you are sure, you can skip this step by using '--force')", err),
+            CertsDirNotADir{ path }              => write!(f, "Certificate directory '{}' exists but is not a directory", path.display()),
+            CertsDirRemoveError{ path, err }     => write!(f, "Failed to remove certificate directory '{}': {}", path.display(), err),
+            CertsDirCreateError{ path, err }     => write!(f, "Failed to create certificate directory '{}': {}", path.display(), err),
+            FileOpenError{ what, path, err }     => write!(f, "Failed to open {} file '{}' for appending: {}", what, path.display(), err),
+            FileWriteError{ what, path, err }    => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
+
+            InstancesDirError{ err }                    => write!(f, "Failed to get instances directory: {}", err),
+            DirReadError{ what, path, err }             => write!(f, "Failed to read {} directory '{}': {}", what, path.display(), err),
+            DirEntryReadError{ what, path, entry, err } => write!(f, "Failed to read entry {} in {} directory '{}': {}", entry, what, path.display(), err),
+        }
+    }
+}
+impl Error for CertsError {}
+
+
+
 /// Collects errors during the build subcommand
 #[derive(Debug)]
 pub enum DataError {
@@ -490,25 +586,6 @@ impl Error for ImportError {}
 /// Collects errors  during the identity-related subcommands (login, logout).
 #[derive(Debug)]
 pub enum InstanceError {
-    /// Failed to load the specified certificate file.
-    CertLoadError{ err: brane_cfg::certs::Error },
-    /// The given certificate was loaded but empty.
-    CertEmptyError{ path: PathBuf },
-
-    /// Failed to get the Brane configuration directory.
-    ConfigDirError{ err: UtilError },
-    /// Failed to convert a Hostname into an Address.
-    IllegalHostname{ err: specifications::address::AddressParseError },
-    /// The remote instance is not up-and-running.
-    InstanceNotAvailable{ address: Address, code: StatusCode, err: Option<String> },
-    /// Failed to write the LoginFile to some path.
-    LoginFileWriteError{ err: specifications::identity::IdentityFileError },
-
-    /// Failed to remove the login file
-    FileRemoveError{ path: PathBuf, err: std::io::Error },
-
-
-
     /// Failed to get the directory of a specific instance.
     InstanceDirError{ err: UtilError },
     /// Failed to open a file to load an InstanceInfo.
@@ -560,32 +637,11 @@ pub enum InstanceError {
 
     /// No instance is active
     NoActiveInstance,
-
-    /// Did not manage to load (one of) the given PEM files.
-    PemLoadError{ path: PathBuf, err: brane_cfg::certs::Error },
-    /// Failed to parse the name in a certificate.
-    CertParseError{ path: PathBuf, i: usize, err: x509_parser::nom::Err<x509_parser::error::X509Error> },
-    /// Failed to get the extensions from the given certificate.
-    CertExtensionsError{ path: PathBuf, i: usize, err: x509_parser::error::X509Error },
-    /// Did not find the key usage extension in the given certificate.
-    CertNoKeyUsageError{ path: PathBuf, i: usize },
 }
 impl Display for InstanceError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use InstanceError::*;
         match self {
-            CertLoadError{ err }        => write!(f, "Failed to load certificate: {}", err),
-            CertEmptyError{ path }      => write!(f, "Certificate file '{}' does not contain any (parseable) x509 certificates", path.display()),
-
-            ConfigDirError{ err }                      => write!(f, "Failed to get login file directory: {}", err),
-            IllegalHostname{ err }                     => write!(f, "Failed to parse hostname as a valid address: {}", err),
-            InstanceNotAvailable{ address, code, err } => write!(f, "Remote instance is not available: '{}' returned status code {} ({}){}", address, code, code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
-            LoginFileWriteError{ err }                 => write!(f, "Failed to write login file: {}", err),
-
-            FileRemoveError{ path, err } => write!(f, "Failed to remove login file '{}': {}", path.display(), err),
-
-
-
             InstanceDirError{ err }              => write!(f, "Failed to get directory for instance: {}", err),
             InstanceInfoOpenError{ path, err }   => write!(f, "Failed to open instance info file '{}': {}", path.display(), err),
             InstanceInfoReadError{ path, err }   => write!(f, "Failed to read instance info file '{}': {}", path.display(), err),
@@ -614,11 +670,6 @@ impl Display for InstanceError {
             ActiveInstanceCreateError{ path, target, err } => write!(f, "Failed to create active instance link '{}' (points to '{}'): {}", path.display(), target.display(), err),
 
             NoActiveInstance => write!(f, "No instance is access"),
-
-            PemLoadError{ path, err }           => write!(f, "Failed to load PEM file '{}': {}", path.display(), err),
-            CertParseError{ path, i, err }      => write!(f, "Failed to parse certificate {} in file '{}': {}", i, path.display(), err),
-            CertExtensionsError{ path, i, err } => write!(f, "Failed to get extensions in certificate {} in file '{}': {}", i, path.display(), err),
-            CertNoKeyUsageError{ path, i }      => write!(f, "Certificate {} in file '{}' does not have key usage defined (extension)", i, path.display()),
         }
     }
 }
