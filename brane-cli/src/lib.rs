@@ -13,6 +13,7 @@ pub mod build_ecu;
 pub mod build_oas;
 pub mod data;
 pub mod errors;
+pub mod instance;
 pub mod packages;
 pub mod planner;
 pub mod registry;

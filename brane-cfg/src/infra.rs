@@ -4,7 +4,7 @@
 //  Created:
 //    04 Oct 2022, 11:04:33
 //  Last edited:
-//    12 Dec 2022, 13:08:49
+//    26 Jan 2023, 09:56:13
 //  Auto updated?
 //    Yes
 // 
@@ -19,8 +19,9 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use specifications::address::Address;
+
 pub use crate::errors::InfraFileError as Error;
-use crate::spec::Address;
 
 
 /***** AUXILLARY *****/

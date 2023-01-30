@@ -4,7 +4,7 @@
 //  Created:
 //    21 Feb 2022, 14:43:30
 //  Last edited:
-//    18 Nov 2022, 14:59:23
+//    27 Jan 2023, 09:03:04
 //  Auto updated?
 //    Yes
 // 
@@ -18,8 +18,8 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use specifications::identity::{IdentityFile, IdentityFileError};
 use specifications::package::PackageKind;
-use specifications::registry::RegistryConfig;
 use specifications::version::Version;
 
 // use crate::{MIN_DOCKER_VERSION, MIN_BUILDX_VERSION};
@@ -632,23 +632,143 @@ pub fn ensure_dataset_dir<S: AsRef<str>>(name: S, create: bool) -> Result<PathBu
     Ok(data_dir)
 }
 
-
-
-/// Reads a RegistryConfig from the configuration file (`config_dir/registry.yml`).
+/// Gets the directory where we store instance definitions.
+/// 
+/// Does not guarantee that the directory exists. Check 'ensure_instances_dir()` for that.
 /// 
 /// # Returns
-/// The parsed RegistryConfig.
+/// The path to the directory where we shall/have store(d) instance definitions.
 /// 
 /// # Errors
-/// This function may error if we could not find, read or parse the config file that is the RegistryFile. If not found, this likely indicates the user hasn't logged-in yet.
-pub fn get_registry_file() -> Result<RegistryConfig, UtilError> {
+/// This function may error if we failed to get the Brane configuration directory.
+pub fn get_instances_dir() -> Result<PathBuf, UtilError> {
+    // Try to get the config directory
+    let config_dir: PathBuf = get_config_dir()?;
+
+    // Return that plus 'instances' (not rocket science, I know)
+    Ok(config_dir.join("instances"))
+}
+
+/// Gets the directory where we store instance definitions and ensures it exists.
+/// 
+/// # Arguments
+/// - `create`: If given, ensures it exists by attempting to create it. If set to false, then this function will error if it does not exist instead.
+/// 
+/// # Returns
+/// The path to the directory where we shall/have store(d) instance definitions. You can assume the directory exists if this happens.
+/// 
+/// # Errors
+/// This function errors if we failed to get the Brane configuration directory or if we failed to create any directory required.
+pub fn ensure_instances_dir(create: bool) -> Result<PathBuf, UtilError> {
+    // Retrieve the path
+    let instances_dir: PathBuf = get_instances_dir()?;
+
+    // Make sure it exists
+    if !instances_dir.exists() {
+        // Either create it if told to do so, or error
+        if create {
+            // Make sure the parent exists first
+            ensure_config_dir(create)?;
+
+            // Now create our directory
+            if let Err(err) = fs::create_dir(&instances_dir) { return Err(UtilError::BraneInstancesDirCreateError{ path: instances_dir, err }); }
+        } else {
+            return Err(UtilError::BraneInstancesDirNotFound{ path: instances_dir });
+        }
+    }
+
+    // Otherwise, robert's your father's brother
+    Ok(instances_dir)
+}
+
+/// Gets the directory where we store the instance definition for the given instance.
+/// 
+/// Does not guarantee that the directory exists. Check 'ensure_instance_dir()` for that.
+/// 
+/// # Arguments
+/// - `name`: The name of the instance for which to get the directory.
+/// 
+/// # Returns
+/// The path to the directory where we shall/have store(d) instance's definition.
+/// 
+/// # Errors
+/// This function may error if we failed to get the Brane configuration directory.
+pub fn get_instance_dir(name: impl AsRef<str>) -> Result<PathBuf, UtilError> {
+    // Try to get the general instances directory
+    let instances_dir: PathBuf = get_instances_dir()?;
+
+    // Return that plus the name (not rocket science, I know)
+    Ok(instances_dir.join(name.as_ref()))
+}
+
+/// Gets the directory where we store the instance definition for the given instance and ensures it exists.
+/// 
+/// # Arguments
+/// - `name`: The name of the instance for which to get the directory.
+/// - `create`: If given, ensures it exists by attempting to create it. If set to false, then this function will error if it does not exist instead.
+/// 
+/// # Returns
+/// The path to the directory where we shall/have store(d) instance definition. You can assume the directory exists if this happens.
+/// 
+/// # Errors
+/// This function errors if we failed to get the Brane configuration directory or if we failed to create any directory required.
+pub fn ensure_instance_dir(name: impl AsRef<str>, create: bool) -> Result<PathBuf, UtilError> {
+    let name: &str = name.as_ref();
+
+    // Retrieve the path
+    let instance_dir: PathBuf = get_instance_dir(name)?;
+
+    // Make sure it exists
+    if !instance_dir.exists() {
+        // Either create it if told to do so, or error
+        if create {
+            // Make sure the parent exists first
+            ensure_instances_dir(create)?;
+
+            // Now create our directory
+            if let Err(err) = fs::create_dir(&instance_dir) { return Err(UtilError::BraneInstanceDirCreateError{ path: instance_dir, name: name.into(), err }); }
+        } else {
+            return Err(UtilError::BraneInstanceDirNotFound{ path: instance_dir, name: name.into() });
+        }
+    }
+
+    // Otherwise, robert's your father's brother
+    Ok(instance_dir)
+}
+
+/// Returns the path for the softlink that points to the active instance directory.
+/// 
+/// # Returns
+/// The path to the softlink. Note that if this is returned, no guarantees are made about its existance.
+/// 
+/// # Errors
+/// This function may error if we failed to get the Brane configuration directory.
+pub fn get_active_instance_link() -> Result<PathBuf, UtilError> {
+    // Get the configuration directory
+    let config_dir: PathBuf = get_config_dir()?;
+
+    // Simply return that with the file's path
+    Ok(config_dir.join("active_instance"))
+}
+
+
+
+/// Reads an IdentityFile from the local configuration (`config_dir/login.json`).
+/// 
+/// # Returns
+/// The parsed IdentityFile.
+/// 
+/// # Errors
+/// This function may error if we could not find, read or parse the config file that is the IdentityFile. If not found, this likely indicates the user hasn't logged-in yet.
+pub fn get_login_file() -> Result<IdentityFile, UtilError> {
     // Get the configuration file path
-    let config_file = get_config_dir().unwrap().join("registry.yml");
+    let config_file = get_config_dir()?.join("login.json");
 
     // Attempt to load it
-    match RegistryConfig::from_path(&config_file) {
-        Ok(config) => Ok(config),
-        Err(err)   => Err(UtilError::ConfigFileError{ err }),
+    match IdentityFile::from_path(&config_file) {
+        Ok(config)                                    => Ok(config),
+        Err(IdentityFileError::FileNotFound { path }) => Err(UtilError::IdentityFileNotFound{ path }),
+        Err(err)                                      => Err(UtilError::IdentityFileError{ err }),
     }
 }
 

@@ -4,7 +4,7 @@
 //  Created:
 //    25 Nov 2022, 15:09:17
 //  Last edited:
-//    09 Jan 2023, 13:07:45
+//    26 Jan 2023, 09:57:09
 //  Auto updated?
 //    Yes
 // 
@@ -21,7 +21,7 @@ use log::{debug, info};
 use reqwest::{Client, Response, Request};
 use url::Url;
 
-use brane_cfg::spec::Address;
+use specifications::address::Address;
 use specifications::package::PackageIndex;
 use specifications::working::{Error as JobServiceError, JobServiceClient};
 

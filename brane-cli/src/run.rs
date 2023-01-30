@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    19 Jan 2023, 14:04:09
+//    26 Jan 2023, 15:01:34
 //  Auto updated?
 //    Yes
 // 
@@ -30,13 +30,13 @@ use brane_exe::dummy::{DummyVm, Error as DummyVmError};
 use brane_tsk::spec::{LOCALHOST, AppId};
 use specifications::data::{AccessKind, DataIndex, DataInfo};
 use specifications::driving::{CreateSessionRequest, DriverServiceClient, ExecuteRequest};
+use specifications::identity::IdentityFile;
 use specifications::package::PackageIndex;
-use specifications::registry::RegistryConfig;
 
 pub use crate::errors::RunError as Error;
 use crate::errors::OfflineVmError;
 use crate::data;
-use crate::utils::{ensure_datasets_dir, ensure_packages_dir, get_datasets_dir, get_packages_dir, get_registry_file};
+use crate::utils::{ensure_datasets_dir, ensure_packages_dir, get_datasets_dir, get_login_file, get_packages_dir};
 use crate::vm::OfflineVm;
 
 
@@ -468,19 +468,19 @@ pub async fn initialize_instance_vm(endpoint: impl AsRef<str>, attach: Option<Ap
     let endpoint: &str = endpoint.as_ref();
 
     // Fetch the endpoint from the login file
-    let config: RegistryConfig = match get_registry_file() {
+    let identity: IdentityFile = match get_login_file() {
         Ok(config) => config,
         Err(err)   => { return Err(Error::RegistryFileError{ err }); }
     };
 
     // We fetch a local copy of the indices for compiling
-    debug!("Fetching global package & data indices from '{}'...", config.url);
-    let package_addr: String = format!("{}/graphql", config.url);
+    debug!("Fetching global package & data indices from '{}'...", identity.api_service);
+    let package_addr: String = format!("{}/graphql", identity.api_service);
     let pindex: Arc<PackageIndex> = match brane_tsk::api::get_package_index(&package_addr).await {
         Ok(pindex) => Arc::new(pindex),
         Err(err)   => { return Err(Error::RemotePackageIndexError{ address: package_addr, err }); },
     };
-    let data_addr: String = format!("{}/data/info", config.url);
+    let data_addr: String = format!("{}/data/info", identity.api_service);
     let dindex: Arc<DataIndex> = match brane_tsk::api::get_data_index(&data_addr).await {
         Ok(dindex) => Arc::new(dindex),
         Err(err)   => { return Err(Error::RemoteDataIndexError{ address: data_addr, err }); },
@@ -831,13 +831,13 @@ pub async fn process_instance_result(certs_dir: impl AsRef<Path>, proxy_addr: &O
             // If it's a dataset, attempt to download it
             FullValue::Data(name) => {
                 // Fetch the endpoint from the login file
-                let config: RegistryConfig = match get_registry_file() {
+                let identity: IdentityFile = match get_login_file() {
                     Ok(config) => config,
                     Err(err)   => { return Err(Error::RegistryFileError{ err }); }
                 };
 
                 // Fetch a new, local DataIndex to get up-to-date entries
-                let data_addr: String = format!("{}/data/info", config.url);
+                let data_addr: String = format!("{}/data/info", identity.api_service);
                 let index: DataIndex = match brane_tsk::api::get_data_index(&data_addr).await {
                     Ok(dindex) => dindex,
                     Err(err)   => { return Err(Error::RemoteDataIndexError{ address: data_addr, err }); },
@@ -852,7 +852,7 @@ pub async fn process_instance_result(certs_dir: impl AsRef<Path>, proxy_addr: &O
                     Some(access) => access.clone(),
                     None         => {
                         // Attempt to download it instead
-                        match data::download_data(certs_dir, &config.url, proxy_addr, &name, &info.access).await {
+                        match data::download_data(certs_dir, identity.api_service.to_string(), proxy_addr, &name, &info.access).await {
                             Ok(Some(access)) => access,
                             Ok(None)         => { return Err(Error::UnavailableDataset{ name: name.into(), locs: info.access.keys().cloned().collect() }); },
                             Err(err)         => { return Err(Error::DataDownloadError{ err }); },
@@ -886,14 +886,14 @@ pub async fn process_instance_result(certs_dir: impl AsRef<Path>, proxy_addr: &O
 /// - `certs_dir`: The directory with certificates proving our identity.
 /// - `proxy_addr`: The address to proxy any data transfers through if they occur.
 /// - `dummy`: If given, uses a Dummy VM as backend instead of actually running any jobs.
-/// - `remote`: Whether to (and what) remote Brane instance to run the file on instead.
+/// - `remote`: Whether to run on an remote Brane instance instead.
 /// - `language`: The language with which to compile the file.
 /// - `file`: The file to read and run. Can also be '-', in which case it is read from stdin instead.
 /// - `profile`: If given, prints the profile timings to stdout if available.
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-pub async fn handle(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, language: Language, file: PathBuf, dummy: bool, remote: Option<String>, profile: bool) -> Result<(), Error> {
+pub async fn handle(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, language: Language, file: PathBuf, dummy: bool, remote: bool, profile: bool) -> Result<(), Error> {
     // Either read the file or read stdin
     let (what, source_code): (Cow<str>, String) = if file == PathBuf::from("-") {
         let mut result: String = String::new();
@@ -911,8 +911,15 @@ pub async fn handle(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, lan
 
     // Now switch on dummy, local or remote mode
     if !dummy {
-        if let Some(remote) = remote {
-            remote_run(certs_dir, proxy_addr, remote, options, what, source_code, profile).await
+        if remote {
+            // Open the login file to find the remote location
+            let config: IdentityFile = match get_login_file() {
+                Ok(config) => config,
+                Err(err)   => { return Err(Error::LoginFileError{ err }); },
+            };
+
+            // Run the thing
+            remote_run(certs_dir, proxy_addr, config.drv_service.to_string(), options, what, source_code, profile).await
         } else {
             local_run(options, what, source_code).await
         }

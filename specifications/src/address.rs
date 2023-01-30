@@ -1,18 +1,22 @@
-//  SPEC.rs
+//  ADDRESS.rs
 //    by Lut99
 // 
 //  Created:
-//    04 Oct 2022, 11:42:49
+//    26 Jan 2023, 09:41:51
 //  Last edited:
-//    12 Dec 2022, 12:48:55
+//    26 Jan 2023, 16:11:51
 //  Auto updated?
 //    Yes
 // 
 //  Description:
-//!   Defines (public) interfaces and structs for the `brane-cfg` crate.
+//!   Defines the Address struct, which does something similar to the Url
+//!   struct in the `url` crate, except that it's much more lenient
+//!   towards defining URL schemes or not. Moreover, it does not contain
+//!   any paths.
 // 
 
 use std::borrow::Cow;
+use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
@@ -23,7 +27,29 @@ use serde::{Deserialize, Serialize};
 use serde::ser::Serializer;
 use serde::de::{self, Deserializer, Visitor};
 
-use crate::errors::AddressParseError;
+
+/***** ERRORS *****/
+/// Errors that relate to parsing Addresses.
+#[derive(Debug)]
+pub enum AddressParseError {
+    /// Missing the colon separator (':') in the address.
+    MissingColon{ raw: String },
+    /// Invalid port number.
+    IllegalPortNumber{ raw: String, err: std::num::ParseIntError },
+}
+impl Display for AddressParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use AddressParseError::*;
+        match self {
+            MissingColon{ raw }           => write!(f, "Missing address/port separator ':' in '{}' (did you forget to define a port?)", raw),
+            IllegalPortNumber{ raw, err } => write!(f, "Illegal port number '{}': {}", raw, err),
+        }
+    }
+}
+impl Error for AddressParseError {}
+
+
+
 
 
 /***** LIBRARY *****/
@@ -156,6 +182,36 @@ impl Address {
             Hostname(_, port) => port,
         }
     }
+
+
+
+    /// Returns if this Address is an `Address::Hostname`.
+    /// 
+    /// # Returns
+    /// True if it is, false if it isn't.
+    #[inline]
+    pub fn is_hostname(&self) -> bool { matches!(self, Self::Hostname(_, _)) }
+
+    /// Returns if this Address is an `Address::Ipv4` or `Address::Ipv6`.
+    /// 
+    /// # Returns
+    /// True if it is, false if it isn't.
+    #[inline]
+    pub fn is_ip(&self) -> bool { self.is_ipv4() || self.is_ipv6() }
+
+    /// Returns if this Address is an `Address::Ipv4`.
+    /// 
+    /// # Returns
+    /// True if it is, false if it isn't.
+    #[inline]
+    pub fn is_ipv4(&self) -> bool { matches!(self, Self::Ipv4(_, _)) }
+
+    /// Returns if this Address is an `Address::Ipv6`.
+    /// 
+    /// # Returns
+    /// True if it is, false if it isn't.
+    #[inline]
+    pub fn is_ipv6(&self) -> bool { matches!(self, Self::Ipv6(_, _)) }
 
 
 

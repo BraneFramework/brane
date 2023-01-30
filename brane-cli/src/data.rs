@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 17:39:06
 //  Last edited:
-//    18 Nov 2022, 15:42:12
+//    26 Jan 2023, 14:07:49
 //  Auto updated?
 //    Yes
 // 
@@ -40,10 +40,10 @@ use tokio_tar::Archive;
 use brane_shr::fs::copy_dir_recursively_async;
 use brane_shr::utilities::is_ip_addr;
 use brane_tsk::spec::LOCALHOST;
-use specifications::registry::RegistryConfig;
+use specifications::identity::IdentityFile;
 
 use crate::errors::DataError;
-use crate::utils::{ensure_dataset_dir, ensure_datasets_dir, get_dataset_dir, get_registry_file};
+use crate::utils::{ensure_dataset_dir, ensure_datasets_dir, get_dataset_dir, get_login_file};
 
 
 /***** LIBRARY *****/
@@ -384,13 +384,13 @@ pub async fn download(names: Vec<String>, locs: Vec<String>, certs_dir: impl AsR
     }
 
     // Fetch the endpoint from the login file
-    let config: RegistryConfig = match get_registry_file() {
+    let config: IdentityFile = match get_login_file() {
         Ok(config) => config,
-        Err(err)   => { return Err(DataError::RegistryFileError{ err }); }
+        Err(err)   => { return Err(DataError::LoginFileError{ err }); }
     };
 
     // Fetch a new, remote DataIndex to get up-to-date entries
-    let data_addr: String = format!("{}/data/info", config.url);
+    let data_addr: String = format!("{}/data/info", config.api_service);
     let index: DataIndex = match brane_tsk::api::get_data_index(&data_addr).await {
         Ok(dindex) => dindex,
         Err(err)   => { return Err(DataError::RemoteDataIndexError{ address: data_addr, err }); },
@@ -457,7 +457,7 @@ pub async fn download(names: Vec<String>, locs: Vec<String>, certs_dir: impl AsR
             Some(access) => access.clone(),
             None         => {
                 // Attempt to download it instead
-                match download_data(certs_dir, &config.url, proxy_addr, &name, &access).await? {
+                match download_data(certs_dir, config.api_service.to_string(), proxy_addr, &name, &access).await? {
                     Some(access) => access,
                     None         => { return Err(DataError::UnavailableDataset{ name, locs: info.access.keys().cloned().collect() }); },
                 }

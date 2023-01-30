@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 14:34:28
 //  Last edited:
-//    19 Jan 2023, 13:08:40
+//    27 Jan 2023, 16:10:13
 //  Auto updated?
 //    Yes
 // 
@@ -33,8 +33,9 @@ use specifications::arch::Arch;
 use specifications::package::PackageKind;
 use specifications::version::Version as SemVersion;
 
-use brane_cli::{build_ecu, build_oas, data, packages, registry, repl, run, test, verify, version};
+use brane_cli::{build_ecu, build_oas, data, instance, packages, registry, repl, run, test, verify, version};
 use brane_cli::errors::{CliError, BuildError, ImportError};
+use brane_cli::spec::Hostname;
 
 
 /***** ARGUMENTS *****/
@@ -102,6 +103,13 @@ enum SubCommand {
         syntax : String,
     },
 
+    #[clap(name = "instance", about = "Commands that relate to connecting to remote instances.")]
+    Instance {
+        /// Subcommand further
+        #[clap(subcommand)]
+        subcommand : InstanceSubcommand,
+    },
+
     #[clap(name = "list", about = "List packages")]
     List {
         #[clap(short, long, action, help = "If given, only print the latest version of each package instead of all versions")]
@@ -116,16 +124,27 @@ enum SubCommand {
         version: SemVersion,
     },
 
-    #[clap(name = "login", about = "Log in to a registry")]
-    Login {
-        #[clap(name = "HOST", help = "Hostname of the registry")]
-        host: String,
-        #[clap(short, long, help = "Username of the account")]
-        username: String,
-    },
+    // #[clap(name = "login", about = "Log in to a registry")]
+    // Login {
+    //     #[clap(name = "HOST", help = "Hostname of the registry. May include a prefix URL.")]
+    //     host : Hostname,
 
-    #[clap(name = "logout", about = "Log out from a registry")]
-    Logout {},
+    //     #[clap(short, long, group = "identity", help = "Username of the account. Specify this if the remote instance does require secure authentication using certificates (see '--identity' in that case).")]
+    //     username    : Option<String>,
+    //     #[clap(short, long, group = "identity", help = "Path to the SSL certificate file to use to authenticate yourself in the remote instance. If the remote instance does not require secure authentication, consider using '--username' instead.")]
+    //     certificate : Option<PathBuf>,
+
+    //     #[clap(short, long, default_value = "50051", help = "The remote API port to connect to. You don't have to specify this if your system administrator didn't say so.")]
+    //     api_port : u16,
+    //     #[clap(short, long, default_value = "50053", help = "The remote driver port to connect to. You don't have to specify this if your system administrator didn't say so.")]
+    //     drv_port : u16,
+
+    //     #[clap(long, help = "If given, does not check with the remote host if the credentials are correct, but just caches them for further subcommands.")]
+    //     unchecked : bool,
+    // },
+
+    // #[clap(name = "logout", about = "Log out from a registry")]
+    // Logout {},
 
     #[clap(name = "pull", about = "Pull a package from a registry")]
     Pull {
@@ -154,10 +173,10 @@ enum SubCommand {
         #[clap(short, long, value_names = &["address[:port]"], help = "If given, proxies any data transfers to this machine through the proxy at the given address. Irrelevant if not running remotely.")]
         proxy_addr : Option<String>,
 
-        #[clap(short, long, value_names = &["address[:port]"], help = "Create a remote REPL session")]
-        remote: Option<String>,
+        #[clap(short, long, help = "Create a remote REPL session to the instance you are currently logged-in to (see `brane login`)")]
+        remote : bool,
         #[clap(short, long, value_names = &["uid"], help = "Attach to an existing remote session")]
-        attach: Option<AppId>,
+        attach : Option<AppId>,
 
         #[clap(short, long, action, help = "Use Bakery instead of BraneScript")]
         bakery: bool,
@@ -179,11 +198,11 @@ enum SubCommand {
         bakery: bool,
 
         #[clap(name = "FILE", help = "Path to the file to run. Use '-' to run from stdin instead.")]
-        file   : PathBuf,
-        #[clap(long, conflicts_with = "remote", help = "If given, uses a dummy VM in the background which never runs any jobs. It only returns some default value for the VM's return type.")]
-        dummy  : bool,
-        #[clap(short, long, value_names = &["address[:port]"], help = "Create a remote REPL session")]
-        remote : Option<String>,
+        file    : PathBuf,
+        #[clap(long, conflicts_with = "remote", help = "If given, uses a dummy VM in the background which never actually runs any jobs. It only returns some default value for the task's return type. Use this to run only the BraneScript part of your workflow.")]
+        dry_run : bool,
+        #[clap(short, long, conflicts_with = "dry_run", help = "Create a remote session to the instance you are currently logged-in to (see `brane login`)")]
+        remote  : bool,
 
         #[clap(long, help = "If given, shows profile times if they are available.")]
         profile : bool,
@@ -287,6 +306,114 @@ enum DataSubcommand {
         #[clap(short, long, action, help = "If given, does not ask the user for confirmation but just removes the dataset (use at your own risk!)")]
         force : bool,
     },
+}
+
+/// Defines the subcommands for the instance subommand
+#[derive(Parser)]
+enum InstanceSubcommand {
+    #[clap(name = "new", about = "Defines a new instance to connect to.")]
+    New {
+        /// The instance's hostname.
+        #[clap(name = "HOSTNAME", help = "The hostname of the instance to connect to. Should not contain any ports or paths, and any scheme (e.g., 'http://') is ignored.")]
+        hostname : Hostname,
+        /// The port of the API service.
+        #[clap(short, long, default_value = "50051", help = "The port of the API service on the remote instance. You should probably only specify this if the system administrator told you to change it.")]
+        api_port : u16,
+        /// The port of the driver service.
+        #[clap(short, long, default_value = "50053", help = "The port of the driver service on the remote instance. You should probably only specify this if the system administrator told you to change it.")]
+        drv_port : u16,
+
+        /// Any custom name for this instance.
+        #[clap(short, long, help = "Some name to set for this instance. If omitted, will set the hostname instead.")]
+        name            : Option<String>,
+        /// Whether to use this instance immediately or not.
+        #[clap(short, long = "use", help = "If given, immediately uses this instance (i.e., acts as if `brane instance switch <name>` is called for this instance)")]
+        use_immediately : bool,
+        /// Whether to skip checking if the instance is alive or not.
+        #[clap(long, help = "If given, skips checking if the instance is reachable.")]
+        unchecked       : bool,
+    },
+    #[clap(name = "remove", about = "Deletes a registered instance.")]
+    Remove {
+        /// The name(s) of the instance(s) to remove.
+        #[clap(name = "NAMES", help = "The name(s) of the instance(s) to remove. If in doubt, consult `brane instance list`.")]
+        names : Vec<String>,
+
+        /// Whether to query for permission or not (but negated).
+        #[clap(short, long, help = "If given, does not ask for permission before removing the instances. Use at your own risk.")]
+        force : bool,
+    },
+
+    #[clap(name = "list", about = "Lists the registered instances.")]
+    List {
+        /// If given, shows an additional column in the table that shows whether this instance is online or not.
+        #[clap(short, long, help = "If given, shows an additional column in the table that shows whether this instance is online or not.")]
+        show_status : bool,
+    },
+    #[clap(name = "select", about = "Switches to the registered instance with the given name.")]
+    Select {
+        /// The instnace's name to switch to.
+        #[clap(name = "NAME", help = "The name of the instance to switch to. If in doubt, consult `brane instance list`.")]
+        name : String,
+    },
+
+    #[clap(name = "edit", about = "Changes some properties of an instance.")]
+    Edit {
+        /// The instance's name to edit.
+        #[clap(name = "NAME", help = "The name of the instance to edit if you don't want to edit the active instance. f in doubt, consult `brane instance list`.")]
+        name : Option<String>,
+
+        /// Change the hostname to this.
+        #[clap(short='H', long, help = "If given, changes the hostname of this instance to the given one.")]
+        hostname : Option<Hostname>,
+        /// Change the API port to this.
+        #[clap(short, long, help = "If given, changes the port of the API service for this instance to this.")]
+        api_port : Option<u16>,
+        /// Change the driver port to this.
+        #[clap(short, long, help = "If given, changes the port of the driver service for this instance to this.")]
+        drv_port : Option<u16>,
+    },
+    #[clap(name = "certs", about = "Manages authentication certificates for this instance.")]
+    Certs {
+        /// The name of the instance for which to manage the certificates.
+        #[clap(name = "NAME", help = "The name of the instance for which to manage the certificates. If in doubt, consult `brane instance list`.")]
+        name : String,
+
+        /// Subcommand further
+        #[clap(subcommand)]
+        subcommand : InstanceCertsSubcommand,
+    },
+}
+/// Defines the subcommands for the `instance certs` subommand
+#[derive(Parser)]
+enum InstanceCertsSubcommand {
+    #[clap(name = "add", about = "Adds a new CA/client certificate pair to this instance. If there are already certificates defined for this domain, will override them.")]
+    Add {
+        /// The path(s) to the certificate(s) to load.
+        #[clap(name = "PATHS", help = "The path(s) to the certificate(s) to load. This should include at least the CA certificate for this domain, as well as a signed client certificate. Since a single certificate file may contain multiple certificates, however, specify how many you need.")]
+        paths : Vec<PathBuf>,
+
+        /// Any custom domain name.
+        #[clap(short, long, help = "If given, overrides the location name found in the certificates. Note, however, that this name is used when we need to download from the domain, so should match the name of the location for which the certificates are valid.")]
+        name : Option<String>,
+
+        /// Whether to ask for permission before overwriting old certificates (but negated).
+        #[clap(short, long, help = "If given, does not ask for permission before overwriting old certificates. Use at your own risk.")]
+        force : bool,
+    },
+    #[clap(name = "remove", about = "Removes the certificates for a certain domain within this instance.")]
+    Remove {
+        /// The name(s) of the certificate(s) to remove.
+        #[clap(name = "NAMES", help = "The name(s) of the domain(s) for which to remove the certificates. If in doubt, consult `brane instance <name> certs list`.")]
+        names : Vec<String>,
+
+        /// Whether to query for permission or not (but negated).
+        #[clap(short, long, help = "If given, does not ask for permission before removing the certificates. Use at your own risk.")]
+        force : bool,
+    },
+
+    #[clap(name = "list", about = "Lists the domains for which certificates are given.")]
+    List {},
 }
 
 /// Defines the subcommands for the verify subcommand.
@@ -398,7 +525,6 @@ async fn run(options: Cli) -> Result<(), CliError> {
                 _                => eprintln!("Unsupported package kind: {}", kind),
             }
         }
-
         Data { subcommand } => {
             // Match again
             use DataSubcommand::*;
@@ -425,8 +551,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
                     if let Err(err) = data::remove(names, force) { return Err(CliError::DataError{ err }); }
                 },
             }
-        },
-
+        }
         Import { arch, repo, workdir, file, kind, init } => {
             // Prepare the input URL and output directory
             let url = format!("https://github.com/{}", repo);
@@ -492,21 +617,53 @@ async fn run(options: Cli) -> Result<(), CliError> {
                 _                => eprintln!("Unsupported package kind: {}", kind),
             }
         }
-
         Inspect { name, version, syntax } => {
             if let Err(err) = packages::inspect(name, version, syntax) { return Err(CliError::OtherError{ err }); };
+        }
+        Instance{ subcommand } => {
+            // Switch on the subcommand
+            use InstanceSubcommand::*;
+            match subcommand {
+                New{ hostname, api_port, drv_port, name, use_immediately, unchecked } => {
+                    if let Err(err) = instance::new(name.unwrap_or_else(|| hostname.hostname.clone()), hostname, api_port, drv_port, use_immediately, unchecked).await { return Err(CliError::InstanceError{ err }); }
+                }
+                Remove{ names, force } => {
+                    if let Err(err) = instance::remove(names, force) { return Err(CliError::InstanceError{ err }); }
+                }
+
+                List{ show_status } => {
+                    if let Err(err) = instance::list(show_status).await { return Err(CliError::InstanceError { err }); }
+                }
+                Select{ name } => {
+                    if let Err(err) = instance::select(name) { return Err(CliError::InstanceError{ err }); }
+                }
+
+                Edit{ name, hostname, api_port, drv_port } => {
+                    if let Err(err) = instance::edit(name, hostname, api_port, drv_port) { return Err(CliError::InstanceError{ err }); }
+                }
+                Certs{ name, subcommand } => {
+                    // Switch on the subcommand one last ime
+                    use InstanceCertsSubcommand::*;
+                    match subcommand {
+                        Add{ paths, name: domain_name, force } => {
+                            if let Err(err) = instance::add_cert(name, paths, domain_name, force) { return Err(CliError::InstanceError{ err }); }
+                        }
+                        Remove{ names: domain_names, force } => {
+
+                        }
+
+                        List{} => {
+                            
+                        }
+                    }
+                }
+            }
         }
         List { latest } => {
             if let Err(err) = packages::list(latest) { return Err(CliError::OtherError{ err: anyhow::anyhow!(err) }); };
         }
         Load { name, version } => {
             if let Err(err) = packages::load(name, version).await { return Err(CliError::OtherError{ err }); };
-        }
-        Login { host, username } => {
-            if let Err(err) = registry::login(host, username) { return Err(CliError::OtherError{ err }); };
-        }
-        Logout {} => {
-            if let Err(err) = registry::logout() { return Err(CliError::OtherError{ err }); };
         }
         Pull { packages } => {
             // Parse the NAME:VERSION pairs into a name and a version
@@ -553,8 +710,8 @@ async fn run(options: Cli) -> Result<(), CliError> {
         Repl { certs_dir, proxy_addr, bakery, clear, remote, attach, profile } => {
             if let Err(err) = repl::start(certs_dir, proxy_addr, remote, attach, if bakery { Language::Bakery } else { Language::BraneScript }, clear, profile).await { return Err(CliError::ReplError{ err }); };
         }
-        Run { certs_dir, proxy_addr, bakery, file, dummy, remote, profile } => {
-            if let Err(err) = run::handle(certs_dir, proxy_addr, if bakery { Language::Bakery } else { Language::BraneScript }, file, dummy, remote, profile).await { return Err(CliError::RunError{ err }); };
+        Run { certs_dir, proxy_addr, bakery, file, dry_run, remote, profile } => {
+            if let Err(err) = run::handle(certs_dir, proxy_addr, if bakery { Language::Bakery } else { Language::BraneScript }, file, dry_run, remote, profile).await { return Err(CliError::RunError{ err }); };
         }
         Test { name, version, show_result } => {
             if let Err(err) = test::handle(name, version, show_result).await { return Err(CliError::TestError{ err }); };

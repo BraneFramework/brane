@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:40:40
 //  Last edited:
-//    16 Jan 2023, 12:59:31
+//    26 Jan 2023, 13:31:38
 //  Auto updated?
 //    Yes
 // 
@@ -26,9 +26,7 @@ use warp::http::HeaderValue;
 use warp::hyper::{Body, StatusCode};
 use warp::hyper::body::{Bytes, Sender};
 use warp::reply::{self, Response};
-use x509_parser::certificate::X509Certificate;
-use x509_parser::prelude::FromDer;
-
+use brane_cfg::certs::extract_client_name;
 use brane_cfg::node::NodeConfig;
 use brane_cfg::policies::{PolicyFile, UserPolicy};
 use brane_shr::fs::archive_async;
@@ -42,43 +40,6 @@ use crate::store::Store;
 
 
 /***** HELPER FUNCTIONS *****/
-/// Retrieves the client name from the given Certificate provided by the, well, client.
-/// 
-/// # Arguments
-/// - `certificate`: The Certificate to analyze, if any.
-/// 
-/// # Returns
-/// The name of the client, as provided by the Certificate's `CN` field.
-/// 
-/// # Errors
-/// This function errors if we could not extract the name for some reason. You should consider the client unauthenticated, in that case.
-pub fn extract_client_name(cert: Option<Certificate>) -> Result<String, AuthorizeError> {
-    // Extract the cert
-    let cert: Certificate = match cert {
-        Some(cert) => cert,
-        None       => { return Err(AuthorizeError::ClientNoCert); },
-    };
-
-    // Attempt to parse the certificate as a real x509 one
-    match X509Certificate::from_der(&cert.0) {
-        Ok((_, cert)) => {
-            // Get the part after 'CN = ' and before end-of-string or comma (since that's canonically the domain name)
-            let subject: String = cert.subject.to_string();
-            let name_loc: usize = match subject.find("CN=") {
-                Some(name_loc) => name_loc + 3,
-                None           => { return Err(AuthorizeError::ClientCertNoCN { subject }); },
-            };
-            let name_end: usize = subject[name_loc..].find(',').map(|c| name_loc + c).unwrap_or(subject.len());
-
-            // Extract it as the name
-            Ok(subject[name_loc..name_end].to_string())
-        },
-        Err(err) => Err(AuthorizeError::ClientCertParseError{ err }),
-    }
-}
-
-
-
 /// Runs the do-be-done data transfer by the checker to assess if we're allowed to do it.
 /// 
 /// # Arguments
@@ -398,6 +359,7 @@ pub async fn download_data(cert: Option<Certificate>, name: String, context: Arc
 
     // Attempt to parse the certificate to get the client's name (which tracks because it's already authenticated)
     let auth = report.guard("authorization");
+    let cert: Certificate = match cert { Some(cert) => cert, None => { error!("Client did not specify a certificate (client unauthenticated)"); return Ok(reply::with_status(Response::new(Body::empty()), StatusCode::FORBIDDEN)); } };
     let client_name: String = match extract_client_name(cert) {
         Ok(name) => name,
         Err(err) => {
@@ -547,6 +509,7 @@ pub async fn download_result(cert: Option<Certificate>, name: String, context: A
 
     // Attempt to parse the certificate to get the client's name (which tracks because it's already authenticated)
     let auth = overhead.guard("authorization");
+    let cert: Certificate = match cert { Some(cert) => cert, None => { error!("Client did not specify a certificate (client unauthenticated)"); return Ok(reply::with_status(Response::new(Body::empty()), StatusCode::FORBIDDEN)); } };
     let client_name: String = match extract_client_name(cert) {
         Ok(name) => name,
         Err(err) => {

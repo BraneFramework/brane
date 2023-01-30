@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:47
 //  Last edited:
-//    06 Jan 2023, 12:47:51
+//    26 Jan 2023, 14:19:23
 //  Auto updated?
 //    Yes
 // 
@@ -29,9 +29,10 @@ use brane_ast::ParserOptions;
 use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_tsk::spec::AppId;
+use specifications::identity::IdentityFile;
 
 pub use crate::errors::ReplError as Error;
-use crate::utils::{ensure_config_dir, get_history_file};
+use crate::utils::{ensure_config_dir, get_history_file, get_login_file};
 use crate::run::{initialize_instance_vm, initialize_offline_vm, process_instance_result, process_offline_result, run_instance_vm, run_offline_vm, InstanceVmState, OfflineVmState};
 
 
@@ -175,7 +176,7 @@ impl Validator for ReplHelper {
 /// # Arguments
 /// - `certs_dir`: The directory with certificates proving our identity.
 /// - `proxy_addr`: The address to proxy any data transfers through if they occur.
-/// - `remote`: Whether to (and what) remote Brane instance to run the file on instead.
+/// - `remote`: Whether to use the remote Brane instance in the login file to run the on instead.
 /// - `attach`: If not None, defines the session ID of an existing session to connect to.
 /// - `language`: The language with which to compile the file.
 /// - `clear`: Whether or not to clear the history of the REPL before beginning.
@@ -183,7 +184,7 @@ impl Validator for ReplHelper {
 /// 
 /// # Errors
 /// This function errors if we could not properly read from/write to the terminal. Additionally, it may error if any of the given statements fails for whatever reason.
-pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remote: Option<String>, attach: Option<AppId>, language: Language, clear: bool, profile: bool) -> Result<(), Error> {
+pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remote: bool, attach: Option<AppId>, language: Language, clear: bool, profile: bool) -> Result<(), Error> {
     // Build the config for the rustyline REPL.
     let config = Config::builder()
         .history_ignore_space(true)
@@ -225,8 +226,15 @@ pub async fn start(certs_dir: impl AsRef<Path>, proxy_addr: Option<String>, remo
 
     // Initialization done; run the REPL
     println!("Welcome to the Brane REPL, press Ctrl+D to exit.\n");
-    if let Some(remote) = remote {
-        remote_repl(&mut rl, certs_dir, proxy_addr, remote, attach, options, profile).await?;
+    if remote {
+        // Open the login file to find the remote location
+        let config: IdentityFile = match get_login_file() {
+            Ok(config) => config,
+            Err(err)   => { return Err(Error::LoginFileError{ err }); },
+        };
+
+        // Run the thing
+        remote_repl(&mut rl, certs_dir, proxy_addr, config.drv_service.to_string(), attach, options, profile).await?;
     } else {
         local_repl(&mut rl, options).await?;
     }

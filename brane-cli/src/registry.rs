@@ -3,7 +3,7 @@ use std::fs::{self, File};
 use std::io::prelude::*;
 use std::str::FromStr;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::DateTime;
 use chrono::Utc;
 use console::style;
@@ -18,16 +18,14 @@ use prettytable::Table;
 use reqwest::{self, Body, Client};
 use tokio::fs::File as TokioFile;
 use tokio_util::codec::{BytesCodec, FramedRead};
-use url::Url;
 use uuid::Uuid;
 
 use brane_tsk::local::get_package_versions;
 use specifications::package::{PackageKind, PackageInfo};
-use specifications::registry::RegistryConfig;
 use specifications::version::Version;
 
 use crate::errors::RegistryError;
-use crate::utils::{get_config_dir, get_packages_dir, get_registry_file, ensure_package_dir, ensure_packages_dir, ensure_config_dir};
+use crate::utils::{get_packages_dir, get_login_file, ensure_package_dir, ensure_packages_dir};
 
 
 type DateTimeUtc = DateTime<Utc>;
@@ -43,7 +41,7 @@ type DateTimeUtc = DateTime<Utc>;
 /// This function may error if we could not find, read or parse the config file with the login data. If not found, this likely indicates the user hasn't logged-in yet.
 #[inline]
 pub fn get_graphql_endpoint() -> Result<String, RegistryError> {
-    Ok(format!("{}/graphql", get_registry_file().map_err(|err| RegistryError::ConfigFileError{ err })?.url))
+    Ok(format!("{}/graphql", get_login_file().map_err(|err| RegistryError::ConfigFileError{ err })?.api_service))
 }
 
 /// Get the package endpoint of the Brane API.
@@ -55,7 +53,7 @@ pub fn get_graphql_endpoint() -> Result<String, RegistryError> {
 /// This function may error if we could not find, read or parse the config file with the login data. If not found, this likely indicates the user hasn't logged-in yet.
 #[inline]
 pub fn get_packages_endpoint() -> Result<String, RegistryError> {
-    Ok(format!("{}/packages", get_registry_file().map_err(|err| RegistryError::ConfigFileError{ err })?.url))
+    Ok(format!("{}/packages", get_login_file().map_err(|err| RegistryError::ConfigFileError{ err })?.api_service))
 }
 
 /// Get the data endpoint of the Brane API.
@@ -67,59 +65,10 @@ pub fn get_packages_endpoint() -> Result<String, RegistryError> {
 /// This function may error if we could not find, read or parse the config file with the login data. If not found, this likely indicates the user hasn't logged-in yet.
 #[inline]
 pub fn get_data_endpoint() -> Result<String, RegistryError> {
-    Ok(format!("{}/data", get_registry_file().map_err(|err| RegistryError::ConfigFileError{ err })?.url))
+    Ok(format!("{}/data", get_login_file().map_err(|err| RegistryError::ConfigFileError{ err })?.api_service))
 }
 
 
-
-///
-///
-///
-pub fn login(
-    url: String,
-    username: String,
-) -> Result<()> {
-    let url = Url::parse(&url).with_context(|| format!("Not a valid absolute URL: {}", url))?;
-
-    let host = url
-        .host_str()
-        .with_context(|| format!("URL does not have a (valid) host: {}", url))?;
-
-    /* TIM */
-    // Added quick error handling
-    let config_file = match get_config_dir() {
-        Ok(dir)  => dir.join("registry.yml"),
-        Err(err) => { panic!("{}", err); }
-    };
-    /*******/
-    let mut config = if config_file.exists() {
-        RegistryConfig::from_path(&config_file)?
-    } else {
-        RegistryConfig::default()
-    };
-
-    config.username = username;
-    config.url = format!("{}://{}:{}", url.scheme(), host, url.port().unwrap_or(50051));
-
-    // Write registry.yml to config directory
-    fs::create_dir_all(config_file.parent().unwrap())?;
-    let mut buffer = File::create(config_file)?;
-    write!(buffer, "{}", serde_yaml::to_string(&config)?)?;
-
-    Ok(())
-}
-
-///
-///
-///
-pub fn logout() -> Result<()> {
-    let config_file = ensure_config_dir(false).unwrap().join("registry.yml");
-    if config_file.exists() {
-        fs::remove_file(config_file)?;
-    }
-
-    Ok(())
-}
 
 /// Pulls packages from a remote registry to the local registry. 
 /// 

@@ -12,17 +12,18 @@
  *   Implements version queriers for the Brane framework.
 **/
 
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use log::debug;
 use reqwest::{Response, StatusCode};
 
 use specifications::arch::Arch;
-use specifications::registry::RegistryConfig;
+use specifications::identity::{IdentityFile, IdentityFileError};
 use specifications::version::Version;
 
-use crate::errors::VersionError;
-use crate::utils::get_config_dir;
+use crate::errors::{UtilError, VersionError};
+use crate::utils::{get_config_dir, get_login_file};
 
 
 /***** HELPER STRUCTS *****/
@@ -87,32 +88,26 @@ impl RemoteVersion {
 
         // Try to get the registry file path
         debug!(" > Reading registy.yml...");
-        let config_file = match get_config_dir() {
-            Ok(dir)  => dir.join("registry.yml"),
-            Err(err) => { return Err(VersionError::ConfigDirError{ err }); }
-        };
-
-        // We are, so load the registry file
-        let registry = match RegistryConfig::from_path(&config_file) {
-            Ok(registry) => registry,
-            Err(err)     => { return Err(VersionError::RegistryFileError{ err }); }
+        let config: IdentityFile = match get_login_file() {
+            Ok(config) => config,
+            Err(err)   => { return Err(VersionError::IdentityFileError{ err }); }
         };
 
         // Pass to the other constructor
-        Self::from_registry_file(registry).await
+        Self::from_identity_file(config).await
     }
 
-    /// Constructor for the RemoteVersion, which creates it from a given RegistryConfig.
+    /// Constructor for the RemoteVersion, which creates it from a given IdentityFile.
     /// 
     /// # Arguments
-    /// - `registry`: The RegistryConfig file to use to find the remote registry properties.
+    /// - `config`: The IdentityFile file to use to find the remote registry's properties.
     /// 
     /// # Returns
     /// A new RemoteVersion instance on success, or else a VersionError.
-    async fn from_registry_file(registry: RegistryConfig) -> Result<Self, VersionError> {
+    async fn from_identity_file(config: IdentityFile) -> Result<Self, VersionError> {
         // Use reqwest for the API call
         debug!(" > Querying...");
-        let mut url: String = registry.url.clone(); url.push_str("/version");
+        let mut url: String = config.api_service.to_string(); url.push_str("/version");
         let response: Response = match reqwest::get(&url).await {
             Ok(version) => version,
             Err(err)    => { return Err(VersionError::RequestError{ url, err }); }
@@ -197,22 +192,23 @@ pub async fn handle() -> Result<(), VersionError> {
     println!();
 
     // If the registry file exists, then also do the remote
-    let config_file = match get_config_dir() {
+    let config_file: PathBuf = match get_config_dir() {
         Ok(dir)  => dir.join("registry.yml"),
         Err(err) => { return Err(VersionError::ConfigDirError{ err }); }
     };
     if config_file.exists() {
         // Get the registry file from it
-        let registry = match RegistryConfig::from_path(&config_file) {
-            Ok(registry) => registry,
-            Err(err)     => { return Err(VersionError::RegistryFileError{ err }); }
+        let config = match IdentityFile::from_path(&config_file) {
+            Ok(config)                                    => config,
+            Err(IdentityFileError::FileNotFound { path }) => { return Err(VersionError::IdentityFileError{ err: UtilError::IdentityFileNotFound { path } }); }
+            Err(err)                                      => { return Err(VersionError::IdentityFileError{ err: UtilError::IdentityFileError{ err } }); }
         };
 
         // Print the URL
-        println!("Remote Brane instance at '{}'", &registry.url);
+        println!("Remote Brane instance at '{}'", &config.api_service);
         
         // Get the version
-        let remote = RemoteVersion::from_registry_file(registry).await?;
+        let remote = RemoteVersion::from_identity_file(config).await?;
         println!(" - Version      : v{}", remote.version);
         println!(" - Architecture : <TBD>");
         println!();

@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:27:26
 //  Last edited:
-//    19 Jan 2023, 11:09:40
+//    26 Jan 2023, 09:56:47
 //  Auto updated?
 //    Yes
 // 
@@ -24,8 +24,8 @@ use tonic::Status;
 
 use brane_ast::locations::{Location, Locations};
 use brane_ast::ast::DataName;
-use brane_cfg::spec::Address;
 use brane_shr::debug::{BlockFormatter, Capitalizeable};
+use specifications::address::Address;
 use specifications::container::Image;
 use specifications::package::Capability;
 use specifications::planning::PlanningStatusKind;
