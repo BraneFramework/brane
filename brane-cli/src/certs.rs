@@ -4,7 +4,7 @@
 //  Created:
 //    30 Jan 2023, 09:35:00
 //  Last edited:
-//    30 Jan 2023, 15:01:58
+//    30 Jan 2023, 16:48:48
 //  Auto updated?
 //    Yes
 // 
@@ -489,8 +489,13 @@ pub fn list(instance_name: Option<String>, all: bool) -> Result<(), Error> {
     // Search each of those instances for domains
     debug!("Finding domains in instances {:?}...", instances.iter().map(|(n, p)| format!("'{}' ({})", n, p.display())).collect::<Vec<String>>());
     for (name, path) in instances {
-        // Iterate over the things in the 'certs' directory
+        // Ensure the certs directory exists
         let certs_dir: PathBuf = path.join("certs");
+        if !certs_dir.exists() {
+            if let Err(err) = fs::create_dir_all(&certs_dir) { return Err(Error::CertsDirCreateError{ path: certs_dir, err }); }
+        }
+
+        // Iterate over the things in the 'certs' directory
         let entries: ReadDir = match fs::read_dir(&certs_dir) {
             Ok(entries) => entries,
             Err(err)    => { return Err(Error::DirReadError{ what: "certificates", path: certs_dir, err }); },
