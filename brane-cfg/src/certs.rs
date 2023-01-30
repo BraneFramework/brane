@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2022, 11:47:55
 //  Last edited:
-//    29 Nov 2022, 11:43:59
+//    27 Jan 2023, 16:30:32
 //  Auto updated?
 //    Yes
 // 
@@ -20,11 +20,94 @@ use std::path::Path;
 use log::debug;
 use rustls::{Certificate, PrivateKey, RootCertStore};
 use rustls_pemfile::{certs, rsa_private_keys, Item};
+use x509_parser::certificate::X509Certificate;
+use x509_parser::prelude::FromDer;
 
 pub use crate::errors::CertsError as Error;
 
 
+/***** AUXILLARY *****/
+/// Retrieves the client name from the given Certificate provided by the, well, client.
+/// 
+/// # Arguments
+/// - `certificate`: The Certificate to analyze.
+/// 
+/// # Returns
+/// The name of the client, as provided by the Certificate's `CN` field.
+/// 
+/// # Errors
+/// This function errors if we could not extract the name for some reason. You should consider the client unauthenticated, in that case.
+pub fn extract_client_name(cert: Certificate) -> Result<String, Error> {
+    // Attempt to parse the certificate as a real x509 one
+    match X509Certificate::from_der(&cert.0) {
+        Ok((_, cert)) => {
+            // Get the part after 'CN = ' and before end-of-string or comma (since that's canonically the domain name)
+            let subject: String = cert.subject.to_string();
+            let name_loc: usize = match subject.find("CN=") {
+                Some(name_loc) => name_loc + 3,
+                None           => { return Err(Error::ClientCertNoCN{ subject }); },
+            };
+            let name_end: usize = subject[name_loc..].find(',').map(|c| name_loc + c).unwrap_or(subject.len());
+
+            // Extract it as the name
+            Ok(subject[name_loc..name_end].to_string())
+        },
+        Err(err) => Err(Error::ClientCertParseError{ err }),
+    }
+}
+
+
+
+
+
 /***** LIBRARY *****/
+/// Loads a given .pem file by extracting all the certificates and keys from it.
+/// 
+/// # Arguments
+/// - `file`: Path to the certificate/key (or both, or neither) file to load.
+/// 
+/// # Returns
+/// A list of all certificates and keys found in the file. Either may be empty if we failed to find either in the given file.
+/// 
+/// # Errors
+/// This function errors if we failed to access/read the file.
+pub fn load_all(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Vec<PrivateKey>), Error> {
+    let file: &Path = file.as_ref();
+
+    // Open a (buffered) file handle
+    let handle: fs::File = match fs::File::open(file) {
+        Ok(handle) => handle,
+        Err(err)   => { return Err(Error::FileOpenError{ what: "PEM", path: file.into(), err }); },
+    };
+    let mut reader: io::BufReader<fs::File> = io::BufReader::new(handle);
+
+    // Iterate over the thing to read it
+    let mut certs : Vec<Certificate> = vec![];
+    let mut keys  : Vec<PrivateKey>  = vec![];
+    while let Some(item) = rustls_pemfile::read_one(&mut reader).transpose() {
+        // Unwrap the item
+        let item: Item = match item {
+            Ok(item) => item,
+            Err(err) => { return Err(Error::FileReadError{ what: "PEM", path: file.into(), err }); },
+        };
+
+        // Match the item
+        match item {
+            Item::X509Certificate(cert) => certs.push(Certificate(cert)),
+
+            Item::ECKey(key)    |
+            Item::PKCS8Key(key) |
+            Item::RSAKey(key)   => keys.push(PrivateKey(key)),
+
+            _ => { return Err(Error::UnknownItemError{ what: "PEM", path: file.into() }); },
+        }
+    }
+
+    // Done
+    debug!("Loaded PEM file '{}' with {} certificate(s) and {} key(s)", file.display(), certs.len(), keys.len());
+    Ok((certs, keys))
+}
+
 /// Loads a given certificate file.
 /// 
 /// # Arguments

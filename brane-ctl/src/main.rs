@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    18 Jan 2023, 17:29:12
+//    26 Jan 2023, 09:59:14
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,7 @@ use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 use log::{error, LevelFilter};
 
-use brane_cfg::spec::Address;
+use specifications::address::Address;
 use specifications::package::Capability;
 use specifications::version::Version;
 

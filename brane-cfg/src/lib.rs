@@ -4,7 +4,7 @@
 //  Created:
 //    04 Oct 2022, 11:08:37
 //  Last edited:
-//    05 Jan 2023, 11:44:25
+//    26 Jan 2023, 09:41:08
 //  Auto updated?
 //    Yes
 // 
@@ -15,7 +15,6 @@
 
 // Declare modules
 pub mod errors;
-pub mod spec;
 pub mod certs;
 pub mod backend;
 pub mod infra;

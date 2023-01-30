@@ -38,9 +38,10 @@ lazy_static = "1.4"
 log = "0.4"
 openapiv3 = "0.5"
 path-clean = "0.1.0"
-prettytable-rs = "0.8"
+prettytable-rs = "0.10"
 rand = "0.8"
 reqwest = {version = "0.11.13", features = ["rustls-tls-manual-roots","json", "stream", "multipart"] }
+rustls = "0.20.7"
 rustyline = "10.0"
 rustyline-derive = "0.4"
 semver = "1.0"
@@ -57,6 +58,7 @@ tokio-util = { version = "0.7", features = ["codec"] }
 tonic = "0.8"
 url = "2.2"
 uuid = { version = "0.8", features = ["v4"] }
+x509-parser = "0.14.0"
 
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
