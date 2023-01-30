@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 14:34:28
 //  Last edited:
-//    30 Jan 2023, 13:58:39
+//    30 Jan 2023, 14:30:40
 //  Auto updated?
 //    Yes
 // 
@@ -44,7 +44,7 @@ use brane_cli::spec::Hostname;
 struct Cli {
     #[clap(long, global = true, action, help = "Enable debug mode")]
     debug: bool,
-    #[clap(long, global = true, action, help = "Skip dependencies check")]
+    #[clap(long, action, help = "Skip dependencies check")]
     skip_check: bool,
     #[clap(subcommand)]
     sub_command: SubCommand,
