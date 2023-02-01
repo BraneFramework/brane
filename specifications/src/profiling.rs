@@ -2,94 +2,83 @@
 //    by Lut99
 // 
 //  Created:
-//    15 Jan 2023, 16:28:37
+//    01 Feb 2023, 09:54:51
 //  Last edited:
-//    16 Jan 2023, 12:16:57
+//    01 Feb 2023, 15:12:42
 //  Auto updated?
 //    Yes
 // 
 //  Description:
-//!   Defines useful structs that we can use during profiling performance
-//!   of the framework (and also workflows / tasks, while at it).
+//!   A second version of the profiling library, with better support for
+//!   generate dynamic yet pretty and (most of all) ordered profiling
+//!   logs.
+//!   
+//!   Note that, while this library is not designed for Edge timings (i.e.,
+//!   user-relevant profiling), some parts of it can probably be re-used for
+//!   that (especially the Timing struct).
 // 
 
 use std::fmt::{Debug, Display, Formatter, Result as FResult};
+use std::fs::File;
 use std::future::Future;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::ops::Deref;
+use std::path::PathBuf;
+use std::str;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use log::error;
+use chrono::{DateTime, Local};
+use enum_debug::EnumDebug;
+use log::warn;
 use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 
 
-/***** HELPER FUNCTIONS *****/
-/// Writes the TimingReport to the given writer.
-/// 
-/// # Arguments
-/// - `writer`: The `Write`r to write to.
-/// - `name`: The name of the timing report to write.
-/// - `timings`: The timings in the timing report to write.
-/// 
-/// # Errors
-/// This function errors if we failed to write to the given writer.
-fn write_report(writer: &mut impl Write, name: impl AsRef<str>, timings: MutexGuard<Vec<ReportedTiming>>, indent: usize) -> Result<(), std::io::Error> {
-    writeln!(writer, "Timing report for {}:", name.as_ref())?;
-    for timing in timings.iter() {
-        // Match on the kind
-        match timing {
-            ReportedTiming::Timing(what, timing) => { writeln!(writer, "{}  - Timing results for {}: {}", (0..indent).map(|_| ' ').collect::<String>(), what, timing.lock().display())?; },
-            ReportedTiming::Report(report)       => { write!(writer, "{}  - ", (0..indent).map(|_| ' ').collect::<String>())?; write_report(writer, &report.name, report.timings.lock(), indent + 4)?; },
-        }
-    }
-
-    // Done
-    Ok(())
+/***** HELPER MACROS *****/
+/// Formats a given number of spaces.
+macro_rules! spaces {
+    ($n:expr) => { " ".repeat($n) };
 }
 
 
 
 
 
-/***** HELPERS *****/
-/// Wraps around either a Timing or a TimingReport.
-#[derive(Debug)]
-enum ReportedTiming<'r> {
-    /// It's a naked timing
+/***** HELPER ENUMS *****/
+/// Defines an enum that abstracts of the specific kind of timing (i.e., branch or leaf).
+#[derive(Debug, Deserialize, EnumDebug, Serialize)]
+enum ProfileTiming {
+    /// It's a single Timing (i.e., a leaf)
     Timing(String, Arc<Mutex<Timing>>),
-    /// It's a nested report
-    Report(Arc<TimingReport<'r>>),
+    /// It's a nested scope.
+    Scope(Arc<ProfileScope>),
 }
-impl<'r> ReportedTiming<'r> {
-    /// Returns a reference to the internal Timing _if_ this was a `ReportedTiming::Timing`.
-    /// 
-    /// # Returns
-    /// A reference to the internal `RefCell<Timing>`.
+impl ProfileTiming {
+    /// Returns the internal Timing.
     /// 
     /// # Panics
-    /// This function panics if we were not, in fact, a `ReportedTiming::Timing`.
+    /// This function panics if we were not a timing but a `ProfileTiming::Scope` instead.
     #[inline]
-    fn timing(&self) -> &Arc<Mutex<Timing>> { if let Self::Timing(_, timing) = self { timing } else { panic!("Cannot unwrap a ReportedTiming::Report as a ReportedTiming::Timing"); } }
+    fn timing(&self) -> &Arc<Mutex<Timing>> { if let Self::Timing(_, timing) = self { timing } else { panic!("Cannot unwrap ProfileTiming::{} as ProfileTiming::Timing", self.variant()); } }
 
-    /// Returns a reference to the internal report _if_ this was a `ReportedTiming::Report`.
-    /// 
-    /// # Returns
-    /// A reference to the internal `TimingReport`.
+    /// Returns whether this ProfileTiming is a scope.
+    #[inline]
+    fn is_scope(&self) -> bool { matches!(self, Self::Scope(_)) }
+    /// Returns the internal ProfileScope.
     /// 
     /// # Panics
-    /// This function panics if we were not, in fact, a `ReportedTiming::Report`.
+    /// This function panics if we were not a scope but a `ProfileTiming::Timing` instead.
     #[inline]
-    fn report(&self) -> &Arc<TimingReport<'r>> { if let Self::Report(report) = self { report } else { panic!("Cannot unwrap a ReportedTiming::Timing as a ReportedTiming::Report"); } }
+    fn scope(&self) -> &Arc<ProfileScope> { if let Self::Scope(scope) = self { scope } else { panic!("Cannot unwrap ProfileTiming::{} as ProfileTiming::Scope", self.variant()); } }
 }
 
 
 
 
 
-/***** AUXILLARY *****/
+/***** FORMATTERS *****/
 /// Formats the giving Timing to show a (hopefully) sensible scale to the given formatter.
 #[derive(Debug)]
 pub struct TimingFormatter<'t>(&'t Timing);
@@ -104,48 +93,65 @@ impl<'t> Display for TimingFormatter<'t> {
 
 
 
-/// Defines the TimingGuard, which takes timings until it goes out-of-scope and shows them to stdout.
-#[derive(Clone, Debug)]
-pub struct TimingGuard<'t> {
-    /// The start time of the guard.
-    start  : Instant,
-    /// The timing that we want to populate, eventually.
-    timing : Arc<Mutex<Timing>>,
-
-    /// Fake reference to the parent for better lifetime helpings.
-    _parent : PhantomData<&'t ()>,
+/// Formats the given ProfileReport to show a new list of results (but with a clear toplevel).
+#[derive(Debug)]
+pub struct ProfileReportFormatter<'r> {
+    /// The scope of the toplevel report to write.
+    scope : &'r ProfileScope,
 }
-impl<'t> TimingGuard<'t> {
-    /// Consumes this TimingGuard to return the time early.
-    #[inline]
-    pub fn stop(self) {}
-}
-impl<'t> Drop for TimingGuard<'t> {
-    fn drop(&mut self) {
-        // Update the time it took us in the internal timing
-        *self.timing.lock() = self.start.elapsed().into();
+impl<'r> Display for ProfileReportFormatter<'r> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        writeln!(f, "### Timing report for {} ###", self.scope.name)?;
+        write!(f, "{}", self.scope.display())
     }
 }
 
-/// Defines the ReportGuard, which takes a nested report for easy modification.
-#[derive(Clone, Debug)]
-pub struct ReportGuard<'w, 'r> {
-    /// The report that we want to populate.
-    report  : Arc<TimingReport<'w>>,
-    /// Fake reference to the parent for better lifetime helpings.
-    _parent : PhantomData<&'r ()>,
+
+
+/// Formats the given ProfileScope to show a neat list of results.
+#[derive(Debug)]
+pub struct ProfileScopeFormatter<'s> {
+    /// The scope to format.
+    scope  : &'s ProfileScope,
+    /// The indentation to format with.
+    indent : usize,
 }
-impl<'w, 'r> Deref for ReportGuard<'w, 'r> {
-    type Target = TimingReport<'w>;
+impl<'s> Display for ProfileScopeFormatter<'s> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        // Print the internal timings
+        let mut newline: bool = false;
+        for t in self.scope.timings.lock().iter() {
+            // Add a newline if required
+            if t.is_scope() || newline { writeln!(f)?; }
 
-    fn deref(&self) -> &Self::Target { &self.report }
+            // Write the entry
+            use ProfileTiming::*;
+            match t {
+                Timing(name, timing) => {
+                    // Write the timing as a list item
+                    writeln!(f, "{}  - {} timing results: {}", spaces!(self.indent), name, timing.lock().display())?;
+                    newline = false;
+                },
+
+                Scope(scope) => {
+                    // Write the scope also as a list item
+                    writeln!(f, "{}  - {} timing results:", spaces!(self.indent), scope.name)?;
+                    write!(f, "{}", scope.display_indented(self.indent + 4))?;
+                    newline = true;
+                },
+            }
+        }
+
+        // Done
+        Ok(())
+    }
 }
 
 
 
 
 
-/***** LIBRARY *****/
+/***** AUXILLARY *****/
 /// Defines a taken Timing, which represents an amount of time that has passed.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Timing {
@@ -231,201 +237,402 @@ impl From<&mut Duration> for Timing {
 
 
 
-/// Defines the TimingReport, which can be used to output various profile things to some file.
-// #[derive(Deserialize, Serialize)]
-pub struct TimingReport<'w> {
-    /// If not None, points to something to report the findings to once the TimingReport goes out-of-scope.
-    // #[serde(skip)]
-    auto_report : Option<Mutex<Box<dyn 'w + Send + Write>>>,
-
-    /// The name of the report.
-    name    : String,
-    /// The timings hidden within this report, together with their description.
-    timings : Mutex<Vec<ReportedTiming<'w>>>,
+/// Defines the TimerGuard, which takes a Timing as long as it is in scope.
+#[derive(Debug)]
+pub struct TimerGuard<'s> {
+    /// The start of the timing.
+    start     : Instant,
+    /// The timing to populate.
+    timing    : Arc<Mutex<Timing>>,
+    /// We mark the phantom lifetime because the above is a weak reference
+    _lifetime : PhantomData<&'s ()>,
+}
+impl<'s> TimerGuard<'s> {
+    /// Early stop the timer. This effectively just janks the guard out-of-scope by taking ownership of it.
+    #[inline]
+    pub fn stop(self) {}
+}
+impl<'s> Drop for TimerGuard<'s> {
+    fn drop(&mut self) {
+        // Set it, done
+        let mut lock : MutexGuard<Timing> = self.timing.lock();
+        *lock = self.start.elapsed().into();
+    }
 }
 
-impl<'w> TimingReport<'w> {
-    /// Constructor for the TimingReport that initializes it to new.
+
+
+/// Provides a convenience wrapper around a reference to a ProfileScope.
+#[derive(Clone, Debug)]
+pub struct ProfileScopeHandle<'s> {
+    /// The actual scope itself.
+    scope     : Arc<ProfileScope>,
+    /// A lifetime which allows us to assume the weak reference is valid.
+    _lifetime : PhantomData<&'s ()>,
+}
+impl ProfileScopeHandle<'static> {
+    /// Provides a dummy handle for if you are not interested in profiling, but need to use the functions.
+    #[inline]
+    pub fn dummy() -> Self {
+        Self {
+            scope     : Arc::new(ProfileScope::new("<<<dummy>>>")),
+            _lifetime : Default::default(),
+        }
+    }
+}
+impl<'s> ProfileScopeHandle<'s> {
+    /// Finishes a scope, by janking the handle wrapping it out-of-scope.
+    #[inline]
+    pub fn finish(self: Self) {}
+}
+impl<'s> Deref for ProfileScopeHandle<'s> {
+    type Target = ProfileScope;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target { &self.scope }
+}
+
+/// Provides a convenience wrapper around a reference to a ProfileScope that ignores the lifetime mumbo.
+/// 
+/// If this object outlives its parent scope, there won't be any errors; _however_, note that the profilings collected afterwards will not be printed.
+#[derive(Clone, Debug)]
+pub struct ProfileScopeHandleOwned {
+    /// The actual scope itself.
+    scope : Arc<ProfileScope>,
+}
+impl ProfileScopeHandleOwned {
+    /// Provides a dummy handle for if you are not interested in profiling, but need to use the functions.
+    #[inline]
+    pub fn dummy() -> Self {
+        Self {
+            scope : Arc::new(ProfileScope::new("<<<dummy>>>")),
+        }
+    }
+}
+impl ProfileScopeHandleOwned {
+    /// Finishes a scope, by janking the handle wrapping it out-of-scope.
+    #[inline]
+    pub fn finish(self: Self) {}
+}
+impl Deref for ProfileScopeHandleOwned {
+    type Target = ProfileScope;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target { &self.scope }
+}
+
+impl<'s> From<ProfileScopeHandle<'s>> for ProfileScopeHandleOwned {
+    #[inline]
+    fn from(value: ProfileScopeHandle<'s>) -> Self { Self { scope: value.scope } }
+}
+
+
+
+
+
+/***** LIBRARY *****/
+/// Defines the toplevel ProfileReport that writes to stdout or disk or whatever when it goes out-of-scope.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ProfileReport<W: Write> {
+    /// The writer that we wrap.
+    writer : Option<W>,
+    /// The toplevel scope that we wrap.
+    scope  : ProfileScope,
+}
+
+impl ProfileReport<File> {
+    /// Constructor for the ProfileReport that will write it to a file in a default location (`/logs/profile`) with a default name (date & time of the profile state) when it goes out-of-scope.
     /// 
     /// # Arguments
-    /// - `name`: The name of the report so that it is identifyable in case multiple reports are being written.
+    /// - `name`: The name for the toplevel scope in this report.
+    /// - `filename`: A more snake-case-like filename for the file.
     /// 
     /// # Returns
-    /// A new TimingReport that can be used to report... timings...
+    /// A new ProfileReport instance.
+    pub fn auto_reporting_file(name: impl Into<String>, file_name: impl Into<String>) -> Self {
+        // Define the target path
+        let now: DateTime<Local> = Local::now();
+        let path: PathBuf = PathBuf::from("/logs").join("profile").join(format!("profile_{}_{}.txt", file_name.into(), now.format("%Y-%m-%d_%H-%M-%s")));
+
+        // Attempt to open the file
+        let handle: Option<File> = match File::create(&path) {
+            Ok(handle) => Some(handle),
+            Err(err)   => { warn!("Failed to create profile log file '{}': {} (report will not be auto-printed)", path.display(), err); None },
+        };
+
+        // Run the thing
+        Self {
+            writer : handle,
+            scope  : ProfileScope::new(name),
+        }
+    }
+}
+impl<W: Write> ProfileReport<W> {
+    /// Constructor for the ProfileReport that will write it to the given `Write`r when it goes out-of-scope.
+    /// 
+    /// # Arguments
+    /// - `name`: The name for the toplevel scope in this report.
+    /// - `writer`: The `Write`-enabled writer that we will write to upon dropping.
+    /// 
+    /// # Returns
+    /// A new ProfileReport instance.
     #[inline]
+    pub fn auto_reporting(name: impl Into<String>, writer: impl Into<W>) -> Self {
+        Self {
+            writer : Some(writer.into()),
+            scope  : ProfileScope::new(name),
+        }
+    }
+
+
+
+    /// Returns a ProfileReportFormatter that can write this report neatly to whatever writer you use.
+    /// 
+    /// # Returns
+    /// A new ProfileReportFormatter that implements `Display`.
+    #[inline]
+    pub fn display(&self) -> ProfileReportFormatter { ProfileReportFormatter{ scope: &self.scope } }
+}
+impl<W: Write> Drop for ProfileReport<W> {
+    fn drop(&mut self) {
+        // Simply try to write to our internal thing, if any
+        if let Some(writer) = &mut self.writer {
+            if let Err(err) = write!(writer, "{}", ProfileReportFormatter{ scope: &self.scope }) { warn!("Failed to auto-report ProfileReport '{}': {}", self.scope.name, err); };
+        }
+    }
+}
+
+impl<W: Write> Deref for ProfileReport<W> {
+    type Target = ProfileScope;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target { &self.scope }
+}
+
+
+
+/// Defines a scope within a ProfileReport.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ProfileScope {
+    /// The name of the scope.
+    name    : String,
+    /// The timings in this scope.
+    timings : Mutex<Vec<ProfileTiming>>,
+}
+
+impl ProfileScope {
+    /// Constructor for the ProfileScope.
+    /// 
+    /// # Arguments
+    /// - `name`: The name of the ProfileScope.
+    /// 
+    /// # Returns
+    /// A new ProfileScope instance.
     pub fn new(name: impl Into<String>) -> Self {
         Self {
-            auto_report : None,
-
-            name    : name.into(),
-            timings : Mutex::new(Vec::new()),
-        }
-    }
-
-    /// Constructor for the TimingReport that will automatically report it to the given `Write`r when it goes out-of-scope.
-    /// 
-    /// # Arguments
-    /// - `name`: The name of the report so that it is identifyable in case multiple reports are being written.
-    /// - `writer`: The `Write`r to write to once we drop ourselves. Note that any failure to write to this writer will be reported using `error!()`, but not considered fatal.
-    /// 
-    /// # Returns
-    /// A new TimingReport that can be used to report... timings...
-    #[inline]
-    pub fn auto_report(name: impl Into<String>,writer: impl 'w + Send + Write) -> Self {
-        Self {
-            auto_report : Some(Mutex::new(Box::new(writer))),
-
-            name    : name.into(),
-            timings : Mutex::new(Vec::new()),
-        }
-    }
-
-
-
-    /// Record a given Timing in this report.
-    /// 
-    /// If the given `what` already exists, overrides the timing for it silently.
-    /// 
-    /// # Arguments
-    /// - `what`: Some description of the Timing we are reporting. Should fill in the blank in `Timing results for ...`.
-    /// - `timing`: The Timing to register.
-    #[inline]
-    pub fn add(&self, what: impl Into<String>, timing: impl Into<Timing>) {
-        let mut timings: MutexGuard<Vec<ReportedTiming>> = self.timings.lock();
-        if timings.capacity() == timings.len() { let extra: usize = timings.len(); timings.reserve(extra); }
-        timings.push(ReportedTiming::Timing(what.into(), Arc::new(Mutex::new(timing.into()))));
-    }
-
-    /// Start recording a timing in this report, returning a TimingGuard that can be used to stop it.
-    /// 
-    /// The timing will automatically stop if the TimingGuard goes out-of-scope.
-    /// 
-    /// # Arguments
-    /// - `what`: Some description of the Timing we are reporting. Should fill in the blank in `Timing results for ...`.
-    /// 
-    /// # Returns
-    /// A TimingGuard instance that can be used to finalize the timing.
-    pub fn guard(&self, what: impl Into<String>) -> TimingGuard {
-        // Insert the new timing
-        let mut timings: MutexGuard<Vec<ReportedTiming>> = self.timings.lock();
-        if timings.capacity() == timings.len() { let extra: usize = timings.len(); timings.reserve(extra); }
-        timings.push(ReportedTiming::Timing(what.into(), Arc::new(Mutex::new(Timing::none()))));
-
-        // Return the guard for that timing
-        let timings_len: usize = timings.len();
-        TimingGuard {
-            start  : Instant::now(),
-            timing : timings[timings_len - 1].timing().clone(),
-
-            _parent : PhantomData::default(),
-        }
-    }
-
-    /// Adds the time the given function takes to the report.
-    /// 
-    /// # Arguments
-    /// - `what`: Some description of the Timing we are reporting. Should fill in the blank in `Timing results for ...`.
-    /// - `func`: The Function to profile.
-    /// 
-    /// # Returns
-    /// The result of the function we've profiled.
-    #[inline]
-    pub fn func<R>(&self, what: impl Into<String>, func: impl FnOnce() -> R) -> R {
-        // Profile the function
-        let start   : Instant = Instant::now();
-        let res     : R       = func();
-        let elapsed : Timing  = start.elapsed().into();
-
-        // Insert the timing and return the result
-        let mut timings: MutexGuard<Vec<ReportedTiming>> = self.timings.lock();
-        if timings.capacity() == timings.len() { let extra: usize = timings.len(); timings.reserve(extra); }
-        timings.push(ReportedTiming::Timing(what.into(), Arc::new(Mutex::new(elapsed))));
-        res
-    }
-    /// Adds the time the given future takes to the report.
-    /// 
-    /// # Arguments
-    /// - `what`: Some description of the Timing we are reporting. Should fill in the blank in `Timing results for ...`.
-    /// - `func`: The Future to profile.
-    /// 
-    /// # Returns
-    /// The result of the function we've profiled.
-    #[inline]
-    pub async fn fut<R>(&self, what: impl Into<String>, func: impl Future<Output = R>) -> R {
-        // Profile the function
-        let start   : Instant = Instant::now();
-        let res     : R       = func.await;
-        let elapsed : Timing  = start.elapsed().into();
-
-        // Insert the timing and return the result
-        let mut timings: MutexGuard<Vec<ReportedTiming>> = self.timings.lock();
-        if timings.capacity() == timings.len() { let extra: usize = timings.len(); timings.reserve(extra); }
-        timings.push(ReportedTiming::Timing(what.into(), Arc::new(Mutex::new(elapsed))));
-        res
-    }
-
-
-
-    /// Creates a nested TimingReport, then returns a reference to it such that we may find what we are looking for.
-    /// 
-    /// The nested report will have auto_reported set to `None`, but will still be written when this parent auto-reports (if set to do so).
-    /// 
-    /// # Arguments
-    /// - `name`: The name of the new TimingReport.
-    /// 
-    /// # Returns
-    /// A mutable reference to the new report so that it can be altered immediately.
-    pub fn nested_report<'s>(&'s self, name: impl Into<String>) -> ReportGuard<'w, 's> {
-        // Create the report
-        let mut timings: MutexGuard<Vec<ReportedTiming>> = self.timings.lock();
-        if timings.capacity() == timings.len() { let extra: usize = timings.len(); timings.reserve(extra); }
-        timings.push(ReportedTiming::Report(Arc::new(TimingReport {
-            auto_report : None,
-
             name    : name.into(),
             timings : Mutex::new(vec![]),
-        })));
-
-        // Return the reference
-        let timings_len: usize = timings.len();
-        ReportGuard {
-            report  : timings[timings_len - 1].report().clone(),
-            _parent : PhantomData::default(),
         }
     }
-}
-impl<'w> Drop for TimingReport<'w> {
-    fn drop(&mut self) {
-        // If we automatically report, do so
-        if let Some(writer) = &mut self.auto_report {
-            let mut writer: MutexGuard<Box<dyn Send + Write>> = writer.lock();
-            if let Err(err) = write_report(&mut *writer, &self.name, self.timings.lock(), 0) { error!("Failed to automatically report TimingReport '{}': {}", self.name, err); }
+
+
+
+    /// Returns a TimerGuard, which takes a time exactly as long as it is in scope.
+    /// 
+    /// # Arguments
+    /// - `name`: The name to set for this Timing.
+    /// 
+    /// # Returns
+    /// A new Timer struct to take a timing.
+    pub fn time(&self, name: impl Into<String>) -> TimerGuard {
+        // Get a lock
+        let mut lock: MutexGuard<Vec<ProfileTiming>> = self.timings.lock();
+
+        // Create the entry
+        lock.push(ProfileTiming::Timing(name.into(), Arc::new(Mutex::new(Timing::none()))));
+
+        // Create a TimerGuard around that timing.
+        let timing: Arc<Mutex<Timing>> = lock.last().unwrap().timing().clone();
+        TimerGuard {
+            start     : Instant::now(),
+            timing,
+            _lifetime : Default::default(),
         }
     }
-}
 
-impl<'w> Debug for TimingReport<'w> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        // Unpack the report for better knowing when we have to extend upon this function
-        let Self{ auto_report, name, timings } = self;
+    /// Profiles the given function and adds its timing under the given name.
+    /// 
+    /// # Arguments
+    /// - `name`: The name to set for this Timing.
+    /// - `func`: The function to profile.
+    /// 
+    /// # Returns
+    /// The result of the function, if any.
+    pub fn time_func<R>(&self, name: impl Into<String>, func: impl FnOnce() -> R) -> R {
+        // Time the function
+        let start : Instant = Instant::now();
+        let res   : R       = func();
+        let end   : Timing  = start.elapsed().into();
 
-        // Print it
-        if f.alternate() {
-            writeln!(f, "TimingReport{{")?;
-            writeln!(f, "    auto_report : {}", if auto_report.is_some() { "Some(Box<dyn Write>)" } else { "None" })?;
-            writeln!(f, "    name        : {}", name)?;
-            writeln!(f, "    timings     : {:#?}", timings)?;
-            writeln!(f, "}}")?;
-        } else {
-            write!(f, "TimingReport{{ auto_report: {}, name: {}, timings: {:?} }}", if auto_report.is_some() { "Some(Box<dyn Write>)" } else { "None" }, name, timings)?;
-        }
+        // Add the timing internally
+        let mut lock: MutexGuard<Vec<ProfileTiming>> = self.timings.lock();
+        lock.push(ProfileTiming::Timing(name.into(), Arc::new(Mutex::new(end))));
 
-        // Done
-        Ok(())
+        // Return the result
+        res
     }
-}
 
-impl<'w> AsRef<TimingReport<'w>> for TimingReport<'w> {
+    /// Profiles the given future by creating a future that times it while running.
+    /// 
+    /// # Arguments
+    /// - `name`: The name to set for this Timing.
+    /// - `fut`: The Future to profile.
+    /// 
+    /// # Returns
+    /// A future that returns the same result as the given, but times its execution as a side-effect.
+    pub fn time_fut<'s, R>(&'s self, name: impl Into<String>, fut: impl 's + Future<Output = R>) -> impl 's + Future<Output = R> {
+        let name: String = name.into();
+
+        // Before we begin, we add the timing to respect the ordering
+        let timing: Arc<Mutex<Timing>> = {
+            let mut lock: MutexGuard<Vec<ProfileTiming>> = self.timings.lock();
+            lock.push(ProfileTiming::Timing(name, Arc::new(Mutex::new(Timing::none()))));
+            lock.last().unwrap().timing().clone()
+        };
+
+        // Now profile the future
+        async move {
+            // Time the future
+            let start : Instant = Instant::now();
+            let res   : R       = fut.await;
+            let end   : Timing  = start.elapsed().into();
+
+            // Add the timing internally
+            let mut lock: MutexGuard<Timing> = timing.lock();
+            *lock = end;
+
+            // Return the result
+            res
+        }
+    }
+
+
+
+    /// Returns a new ProfileScope that can be used to do more elaborate nested timings.
+    /// 
+    /// # Arguments
+    /// - `name`: The name of the new scope.
+    /// 
+    /// # Returns
+    /// A new ProfileScope that can be used to take timings.
+    pub fn nest(&self, name: impl Into<String>) -> ProfileScopeHandle {
+        // Create the new scope
+        let scope: Self = Self::new(name);
+
+        // Insert it internally
+        let mut lock: MutexGuard<Vec<ProfileTiming>> = self.timings.lock();
+        lock.push(ProfileTiming::Scope(Arc::new(scope)));
+
+        // Return a weak reference to it
+        ProfileScopeHandle {
+            scope     : lock.last().unwrap().scope().clone(),
+            _lifetime : Default::default(),
+        }
+    }
+
+    /// Profiles the given function, but provides it with extra profile options by giving it its own ProfileScope to populate.
+    /// 
+    /// Note that the ProfileScope is already automatically given a "total"-timing, representing the function's profiling. This is still untimed as long as the function sees it, obviously.
+    /// 
+    /// # Arguments
+    /// - `name`: The name to set for this Timing.
+    /// - `func`: The function to profile.
+    /// 
+    /// # Returns
+    /// The result of the function, if any.
+    pub fn nest_func<R>(&self, name: impl Into<String>, func: impl FnOnce(ProfileScopeHandle) -> R) -> R {
+        // Create a new scope
+        let scope: ProfileScopeHandle = self.nest(name);
+
+        // Add an entry for the scope
+        let timing: Arc<Mutex<Timing>> = {
+            let mut lock: MutexGuard<Vec<ProfileTiming>> = scope.timings.lock();
+            lock.push(ProfileTiming::Timing("total".into(), Arc::new(Mutex::new(Timing::none()))));
+            lock.last().unwrap().timing().clone()
+        };
+
+        // Time the function
+        let start : Instant = Instant::now();
+        let res   : R       = func(scope);
+        let end   : Timing  = start.elapsed().into();
+
+        // Set that time
+        let mut lock: MutexGuard<Timing> = timing.lock();
+        *lock = end;
+
+        // Return the result
+        res
+    }
+
+    /// Profiles the given future by creating a future that times it while running, but provides it with extra profile options by giving it its own ProfileScope to popupate.
+    /// 
+    /// Note that the ProfileScope is already automatically given a "total"-timing, representing the future's profiling. This is still untimed as long as the future sees it, obviously.
+    /// 
+    /// # Arguments
+    /// - `name`: The name to set for this Timing.
+    /// - `fut`: The Future to profile.
+    /// 
+    /// # Returns
+    /// A future that returns the same result as the given, but times its execution as a side-effect.
+    pub fn nest_fut<'s, F: Future>(&'s self, name: impl Into<String>, fut: impl 's + FnOnce(ProfileScopeHandle<'s>) -> F) -> impl 's + Future<Output = F::Output> {
+        let name: String = name.into();
+
+        // Create a new scope
+        let scope: ProfileScopeHandle = self.nest(name);
+
+        // Add an entry for the scope
+        let timing: Arc<Mutex<Timing>> = {
+            let mut lock: MutexGuard<Vec<ProfileTiming>> = scope.timings.lock();
+            lock.push(ProfileTiming::Timing("total".into(), Arc::new(Mutex::new(Timing::none()))));
+            lock.last().unwrap().timing().clone()
+        };
+
+        // Now profile the future
+        async move {
+            // Time the future
+            let start : Instant   = Instant::now();
+            let res   : F::Output = fut(scope).await;
+            let end   : Timing    = start.elapsed().into();
+
+            // Add the timing internally
+            let mut lock: MutexGuard<Timing> = timing.lock();
+            *lock = end;
+
+            // Return the result
+            res
+        }
+    }
+
+
+
+    /// Returns a formatter that neatly displays the results of this scope.
+    /// 
+    /// Note that this does _not_ end with a newline, so typically you want to call `writeln!()`/`println!()` on this.
+    /// 
+    /// # Returns
+    /// A new ProfileScopeFormatter.
     #[inline]
-    fn as_ref(&self) -> &Self { self }
+    pub fn display(&self) -> ProfileScopeFormatter { ProfileScopeFormatter{ scope: self, indent: 0 } }
+
+    /// Returns a formatter that neatly displays the results of this scope with a given number of spaces before each line.
+    /// 
+    /// Note that this does _not_ end with a newline, so typically you want to call `writeln!()`/`println!()` on this.
+    /// 
+    /// # Arguments
+    /// - `indent`: The number of spaces to print before each line.
+    /// 
+    /// # Returns
+    /// A new ProfileScopeFormatter.
+    #[inline]
+    pub fn display_indented(&self, indent: usize) -> ProfileScopeFormatter { ProfileScopeFormatter{ scope: self, indent } }
 }

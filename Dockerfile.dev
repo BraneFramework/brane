@@ -22,6 +22,9 @@
 FROM ubuntu:22.04 AS brane-base
 LABEL org.opencontainers.image.source https://github.com/epi-project/Brane
 
+# Add the log directory
+RUN mkdir -p /logs/profile
+
 # Add an ubuntu 21.10 source for libssl1.1 (insecure, but it's the dev image anyway)
 RUN echo "deb http://old-releases.ubuntu.com/ubuntu impish-security main" >> /etc/apt/sources.list
 

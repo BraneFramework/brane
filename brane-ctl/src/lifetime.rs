@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    05 Jan 2023, 11:56:52
+//    01 Feb 2023, 14:45:10
 //  Auto updated?
 //    Yes
 // 
@@ -38,18 +38,20 @@ use crate::spec::{DockerClientVersion, StartSubcommand};
 /***** HELPER STRUCTS *****/
 /// Defines a struct that writes to a valid compose file for overriding hostnames.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct ComposeHostsFile {
+struct ComposeOverrideFile {
     /// The version number to use
     version  : &'static str,
     /// The services themselves
-    services : HashMap<&'static str, ComposeHostsFileService>,
+    services : HashMap<&'static str, ComposeOverrideFileService>,
 }
 
 
 
 /// Defines a struct that defines how a service looks like in a valid compose file for overriding hostnames.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct ComposeHostsFileService {
+struct ComposeOverrideFileService {
+    /// Defines any additional mounts
+    volumes: Vec<String>,
     /// Defines the extra hosts themselves.
     extra_hosts: Vec<String>,
 }
@@ -111,29 +113,31 @@ fn resolve_mode(source: impl AsRef<ImageSource>, mode: impl AsRef<str>) -> Image
     }
 }
 
-/// Generate an additional, temporary `docker-compose.yml` file that adds additional hostnames.
+/// Generate an additional, temporary `docker-compose.yml` file that adds additional hostnames and/or additional volumes.
 /// 
 /// # Arguments
 /// - `kind`: The kind of this node.
 /// - `hosts`: The map of hostnames -> IP addresses to include.
+/// - `profile_dir`: The profile directory to mount (or not).
 /// 
 /// # Returns
 /// The path to the generated compose file if it was necessary. If not (i.e., no hosts given), returns `None`.
 /// 
 /// # Errors
 /// This function errors if we failed to write the file.
-fn generate_hosts(kind: NodeKind, hosts: &HashMap<String, IpAddr>) -> Result<Option<PathBuf>, Error> {
+fn generate_override_file(kind: NodeKind, hosts: &HashMap<String, IpAddr>, profile_dir: Option<PathBuf>) -> Result<Option<PathBuf>, Error> {
     // Early quit if there's nothing to do
     if hosts.is_empty() { return Ok(None); }
 
-    // Generate the ComposeHostsFileService
-    let svc: ComposeHostsFileService = ComposeHostsFileService {
+    // Generate the ComposeOverrideFileService
+    let svc: ComposeOverrideFileService = ComposeOverrideFileService {
+        volumes     : if let Some(dir) = profile_dir { vec![ format!("{}:/logs/profile", dir.display()) ] } else { vec![] },
         extra_hosts : hosts.iter().map(|(hostname, ip)| format!("{}:{}", hostname, ip)).collect(),
     };
 
-    // Generate the ComposeHostsFile
-    let extra_hosts: ComposeHostsFile = match kind {
-        NodeKind::Central =>  ComposeHostsFile {
+    // Generate the ComposeOverrideFile
+    let extra_hosts: ComposeOverrideFile = match kind {
+        NodeKind::Central =>  ComposeOverrideFile {
             version  : "3.6",
             services : HashMap::from([
                 ("brane-prx", svc.clone()),
@@ -143,7 +147,7 @@ fn generate_hosts(kind: NodeKind, hosts: &HashMap<String, IpAddr>) -> Result<Opt
             ]),
         },
 
-        NodeKind::Worker =>  ComposeHostsFile {
+        NodeKind::Worker =>  ComposeOverrideFile {
             version  : "3.6",
             services : HashMap::from([
                 ("brane-prx", svc.clone()),
@@ -154,7 +158,7 @@ fn generate_hosts(kind: NodeKind, hosts: &HashMap<String, IpAddr>) -> Result<Opt
     };
 
     // Attemp to open the file to write that to
-    let compose_path: PathBuf = PathBuf::from("/tmp").join(format!("docker-compose-hosts-{}.yml", rand::thread_rng().sample_iter(&Alphanumeric).take(3).map(char::from).collect::<String>()));
+    let compose_path: PathBuf = PathBuf::from("/tmp").join(format!("docker-compose-override-{}.yml", rand::thread_rng().sample_iter(&Alphanumeric).take(3).map(char::from).collect::<String>()));
     let handle: File = match File::create(&compose_path) {
         Ok(handle) => handle,
         Err(err)   => { return Err(Error::HostsFileCreateError{ path: compose_path, err }); },  
@@ -357,6 +361,7 @@ fn run_compose(file: impl AsRef<Path>, project: impl AsRef<str>, hostfile: Optio
 /// - `version`: The Brane version to start.
 /// - `node_config_path`: The path to the node config file to potentially override.
 /// - `mode`: The mode ('release' or 'debug', typically) to resolve certain image sources with.
+/// - `profile`: Whether the profile folder should be mounted and, if so, where.
 /// - `command`: The `StartSubcommand` that carries additional information, including which of the node types to launch.
 /// 
 /// # Returns
@@ -364,7 +369,7 @@ fn run_compose(file: impl AsRef<Path>, project: impl AsRef<str>, hostfile: Optio
 /// 
 /// # Errors
 /// This function errors if we failed to run the `docker-compose` command or if we failed to assert that the given command matches the node kind of the `node.yml` file on disk.
-pub async fn start(file: impl Into<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, command: StartSubcommand) -> Result<(), Error> {
+pub async fn start(file: impl Into<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, profile_dir: Option<PathBuf>, command: StartSubcommand) -> Result<(), Error> {
     let file             : PathBuf = file.into();
     let node_config_path : PathBuf = node_config_path.into();
     info!("Starting node from Docker compose file '{}', defined in '{}'", file.display(), node_config_path.display());
@@ -389,7 +394,7 @@ pub async fn start(file: impl Into<PathBuf>, docker_socket: PathBuf, docker_vers
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_hosts(node_config.node.kind(), &node_config.hosts)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hosts, profile_dir)?;
 
             // Map the images & load them
             let images: HashMap<&'static str, ImageSource> = HashMap::from([
@@ -423,7 +428,7 @@ pub async fn start(file: impl Into<PathBuf>, docker_socket: PathBuf, docker_vers
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_hosts(node_config.node.kind(), &node_config.hosts)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hosts, profile_dir)?;
 
             // Map the images & load them
             let images: HashMap<&'static str, ImageSource> = HashMap::from([

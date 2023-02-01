@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:18:11
 //  Last edited:
-//    16 Jan 2023, 12:11:22
+//    01 Feb 2023, 15:18:54
 //  Auto updated?
 //    Yes
 // 
@@ -27,7 +27,7 @@ use brane_exe::FullValue;
 use brane_prx::client::ProxyClient;
 use brane_tsk::spec::AppId;
 use specifications::driving::{CreateSessionReply, CreateSessionRequest, DriverService, ExecuteReply, ExecuteRequest};
-use specifications::profiling::TimingReport;
+use specifications::profiling::ProfileReport;
 
 use crate::errors::RemoteVmError;
 use crate::planner::InstancePlanner;
@@ -137,8 +137,8 @@ impl DriverService for DriverHandler {
     /// # Errors
     /// This function doesn't typically error.
     async fn create_session(&self, _request: Request<CreateSessionRequest>) -> Result<Response<CreateSessionReply>, Status> {
-        let report = TimingReport::auto_report("brane-drv DriverHandler::create_session", std::io::stdout());
-        let _guard = report.guard("total");
+        let report = ProfileReport::auto_reporting_file("brane-drv DriverHandler::create_session", "brane-drv_create-session");
+        let _guard = report.time("Total");
 
         // Create a new VM for this session
         let app_id: AppId = AppId::generate();
@@ -163,8 +163,8 @@ impl DriverService for DriverHandler {
     /// # Errors
     /// This function may error for any reason a job might fail.
     async fn execute(&self, request: Request<ExecuteRequest>) -> Result<Response<Self::ExecuteStream>, Status> {
-        let report   = TimingReport::auto_report("brane-drv DriverHandler::execute", std::io::stdout());
-        let overhead = report.guard("handle overhead");
+        let report   = ProfileReport::auto_reporting_file("brane-drv DriverHandler::execute", "brane-drv_execute");
+        let overhead = report.time("Handle overhead");
 
         let request = request.into_inner();
         debug!("Receiving execute request for session '{}'", request.uuid);
@@ -188,12 +188,12 @@ impl DriverService for DriverHandler {
         // We're gonna run the rest asynchronous, to allow the client to earlier receive callbacks
         overhead.stop();
         tokio::spawn(async move {
-            let _guard = report.guard("handle async");
             debug!("Executing workflow for session '{}'", app_id);
     
             // We assume that the input is an already compiled workflow; so no need to fire up any parsers/compilers
 
             // We only have to use JSON magic
+            let par = report.time("Workflow parsing");
             debug!("Parsing workflow of {} characters", request.input.len());
             let workflow: Workflow = match serde_json::from_str(&request.input) {
                 Ok(workflow) => workflow,
@@ -202,10 +202,11 @@ impl DriverService for DriverHandler {
                     fatal_err!(tx, Status::invalid_argument, err);
                 },
             };
+            par.stop();
 
             // We now have a runnable plan ( ͡° ͜ʖ ͡°), so run it
             debug!("Executing workflow of {} edges", workflow.graph.len());
-            let (vm, res): (InstanceVm, Result<FullValue, RemoteVmError>) = report.fut("VM execution", vm.exec(tx.clone(), workflow)).await;
+            let (vm, res): (InstanceVm, Result<FullValue, RemoteVmError>) = report.nest_fut("VM execution", |scope| vm.exec(tx.clone(), workflow, scope)).await;
 
             // Insert the VM again
             debug!("Saving state session state");
@@ -215,6 +216,7 @@ impl DriverService for DriverHandler {
             match res {
                 Ok(res)  => {
                     debug!("Completed execution.");
+                    let _ret = report.time("Returning value");
 
                     // Serialize the value
                     let sres: String = match serde_json::to_string(&res) {

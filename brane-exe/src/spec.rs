@@ -4,7 +4,7 @@
 //  Created:
 //    26 Aug 2022, 18:26:40
 //  Last edited:
-//    19 Jan 2023, 15:46:48
+//    01 Feb 2023, 14:22:55
 //  Auto updated?
 //    Yes
 // 
@@ -22,6 +22,7 @@ use brane_ast::locations::Location;
 use brane_ast::ast::{DataName, SymTable};
 use specifications::data::{AccessKind, PreprocessKind};
 use specifications::package::Capability;
+use specifications::profiling::ProfileScopeHandle;
 use specifications::version::Version;
 
 use crate::value::FullValue;
@@ -80,6 +81,7 @@ pub trait VmPlugin: 'static + Send + Sync {
     /// - `loc`: The location where this preprocessing should happen.
     /// - `name`: The name of the intermediate result to make public. You'll typically only use this for debugging.
     /// - `preprocess`: The PreprocessKind that determines what you must do to make the dataset available.
+    /// - `prof`: A ProfileScopeHandle that can be used to prove additional details about the timings of this function.
     /// 
     /// # Returns
     /// This function should return an AccessKind which describes how to access the preprocessed data.
@@ -88,7 +90,7 @@ pub trait VmPlugin: 'static + Send + Sync {
     /// 
     /// # Errors
     /// This function may error whenever it likes.
-    async fn preprocess(global: Arc<RwLock<Self::GlobalState>>, local: Self::LocalState, loc: Location, name: DataName, preprocess: PreprocessKind) -> Result<AccessKind, Self::PreprocessError>;
+    async fn preprocess(global: Arc<RwLock<Self::GlobalState>>, local: Self::LocalState, loc: Location, name: DataName, preprocess: PreprocessKind, prof: ProfileScopeHandle<'_>) -> Result<AccessKind, Self::PreprocessError>;
 
 
 
@@ -101,13 +103,14 @@ pub trait VmPlugin: 'static + Send + Sync {
     /// - `global`: The custom global state for keeping track of your own things during execution.
     /// - `local`: The custom local state for keeping track of your own things faster but only local to this (execution) thread.
     /// - `info`: A `TaskInfo` that contains all the information about the to-be-executed task the VM provides you with. **Note**: You have to preprocess the arguments contained within. Be aware that the path describes by the IntermediateResults is relative to some directory you still have to prepend.
+    /// - `prof`: A ProfileScopeHandle that can be used to prove additional details about the timings of this function.
     /// 
     /// # Returns
     /// This function should return either a FullValue, or None (where None is equivalent to `FullValue::Void`).
     /// 
     /// # Errors
     /// This function may error whenever it likes.
-    async fn execute(global: &Arc<RwLock<Self::GlobalState>>, local: &Self::LocalState, info: TaskInfo<'_>) -> Result<Option<FullValue>, Self::ExecuteError>;
+    async fn execute(global: &Arc<RwLock<Self::GlobalState>>, local: &Self::LocalState, info: TaskInfo<'_>, prof: ProfileScopeHandle<'_>) -> Result<Option<FullValue>, Self::ExecuteError>;
 
 
 
@@ -123,10 +126,11 @@ pub trait VmPlugin: 'static + Send + Sync {
     /// - `local`: The custom local state for keeping track of your own things faster but only local to this (execution) thread.
     /// - `text`: The text to write to your version of stdout.
     /// - `newline`: Whether or not to print a closing newline after the text (i.e., whether to use `println` or `print`).
+    /// - `prof`: A ProfileScopeHandle that can be used to prove additional details about the timings of this function.
     /// 
     /// # Errors
     /// This function may error whenever it likes.
-    async fn stdout(global: &Arc<RwLock<Self::GlobalState>>, local: &Self::LocalState, text: &str, newline: bool) -> Result<(), Self::StdoutError>;
+    async fn stdout(global: &Arc<RwLock<Self::GlobalState>>, local: &Self::LocalState, text: &str, newline: bool, prof: ProfileScopeHandle<'_>) -> Result<(), Self::StdoutError>;
 
 
 
@@ -143,10 +147,11 @@ pub trait VmPlugin: 'static + Send + Sync {
     /// - `loc`: The location where the dataset currently lives.
     /// - `name`: The name of the intermediate result to make public.
     /// - `path`: The path where the intermediate result is available. You'll probably want to archive this before continuing. **Note**: Be aware that this path is relative to some directory you still have to prepend.
+    /// - `prof`: A ProfileScopeHandle that can be used to prove additional details about the timings of this function.
     /// 
     /// # Errors
     /// This function may error whenever it likes.
-    async fn publicize(global: &Arc<RwLock<Self::GlobalState>>, local: &Self::LocalState, loc: &Location, name: &str, path: &Path) -> Result<(), Self::CommitError>;
+    async fn publicize(global: &Arc<RwLock<Self::GlobalState>>, local: &Self::LocalState, loc: &Location, name: &str, path: &Path, prof: ProfileScopeHandle<'_>) -> Result<(), Self::CommitError>;
 
     /// A function that commits the given intermediate result by promoting it a Data.
     /// 
@@ -162,10 +167,11 @@ pub trait VmPlugin: 'static + Send + Sync {
     /// - `name`: The name of the intermediate result to promoto (you'll typically use this for debugging only).
     /// - `path`: The path where the intermediate result is available. You'll probably want to archive this somewhere else before continuing. **Note**: Be aware that this path is relative to some directory you still have to prepend.
     /// - `data_name`: The identifier of the dataset once the intermediate result is promoted. If it already exists, you'll probably want to override the old value with the new one.
+    /// - `prof`: A ProfileScopeHandle that can be used to prove additional details about the timings of this function.
     /// 
     /// # Errors
     /// This function may error whenever it likes.
-    async fn commit(global: &Arc<RwLock<Self::GlobalState>>, local: &Self::LocalState, loc: &Location, name: &str, path: &Path, data_name: &str) -> Result<(), Self::CommitError>;
+    async fn commit(global: &Arc<RwLock<Self::GlobalState>>, local: &Self::LocalState, loc: &Location, name: &str, path: &Path, data_name: &str, prof: ProfileScopeHandle<'_>) -> Result<(), Self::CommitError>;
 }
 
 

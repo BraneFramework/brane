@@ -10,6 +10,7 @@ All notable changes to the Brane framework will be documented in this file.
 - Protobuf descriptions to be in pure Rust instead of `.proto` files. This should allow use to re-use Rust structs in a more ergonimic style, as well as get rid of the very annoying `protoc` dependency.
 - `brane login` to be more like a keymanager instead. Check `brane instance` and `brane certs` instead, and consult the [wiki](https://wiki.enablingpersonalizedinterventions.nl/user-guide) for how to use this new system.
 - The `--debug` flag in the `brane-cli` can now be used from all nested subcommands.
+- Profiling to be more professional. The logs are less of an unordered mess, and instead follow the defined order of _starting_ profiling. Additionally, they also write to files now instead of just stdout.
 
 ### Fixed
 - The previous version not making it through the tests.
