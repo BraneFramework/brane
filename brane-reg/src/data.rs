@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:40:40
 //  Last edited:
-//    01 Feb 2023, 15:18:47
+//    01 Feb 2023, 15:40:04
 //  Auto updated?
 //    Yes
 // 
@@ -197,8 +197,6 @@ pub async fn assert_result_permission(node_config: &NodeConfig, identifier: impl
 /// This function may error (i.e., reject) if we could not serialize the given store.
 pub async fn list(context: Arc<Context>) -> Result<impl Reply, Rejection> {
     info!("Handling GET on `/data/info` (i.e., list all datasets)...");
-    let report = ProfileReport::auto_reporting_file("brane-reg /data/info", "brane-reg_list");
-    let _guard = report.time("Total");
 
     // Load the config file
     let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
@@ -209,6 +207,10 @@ pub async fn list(context: Arc<Context>) -> Result<impl Reply, Rejection> {
         },
     };
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
+
+    // Start profiling (F first function, but now we can use the location)
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info"), format!("brane-reg_{}_info", node_config.node.worker().location_id));
+    let _guard = report.time("Total");
 
     // Load the store
     debug!("Loading data ('{}') and results ('{}')...", node_config.node.worker().paths.data.display(), node_config.node.worker().paths.results.display());
@@ -256,8 +258,6 @@ pub async fn list(context: Arc<Context>) -> Result<impl Reply, Rejection> {
 /// This function may error (i.e., reject) if we didn't know the given name or we failred to serialize the relevant AssetInfo.
 pub async fn get(name: String, context: Arc<Context>) -> Result<impl Reply, Rejection> {
     info!("Handling GET on `/data/info/{}` (i.e., get dataset metdata)...", name);
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info/{}", name), format!("brane-reg_get-{}", name));
-    let _guard = report.time("Total");
 
     // Load the config file
     let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
@@ -268,6 +268,10 @@ pub async fn get(name: String, context: Arc<Context>) -> Result<impl Reply, Reje
         },
     };
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
+
+    // Start profiling (F first function, but now we can use the location)
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info/{}", name), format!("brane-reg_{}_info-{}", node_config.node.worker().location_id, name));
+    let _guard = report.time("Total");
 
     // Load the store
     debug!("Loading data ('{}') and results ('{}')...", node_config.node.worker().paths.data.display(), node_config.node.worker().paths.results.display());
@@ -325,10 +329,8 @@ pub async fn get(name: String, context: Arc<Context>) -> Result<impl Reply, Reje
 /// This function may error (i.e., reject) if we didn't know the given name or we failed to serialize the relevant AssetInfo.
 pub async fn download_data(cert: Option<Certificate>, name: String, context: Arc<Context>) -> Result<impl Reply, Rejection> {
     info!("Handling GET on `/data/download/{}` (i.e., download dataset)...", name);
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/downloads/{}", name), format!("brane-reg_download-{}", name));
 
     // Load the config file
-    let loading = report.time("Disk loading");
     let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err)   => {
@@ -338,8 +340,12 @@ pub async fn download_data(cert: Option<Certificate>, name: String, context: Arc
     };
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
+    // Start profiling (F first function, but now we can use the location)
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/download/{}", name), format!("brane-reg_{}_download-{}", node_config.node.worker().location_id, name));
+
     // Load the store
     debug!("Loading data ('{}') and results ('{}')...", node_config.node.worker().paths.data.display(), node_config.node.worker().paths.results.display());
+    let loading = report.time("Disk loading");
     let store: Store = match Store::from_dirs(&node_config.node.worker().paths.data, &node_config.node.worker().paths.results).await {
         Ok(store) => store,
         Err(err)  => {
@@ -478,10 +484,8 @@ pub async fn download_data(cert: Option<Certificate>, name: String, context: Arc
 /// This function may error (i.e., reject) if we didn't know the given name or we failed to serialize the relevant AssetInfo.
 pub async fn download_result(cert: Option<Certificate>, name: String, context: Arc<Context>) -> Result<impl Reply, Rejection> {
     info!("Handling GET on `/results/download/{}` (i.e., download intermediate result)...", name);
-    let report   = ProfileReport::auto_reporting_file(format!("brane-reg /results/downloads/{}", name), format!("brane-reg_download-{}", name));
 
     // Load the config file
-    let loading = report.time("Disk loading");
     let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err)   => {
@@ -491,8 +495,12 @@ pub async fn download_result(cert: Option<Certificate>, name: String, context: A
     };
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
+    // Start profiling (F first function, but now we can use the location)
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /results/download/{}", name), format!("brane-reg_{}_download-{}", node_config.node.worker().location_id, name));
+
     // Load the store
     debug!("Loading data ('{}') and results ('{}')...", node_config.node.worker().paths.data.display(), node_config.node.worker().paths.results.display());
+    let loading = report.time("Disk loading");
     let store: Store = match Store::from_dirs(&node_config.node.worker().paths.data, &node_config.node.worker().paths.results).await {
         Ok(store) => store,
         Err(err)  => {

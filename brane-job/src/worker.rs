@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2022, 11:21:14
 //  Last edited:
-//    01 Feb 2023, 15:18:31
+//    01 Feb 2023, 15:44:00
 //  Auto updated?
 //    Yes
 // 
@@ -1122,8 +1122,11 @@ impl JobService for WorkerServer {
         let request = request.into_inner();
         debug!("Receiving preprocess request");
 
-        // Do the profiling
-        let report = ProfileReport::auto_reporting_file("brane-job WorkerServer::preprocess", "brane-job_preprocess");
+        // Load the location ID from the node config
+        let location_id: String = NodeConfig::from_path(&self.node_config_path).map(|c| if c.node.is_worker() { Some(c.node.into_worker().location_id) } else { None }).unwrap_or(None).unwrap_or("UNKNOWN".into());
+
+        // Do the profiling (F the first function)
+        let report = ProfileReport::auto_reporting_file("brane-job WorkerServer::preprocess", format!("brane-job_{}_preprocess", location_id));
         let _total = report.time("Total");
 
         // Fetch the data kind
@@ -1189,8 +1192,11 @@ impl JobService for WorkerServer {
         let request = request.into_inner();
         debug!("Receiving execute request");
 
+        // Load the location ID from the node config
+        let location_id: String = NodeConfig::from_path(&self.node_config_path).map(|c| if c.node.is_worker() { Some(c.node.into_worker().location_id) } else { None }).unwrap_or(None).unwrap_or("UNKNOWN".into());
+
         // Do the profiling
-        let report   = ProfileReport::auto_reporting_file("brane-job WorkerServer::execute", "brane-job_execute");
+        let report   = ProfileReport::auto_reporting_file("brane-job WorkerServer::execute", format!("brane-job_{}_execute", location_id));
         let overhead = report.nest("handler overhead");
         let total    = overhead.time("Total");
 
@@ -1289,8 +1295,11 @@ impl JobService for WorkerServer {
         let request = request.into_inner();
         debug!("Receiving commit request");
 
+        // Load the location ID from the node config
+        let location_id: String = NodeConfig::from_path(&self.node_config_path).map(|c| if c.node.is_worker() { Some(c.node.into_worker().location_id) } else { None }).unwrap_or(None).unwrap_or("UNKNOWN".into());
+
         // Do the profiling
-        let report = ProfileReport::auto_reporting_file("brane-job WorkerServer::commit", "brane-job_commit");
+        let report = ProfileReport::auto_reporting_file("brane-job WorkerServer::commit", format!("brane-job_{}_commit", location_id));
         let _guard = report.time("Total");
 
         // Load the node config file
