@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 17:41:33
 //  Last edited:
-//    19 Jan 2023, 15:17:39
+//    01 Feb 2023, 14:14:09
 //  Auto updated?
 //    Yes
 // 
@@ -18,6 +18,7 @@ use std::sync::{Arc, RwLock};
 use async_trait::async_trait;
 
 use brane_ast::{SymTable, Workflow};
+use specifications::profiling::ProfileScopeHandle;
 
 use crate::errors::VmError;
 use crate::spec::{CustomGlobalState, CustomLocalState, RunState, VmPlugin};
@@ -188,10 +189,11 @@ pub trait Vm {
     /// 
     /// # Arguments
     /// - `snippet`: The snippet to compile. This is either the entire workflow, or a snippet of it. In the case of the latter, the internal state will be used (and updated).
+    /// - `prof`: The ProfileScope that can be used to provide additional information about the timings of the VM (framework-wise, not user-wise).
     /// 
     /// # Returns
     /// The result if the Workflow returned any.
-    async fn run<P: VmPlugin<GlobalState = Self::GlobalState, LocalState = Self::LocalState>>(this: Arc<RwLock<Self>>, snippet: Workflow) -> Result<FullValue, VmError>
+    async fn run<P: VmPlugin<GlobalState = Self::GlobalState, LocalState = Self::LocalState>>(this: Arc<RwLock<Self>>, snippet: Workflow, prof: ProfileScopeHandle<'_>) -> Result<FullValue, VmError>
     where
         Self: Sync,
     {
@@ -203,7 +205,7 @@ pub trait Vm {
         let main: Thread<Self::GlobalState, Self::LocalState> = Thread::from_state(&snippet, state);
 
         // Run the workflow
-        match main.run_snippet::<P>().await {
+        match main.run_snippet::<P>(prof.into()).await {
             Ok((res, state)) => {
                 // Convert the value into a full value (if any)
                 let res: FullValue = res.into_full(state.fstack.table());

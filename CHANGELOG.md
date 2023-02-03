@@ -4,11 +4,12 @@ All notable changes to the Brane framework will be documented in this file.
 
 ## [2.0.0] - 2023-01-30
 ### Added
-- Timing prints to various parts of the framework. They are a bit crude, still, but do the job.
+- Profiling reports to (parts of) the framework. These can be used to examine the framework's performance from a development perspective.
+- `--profile-dir` to `branectl` that can be used to collect all profile results into one directory.
 
 ### Changed
 - Protobuf descriptions to be in pure Rust instead of `.proto` files. This should allow use to re-use Rust structs in a more ergonimic style, as well as get rid of the very annoying `protoc` dependency.
-- `brane login` to be more like a keymanager instead. Check `brane instance` and `brane certs` instead, and consult the [wiki](https://wiki.enablingpersonalizedinterventions.nl/user-guide) for how to use this new system.
+- `brane login` to be more like a keymanager instead. Check `brane instance` and `brane certs` instead, and consult the [wiki](https://wiki.enablingpersonalizedinterventions.nl/user-guide) for how to use this new system (**breaking change**).
 - The `--debug` flag in the `brane-cli` can now be used from all nested subcommands.
 
 ### Fixed

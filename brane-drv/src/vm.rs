@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2022, 10:14:26
 //  Last edited:
-//    26 Jan 2023, 09:58:17
+//    01 Feb 2023, 15:18:24
 //  Auto updated?
 //    Yes
 // 
@@ -38,7 +38,7 @@ use brane_tsk::spec::{AppId, JobStatus};
 use specifications::address::Address;
 use specifications::data::{AccessKind, PreprocessKind};
 use specifications::driving as driving_grpc;
-use specifications::profiling::TimingReport;
+use specifications::profiling::ProfileScopeHandle;
 use specifications::working as working_grpc;
 
 pub use crate::errors::RemoteVmError as Error;
@@ -73,15 +73,12 @@ impl VmPlugin for InstancePlugin {
     type CommitError     = CommitError;
 
 
-    async fn preprocess(global: Arc<RwLock<Self::GlobalState>>, _local: Self::LocalState, loc: Location, name: DataName, preprocess: PreprocessKind) -> Result<AccessKind, Self::PreprocessError> {
+    async fn preprocess(global: Arc<RwLock<Self::GlobalState>>, _local: Self::LocalState, loc: Location, name: DataName, preprocess: PreprocessKind, prof: ProfileScopeHandle<'_>) -> Result<AccessKind, Self::PreprocessError> {
         info!("Preprocessing {} '{}' on '{}' in a distributed environment...", name.variant(), name.name(), loc);
         debug!("Preprocessing to be done: {:?}", preprocess);
 
-        // Setup profiling
-        let report = TimingReport::auto_report("brane-drv VM preprocess", std::io::stdout());
-        let _guard = report.guard("total");
-
         // Resolve the location to an address (and get the proxy while we have a lock anyway)
+        let disk = prof.time("File loading");
         let (proxy, delegate_address): (Arc<ProxyClient>, Address) = {
             // Load the node config file to get the path to...
             let state : RwLockReadGuard<GlobalState> = global.read().unwrap();
@@ -102,16 +99,17 @@ impl VmPlugin for InstancePlugin {
                 None       => { return Err(PreprocessError::UnknownLocationError{ loc }); },
             }
         };
+        disk.stop();
 
         // Prepare the request to send to the delegate node
         debug!("Sending preprocess request to job node '{}'...", delegate_address);
+        let job = prof.time(format!("on {}", delegate_address));
         let message: working_grpc::PreprocessRequest = working_grpc::PreprocessRequest {
             data : Some(name.into()),
             kind : Some(preprocess.into()),
         };
 
         // Create the client
-        let job = report.guard(format!("on {}", delegate_address));
         let mut client: working_grpc::JobServiceClient = match proxy.connect_to_job(delegate_address.to_string()).await {
             Ok(result) => match result {
                 Ok(client) => client,
@@ -129,10 +127,12 @@ impl VmPlugin for InstancePlugin {
         job.stop();
 
         // If it was, attempt to deserialize the accesskind
+        let par = prof.time("Result parsing");
         let access: AccessKind = match serde_json::from_str(&result.access) {
             Ok(access) => access,
             Err(err)   => { return Err(PreprocessError::AccessKindParseError{ endpoint: delegate_address, raw: result.access, err }); },
         };
+        par.stop();
 
         // Done
         Ok(access)
@@ -140,7 +140,7 @@ impl VmPlugin for InstancePlugin {
 
 
 
-    async fn execute(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
+    async fn execute(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>, prof: ProfileScopeHandle<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
         info!("Executing task '{}' at '{}' in a distributed environment...", info.name, info.location);
         debug!("Package: '{}' v{}", info.package_name, info.package_version);
         debug!("Input data: {:?}", info.input.keys().map(|k| format!("{}", k)).collect::<Vec<String>>());
@@ -148,11 +148,8 @@ impl VmPlugin for InstancePlugin {
         debug!("Input arguments: {:#?}", info.args);
         debug!("Requirements: {:?}", info.requirements);
 
-        // Setup profiling
-        let report = TimingReport::auto_report("brane-drv VM execute", std::io::stdout());
-        let _guard = report.guard("total");
-
         // Resolve the location to an address (and get the proxy and the workflow while we have a lock anyway)
+        let disk = prof.time("File loading");
         let (proxy, api_address, delegate_address, workflow): (Arc<ProxyClient>, Address, Address, String) = {
             let state : RwLockReadGuard<GlobalState> = global.read().unwrap();
             let node_config: NodeConfig = match NodeConfig::from_path(&state.node_config_path) {
@@ -177,9 +174,11 @@ impl VmPlugin for InstancePlugin {
                 state.workflow.as_ref().unwrap().clone(),
             )
         };
+        disk.stop();
 
         // Prepare the request to send to the delegate node
         debug!("Sending execute request to job node '{}'...", delegate_address);
+        let job = prof.time(format!("on {}", delegate_address));
         let message: working_grpc::ExecuteRequest = working_grpc::ExecuteRequest {
             api  : api_address.serialize().to_string(),
 
@@ -192,7 +191,6 @@ impl VmPlugin for InstancePlugin {
         };
 
         // Create the client
-        let job = report.guard(format!("on {}", delegate_address));
         let mut client: working_grpc::JobServiceClient = match proxy.connect_to_job(delegate_address.to_string()).await {
             Ok(result) => match result {
                 Ok(client) => client,
@@ -286,13 +284,9 @@ impl VmPlugin for InstancePlugin {
 
 
 
-    async fn stdout(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, text: &str, newline: bool) -> Result<(), Self::StdoutError> {
+    async fn stdout(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, text: &str, newline: bool, _prof: ProfileScopeHandle<'_>) -> Result<(), Self::StdoutError> {
         info!("Writing '{}' to stdout in a distributed environment...", text);
         debug!("Newline: {}", if newline { "yes" } else { "no" });
-
-        // Setup profiling
-        let report = TimingReport::auto_report("brane-drv VM stdout", std::io::stdout());
-        let _guard = report.guard("total");
 
         // Get the TX (so that the lock does not live over an `.await`)
         let tx: Arc<Sender<Result<driving_grpc::ExecuteReply, Status>>> = {
@@ -318,30 +312,23 @@ impl VmPlugin for InstancePlugin {
 
 
 
-    async fn publicize(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, loc: &Location, name: &str, path: &Path) -> Result<(), Self::CommitError> {
+    async fn publicize(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, loc: &Location, name: &str, path: &Path, _prof: ProfileScopeHandle<'_>) -> Result<(), Self::CommitError> {
         info!("Publicizing intermediate result '{}' living at '{}' in a distributed environment...", name, loc);
         debug!("File: '{}'", path.display());
-
-        // Setup profiling
-        let report = TimingReport::auto_report("brane-drv VM publicize", std::io::stdout());
-        let _guard = report.guard("total");
 
         // There's nothing to do, since the registry and delegate share the same data folder
 
         Ok(())
     }
 
-    async fn commit(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, loc: &Location, name: &str, path: &Path, data_name: &str) -> Result<(), Self::CommitError> {
+    async fn commit(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, loc: &Location, name: &str, path: &Path, data_name: &str, prof: ProfileScopeHandle<'_>) -> Result<(), Self::CommitError> {
         info!("Committing intermediate result '{}' living at '{}' as '{}' in a distributed environment...", name, loc, data_name);
         debug!("File: '{}'", path.display());
-
-        // Setup profiling
-        let report = TimingReport::auto_report("brane-drv VM commit", std::io::stdout());
-        let _guard = report.guard("total");
 
         // We submit a commit request to the job node
 
         // Resolve the location to an address (and get the proxy client while at it)
+        let disk = prof.time("File loading");
         let (proxy, delegate_address): (Arc<ProxyClient>, Address) = {
             let state : RwLockReadGuard<GlobalState> = global.read().unwrap();
             let node_config: NodeConfig = match NodeConfig::from_path(&state.node_config_path) {
@@ -361,16 +348,17 @@ impl VmPlugin for InstancePlugin {
                 None       => { return Err(CommitError::UnknownLocationError{ loc: loc.clone() }); },
             }
         };
+        disk.stop();
 
         // Prepare the request to send to the delegate node
         debug!("Sending commit request to job node '{}'...", delegate_address);
+        let job = prof.time(format!("on {}", delegate_address));
         let message: working_grpc::CommitRequest = working_grpc::CommitRequest {
             result_name : name.into(),
             data_name   : data_name.into(),
         };
 
         // Create the client
-        let job = report.guard(format!("on {}", delegate_address));
         let mut client: working_grpc::JobServiceClient = match proxy.connect_to_job(delegate_address.to_string()).await {
             Ok(result) => match result {
                 Ok(client) => client,
@@ -442,16 +430,14 @@ impl InstanceVm {
     /// # Arguments
     /// - `tx`: The transmission channel to send feedback to the client on.
     /// - `workflow`: The Workflow to execute.
+    /// - `prof`: The ProfileScope that can be used to provide additional information about the timings of the VM.
     /// 
     /// # Returns
     /// The result of the workflow, if any. It also returns `self` again for subsequent runs.
-    pub async fn exec(self, tx: Sender<Result<driving_grpc::ExecuteReply, Status>>, workflow: Workflow) -> (Self, Result<FullValue, Error>) {
-        let report = TimingReport::auto_report("brane-drv VM", std::io::stdout());
-        let _guard = report.guard("total");
-
+    pub async fn exec(self, tx: Sender<Result<driving_grpc::ExecuteReply, Status>>, workflow: Workflow, prof: ProfileScopeHandle<'_>) -> (Self, Result<FullValue, Error>) {
         // Step 1: Plan
         debug!("Planning workflow on Kafka planner...");
-        let plan: Workflow = match report.fut("planning", self.planner.plan(workflow)).await {
+        let plan: Workflow = match prof.nest_fut("planning (brane-drv)", |scope| self.planner.plan(workflow, scope)).await {
             Ok(plan) => plan,
             Err(err) => { return (self, Err(Error::PlanError{ err })); },
         };
@@ -470,7 +456,7 @@ impl InstanceVm {
         let this: Arc<RwLock<Self>> = Arc::new(RwLock::new(self));
 
         // Run the VM and get self back
-        let result: Result<FullValue, VmError> = report.fut("execution", Self::run::<InstancePlugin>(this.clone(), plan)).await;
+        let result: Result<FullValue, VmError> = prof.nest_fut("execution", |scope| Self::run::<InstancePlugin>(this.clone(), plan, scope)).await;
         let this: Self = match Arc::try_unwrap(this) {
             Ok(this) => this.into_inner().unwrap(),
             Err(_)   => { panic!("Could not get self back"); },

@@ -4,7 +4,7 @@
 //  Created:
 //    09 Sep 2022, 13:23:41
 //  Last edited:
-//    23 Jan 2023, 10:43:31
+//    01 Feb 2023, 15:18:24
 //  Auto updated?
 //    Yes
 // 
@@ -13,6 +13,7 @@
 //!   given stream of Edges.
 // 
 
+use std::any::type_name;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
@@ -29,6 +30,7 @@ use brane_ast::spec::{BuiltinClasses, BuiltinFunctions};
 use brane_ast::locations::Location;
 use brane_ast::ast::{ClassDef, ComputeTaskDef, DataName, Edge, EdgeInstr, FunctionDef, TaskDef};
 use specifications::data::{AccessKind, AvailabilityKind};
+use specifications::profiling::{ProfileScopeHandle, ProfileScopeHandleOwned};
 
 use crate::dbg_node;
 pub use crate::errors::VmError as Error;
@@ -107,7 +109,7 @@ mod tests {
                 // Run the program
                 let text: Arc<Mutex<String>>     = Arc::new(Mutex::new(String::new()));
                 let main: Thread<DummyState, ()> = Thread::new(&workflow, DummyState{ workflow: Some(workflow.clone()), text: text.clone() });
-                match main.run::<DummyPlugin>().await {
+                match main.run::<DummyPlugin>(ProfileScopeHandleOwned::dummy()).await {
                     Ok(value) => {
                         println!("Workflow stdout:");
                         print!("{}", text.lock().unwrap());
@@ -157,6 +159,7 @@ enum EdgeResult {
 /// - `value`: The FullValue that might contain a to-be-processed dataset or intermediate result (or recurse into a value that does).
 /// - `input`: The input map for the upcoming task so that we know where the value is planned to be.
 /// - `data`: The map that we will populate with the access methods once available.
+/// - `prof`: A ProfileScopeHandleOwned that is used to provide more details about the time it takes to preprocess a local argument. Note that this is _not_ user-relevant, only debug/framework-relevant.
 /// 
 /// # Returns
 /// Adds any preprocessed datasets to `data`, then returns the ValuePreprocessProfile to discover how long it took us to do so.
@@ -165,7 +168,7 @@ enum EdgeResult {
 /// This function may error if the given `input` does not contain any of the data in the value _or_ if the referenced input is not yet planned.
 #[async_recursion]
 #[allow(clippy::too_many_arguments)]
-async fn preprocess_value<P: VmPlugin>(global: &Arc<RwLock<P::GlobalState>>, local: &P::LocalState, pc: (usize, usize), task: &TaskDef, at: &Location, value: &FullValue, input: &HashMap<DataName, Option<AvailabilityKind>>, data: &mut HashMap<DataName, JoinHandle<Result<AccessKind, P::PreprocessError>>>) -> Result<(), Error> {
+async fn preprocess_value<'p: 'async_recursion, P: VmPlugin>(global: &Arc<RwLock<P::GlobalState>>, local: &P::LocalState, pc: (usize, usize), task: &TaskDef, at: &Location, value: &FullValue, input: &HashMap<DataName, Option<AvailabilityKind>>, data: &mut HashMap<DataName, JoinHandle<Result<AccessKind, P::PreprocessError>>>, prof: ProfileScopeHandle<'p>) -> Result<(), Error> {
     // If it's a data or intermediate result, get it; skip it otherwise
     let name: DataName = match value {
         // The data and intermediate result, of course
@@ -174,14 +177,14 @@ async fn preprocess_value<P: VmPlugin>(global: &Arc<RwLock<P::GlobalState>>, loc
 
         // Also handle any nested stuff
         FullValue::Array(values)      => {
-            for v in values {
-                preprocess_value::<P>(global, local, pc, task, at, v, input, data).await?;
+            for (i, v) in values.into_iter().enumerate() {
+                prof.nest_fut(format!("[{}]", i), |scope| preprocess_value::<P>(global, local, pc, task, at, v, input, data, scope)).await?;
             }
             return Ok(());
         },
-        FullValue::Instance(_, props) => {
-            for v in props.values() {
-                preprocess_value::<P>(global, local, pc, task, at, v, input, data).await?;
+        FullValue::Instance(name, props) => {
+            for (n, v) in props {
+                prof.nest_fut(format!("{}.{}", name, n), |scope| preprocess_value::<P>(global, local, pc, task, at, v, input, data, scope)).await?;
             }
             return Ok(());
         },
@@ -213,7 +216,14 @@ async fn preprocess_value<P: VmPlugin>(global: &Arc<RwLock<P::GlobalState>>, loc
             //     Ok(access) => access,
             //     Err(err)   => { return Err(Error::Custom{ edge: pc.1, err: Box::new(err) }); }
             // }
-            tokio::spawn(P::preprocess(global.clone(), local.clone(), at.clone(), name.clone(), how))
+            let prof   = ProfileScopeHandleOwned::from(prof);
+            let global = global.clone();
+            let local  = local.clone();
+            let at     = at.clone();
+            let name   = name.clone();
+            tokio::spawn(async move {
+                prof.nest_fut(format!("{}::preprocess()", type_name::<P>()), |scope| P::preprocess(global, local, at, name, how, scope)).await
+            })
         },
     };
 
@@ -890,7 +900,7 @@ pub struct Thread<G: CustomGlobalState, L: CustomLocalState> {
     fstack : FrameStack,
 
     /// The threads that we're blocking on.
-    blocking_threads : Vec<(usize, JoinHandle<Result<Value, Error>>)>,
+    threads : Vec<(usize, JoinHandle<Result<Value, Error>>)>,
 
     /// The thread-global custom part of the RunState.
     global : Arc<RwLock<G>>,
@@ -921,7 +931,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
             stack  : Stack::new(2048),
             fstack : FrameStack::new(512, workflow.table.clone()),
 
-            blocking_threads : vec![],
+            threads : vec![],
 
             global : global.clone(),
             local  : L::new(&global),
@@ -944,7 +954,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
             stack  : Stack::new(2048),
             fstack : state.fstack,
 
-            blocking_threads : vec![],
+            threads : vec![],
 
             global : state.global.clone(),
             local  : L::new(&state.global),
@@ -969,7 +979,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
             stack  : Stack::new(2048),
             fstack : self.fstack.fork(),
 
-            blocking_threads : vec![],
+            threads : vec![],
 
             global : self.global.clone(),
             local  : L::new(&self.global),
@@ -990,18 +1000,52 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
 
 
 
+    /// Retrieves the current edge based on the given program counter.
+    /// 
+    /// # Arguments
+    /// - `pc`: Points to the edge to retrieve.
+    /// 
+    /// # Returns
+    /// A reference to the Edge to execute.
+    /// 
+    /// # Errors
+    /// This function may error if the program counter is out-of-bounds.
+    fn get_edge(&self, pc: (usize, usize)) -> Result<&Edge, Error> {
+        if pc.0 == usize::MAX {
+            // Assert the index is within range
+            if pc.1 < self.graph.len() {
+                Ok(&self.graph[pc.1])
+            } else {
+                Err(Error::PcOutOfBounds{ func: pc.0, edges: self.graph.len(), got: pc.1 })
+            }
+        } else {
+            // Assert the function is within range
+            if let Some(edges) = self.funcs.get(&pc.0) {
+                // Assert the index is within range
+                if pc.1 < edges.len() {
+                    Ok(&edges[pc.1])
+                } else {
+                    Err(Error::PcOutOfBounds{ func: pc.0, edges: edges.len(), got: pc.1 })
+                }
+            } else {
+                Err(Error::UnknownFunction{ func: pc.0 })
+            }
+        }
+    }
+
     /// Executes a single edge, modifying the given stacks and variable register.
     /// 
     /// # Arguments
     /// - `pc`: Points to the current edge to execute (as a `(body, offset)` pair).
     /// - `plugins`: An object implementing various parts of task execution that are dependent on the actual setup (i.e., offline VS instance).
+    /// - `prof`: A ProfileScopeHandleOwned that is used to provide more details about the execution times of a single edge. Note that this is _not_ user-relevant, only debug/framework-relevant.
     /// 
     /// # Returns
     /// The next index to execute. Note that this is an _absolute_ index (so it will typically be `idx` + 1)
     /// 
     /// # Errors
     /// This function may error if execution of the edge failed. This is typically due to incorrect runtime typing or due to failure to perform an external function call.
-    async fn exec_edge<P: VmPlugin<GlobalState = G, LocalState = L>>(&mut self, pc: (usize, usize)) -> EdgeResult {
+    async fn exec_edge<P: VmPlugin<GlobalState = G, LocalState = L>>(&mut self, pc: (usize, usize), prof: ProfileScopeHandleOwned) -> EdgeResult {
         // We can early stop if the program counter is out-of-bounds
         if pc.0 == usize::MAX {
             if pc.1 >= self.graph.len() {
@@ -1039,6 +1083,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         debug!("Calling compute task '{}' ('{}' v{})", task.name(), package, version);
 
                         // Collect the arguments from the stack (remember, reverse order)
+                        let retr = prof.time("Argument retrieval");
                         let mut args: HashMap<String, FullValue> = HashMap::with_capacity(function.args.len());
                         for i in 0..function.args.len() {
                             let i: usize = function.args.len() - 1 - i;
@@ -1062,13 +1107,16 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                             Some(at) => at,
                             None     => { return EdgeResult::Err(Error::UnresolvedLocation{ edge: pc.1, name: function.name.clone() }); }
                         };
+                        retr.stop();
 
                         // Next, fetch all the datasets required by calling the external transfer function;
                         // The map created maps data names to ways of accessing them locally that may be passed to the container itself.
+                        let prepr = prof.nest("argument preprocessing");
+                        let total = prepr.time("Total");
                         let mut handles: HashMap<DataName, JoinHandle<Result<AccessKind, P::PreprocessError>>> = HashMap::new();
-                        for value in args.values() {
+                        for (i, value) in args.values().enumerate() {
                             // Preprocess the given value
-                            if let Err(err) = preprocess_value::<P>(&self.global, &self.local, pc, task, at, value, input, &mut handles).await { return EdgeResult::Err(err); }
+                            if let Err(err) = prepr.nest_fut(format!("argument {}", i), |scope| preprocess_value::<P>(&self.global, &self.local, pc, task, at, value, input, &mut handles, scope)).await { return EdgeResult::Err(err); }
                         }
                         // Join the handles
                         let mut data: HashMap<DataName, AccessKind> = HashMap::with_capacity(handles.len());
@@ -1081,6 +1129,8 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                                 Err(err) => { return EdgeResult::Err(Error::Custom{ edge: pc.1, err: Box::new(err) }); },
                             }
                         }
+                        total.stop();
+                        prepr.finish();
 
                         // Prepare the TaskInfo for the call
                         let info: TaskInfo = TaskInfo {
@@ -1098,7 +1148,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         };
 
                         // Call the external call function with the correct arguments
-                        let mut res: Option<Value> = match P::execute(&self.global, &self.local, info).await {
+                        let mut res: Option<Value> = match prof.nest_fut(format!("{}::execute()", type_name::<P>()), |scope| P::execute(&self.global, &self.local, info, scope)).await {
                             Ok(res)  => res.map(|v| v.into_value(self.fstack.table())),
                             Err(err) => { return EdgeResult::Err(Error::Custom{ edge: pc.1, err: Box::new(err) }); },
                         };
@@ -1106,8 +1156,9 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         // If the function returns an intermediate result but returned nothing, that's fine; we inject the result here
                         if function.ret == DataType::IntermediateResult && (res.is_none() || res.as_ref().unwrap() == &Value::Void) {
                             // Make the intermediate result available for next steps by possible pushing it to the next registry
-                            let name: &str = result.as_ref().unwrap();
-                            if let Err(err) = P::publicize(&self.global, &self.local, at, name, &PathBuf::from(name)).await {
+                            let name : &str    = result.as_ref().unwrap();
+                            let path : PathBuf = name.into();
+                            if let Err(err) = prof.nest_fut(format!("{}::publicize()", type_name::<P>()), |scope| P::publicize(&self.global, &self.local, at, name, &path, scope)).await {
                                 return EdgeResult::Err(Error::Custom{ edge: pc.1, err: Box::new(err) });
                             }
 
@@ -1116,6 +1167,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         }
 
                         // Verify its return value
+                        let _ret = prof.time("Return analysis");
                         if let Some(res) = res {
                             // Verification
                             let res_type: DataType = res.data_type(self.fstack.table());
@@ -1139,7 +1191,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                 let mut instr_pc: usize = 0;
                 while instr_pc < instrs.len() {
                     // It looks a bit funky, but we simply add the relative offset after every constrution to the edge-local program counter
-                    instr_pc = (instr_pc as i64 + match exec_instr(pc.1, instr_pc, &instrs[instr_pc], &mut self.stack, &mut self.fstack) {
+                    instr_pc = (instr_pc as i64 + match prof.time_func(format!("instruction {}", instr_pc), || exec_instr(pc.1, instr_pc, &instrs[instr_pc], &mut self.stack, &mut self.fstack)) {
                         Ok(next) => next,
                         Err(err) => { return EdgeResult::Err(err); },
                     }) as usize;
@@ -1178,11 +1230,15 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
             },
             Parallel{ branches, merge } => {
                 // Fork this thread for every branch
-                self.blocking_threads.clear();
-                self.blocking_threads.reserve(branches.len());
+                self.threads.clear();
+                self.threads.reserve(branches.len());
                 for (i, b) in branches.iter().enumerate() {
                     // Fork the thread for that branch
-                    self.blocking_threads.push((i, spawn(self.fork((pc.0, *b)).run::<P>())));
+                    let thread: Self = self.fork((pc.0, *b));
+                    let prof = prof.clone();
+
+                    // Schedule its running on the runtime (`spawn`)
+                    self.threads.push((i, spawn(async move { prof.nest_fut(format!("branch {}", i), |scope| thread.run::<P>(scope.into())).await })));
                 }
 
                 // Mark those threads to wait for, and then move to the join
@@ -1190,8 +1246,9 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
             },
             Join{ merge, next } => {
                 // Await the threads first (if any)
-                let mut results: Vec<(usize, Value)> = Vec::with_capacity(self.blocking_threads.len());
-                for (i, t) in &mut self.blocking_threads {
+                // No need to catch profile results, since writing is done in the `nest_fut` function that's already embedded in the future
+                let mut results: Vec<(usize, Value)> = Vec::with_capacity(self.threads.len());
+                for (i, t) in &mut self.threads {
                     match t.await {
                         Ok(status) => match status {
                             Ok(res)  => { results.push((*i, res)); },
@@ -1200,9 +1257,10 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         Err(err)   => { return EdgeResult::Err(Error::SpawnError{ edge: pc.1, err }); }
                     }
                 }
-                self.blocking_threads.clear();
+                self.threads.clear();
 
                 // Join their values into one according to the merge strategy
+                let _merge = prof.time("Result merging");
                 let result: Option<Value> = match merge {
                     MergeStrategy::First | MergeStrategy::FirstBlocking => {
                         if results.is_empty() { panic!("Joining with merge strategy '{:?}' after no threads have been run; this should never happen!", merge); }
@@ -1428,7 +1486,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         };
                         fdef
                     },
-                    value                               => { return EdgeResult::Err(Error::StackTypeError { edge: pc.1, instr: None, got: value.data_type(self.fstack.table()), expected: DataType::Callable }); }
+                    value => { return EdgeResult::Err(Error::StackTypeError { edge: pc.1, instr: None, got: value.data_type(self.fstack.table()), expected: DataType::Callable }); }
                 };
                 // Resolve the function index
                 let sig: &FunctionDef = self.fstack.table().func(def);
@@ -1444,7 +1502,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                 if sig.name == BuiltinFunctions::Print.name() {
                     // We have one variable that is a string; so print it
                     let text: String = self.stack.pop().unwrap().try_as_string().unwrap();
-                    if let Err(err) = P::stdout(&self.global, &self.local, &text, false).await {
+                    if let Err(err) = prof.nest_fut(format!("{}::stdout(false)", type_name::<P>()), |scope| P::stdout(&self.global, &self.local, &text, false, scope)).await {
                         return EdgeResult::Err(Error::Custom{ edge: pc.1, err: Box::new(err) });
                     }
 
@@ -1454,7 +1512,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                 } else if sig.name == BuiltinFunctions::PrintLn.name() {
                     // We have one variable that is a string; so print it
                     let text: String = self.stack.pop().unwrap().try_as_string().unwrap();
-                    if let Err(err) = P::stdout(&self.global, &self.local, &text, true).await {
+                    if let Err(err) = prof.nest_fut(format!("{}::stdout(true)", type_name::<P>()), |scope| P::stdout(&self.global, &self.local, &text, true, scope)).await {
                         return EdgeResult::Err(Error::Custom{ edge: pc.1, err: Box::new(err) });
                     }
 
@@ -1483,7 +1541,8 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                     };
 
                     // Call the external data committer
-                    if let Err(err) = P::commit(&self.global, &self.local, loc, &res_name, &PathBuf::from(&res_name), &data_name).await {
+                    let res_path : PathBuf = res_name.as_str().into();
+                    if let Err(err) = prof.nest_fut(format!("{}::commit()", type_name::<P>()), |scope| P::commit(&self.global, &self.local, loc, &res_name, &res_path, &data_name, scope)).await {
                         return EdgeResult::Err(Error::Custom{ edge: pc.1, err: Box::new(err) });
                     };
 
@@ -1538,17 +1597,23 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
 
     /// Runs the thread once until it is pending for something (either other threads or external function calls).
     /// 
+    /// # Arguments
+    /// - `prof`: A ProfileScopeHandleOwned that is used to provide more details about the execution times of a workflow execution. Note that this is _not_ user-relevant, only debug/framework-relevant.
+    ///   
+    ///   The reason it is owned is due to the boxed return future. It's your responsibility to keep the parent into scope after the future returns; if you don't any collected profile results will likely not be printed.
+    /// 
     /// # Returns
     /// The value that this thread returns once it is done.
     /// 
     /// # Errors
     /// This function may error if execution of an edge or instruction failed. This is typically due to incorrect runtime typing.
-    pub fn run<P: VmPlugin<GlobalState = G, LocalState = L>>(mut self) -> BoxFuture<'static, Result<Value, Error>> {
+    pub fn run<P: VmPlugin<GlobalState = G, LocalState = L>>(mut self, prof: ProfileScopeHandleOwned) -> BoxFuture<'static, Result<Value, Error>> {
         async move {
             // Start executing edges from where we left off
+            let prof: ProfileScopeHandleOwned = prof;
             loop {
                 // Run the edge
-                self.pc = match self.exec_edge::<P>(self.pc).await {
+                self.pc = match prof.nest_fut(format!("{:?} ({}:{})", self.get_edge(self.pc)?.variant(), if self.pc.0 < usize::MAX { format!("{}", self.pc.0) } else { "<main>".into() }, self.pc.1), |scope| self.exec_edge::<P>(self.pc, scope.into())).await {
                     // Either quit or continue, noting down the time taken
                     EdgeResult::Ok(value)     => { return Ok(value); },
                     EdgeResult::Pending(next) => next,
@@ -1564,17 +1629,23 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     /// 
     /// This overload supports snippet execution, returning the state that is necessary for the next repl-loop together with the result.
     /// 
+    /// # Arguments
+    /// - `prof`: A ProfileScopeHandleOwned that is used to provide more details about the execution times of a workflow execution. Note that this is _not_ user-relevant, only debug/framework-relevant.
+    ///   
+    ///   The reason it is owned is due to the boxed return future. It's your responsibility to keep the parent into scope after the future returns; if you don't any collected profile results will likely not be printed.
+    /// 
     /// # Returns
     /// A tuple of the value that is returned by this thread and the running state used to refer to variables produced in this run, respectively.
     /// 
     /// # Errors
     /// This function may error if execution of an edge or instruction failed. This is typically due to incorrect runtime typing.
-    pub fn run_snippet<P: VmPlugin<GlobalState = G, LocalState = L>>(mut self) -> BoxFuture<'static, Result<(Value, RunState<G>), Error>> {
+    pub fn run_snippet<P: VmPlugin<GlobalState = G, LocalState = L>>(mut self, prof: ProfileScopeHandleOwned) -> BoxFuture<'static, Result<(Value, RunState<G>), Error>> {
         async move {
             // Start executing edges from where we left off
+            let prof: ProfileScopeHandleOwned = prof;
             loop {
                 // Run the edge
-                self.pc = match self.exec_edge::<P>(self.pc).await {
+                self.pc = match prof.nest_fut(format!("{:?} ({}:{})", self.get_edge(self.pc)?.variant(), if self.pc.0 < usize::MAX { format!("{}", self.pc.0) } else { "<main>".into() }, self.pc.1), |scope| self.exec_edge::<P>(self.pc, scope.into())).await {
                     // Either quit or continue, noting down the time taken
                     // Return not just the value, but also the VmState part of this thread to keep.
                     EdgeResult::Ok(value)     => { return Ok((value, self.into_state())); },

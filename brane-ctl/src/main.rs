@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    26 Jan 2023, 09:59:14
+//    01 Feb 2023, 14:38:07
 //  Auto updated?
 //    Yes
 // 
@@ -83,7 +83,10 @@ enum CtlSubcommand {
 
         /// Sets the '$MODE' variable, which can easily switch the location of compiled binaries.
         #[clap(short, long, default_value = "release", help = "Sets the mode ($MODE) to use in the image flags of the `start` command.")]
-        mode : String,
+        mode        : String,
+        /// The profile directory to mount, if any.
+        #[clap(short, long, help = "If given, mounts the '/logs/profile' directories in the instance container(s) to the same (given) directory on the host. Use this to effectively reach the profile files.")]
+        profile_dir : Option<PathBuf>,
 
         /// Defines the possible nodes and associated flags to start.
         #[clap(subcommand)]
@@ -289,8 +292,8 @@ async fn main() {
             
         },
 
-        CtlSubcommand::Start{ file, docker_socket, docker_version, version, mode, kind, } => {
-            if let Err(err) = lifetime::start(file, docker_socket, docker_version, version, args.node_config, mode, *kind).await { error!("{}", err); std::process::exit(1); }
+        CtlSubcommand::Start{ file, docker_socket, docker_version, version, mode, profile_dir, kind, } => {
+            if let Err(err) = lifetime::start(file, docker_socket, docker_version, version, args.node_config, mode, profile_dir, *kind).await { error!("{}", err); std::process::exit(1); }
         },
 
         CtlSubcommand::Stop{ file } => {

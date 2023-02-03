@@ -4,7 +4,7 @@
 //  Created:
 //    26 Aug 2022, 18:01:09
 //  Last edited:
-//    23 Jan 2023, 10:46:59
+//    01 Feb 2023, 15:02:44
 //  Auto updated?
 //    Yes
 // 
@@ -243,6 +243,11 @@ pub enum VmError {
     /// An error occurred while instantiating the custom state.
     GlobalStateError{ err: Box<dyn Send + Sync + Error> },
 
+    /// The given function pointer was out-of-bounds for the given workflow.
+    UnknownFunction{ func: usize },
+    /// The given program counter was out-of-bounds for the given function.
+    PcOutOfBounds{ func: usize, edges: usize, got: usize },
+
     /// We expected there to be a value on the stack but there wasn't.
     EmptyStackError{ edge: usize, instr: Option<usize>, expected: DataType },
     /// The value on top of the stack was of unexpected data type.
@@ -319,6 +324,9 @@ impl VmError {
             // CompileError{ .. }     => eprintln!("{}", self),
             GlobalStateError{ .. } => eprintln!("{}", self),
 
+            UnknownFunction{ .. } => eprintln!("{}", self),
+            PcOutOfBounds{ .. }   => eprintln!("{}", self),
+
             EmptyStackError { edge, instr, .. }        => prettyprint_err_instr(*edge, *instr, self),
             StackTypeError { edge, instr, .. }         => prettyprint_err_instr(*edge, *instr, self),
             StackLhsRhsTypeError { edge, instr, .. }   => prettyprint_err_instr(*edge, Some(*instr), self),
@@ -365,6 +373,9 @@ impl Display for VmError {
             // ReaderReadError { err } => write!(f, "Failed to read from the given reader: {}", err),
             // CompileError{ .. }      => write!(f, "Could not compile the given source text (see output above)"),
             GlobalStateError{ err } => write!(f, "Could not create custom state: {}", err),
+
+            UnknownFunction{ func }           => write!(f, "Unknown function with index {}", func),
+            PcOutOfBounds{ func, edges, got } => write!(f, "Edge index {} is out-of-bounds for function {} of {} edges", got, if *func < usize::MAX { format!("{}", func) } else { "<main>".into() }, edges),
 
             EmptyStackError { expected, .. }                     => write!(f, "Expected a value of type {} on the stack, but stack was empty", expected),
             StackTypeError { got, expected, .. }                 => write!(f, "Expected a value of type {} on the stack, but got a value of type {}", expected, got),
