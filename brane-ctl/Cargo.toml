@@ -15,10 +15,13 @@ console = "0.15"
 dotenvy = "0.15"
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
 env_logger = "0.10"
+futures-util = "0.3"
 human-panic = "1.0"
+indicatif = "0.17"
 lazy_static = "1.4.0"
 log = "0.4"
 rand = "0.8.5"
+reqwest = { version = "0.11.14", features = ["stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 shlex = "1.1.0"

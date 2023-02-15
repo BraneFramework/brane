@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    26 Jan 2023, 09:58:30
+//    15 Feb 2023, 16:57:53
 //  Auto updated?
 //    Yes
 // 
@@ -13,13 +13,17 @@
 // 
 
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::net::{IpAddr, Ipv4Addr, SocketAddrV4};
+use std::str::FromStr;
 
 use console::style;
 use enum_debug::EnumDebug as _;
+use futures_util::stream::StreamExt as _;
+use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, warn};
 
 use brane_cfg::infra::{InfraFile, InfraLocation};
@@ -262,6 +266,76 @@ fn write_policy_header(writer: &mut impl Write) -> Result<(), std::io::Error> {
 
 
 
+/// Downloads some file to the given location.
+/// 
+/// # Arguments
+/// - `what`: Some more human-readable description of what we are downloading.
+/// - `remote`: The URL to download the file from.
+/// - `local`: The location to download the file to.
+/// 
+/// # Returns
+/// Nothing, except that when it does you can assume a file exists at the given location.
+/// 
+/// Also keeps the user up-to-date with prints and a progress bar.
+/// 
+/// # Errors
+/// This function may error if we failed to download the file or write it (which may happen if the parent directory of `local` does not exist).
+async fn download_file(what: impl Display, remote: impl AsRef<str>, local: impl AsRef<Path>) -> Result<(), Error> {
+    let remote : &str  = remote.as_ref();
+    let local  : &Path = local.as_ref();
+    println!("Downloading {}...", style(what).green().bold());
+
+    // Assert the download directory exists
+    let dir: Option<&Path> = local.parent();
+    if dir.is_some() && !dir.unwrap().exists() { return Err(Error::DirNotFound{ path: dir.unwrap().into() }); }
+
+    // Open the local file
+    debug!("Opening output file '{}'...", local.display());
+    let mut handle: File = match File::create(local) {
+        Ok(handle) => handle,
+        Err(err)   => { return Err(Error::FileCreateError{ what: "temporary binary", path: local.into(), err }); },
+    };
+
+    // Send a request
+    debug!("Sending download request to '{}'...", remote);
+    let req: reqwest::Response = match reqwest::get(remote).await {
+        Ok(req)  => req,
+        Err(err) => { return Err(Error::RequestError{ address: remote.into(), err }); },
+    };
+    if !req.status().is_success() { return Err(Error::RequestFailure{ address: remote.into(), code: req.status(), err: req.text().await.ok() }); }
+
+    // Create the progress bar based on whether if there is a length
+    debug!("Downloading...");
+    let len: Option<u64> = req.headers().get("Content-Length").and_then(|len| len.to_str().ok()).and_then(|len| u64::from_str(len).ok());
+    let prgs: ProgressBar = if let Some(len) = len {
+        ProgressBar::new(len).with_style(ProgressStyle::with_template("    {bar:60} {bytes}/{total_bytes} ETA {eta_precise}").unwrap())
+    } else {
+        ProgressBar::new_spinner().with_style(ProgressStyle::with_template("    {elapsed_precise} {bar:60} {bytes}").unwrap())
+    };
+
+    // Download
+    let mut stream = req.bytes_stream();
+    while let Some(next) = stream.next().await {
+        // Unwrap the result
+        let next: _ = match next {
+            Ok(next) => next,
+            Err(err) => { return Err(Error::DownloadError{ address: remote.into(), err }); },
+        };
+
+        // Write it to the file
+        if let Err(err) = handle.write(&*next) { return Err(Error::FileWriteError{ what: "temporary binary", path: local.into(), err }); }
+
+        // Update what we've written
+        prgs.update(|state| state.set_pos(state.pos() + next.len() as u64));
+    }
+    prgs.finish_with_message("Download complete.");
+
+    // Done
+    Ok(())
+}
+
+
+
 
 
 /***** LIBRARY *****/
@@ -388,16 +462,67 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
     debug!("Writing to '{}'...", path.display());
     let mut handle: File = match File::create(&path) {
         Ok(handle) => handle,
-        Err(err)   => { return Err(Error::FileCreateError{ path, err }); },
+        Err(err)   => { return Err(Error::FileCreateError{ what: "node.yml", path, err }); },
     };
 
     // Write the top comment header thingy
-    if let Err(err) = write_node_header(&mut handle) { return Err(Error::FileHeaderWriteError { path, err }); }
+    if let Err(err) = write_node_header(&mut handle) { return Err(Error::FileHeaderWriteError{ what: "infra.yml", path, err }); }
     // Write the file itself
-    if let Err(err) = node_config.to_writer(handle) { return Err(Error::NodeWriteError { path, err }); }
+    if let Err(err) = node_config.to_writer(handle) { return Err(Error::NodeWriteError{ path, err }); }
 
     // Done
     println!("Successfully generated {}", style(path.display().to_string()).bold().green());
+    Ok(())
+}
+
+
+
+/// Handles generating root & server certificates for the current domain.
+/// 
+/// # Arguments
+/// - `location_id`: The identifier of the location to generate them for.
+/// - `hostname`: The hostname of the location to generate the certificates for.
+/// - `fix_dirs`: if true, will generate missing directories instead of complaining.
+/// - `path`: The path of the directory to write the new certificate files to.
+/// - `temp_dir`: The path of the directory where we store the temporary scripts.
+/// 
+/// # Returns
+/// Nothing, but does write several new files to the given directory and updates the user on stdout on success.
+/// 
+/// # Errors
+/// This function may error if I/O errors occur while downloading the auxillary scripts or while writing the files.
+pub async fn certs(location_id: impl Into<String>, hostname: impl Into<String>, fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into<PathBuf>) -> Result<(), Error> {
+    let location_id : String  = location_id.into();
+    let hostname    : String  = hostname.into();
+    let path        : PathBuf = path.into();
+    let temp_dir    : PathBuf = temp_dir.into();
+    info!("Generating root & server certificates for {} @ {} to '{}'...", location_id, hostname, path.display());
+
+    // Make sure the cfssl binary is there
+    let cfssl_path: PathBuf = temp_dir.join("cfssl");
+    if cfssl_path.exists() {
+        if !cfssl_path.is_file() { return Err(Error::FileNotAFile{ path: cfssl_path }); }
+        debug!("'{}' already exists", cfssl_path.display());
+    } else {
+        debug!("'{}' does not exist, downloading...", cfssl_path.display());
+        download_file("cfssl", "https://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssl_1.6.3_linux_amd64", &cfssl_path).await?;
+    }
+
+    // Make sure the cfssljson binary is there
+    let cfssljson_path: PathBuf = temp_dir.join("cfssljson");
+    if cfssljson_path.exists() {
+        if !cfssljson_path.is_file() { return Err(Error::FileNotAFile{ path: cfssljson_path }); }
+        debug!("'{}' already exists", cfssljson_path.display());
+    } else {
+        debug!("'{}' does not exist, downloading...", cfssljson_path.display());
+        download_file("cfssljson", "https://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssljson_1.6.3_linux_amd64", &cfssljson_path).await?;
+    }
+
+    // Now create the target directory
+    
+
+    // Done!
+    println!("Successfully generated certificates for domain {}", style(location_id).green().bold());
     Ok(())
 }
 
@@ -463,11 +588,11 @@ pub fn infra(locations: Vec<LocationPair<':', String>>, fix_dirs: bool, path: im
     // Open the file to write it to
     let mut handle: File = match File::create(&path) {
         Ok(handle) => handle,
-        Err(err)   => { return Err(Error::FileCreateError { path, err }); },
+        Err(err)   => { return Err(Error::FileCreateError{ what: "infra.yml", path, err }); },
     };
 
     // Write the header
-    if let Err(err) = write_infra_header(&mut handle) { return Err(Error::FileHeaderWriteError { path, err }); }
+    if let Err(err) = write_infra_header(&mut handle) { return Err(Error::FileHeaderWriteError { what: "infra.yml", path, err }); }
     // Write the contents
     if let Err(err) = infra.to_writer(handle) { return Err(Error::InfraWriteError{ path, err }); }
 
@@ -516,11 +641,11 @@ pub fn backend(fix_dirs: bool, path: impl Into<PathBuf>, capabilities: Vec<Capab
     // Open the file to write it to
     let mut handle: File = match File::create(&path) {
         Ok(handle) => handle,
-        Err(err)   => { return Err(Error::FileCreateError { path, err }); },
+        Err(err)   => { return Err(Error::FileCreateError{ what: "backend.yml", path, err }); },
     };
 
     // Write the header
-    if let Err(err) = write_backend_header(&mut handle) { return Err(Error::FileHeaderWriteError { path, err }); }
+    if let Err(err) = write_backend_header(&mut handle) { return Err(Error::FileHeaderWriteError { what: "backend.yml", path, err }); }
     // Write the contents
     if let Err(err) = backend.to_writer(handle) { return Err(Error::BackendWriteError{ path, err }); }
 
@@ -559,11 +684,11 @@ pub fn policy(fix_dirs: bool, path: impl Into<PathBuf>, allow_all: bool) -> Resu
     // Open the file to write it to
     let mut handle: File = match File::create(&path) {
         Ok(handle) => handle,
-        Err(err)   => { return Err(Error::FileCreateError { path, err }); },
+        Err(err)   => { return Err(Error::FileCreateError{ what: "policies.yml", path, err }); },
     };
 
     // Write the header
-    if let Err(err) = write_policy_header(&mut handle) { return Err(Error::FileHeaderWriteError { path, err }); }
+    if let Err(err) = write_policy_header(&mut handle) { return Err(Error::FileHeaderWriteError{ what: "policies.yml", path, err }); }
     // Write the contents
     if let Err(err) = policies.to_writer(handle) { return Err(Error::PolicyWriteError{ path, err }); }
 

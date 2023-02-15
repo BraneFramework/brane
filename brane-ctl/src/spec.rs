@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    05 Jan 2023, 11:54:25
+//    15 Feb 2023, 16:01:46
 //  Auto updated?
 //    Yes
 // 
@@ -143,7 +143,7 @@ impl<const C: char, T: FromStr> FromStr for LocationPair<C, T> {
 
 
 /***** LIBRARY *****/
-/// A bit awkward here, but defines the generate subcommand, which basically defines the possible kinds of nodes to generate the node.yml config file for.
+/// A bit awkward here, but defines the generate subcommand for the node file. This basically defines the possible kinds of nodes to generate.
 #[derive(Debug, Subcommand)]
 pub enum GenerateNodeSubcommand {
     /// Starts a central node.
@@ -250,7 +250,7 @@ pub enum GenerateNodeSubcommand {
     },
 }
 
-/// A bit awkward here, but defines the generate subcommand, which basically defines the possible kinds of nodes to generate the node.yml config file for.
+/// A bit awkward here, but defines the generate subcommand for the backend file. This basically defines the possible kinds of backends to generate.
 #[derive(Debug, EnumDebug, Subcommand)]
 pub enum GenerateBackendSubcommand {
     /// A backend on the local Docker engine.

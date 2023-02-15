@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    15 Feb 2023, 11:54:19
+//    15 Feb 2023, 16:51:17
 //  Auto updated?
 //    Yes
 // 
@@ -20,6 +20,7 @@ use std::process::{Command, ExitStatus};
 use bollard::ClientVersion;
 use console::style;
 use enum_debug::EnumDebug as _;
+use reqwest::StatusCode;
 
 use brane_cfg::node::NodeKind;
 use brane_tsk::docker::ImageSource;
@@ -41,10 +42,21 @@ pub enum GenerateError {
     /// Failed to canonicalize the given path.
     CanonicalizeError{ path: PathBuf, err: std::io::Error },
 
+    /// The given file is not a file.
+    FileNotAFile{ path: PathBuf },
+    /// Failed to send a request to the given address.
+    RequestError{ address: String, err: reqwest::Error },
+    /// The given server responded with a non-2xx status code.
+    RequestFailure{ address: String, code: StatusCode, err: Option<String> },
+    /// Failed to download the full file stream.
+    DownloadError{ address: String, err: reqwest::Error },
+    /// Failed to write to the output file.
+    FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
+
     /// Failed to create a new file.
-    FileCreateError{ path: PathBuf, err: std::io::Error },
+    FileCreateError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to write the header to the new file.
-    FileHeaderWriteError{ path: PathBuf, err: std::io::Error },
+    FileHeaderWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to write the main body to the new file.
     NodeWriteError{ path: PathBuf, err: brane_cfg::node::Error },
 
@@ -69,9 +81,15 @@ impl Display for GenerateError {
 
             CanonicalizeError{ path, err } => write!(f, "Failed to canonicalize path '{}': {}", path.display(), err),
 
-            FileCreateError{ path, err }      => write!(f, "Failed to create new node.yml file '{}': {}", path.display(), err),
-            FileHeaderWriteError{ path, err } => write!(f, "Failed to write header to node.yml file '{}': {}", path.display(), err),
-            NodeWriteError{ err, .. }         => write!(f, "Failed to write body to node.yml file: {}", err),
+            FileNotAFile{ path }                 => write!(f, "File '{}' exists but not as a file", path.display()),
+            RequestError{ address, err }         => write!(f, "Failed to send GET-request to '{}': {}", address, err),
+            RequestFailure{ address, code, err } => write!(f, "GET-request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
+            DownloadError{ address, err }        => write!(f, "Failed to download file '{}': {}", address, err),
+            FileWriteError{ what, path, err }    => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
+
+            FileCreateError{ what, path, err }      => write!(f, "Failed to create new {} file '{}': {}", what, path.display(), err),
+            FileHeaderWriteError{ what, path, err } => write!(f, "Failed to write header to {} file '{}': {}", what, path.display(), err),
+            NodeWriteError{ err, .. }               => write!(f, "Failed to write body to node.yml file: {}", err),
 
             UnknownLocation{ loc }     => write!(f, "Unknown location '{}' (did you forget to specify it in the LOCATIONS argument?)", loc),
             InfraWriteError{ err, .. } => write!(f, "Failed to write body to infra.yml file: {}", err),

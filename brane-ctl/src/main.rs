@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    15 Feb 2023, 11:46:40
+//    15 Feb 2023, 16:19:15
 //  Auto updated?
 //    Yes
 // 
@@ -57,9 +57,6 @@ struct Arguments {
 enum CtlSubcommand {
     #[clap(subcommand)]
     Generate(Box<GenerateSubcommand>),
-
-    #[clap(subcommand)]
-    Certs(Box<CertSubcommand>),
 
     #[clap(subcommand)]
     Packages(Box<PackageSubcommand>),
@@ -144,6 +141,26 @@ enum GenerateSubcommand {
         kind : Box<GenerateNodeSubcommand>,
     },
 
+    #[clap(name = "certs", about = "Generates root & server certificates for the given domain.")]
+    Certs {
+        /// The domain name for which to generate the certificates.
+        #[clap(name="LOCATION_ID", help = "The name of the location for which we are generating server certificates.")]
+        location_id : String,
+        /// The hostname for which to generate the certificates.
+        #[clap(name="HOSTNAME", help = "The name of the location for which we are generating server certificates.")]
+        hostname    : String,
+
+        /// If given, will generate missing directories instead of throwing errors.
+        #[clap(short='f', long, help = "If given, will generate any missing directories.")]
+        fix_dirs : bool,
+        /// The directory to write to.
+        #[clap(short, long, default_value = "./", help = "The path of the directory to write the generated certificate files.")]
+        path     : PathBuf,
+        /// The directory to write temporary scripts to.
+        #[clap(short, long, default_value = "/tmp", help = "The path of the directory to write the temporary scripts to we use for certificate generation.")]
+        temp_dir : PathBuf,
+    },
+
     #[clap(name = "infra", about = "Generates a new 'infra.yml' file.")]
     Infra {
         /// Defines the list of domains
@@ -204,13 +221,6 @@ enum GenerateSubcommand {
     },
 }
 
-/// Defines certificate-related subcommands for the `branectl` tool.
-#[derive(Debug, Subcommand)]
-#[clap(name = "certs", about = "Groups commands about certificate management.")]
-enum CertSubcommand {
-    
-}
-
 /// Defines package-related subcommands for the `branectl` tool.
 #[derive(Debug, Subcommand)]
 #[clap(name = "packages", about = "Groups commands about package management.")]
@@ -268,6 +278,11 @@ async fn main() {
                 if let Err(err) = generate::node(args.node_config, hosts, proxy, fix_dirs, config_path, *kind) { error!("{}", err); std::process::exit(1); }
             },
 
+            GenerateSubcommand::Certs { location_id, hostname, fix_dirs, path, temp_dir } => {
+                // Call the thing
+                if let Err(err) = generate::certs(location_id, hostname, fix_dirs, path, temp_dir).await { error!("{}", err); std::process::exit(1); }
+            },
+
             GenerateSubcommand::Infra{ locations, fix_dirs, path, names, reg_ports, job_ports } => {
                 // Call the thing
                 if let Err(err) = generate::infra(locations, fix_dirs, path, names, reg_ports, job_ports) { error!("{}", err); std::process::exit(1); }
@@ -281,10 +296,6 @@ async fn main() {
                 // Call the thing
                 if let Err(err) = generate::policy(fix_dirs, path, allow_all) { error!("{}", err); std::process::exit(1); }
             },
-        },
-
-        CtlSubcommand::Certs(subcommand) => match *subcommand {
-            
         },
 
         CtlSubcommand::Packages(subcommand) => match *subcommand {

@@ -7,6 +7,8 @@ All notable changes to the Brane framework will be documented in this file.
 - Profiling reports to (parts of) the framework. These can be used to examine the framework's performance from a development perspective.
 - `--profile-dir` to `branectl` that can be used to collect all profile results into one directory.
 - `branectl` accepting the `exe`-option on the `start` and `stop` subcommands, which can be used to change the Docker compose executable called.
+- Support for generating certificates in `branectl` with the `generate certs`-subcommand.
+  - _technically_ this is a breaking change because we changes the location of the command from toplevel to be nested under `generate`, but since it was not implemented we don't mark it as such.
 
 ### Changed
 - Protobuf descriptions to be in pure Rust instead of `.proto` files. This should allow use to re-use Rust structs in a more ergonimic style, as well as get rid of the very annoying `protoc` dependency.
