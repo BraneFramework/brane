@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    05 Jan 2023, 11:48:31
+//    15 Feb 2023, 11:54:19
 //  Auto updated?
 //    Yes
 // 
@@ -91,6 +91,8 @@ impl Error for GenerateError {}
 pub enum LifetimeError {
     /// Failed to canonicalize the given path.
     CanonicalizeError{ path: PathBuf, err: std::io::Error },
+    /// Failed to resolve the executable to a list of shell arguments.
+    ExeParseError{ raw: String },
 
     /// Failed to open the extra hosts file.
     HostsFileCreateError{ path: PathBuf, err: std::io::Error },
@@ -119,6 +121,7 @@ impl Display for LifetimeError {
         use LifetimeError::*;
         match self {
             CanonicalizeError{ path, err } => write!(f, "Failed to canonicalize path '{}': {}", path.display(), err),
+            ExeParseError{ raw }           => write!(f, "Failed to parse '{}' as a valid string of bash-arguments", raw),
 
             HostsFileCreateError{ path, err } => write!(f, "Failed to create extra hosts file '{}': {}", path.display(), err),
             HostsFileWriteError{ path, err }  => write!(f, "Failed to write to extra hosts file '{}': {}", path.display(), err),

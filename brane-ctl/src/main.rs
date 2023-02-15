@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    01 Feb 2023, 14:38:07
+//    15 Feb 2023, 11:46:40
 //  Auto updated?
 //    Yes
 // 
@@ -41,10 +41,10 @@ lazy_static::lazy_static!{
 #[clap(name = "branectl", about = "The server-side Brane command-line interface.")]
 struct Arguments {
     /// If given, prints `info` and `debug` prints.
-    #[clap(long, help = "If given, prints additional information during execution.")]
+    #[clap(long, global=true, help = "If given, prints additional information during execution.")]
     debug       : bool,
     /// The path to the node config file to use.
-    #[clap(short, long, default_value = "./node.yml", help = "The 'node.yml' file that describes properties about the node itself (i.e., the location identifier, where to find directories, which ports to use, ...)")]
+    #[clap(short, long, global=true, default_value = "./node.yml", help = "The 'node.yml' file that describes properties about the node itself (i.e., the location identifier, where to find directories, which ports to use, ...)")]
     node_config : PathBuf,
 
     /// The subcommand that can be run.
@@ -73,8 +73,11 @@ enum CtlSubcommand {
         docker_socket  : PathBuf,
         #[clap(short = 'V', long, default_value = API_DEFAULT_VERSION.as_str(), help = "The version of the Docker client API that we use to connect to the engine.")]
         docker_version : DockerClientVersion,
+        /// The docker-compose command we run.
+        #[clap(short, global=true, long, default_value = "docker compose", help = "The command to use to run Docker Compose.")]
+        exe            : String,
         /// The docker-compose file that we start.
-        #[clap(short, long, default_value = "docker-compose-$NODE.yml", help = "The docker-compose.yml file that defines the services to start. You can use '$NODE' to match either 'central' or 'worker', depending how we started.")]
+        #[clap(short, global=true, long, default_value = "docker-compose-$NODE.yml", help = "The docker-compose.yml file that defines the services to start. You can use '$NODE' to match either 'central' or 'worker', depending how we started.")]
         file           : PathBuf,
 
         /// The specific Brane version to start.
@@ -82,7 +85,7 @@ enum CtlSubcommand {
         version : Version,
 
         /// Sets the '$MODE' variable, which can easily switch the location of compiled binaries.
-        #[clap(short, long, default_value = "release", help = "Sets the mode ($MODE) to use in the image flags of the `start` command.")]
+        #[clap(short, long, global=true, default_value = "release", help = "Sets the mode ($MODE) to use in the image flags of the `start` command.")]
         mode        : String,
         /// The profile directory to mount, if any.
         #[clap(short, long, help = "If given, mounts the '/logs/profile' directories in the instance container(s) to the same (given) directory on the host. Use this to effectively reach the profile files.")]
@@ -95,6 +98,9 @@ enum CtlSubcommand {
 
     #[clap(name = "stop", about = "Stops the local node if it is running.")]
     Stop {
+        /// The docker-compose command we run.
+        #[clap(short, long, default_value = "docker compose", help = "The command to use to run Docker Compose.")]
+        exe  : String,
         /// The docker-compose file that we start.
         #[clap(short, long, default_value = "docker-compose-$NODE.yml", help = "The docker-compose.yml file that defines the services to stop. You can use '$NODE' to match either 'central' or 'worker', depending how we started.")]
         file : PathBuf,
@@ -292,12 +298,12 @@ async fn main() {
             
         },
 
-        CtlSubcommand::Start{ file, docker_socket, docker_version, version, mode, profile_dir, kind, } => {
-            if let Err(err) = lifetime::start(file, docker_socket, docker_version, version, args.node_config, mode, profile_dir, *kind).await { error!("{}", err); std::process::exit(1); }
+        CtlSubcommand::Start{ exe, file, docker_socket, docker_version, version, mode, profile_dir, kind, } => {
+            if let Err(err) = lifetime::start(exe, file, docker_socket, docker_version, version, args.node_config, mode, profile_dir, *kind).await { error!("{}", err); std::process::exit(1); }
         },
 
-        CtlSubcommand::Stop{ file } => {
-            if let Err(err) = lifetime::stop(file, args.node_config) { error!("{}", err); std::process::exit(1); }
+        CtlSubcommand::Stop{ exe, file } => {
+            if let Err(err) = lifetime::stop(exe, file, args.node_config) { error!("{}", err); std::process::exit(1); }
         },
 
         CtlSubcommand::Version { arch: _, kind: _, ctl: _, node: _ } => {
