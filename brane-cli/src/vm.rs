@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:34:05
 //  Last edited:
-//    15 Jan 2023, 16:24:28
+//    01 Feb 2023, 15:17:26
 //  Auto updated?
 //    Yes
 // 
@@ -39,6 +39,7 @@ use brane_tsk::docker::{self, ExecuteInfo, ImageSource, Network};
 use specifications::container::{Image, VolumeBind};
 use specifications::data::{AccessKind, DataIndex, DataInfo, PreprocessKind};
 use specifications::package::{PackageIndex, PackageInfo};
+use specifications::profiling::ProfileScopeHandle;
 
 pub use crate::errors::OfflineVmError as Error;
 use crate::spec::{GlobalState, LocalState};
@@ -60,7 +61,7 @@ impl VmPlugin for OfflinePlugin {
     type CommitError     = CommitError;
 
 
-    async fn preprocess(_global: Arc<RwLock<Self::GlobalState>>, _local: Self::LocalState, _loc: Location, name: DataName, preprocess: PreprocessKind) -> Result<AccessKind, Self::PreprocessError> {
+    async fn preprocess(_global: Arc<RwLock<Self::GlobalState>>, _local: Self::LocalState, _loc: Location, name: DataName, preprocess: PreprocessKind, _prof: ProfileScopeHandle<'_>) -> Result<AccessKind, Self::PreprocessError> {
         info!("Preprocessing data '{}' in an offline environment", name);
         debug!("Method of preprocessing: {:?}", preprocess);
 
@@ -73,7 +74,7 @@ impl VmPlugin for OfflinePlugin {
 
 
 
-    async fn execute(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
+    async fn execute(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>, prof: ProfileScopeHandle<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
         let mut info = info;
         info!("Calling task '{}' in an offline environment", info.name);
         debug!("Package: '{}', version {}", info.package_name, info.package_version);
@@ -81,6 +82,7 @@ impl VmPlugin for OfflinePlugin {
         debug!("Task generates result? {}", if info.result.is_some() { "yes" } else { "no" });
 
         // First, we query the global state to find the result directory and required indices
+        let get = prof.time("Information retrieval");
         let (package_dir, results_dir, pindex): (PathBuf, PathBuf, Arc<PackageIndex>) = {
             let state: RwLockReadGuard<GlobalState> = global.read().unwrap();
             (state.package_dir.clone(), state.results_dir.clone(), state.pindex.clone())
@@ -91,9 +93,10 @@ impl VmPlugin for OfflinePlugin {
             Some(pinfo) => pinfo,
             None        => { return Err(ExecuteError::UnknownPackage { name: info.package_name.into(), version: info.package_version.clone() }) }
         };
+        get.stop();
 
         // Resolve the input arguments, generating the folders we have to bind
-        let binds  : Vec<VolumeBind> = docker::preprocess_args(&mut info.args, &info.input, info.result, None::<String>, results_dir).await?;
+        let binds  : Vec<VolumeBind> = prof.time_fut("argument preprocessing", docker::preprocess_args(&mut info.args, &info.input, info.result, None::<String>, results_dir)).await?;
         let params : String          = match serde_json::to_string(&info.args) {
             Ok(params) => params,
             Err(err)   => { return Err(ExecuteError::ArgsEncodeError{ err }); },
@@ -125,7 +128,7 @@ impl VmPlugin for OfflinePlugin {
 
         // We can now execute the task on the local Docker daemon
         debug!("Executing task '{}'...", info.name);
-        let (code, stdout, stderr) = match docker::run_and_wait(einfo, false).await {
+        let (code, stdout, stderr) = match prof.time_fut("execution", docker::run_and_wait(einfo, false)).await {
             Ok(res)  => res,
             Err(err) => { return Err(ExecuteError::DockerError{ name: info.name.into(), image, err }); }
         };
@@ -138,12 +141,14 @@ impl VmPlugin for OfflinePlugin {
         }
 
         // Otherwise, decode the output of branelet to the value returned
+        let dec = prof.time("Decoding");
         let output = stdout.lines().last().unwrap_or_default().to_string();
         let raw: String = decode_base64(output)?;
         let value: Option<FullValue> = match serde_json::from_str(&raw) {
             Ok(value) => value,
             Err(err)  => { return Err(ExecuteError::JsonDecodeError { raw, err }); },  
         };
+        dec.stop();
 
         // Done, return the value
         debug!("Task '{}' returned value: '{:?}'", info.name, value);
@@ -152,7 +157,7 @@ impl VmPlugin for OfflinePlugin {
 
 
 
-    async fn stdout(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, text: &str, newline: bool) -> Result<(), Self::StdoutError> {
+    async fn stdout(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, text: &str, newline: bool, _prof: ProfileScopeHandle<'_>) -> Result<(), Self::StdoutError> {
         info!("Writing '{}' to stdout (newline: {}) in an offline environment...", text, if newline { "yes" } else { "no" });
 
         // Simply write
@@ -168,7 +173,7 @@ impl VmPlugin for OfflinePlugin {
 
 
 
-    async fn publicize(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, _loc: &Location, name: &str, path: &Path) -> Result<(), Self::CommitError> {
+    async fn publicize(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, _loc: &Location, name: &str, path: &Path, _prof: ProfileScopeHandle<'_>) -> Result<(), Self::CommitError> {
         info!("Publicizing intermediate result '{}' in an offline environment...", name);
         debug!("Physical file(s): {}", path.display());
 
@@ -178,17 +183,20 @@ impl VmPlugin for OfflinePlugin {
         Ok(())
     }
 
-    async fn commit(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, _loc: &Location, name: &str, path: &Path, data_name: &str) -> Result<(), Self::CommitError> {
+    async fn commit(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, _loc: &Location, name: &str, path: &Path, data_name: &str, prof: ProfileScopeHandle<'_>) -> Result<(), Self::CommitError> {
         info!("Committing intermediate result '{}' to '{}' in an offline environment...", name, data_name);
         debug!("Physical file(s): {}", path.display());
 
         // Check the data index to check if it exists or not
+        let inf = prof.time("Information retrieval");
         let (results_dir, dataset_dir, info): (PathBuf, PathBuf, Option<DataInfo>) = {
             let state: RwLockReadGuard<GlobalState> = global.read().unwrap();
             (state.results_dir.clone(), state.dataset_dir.clone(), state.dindex.get(data_name).cloned())
         };
+        inf.stop();
 
         // Match on whether it already exists or not
+        let copy = prof.time("Copying");
         if let Some(info) = info {
             // Make sure that it has the current location (probably so)
             if let Some(access) = info.access.get(LOCALHOST) {
@@ -251,6 +259,7 @@ impl VmPlugin for OfflinePlugin {
             // The dataset has now been promoted
             debug!("Dataset created successfully.");
         }
+        copy.stop();
 
         // Done
         Ok(())
@@ -320,7 +329,7 @@ impl OfflineVm {
         let this: Arc<RwLock<Self>> = Arc::new(RwLock::new(self));
 
         // Run the VM and get self back
-        let result: Result<FullValue, VmError> = Self::run::<OfflinePlugin>(this.clone(), plan).await;
+        let result: Result<FullValue, VmError> = Self::run::<OfflinePlugin>(this.clone(), plan, ProfileScopeHandle::dummy()).await;
         let this: Self = match Arc::try_unwrap(this) {
             Ok(this) => this.into_inner().unwrap(),
             Err(_)   => { panic!("Could not get self back"); },

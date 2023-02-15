@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    26 Jan 2023, 09:57:45
+//    01 Feb 2023, 15:18:40
 //  Auto updated?
 //    Yes
 // 
@@ -45,7 +45,7 @@ use specifications::address::Address;
 use specifications::data::{AccessKind, AvailabilityKind, DataIndex, PreprocessKind};
 use specifications::package::Capability;
 use specifications::planning::{PlanningStatus, PlanningStatusKind, PlanningUpdate};
-use specifications::profiling::TimingReport;
+use specifications::profiling::ProfileReport;
 
 
 /***** HELPER FUNCTIONS *****/
@@ -558,7 +558,11 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
 
         // Do the rest in a future that takes ownership of the clones
         async move {
-            let prof: TimingReport = TimingReport::auto_report("brane-plr", std::io::stdout());
+            // Get the key
+            let id: String = String::from_utf8_lossy(owned_message.key().unwrap_or(&[])).to_string();
+            info!("Received new plan request with ID '{}'", id);
+            let report = ProfileReport::auto_reporting_file(format!("brane-plr workflow {}", id), format!("brane-plr_workflow-{}", id));
+            let _total = report.time("Total");
 
             // Fetch the most recent NodeConfig
             let node_config: NodeConfig = match NodeConfig::from_path(node_config_path) {
@@ -574,16 +578,10 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
                 panic!("Got a node.yml that is not for a central node");
             };
 
-            // Parse the key
-            let id: String = String::from_utf8_lossy(owned_message.key().unwrap_or(&[])).to_string();
-            info!("Received new plan request with ID '{}' on topic '{}'", id, central.topics.planner_command);
-            let _wf = prof.guard(format!("workflow '{}'", id));
-
             // Parse the payload, if any
             if let Some(payload) = owned_message.payload() {
-                let timing = prof.guard(format!("workflow '{}' parsing", id));
-
                 // Parse as UTF-8
+                let parsing = report.time("Parsing");
                 debug!("Message: \"\"\"{}\"\"\"", String::from_utf8_lossy(payload));
                 let message: String = String::from_utf8_lossy(payload).to_string();
 
@@ -596,13 +594,13 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
                         return Ok(());
                     }
                 };
-                timing.stop();
+                parsing.stop();
 
                 // Send that we've started planning
                 if let Err(err) = send_update(producer.clone(), &central.topics.planner_results, &id, PlanningStatus::Started(None)).await { error!("Failed to update client that planning has started: {}", err); };
 
                 // Load the infrastructure file
-                let timing = prof.guard(format!("workflow '{}' information", id));
+                let index = report.time("Index retrieval");
                 let infra: InfraFile = match InfraFile::from_path(&central.paths.infra) {
                     Ok(infra) => infra,
                     Err(err)  => {
@@ -620,12 +618,12 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
                         return Ok(());
                     }
                 };
-                timing.stop();
+                index.stop();
 
                 // Now we do the planning
                 {
-                    let report = prof.nested_report(format!("workflow '{}' algorithm", id));
-                    let _guard = report.guard("total");
+                    let alg = report.nest("algorithm");
+                    let _total = alg.time("Total");
 
                     // Get the symbol table muteable, so we can... mutate... it
                     let mut table: Arc<SymTable> = Arc::new(SymTable::new());
@@ -641,7 +639,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
 
                         // Plan them
                         debug!("Planning main edges...");
-                        if let Err(err) = report.fut("<<<main>>>", plan_edges(&mut table, &mut edges, &central.services.api, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
+                        if let Err(err) = alg.time_fut("<<<main>>>", plan_edges(&mut table, &mut edges, &central.services.api, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
                             error!("Failed to plan main edges for workflow with correlation ID '{}': {}", id, err);
                             if let Err(err) = send_update(producer.clone(), &central.topics.planner_results, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
                             return Ok(());
@@ -662,7 +660,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
                         // Iterate through all of the edges
                         for (idx, edges) in &mut funcs {
                             debug!("Planning '{}' edges...", table.funcs[*idx].name);
-                            if let Err(err) = report.fut(workflow.table.funcs[*idx].name.to_string(), plan_edges(&mut table, edges, &central.services.api, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
+                            if let Err(err) = alg.time_fut(workflow.table.funcs[*idx].name.to_string(), plan_edges(&mut table, edges, &central.services.api, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
                                 error!("Failed to plan function '{}' edges for workflow with correlation ID '{}': {}", table.funcs[*idx].name, id, err);
                                 if let Err(err) = send_update(producer.clone(), &central.topics.planner_results, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
                                 return Ok(());
@@ -681,7 +679,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
 
                 // With the planning done, re-serialize
                 debug!("Serializing plan...");
-                let timing = prof.guard(format!("workflow '{}' post", id));
+                let ser = report.time("Serialization");
                 let splan: String = match serde_json::to_string(&workflow) {
                     Ok(splan) => splan,
                     Err(err)  => {
@@ -690,7 +688,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, node_config: N
                         return Ok(());
                     },
                 };
-                timing.stop();
+                ser.stop();
 
                 // Send the result
                 if let Err(err) = send_update(producer.clone(), &central.topics.planner_results, &id, PlanningStatus::Success(splan)).await { error!("Failed to update client that planning has succeeded: {}", err); }

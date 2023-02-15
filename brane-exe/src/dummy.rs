@@ -4,7 +4,7 @@
 //  Created:
 //    13 Sep 2022, 16:43:11
 //  Last edited:
-//    23 Jan 2023, 11:52:10
+//    01 Feb 2023, 14:25:08
 //  Auto updated?
 //    Yes
 // 
@@ -24,6 +24,7 @@ use brane_ast::{DataType, Workflow};
 use brane_ast::locations::Location;
 use brane_ast::ast::{DataName, Edge, SymTable};
 use specifications::data::{AccessKind, AvailabilityKind};
+use specifications::profiling::ProfileScopeHandle;
 
 pub use crate::errors::DummyVmError as Error;
 use crate::errors::VmError;
@@ -122,14 +123,14 @@ impl VmPlugin for DummyPlugin {
     type CommitError     = std::convert::Infallible;
 
 
-    async fn preprocess(_global: Arc<RwLock<Self::GlobalState>>, _local: Self::LocalState, _loc: Location, name: DataName, _preprocess: specifications::data::PreprocessKind) -> Result<AccessKind, Self::PreprocessError> {
+    async fn preprocess(_global: Arc<RwLock<Self::GlobalState>>, _local: Self::LocalState, _loc: Location, name: DataName, _preprocess: specifications::data::PreprocessKind, _prof: ProfileScopeHandle<'_>) -> Result<AccessKind, Self::PreprocessError> {
         info!("Processing dummy `DummyVm::preprocess()` call for intermediate result '{}'", name);
 
         // We also accept it with a dummy accesskind
         Ok(AccessKind::File{ path: PathBuf::new() })
     }
 
-    async fn execute(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
+    async fn execute(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>, _prof: ProfileScopeHandle<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
         info!("Processing dummy call to '{}'@'{}' with {} in {}[{}]...",
             info.name,
             info.location,
@@ -146,7 +147,7 @@ impl VmPlugin for DummyPlugin {
         Ok(Some(default_return_value(ret, state.workflow.as_ref().unwrap(), info.name, info.package_name, info.result)))
     }
 
-    async fn stdout(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, text: &str, newline: bool) -> Result<(), Self::StdoutError> {
+    async fn stdout(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, text: &str, newline: bool, _prof: ProfileScopeHandle<'_>) -> Result<(), Self::StdoutError> {
         info!("Processing dummy stdout write (newline: {})...",
             if newline { "yes" } else { "no" },
         );
@@ -160,7 +161,7 @@ impl VmPlugin for DummyPlugin {
         Ok(())
     }
 
-    async fn publicize(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, _loc: &Location, name: &str, path: &Path) -> Result<(), Self::CommitError> {
+    async fn publicize(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, _loc: &Location, name: &str, path: &Path, _prof: ProfileScopeHandle<'_>) -> Result<(), Self::CommitError> {
         info!("Processing dummy publicize for result '{}' @ '{:?}'...",
             name, path.display(),
         );
@@ -168,7 +169,7 @@ impl VmPlugin for DummyPlugin {
         // We don't really do anything, unfortunately
         Ok(())
     }
-    async fn commit(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, _loc: &Location, name: &str, path: &Path, data_name: &str) -> Result<(), Self::CommitError> {
+    async fn commit(_global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, _loc: &Location, name: &str, path: &Path, data_name: &str, _prof: ProfileScopeHandle<'_>) -> Result<(), Self::CommitError> {
         info!("Processing dummy commit for result '{}' @ '{:?}' to '{}'...",
             name, path.display(), data_name,
         );
@@ -322,7 +323,7 @@ impl DummyVm {
         let this: Arc<RwLock<Self>> = Arc::new(RwLock::new(self));
 
         // Run the VM and get self back
-        let result: Result<FullValue, VmError> = Self::run::<DummyPlugin>(this.clone(), plan).await;
+        let result: Result<FullValue, VmError> = Self::run::<DummyPlugin>(this.clone(), plan, ProfileScopeHandle::dummy()).await;
         let this: Self = match Arc::try_unwrap(this) {
             Ok(this) => this.into_inner().unwrap(),
             Err(_)   => { panic!("Could not get self back"); },
