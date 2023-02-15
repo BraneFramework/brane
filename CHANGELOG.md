@@ -6,11 +6,14 @@ All notable changes to the Brane framework will be documented in this file.
 ### Added
 - Profiling reports to (parts of) the framework. These can be used to examine the framework's performance from a development perspective.
 - `--profile-dir` to `branectl` that can be used to collect all profile results into one directory.
+- `branectl` accepting the `exe`-option on the `start` and `stop` subcommands, which can be used to change the Docker compose executable called.
 
 ### Changed
 - Protobuf descriptions to be in pure Rust instead of `.proto` files. This should allow use to re-use Rust structs in a more ergonimic style, as well as get rid of the very annoying `protoc` dependency.
 - `brane login` to be more like a keymanager instead. Check `brane instance` and `brane certs` instead, and consult the [wiki](https://wiki.enablingpersonalizedinterventions.nl/user-guide) for how to use this new system (**breaking change**).
 - The `--debug` flag in the `brane-cli` can now be used from all nested subcommands.
+- Various option and flags (`--debug`, `-n`/`--node-config`, `-e`/`--exe`, `-f`/`--file`, `-m`/`--mode`) to be able to be used in subcommands as well in `branectl`.
+- `branectl` to default to `docker compose` instead of `docker-compose` as compose executable (**breaking change**).
 
 ### Fixed
 - The previous version not making it through the tests.

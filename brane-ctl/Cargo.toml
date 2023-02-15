@@ -21,6 +21,7 @@ log = "0.4"
 rand = "0.8.5"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
+shlex = "1.1.0"
 tokio = { version = "1", features = [] }
 
 brane-cfg = { path = "../brane-cfg" }

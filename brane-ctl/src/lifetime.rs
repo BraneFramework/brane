@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    01 Feb 2023, 14:45:10
+//    15 Feb 2023, 11:55:43
 //  Auto updated?
 //    Yes
 // 
@@ -111,6 +111,21 @@ fn resolve_mode(source: impl AsRef<ImageSource>, mode: impl AsRef<str>) -> Image
         ImageSource::Path(path)       => ImageSource::Path(PathBuf::from(path.to_string_lossy().replace("$MODE", mode))),
         ImageSource::Registry(source) => ImageSource::Registry(source.replace("$MODE", mode)),
     }
+}
+
+/// Resolves the given executable to a sensible executable and a list of arguments.
+/// 
+/// # Arguments
+/// - `exe`: The executable string to split.
+/// 
+/// # Returns
+/// A tuple with the executable and a list of additional arguments to call it properly.
+/// 
+/// # Errors
+/// This function errors if we failed to lex the command.
+#[inline]
+fn resolve_exe(exe: impl AsRef<str>) -> Result<(String, Vec<String>), Error> {
+    shlex::split(exe.as_ref()).map(|mut args| (args.remove(0), args)).ok_or_else(|| Error::ExeParseError{ raw: exe.as_ref().into() })
 }
 
 /// Generate an additional, temporary `docker-compose.yml` file that adds additional hostnames and/or additional volumes.
@@ -306,6 +321,7 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
 /// Runs Docker compose on the given Docker file.
 /// 
 /// # Arguments
+/// - `exe`: The `docker-compose` executable to run.
 /// - `file`: The DockerFile to run.
 /// - `project`: The project name to launch the containers for.
 /// - `hostfile`: If given, an additional `docker-compose` file that overrides the default one with extra hosts.
@@ -316,15 +332,13 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
 /// 
 /// # Errors
 /// This function fails if we failed to launch the command, or the command itself failed.
-fn run_compose(file: impl AsRef<Path>, project: impl AsRef<str>, hostfile: Option<PathBuf>, envs: HashMap<&'static str, OsString>) -> Result<(), Error> {
+fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl AsRef<str>, hostfile: Option<PathBuf>, envs: HashMap<&'static str, OsString>) -> Result<(), Error> {
     let file    : &Path = file.as_ref();
     let project : &str  = project.as_ref();
 
     // Start creating the command
-    let mut cmd: Command = Command::new("docker-compose");
-    cmd.stdin(Stdio::inherit());
-    cmd.stdout(Stdio::inherit());
-    cmd.stderr(Stdio::inherit());
+    let mut cmd: Command = Command::new(exe.0);
+    cmd.args(exe.1);
     cmd.args([ "-p", project, "-f" ]);
     cmd.arg(file.as_os_str());
     if let Some(hostfile) = hostfile {
@@ -333,6 +347,9 @@ fn run_compose(file: impl AsRef<Path>, project: impl AsRef<str>, hostfile: Optio
     }
     cmd.args([ "up", "-d" ]);
     cmd.envs(envs);
+    cmd.stdin(Stdio::inherit());
+    cmd.stdout(Stdio::inherit());
+    cmd.stderr(Stdio::inherit());
 
     // Run it
     println!("Running docker-compose {} on {}...", style("up").bold().green(), style(file.display()).bold());
@@ -355,6 +372,7 @@ fn run_compose(file: impl AsRef<Path>, project: impl AsRef<str>, hostfile: Optio
 /// Starts the local node by running the given docker-compose file.
 /// 
 /// # Arguments
+/// - `exe`: The `docker-compose` executable to run.
 /// - `file`: The `docker-compose.yml` file to launch.
 /// - `docker_socket`: The Docker socket path to connect through.
 /// - `docker_version`: The Docker client API version to use.
@@ -369,7 +387,8 @@ fn run_compose(file: impl AsRef<Path>, project: impl AsRef<str>, hostfile: Optio
 /// 
 /// # Errors
 /// This function errors if we failed to run the `docker-compose` command or if we failed to assert that the given command matches the node kind of the `node.yml` file on disk.
-pub async fn start(file: impl Into<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, profile_dir: Option<PathBuf>, command: StartSubcommand) -> Result<(), Error> {
+pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, profile_dir: Option<PathBuf>, command: StartSubcommand) -> Result<(), Error> {
+    let exe              : &str    = exe.as_ref();
     let file             : PathBuf = file.into();
     let node_config_path : PathBuf = node_config_path.into();
     info!("Starting node from Docker compose file '{}', defined in '{}'", file.display(), node_config_path.display());
@@ -414,7 +433,7 @@ pub async fn start(file: impl Into<PathBuf>, docker_socket: PathBuf, docker_vers
             let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
 
             // Launch the docker-compose command
-            run_compose(resolve_node(file, "central"), "brane-central", hostfile, envs)?;
+            run_compose(resolve_exe(exe)?, resolve_node(file, "central"), "brane-central", hostfile, envs)?;
         },
 
         StartSubcommand::Worker{ brane_prx, brane_reg, brane_job } => {
@@ -442,7 +461,7 @@ pub async fn start(file: impl Into<PathBuf>, docker_socket: PathBuf, docker_vers
             let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
 
             // Launch the docker-compose command
-            run_compose(resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().location_id), hostfile, envs)?;
+            run_compose(resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().location_id), hostfile, envs)?;
         },
     }
 
@@ -458,6 +477,7 @@ pub async fn start(file: impl Into<PathBuf>, docker_socket: PathBuf, docker_vers
 /// This is a very simple command, no more than a wrapper around docker-compose.
 /// 
 /// # Arguments
+/// - `exe`: The `docker-compose` executable to run.
 /// - `file`: The docker-compose file file to use to stop.
 /// - `node_config_path`: The path to the node config file that we use to deduce the project name.
 /// 
@@ -466,7 +486,8 @@ pub async fn start(file: impl Into<PathBuf>, docker_socket: PathBuf, docker_vers
 /// 
 /// # Errors
 /// This function errors if we failed to run docker-compose.
-pub fn stop(file: impl Into<PathBuf>, node_config_path: impl Into<PathBuf>) -> Result<(), Error> {
+pub fn stop(exe: impl AsRef<str>, file: impl Into<PathBuf>, node_config_path: impl Into<PathBuf>) -> Result<(), Error> {
+    let exe              : &str    = exe.as_ref();
     let file             : PathBuf = file.into();
     let node_config_path : PathBuf = node_config_path.into();
     info!("Stopping node from Docker compose file '{}', defined in '{}'", file.display(), node_config_path.display());
@@ -486,14 +507,16 @@ pub fn stop(file: impl Into<PathBuf>, node_config_path: impl Into<PathBuf>) -> R
     let pname : String  = format!("brane-{}", match &node_config.node { NodeKindConfig::Central(_) => "central".into(), NodeKindConfig::Worker(node) => format!("worker-{}", node.location_id) });
 
     // Now launch docker-compose
-    let mut cmd: Command = Command::new("docker-compose");
-    cmd.stdin(Stdio::inherit());
-    cmd.stdout(Stdio::inherit());
-    cmd.stderr(Stdio::inherit());
+    let exe: (String, Vec<String>) = resolve_exe(exe)?;
+    let mut cmd: Command = Command::new(exe.0);
+    cmd.args(exe.1);
     cmd.args([ "-p", pname.as_str(), "-f" ]);
     cmd.arg(file.as_os_str());
     cmd.args([ "down" ]);
     cmd.envs(envs);
+    cmd.stdin(Stdio::inherit());
+    cmd.stdout(Stdio::inherit());
+    cmd.stderr(Stdio::inherit());
 
     // Run it
     println!("Running docker-compose {} on {}...", style("down").bold().green(), style(file.display()).bold());
