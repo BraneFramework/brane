@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    15 Feb 2023, 16:57:53
+//    16 Feb 2023, 09:41:28
 //  Auto updated?
 //    Yes
 // 
@@ -25,6 +25,9 @@ use enum_debug::EnumDebug as _;
 use futures_util::stream::StreamExt as _;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, warn};
+use rand::Rng as _;
+use rand::distributions::Alphanumeric;
+use serde::Serialize;
 
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::backend::{BackendFile, Credentials};
@@ -334,6 +337,95 @@ async fn download_file(what: impl Display, remote: impl AsRef<str>, local: impl 
     Ok(())
 }
 
+/// Writes the given config file to the given location.
+/// 
+/// # Arguments
+/// - `what`: Some more human-readable description of what we are downloading.
+/// - `config`: The `Serialize`able type to write.
+/// - `path`: The path to write the serializeable type to.
+/// 
+/// # Returns
+/// Nothing, except that when it does you can assume a file exists at the given location.
+/// 
+/// Also keeps the user up-to-date with a neat print.
+/// 
+/// # Errors
+/// This function may error if we failed to serialize or write the given config file.
+fn generate_config(what: impl Display, config: impl Serialize, path: impl AsRef<Path>) -> Result<(), Error> {
+    let path: &Path = path.as_ref();
+    println!("Generating {}...", style(what).green().bold());
+
+    // Serialize the config with JSON
+    let sconfig: String = match serde_json::to_string_pretty(&config) {
+        Ok(sconfig) => sconfig,
+        Err(err)    => { return Err(Error::ConfigSerializeError{ err }); },
+    };
+
+    // Assert the download directory exists
+    let dir: Option<&Path> = path.parent();
+    if dir.is_some() && !dir.unwrap().exists() { return Err(Error::DirNotFound{ path: dir.unwrap().into() }); }
+
+    // Open the local file
+    debug!("Opening output file '{}'...", path.display());
+    let mut handle: File = match File::create(path) {
+        Ok(handle) => handle,
+        Err(err)   => { return Err(Error::FileCreateError{ what: "config", path: path.into(), err }); },
+    };
+
+    // Write it and we're done
+    if let Err(err) = write!(handle, "{}", sconfig) { return Err(Error::FileWriteError{ what: "config", path: path.into(), err }); }
+    Ok(())
+}
+
+
+
+
+
+/***** HELPER STRUCTS *****/
+/// Defines the JSON format for the `ca-config.json` file we use to configure `cfssl` in general.
+#[derive(Clone, Debug, Serialize)]
+struct CfsslCaConfig {
+    /// The toplevel signing struct
+    signing : CfsslCaConfigSigning,
+}
+
+/// Defines the JSON format for the toplevel map in the `ca-config.json` file.
+#[derive(Clone, Debug, Serialize)]
+struct CfsslCaConfigSigning {
+    /// Set some default values
+    default  : CfsslCaConfigDefault,
+    /// Defines the profiles to sign with this certificate.
+    profiles : HashMap<String, CfsslCaConfigProfile>,
+}
+
+/// Defines the JSON format for the default map in the `ca-config.json` file.
+#[derive(Clone, Debug, Serialize)]
+struct CfsslCaConfigDefault {
+    /// Sets the default expiry time.
+    /// 
+    /// We set as string for convenience. If we are ever gonna read this, we should change this to a more elaborate data format.
+    expiry : String,
+}
+
+/// Defines the JSON format for a profile map in the `ca-config.json` file.
+#[derive(Clone, Debug, Serialize)]
+struct CfsslCaConfigProfile {
+    /// The list of usages allowed for this profile.
+    usages : Vec<String>,
+    /// The expiry time.
+    /// 
+    /// We set as string for convenience. If we are ever gonna read this, we should change this to a more elaborate data format.
+    expiry : String,
+}
+
+
+
+/// Defines the JSON format for the `ca-csr.json` file we use to let `cfssl` generate a CA certificate for us.
+#[derive(Clone, Debug, Serialize)]
+struct CfsslCaCsr {
+    
+}
+
 
 
 
@@ -518,8 +610,56 @@ pub async fn certs(location_id: impl Into<String>, hostname: impl Into<String>, 
         download_file("cfssljson", "https://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssljson_1.6.3_linux_amd64", &cfssljson_path).await?;
     }
 
-    // Now create the target directory
-    
+    // Now make sure the generic config JSON is there
+    let ca_config_path: PathBuf = temp_dir.join("ca-config.json");
+    if ca_config_path.exists() {
+        if !ca_config_path.is_file() { return Err(Error::FileNotAFile{ path: ca_config_path }); }
+        debug!("'{}' already exists", ca_config_path.display());
+    } else {
+        debug!("'{}' does not exist, generating...", ca_config_path.display());
+        generate_config("CA config", CfsslCaConfig {
+            signing : CfsslCaConfigSigning {
+                default  : CfsslCaConfigDefault{ expiry: "8760h".into() },
+                profiles : HashMap::from([
+                    ("server".into(), CfsslCaConfigProfile {
+                        usages : vec![ "signing".into(), "key encipherment".into(), "server auth".into() ],
+                        expiry : "8760h".into(),
+                    }),
+                    ("client".into(), CfsslCaConfigProfile {
+                        usages : vec![ "signing".into(), "key encipherment".into(), "client auth".into() ],
+                        expiry : "8760h".into(),
+                    }),
+                ]),
+            }
+        }, &ca_config_path)?;
+    }
+
+    // Generate a random ID to avoid* conflicting* repeated files
+    let id: String = rand::thread_rng().sample_iter(Alphanumeric).map(|c| char::from(c)).take(3).collect::<String>();
+
+    // Then write the CA config itself (always, since it contains call-specific information)
+    let ca_csr_path: PathBuf = temp_dir.join(format!("ca-csr-{}.json", id));
+    if ca_csr_path.exists() {
+        if !ca_csr_path.is_file() { return Err(Error::FileNotAFile{ path: ca_csr_path }); }
+        debug!("'{}' already exists", ca_csr_path.display());
+    } else {
+        debug!("'{}' does not exist, generating...", ca_csr_path.display());
+        generate_config("CA CSR config", CfsslCaConfig {
+            signing : CfsslCaConfigSigning {
+                default  : CfsslCaConfigDefault{ expiry: "8760h".into() },
+                profiles : HashMap::from([
+                    ("server".into(), CfsslCaConfigProfile {
+                        usages : vec![ "signing".into(), "key encipherment".into(), "server auth".into() ],
+                        expiry : "8760h".into(),
+                    }),
+                    ("client".into(), CfsslCaConfigProfile {
+                        usages : vec![ "signing".into(), "key encipherment".into(), "client auth".into() ],
+                        expiry : "8760h".into(),
+                    }),
+                ]),
+            }
+        }, &ca_csr_path)?;
+    }
 
     // Done!
     println!("Successfully generated certificates for domain {}", style(location_id).green().bold());

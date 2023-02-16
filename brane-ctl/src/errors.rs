@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    15 Feb 2023, 16:51:17
+//    16 Feb 2023, 09:34:56
 //  Auto updated?
 //    Yes
 // 
@@ -53,6 +53,9 @@ pub enum GenerateError {
     /// Failed to write to the output file.
     FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
 
+    /// Failed to serialize a config file.
+    ConfigSerializeError{ err: serde_json::Error },
+
     /// Failed to create a new file.
     FileCreateError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to write the header to the new file.
@@ -86,6 +89,8 @@ impl Display for GenerateError {
             RequestFailure{ address, code, err } => write!(f, "GET-request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
             DownloadError{ address, err }        => write!(f, "Failed to download file '{}': {}", address, err),
             FileWriteError{ what, path, err }    => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
+
+            ConfigSerializeError{ err } => write!(f, "Failed to serialize config: {}", err),
 
             FileCreateError{ what, path, err }      => write!(f, "Failed to create new {} file '{}': {}", what, path.display(), err),
             FileHeaderWriteError{ what, path, err } => write!(f, "Failed to write header to {} file '{}': {}", what, path.display(), err),
