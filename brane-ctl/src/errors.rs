@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    16 Feb 2023, 09:34:56
+//    17 Feb 2023, 14:20:11
 //  Auto updated?
 //    Yes
 // 
@@ -53,8 +53,18 @@ pub enum GenerateError {
     /// Failed to write to the output file.
     FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
 
+    /// Failed to get a file handle's metadata.
+    FileMetadataError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to set the permissions of a file.
+    FilePermissionsError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// The downloaded file did not have the required checksum.
+    FileChecksumError{ path: PathBuf, expected: String, got: String },
     /// Failed to serialize a config file.
     ConfigSerializeError{ err: serde_json::Error },
+    /// Failed to spawn a new job.
+    SpawnError{ cmd: Command, err: std::io::Error },
+    /// A spawned fob failed.
+    SpawnFailure{ cmd: Command, status: ExitStatus, err: String },
 
     /// Failed to create a new file.
     FileCreateError{ what: &'static str, path: PathBuf, err: std::io::Error },
@@ -84,13 +94,18 @@ impl Display for GenerateError {
 
             CanonicalizeError{ path, err } => write!(f, "Failed to canonicalize path '{}': {}", path.display(), err),
 
-            FileNotAFile{ path }                 => write!(f, "File '{}' exists but not as a file", path.display()),
-            RequestError{ address, err }         => write!(f, "Failed to send GET-request to '{}': {}", address, err),
-            RequestFailure{ address, code, err } => write!(f, "GET-request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
-            DownloadError{ address, err }        => write!(f, "Failed to download file '{}': {}", address, err),
-            FileWriteError{ what, path, err }    => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
+            FileNotAFile{ path }                    => write!(f, "File '{}' exists but not as a file", path.display()),
+            RequestError{ address, err }            => write!(f, "Failed to send GET-request to '{}': {}", address, err),
+            RequestFailure{ address, code, err }    => write!(f, "GET-request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
+            DownloadError{ address, err }           => write!(f, "Failed to download file '{}': {}", address, err),
+            FileWriteError{ what, path, err }       => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
 
-            ConfigSerializeError{ err } => write!(f, "Failed to serialize config: {}", err),
+            FileMetadataError{ what, path, err }    => write!(f, "Failed to get metadata of {} file '{}': {}", what, path.display(), err),
+            FilePermissionsError{ what, path, err } => write!(f, "Failed to set permissions of {} file '{}': {}", what, path.display(), err),
+            FileChecksumError{ path, .. }           => write!(f, "File '{}' had unexpected checksum (might indicate the download is no longer valid)", path.display()),
+            ConfigSerializeError{ err }             => write!(f, "Failed to serialize config: {}", err),
+            SpawnError{ cmd, err }                  => write!(f, "Failed to run command '{:?}': {}", cmd, err),
+            SpawnFailure{ cmd, status, err }        => write!(f, "Command '{:?}' failed{}\n\nstderr:\n{}\n\n", cmd, if let Some(code) = status.code() { format!(" with exit code {}", code) } else { String::new() }, err),
 
             FileCreateError{ what, path, err }      => write!(f, "Failed to create new {} file '{}': {}", what, path.display(), err),
             FileHeaderWriteError{ what, path, err } => write!(f, "Failed to write header to {} file '{}': {}", what, path.display(), err),

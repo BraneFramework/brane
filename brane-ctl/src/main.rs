@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    15 Feb 2023, 16:19:15
+//    17 Feb 2023, 14:29:02
 //  Auto updated?
 //    Yes
 // 
@@ -147,7 +147,7 @@ enum GenerateSubcommand {
         #[clap(name="LOCATION_ID", help = "The name of the location for which we are generating server certificates.")]
         location_id : String,
         /// The hostname for which to generate the certificates.
-        #[clap(name="HOSTNAME", help = "The name of the location for which we are generating server certificates.")]
+        #[clap(name="HOSTNAME", help = "The hostname of the location for which we are generating server certificates.")]
         hostname    : String,
 
         /// If given, will generate missing directories instead of throwing errors.
