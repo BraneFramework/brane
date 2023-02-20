@@ -4,7 +4,7 @@
 //  Created:
 //    09 Nov 2022, 11:12:06
 //  Last edited:
-//    20 Feb 2023, 11:17:20
+//    20 Feb 2023, 12:44:46
 //  Auto updated?
 //    Yes
 // 
@@ -14,13 +14,19 @@
 
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter, Result as FResult};
-use std::fs;
-use std::io::{Read, Write};
+use std::fs::{self, Permissions};
+use std::os::unix::fs::PermissionsExt as _;
+use std::ops::{BitOr, BitOrAssign};
 use std::path::{Path, PathBuf};
+use std::str::FromStr as _;
 
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
+use console::Style;
+use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, warn};
+use reqwest::{Response, StatusCode, Url};
+use sha2::{Digest as _, Sha256};
 use tokio::fs as tfs;
 use tokio::io::{self as tio, AsyncWriteExt};
 use tokio_stream::StreamExt;
@@ -224,24 +230,25 @@ pub enum Error {
     /// The given path contains a '..' where it is not allowed.
     PathWithParentDir{ what: &'static str, path: PathBuf },
 
-    /// Failed to read from the given reader.
-    ReaderReadError{ what: &'static str, err: std::io::Error },
-    /// Failed to write to the given writer.
-    WriterWriteError{ what: &'static str, err: std::io::Error },
-
-    /// Some file already exists while we expected it wouldn't.
-    FileExistsError{ what: &'static str, path: PathBuf },
+    /// The given file is not a file.
+    FileNotAFile{ path: PathBuf },
     /// Failed to create a file.
     FileCreateError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to open an existing file.
     FileOpenError{ what: &'static str, path: PathBuf, err: std::io::Error },
-    /// Failed to read from a file.
-    FileReadError{ what: &'static str, path: PathBuf, err: std::io::Error },
-    /// Failed to write to a file.
+    /// Failed to read metadata of the given file.
+    FileMetadataError{ path: PathBuf, err: std::io::Error },
+    /// Failed to update the permissions of the given file.
+    FilePermissionsError{ path: PathBuf, err: std::io::Error },
+    /// Failed to write to the output file.
     FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to copy a file.
     FileCopyError{ source: PathBuf, target: PathBuf, err: std::io::Error },
-
+    /// The checksum of a file was not what we expected.
+    FileChecksumError{ what: &'static str, path: PathBuf, got: String, expected: String },
+    
+    /// Directory not found.
+    DirNotFound{ path: PathBuf },
     /// The given directory should be a directory, but isn't.
     DirNotADir{ what: &'static str, path: PathBuf },
     /// Failed to create some directory.
@@ -250,6 +257,15 @@ pub enum Error {
     DirReadError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to read a single entry within the directory's entries.
     DirEntryReadError{ what: &'static str, path: PathBuf, entry: usize, err: std::io::Error },
+
+    /// The given address did not have HTTPS enabled.
+    NotHttpsError{ address: String },
+    /// Failed to send a request to the given address.
+    RequestError{ address: String, err: reqwest::Error },
+    /// The given server responded with a non-2xx status code.
+    RequestFailure{ address: String, code: StatusCode, err: Option<String> },
+    /// Failed to download the full file stream.
+    DownloadError{ address: String, err: reqwest::Error },
 
     /// A bit of an obscure error meaning we failed to flush the encoder (=write handle)'s contents.
     EncoderFlushError{ err: std::io::Error },
@@ -276,20 +292,25 @@ impl Display for Error {
             PathNotFileNotDir{ what, path } => write!(f, "{} '{}' exists but is not a file nor a directory (don't know what to do with it)", what.capitalize(), path.display()),
             PathWithParentDir{ what, path } => write!(f, "Given {} path '{}' contains a parent directory component ('..'); this is not allowed", what, path.display()),
 
-            ReaderReadError{ what, err }  => write!(f, "Failed to read from {} reader: {}", what, err),
-            WriterWriteError{ what, err } => write!(f, "Failed to write to {} writer: {}", what, err),
+            FileNotAFile{ path }                           => write!(f, "File '{}' exists but not as a file", path.display()),
+            FileCreateError{ what, path, err }             => write!(f, "Failed to create {} file '{}': {}", what, path.display(), err),
+            FileOpenError{ what, path, err }               => write!(f, "Failed to open {} file '{}': {}", what, path.display(), err),
+            FileMetadataError{ path, err }                 => write!(f, "Failed to read metadata of file '{}': {}", path.display(), err),
+            FilePermissionsError{ path, err }              => write!(f, "Failed to update the permissions of file '{}': {}", path.display(), err),
+            FileWriteError{ what, path, err }              => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
+            FileCopyError{ source, target, err }           => write!(f, "Failed to copy file '{}' to '{}': {}", source.display(), target.display(), err),
+            FileChecksumError{ what, path, got, expected } => write!(f, "Checksum of {} file '{}' is incorrect: expected '{}', got '{}'", what, path.display(), got, expected),
 
-            FileExistsError{ what, path }        => write!(f, "{} file '{}' already exists", what.capitalize(), path.display()),
-            FileCreateError{ what, path, err }   => write!(f, "Failed to create {} file '{}': {}", what, path.display(), err),
-            FileOpenError{ what, path, err }     => write!(f, "Faield to open {} file '{}': {}", what, path.display(), err),
-            FileReadError{ what, path, err }     => write!(f, "Failed to read from {} file '{}': {}", what, path.display(), err),
-            FileWriteError{ what, path, err }    => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
-            FileCopyError{ source, target, err } => write!(f, "Failed to copy file '{}' to '{}': {}", source.display(), target.display(), err),
-
+            DirNotFound{ path }                         => write!(f, "Directory '{}' not found", path.display()),
             DirNotADir{ what, path }                    => write!(f, "{} directory '{}' exists but is not a directory", what.capitalize(), path.display()),
             DirCreateError{ what, path, err }           => write!(f, "Failed to create {} directory '{}': {}", what, path.display(), err),
             DirReadError{ what, path, err }             => write!(f, "Failed to read {} directory '{}': {}", what, path.display(), err),
             DirEntryReadError{ what, path, entry, err } => write!(f, "Failed to read entry {} from {} directory '{}': {}", entry, what, path.display(), err),
+
+            NotHttpsError{ address }             => write!(f, "Security policy requires HTTPS is enabled, but '{}' does not enable it (or we cannot parse the URL)", address),
+            RequestError{ address, err }         => write!(f, "Failed to send GET-request to '{}': {}", address, err),
+            RequestFailure{ address, code, err } => write!(f, "GET-request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
+            DownloadError{ address, err }        => write!(f, "Failed to download file '{}': {}", address, err),
 
             EncoderFlushError{ err } => write!(f, "Failed to flush GzipEncoder: {}", err),
 
@@ -308,66 +329,202 @@ impl std::error::Error for Error {}
 
 
 
-/***** LIBRARY *****/
-/// Writes the given reader's contents to the given writer.
-/// 
-/// # Arguments
-/// - `source`: The reader to read to the end and write to...
-/// - `target`: The writer to write all of the reader's contents to.
-/// 
-/// # Errors
-/// This function erorrs if we failed to read or write anything from the reader or to the writer, respectively.
-pub fn pipe_reader(mut source: impl Read, mut target: impl Write) -> Result<(), Error> {
-    // Write in chunks
-    let mut buf: [u8; 4096] = [ 0; 4096 ];
-    loop {
-        // Read as much as possible from the reader
-        let chunk_len: usize = match source.read(&mut buf) {
-            Ok(len)  => len,
-            Err(err) => { return Err(Error::ReaderReadError{ what: "source", err }); },
-        };
+/***** AUXILLARY *****/
+/// Defines permission flags we can set per group.
+#[derive(Clone, Debug)]
+pub struct PermissionFlags(u8);
+impl PermissionFlags {
+    /// All permissions are given (read, write, execute)
+    pub const ALL     : Self = Self(0b111);
+    /// Represents read permission.
+    pub const READ    : Self = Self(0b100);
+    /// Represents write permission.
+    pub const WRITE   : Self = Self(0b010);
+    /// Represents execute permission.
+    pub const EXECUTE : Self = Self(0b001);
+    /// No permissions.
+    pub const NONE    : Self = Self(0b000);
+}
+impl BitOr for PermissionFlags {
+    type Output = Self;
 
-        // Quit if there was nothing to read anymore
-        if chunk_len == 0 { return Ok(()); }
-
-        // Write all of that to the writer
-        if let Err(err) = target.write(&buf[..chunk_len]) { return Err(Error::WriterWriteError { what: "target", err }); }
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
+impl BitOrAssign for PermissionFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0
     }
 }
 
-/// Writes the given file's contents to the given file.
+/// Defines a set of permissions for the user, their group and others.
+#[derive(Clone, Debug)]
+pub struct PermissionSet {
+    /// The permissions for the owning user.
+    pub user  : PermissionFlags,
+    /// The permissions for the owning group.
+    pub group : PermissionFlags,
+    /// The permissions for any other personage.
+    pub other : PermissionFlags,
+}
+impl PermissionSet {
+    /// Returns a binary representation of the internal permissions.
+    #[inline]
+    fn octets(&self) -> u32 { 0x00000000 | ((self.user.0 as u32) << 6) | ((self.group.0 as u32) << 3) | (self.other.0 as u32) }
+}
+
+
+
+/// Defines things to do to assert a downloaded file is secure and what we expect.
+#[derive(Clone, Debug)]
+pub struct DownloadSecurity<'c> {
+    /// If not `None`, then it defined the checksum that the file should have.
+    pub checksum : Option<&'c [u8]>,
+    /// If true, then the file can only be downloaded over HTTPS.
+    pub https    : bool,
+}
+impl<'c> DownloadSecurity<'c> {
+    /// Constructor for the DownloadSecurity that enables with all security measures enabled.
+    /// 
+    /// This will provide you with the most security, but is also the slowest method (since it does both encryption and checksum computation).
+    /// 
+    /// Usually, it sufficies to only use a checksum (`DownloadSecurity::checksum()`) if you know what the file looks like a-priori.
+    /// 
+    /// # Arguments
+    /// - `checksum`: The checksum that we want the file to have. If you are unsure, give a garbage checksum, then run the function once and check what the file had (after making sure the download went correctly, of course).
+    /// 
+    /// # Returns
+    /// A new DownloadSecurity instance that will make your downloaded file so secure you can use it to store a country's defecit (not legal advice).
+    #[inline]
+    pub fn all(checkum: &'c [u8]) -> Self {
+        Self {
+            checksum : Some(checkum),
+            https    : true,
+        }
+    }
+
+    /// Constructor for the DownloadSecurity that enables checksum verification only.
+    /// 
+    /// Using this method is considered secure, since it guarantees that the downloaded file is what we expect. It is thus safe to use if you don't trust either the network or the remote praty.
+    /// 
+    /// Note, however, that this method only works if you know a-priori what the downloaded file should look like. If not, you must use another security method (e.g., `DownloadSecurity::https()`).
+    /// 
+    /// # Arguments
+    /// - `checksum`: The checksum that we want the file to have. If you are unsure, give a garbage checksum, then run the function once and check what the file had (after making sure the download went correctly, of course).
+    /// 
+    /// # Returns
+    /// A new DownloadSecurity instance that will make sure your file has the given checksum before returning.
+    #[inline]
+    pub fn checksum(checkum: &'c [u8]) -> Self {
+        Self {
+            checksum : Some(checkum),
+            https    : false,
+        }
+    }
+
+    /// Constructor for the DownloadSecurity that forces downloads to go over HTTPS.
+    /// 
+    /// You should only use this method if you trust the remote party. However, if you do, then it guarantees that there was no man-in-the-middle changing the downloaded file.
+    /// 
+    /// # Returns
+    /// A new DownloadSecurity instance that will make sure your file if downloaded over HTTPS only.
+    #[inline]
+    pub fn https() -> Self {
+        Self {
+            checksum : None,
+            https    : true,
+        }
+    }
+
+    /// Constructor for the DownloadSecurity that disabled all security measures.
+    /// 
+    /// For obvious reasons, this security is not recommended unless you trust both the network _and_ the remote party.
+    /// 
+    /// # Returns
+    /// A new DownloadSecurity instance that will require no additional security measures on the downloaded file.
+    #[inline]
+    pub fn none() -> Self {
+        Self {
+            checksum : None,
+            https    : false,
+        }
+    }
+}
+impl<'c> Display for DownloadSecurity<'c> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        // Write what is enabled
+        if let Some(checksum) = &self.checksum {
+            write!(f, "Checksum ({})", hex::encode(checksum))?;
+            if self.https {
+                write!(f, ", HTTPS")?;
+            }
+            Ok(())
+        } else if self.https {
+            write!(f, "HTTPS")
+        } else {
+            write!(f, "None")
+        }
+    }
+}
+
+
+
+
+
+/***** LIBRARY *****/
+/// Changes the permissions of the given file to the given triplet.
 /// 
 /// # Arguments
-/// - `source`: The current, existing file to copy.
-/// - `target`: The target, non-existing location where the file will be copied to.
+/// - `path`: The path of the file to change the permissions of.
+/// - `permissions`: The `PermissionSet` to change to.
 /// 
 /// # Errors
-/// This function errors if we failed to read or write anything of if some files or directories do or do not exist.
-pub fn copy_file(source: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<(), Error> {
-    let source: &Path = source.as_ref();
-    let target: &Path = target.as_ref();
-    debug!("Copying file '{}' to '{}'...", source.display(), target.display());
+/// This function errors if we failed to update the permissions - probably either because the file did not exist, or we do not have the required permisisons ourselves.
+pub fn set_permissions(path: impl AsRef<Path>, permissions: PermissionSet) -> Result<(), Error> {
+    let path: &Path = path.as_ref();
+    debug!("Setting permissions for file '{}'...", path.display());
 
-    // Assert the target does not yet exist
-    if target.exists() { return Err(Error::FileExistsError{ what: "target", path: target.into() }); }
-
-    // Attempt to open the source
-    let source_h: fs::File = match fs::File::open(source) {
-        Ok(handle) => handle,
-        Err(err)   => { return Err(Error::FileOpenError { what: "source", path: source.into(), err }); },
-    };
-    // Attempt to open the target
-    let target_h: fs::File = match fs::File::create(source) {
-        Ok(handle) => handle,
-        Err(err)   => { return Err(Error::FileOpenError { what: "target", path: target.into(), err }); },
+    // Read the current permissions from the given file.
+    let mut perms: Permissions = match fs::metadata(path) {
+        Ok(metadata) => metadata.permissions(),
+        Err(err)     => { return Err(Error::FileMetadataError{ path: path.into(), err }); },
     };
 
-    // Now use the pipe function for the rest
-    match pipe_reader(source_h, target_h) {
-        Ok(_)                                     => Ok(()),
-        Err(Error::ReaderReadError{ what, err })  => Err(Error::FileReadError{ what, path: source.into(), err }),
-        Err(Error::WriterWriteError{ what, err }) => Err(Error::FileWriteError{ what, path: source.into(), err }),
-        Err(err)                                  => Err(err),
+    // Overwrite the permissions
+    perms.set_mode(permissions.octets());
+
+    // Write it back
+    match fs::set_permissions(path, perms) {
+        Ok(_)    => Ok(()),
+        Err(err) => Err(Error::FilePermissionsError{ path: path.into(), err }),
+    }
+}
+
+/// Updates the permissions of the given file to become executable.
+/// 
+/// # Arguments
+/// - `path`: The path of the file to change the permissions of.
+/// 
+/// # Errors
+/// This function errors if we failed to update the permissions - probably either because the file did not exist, or we do not have the required permisisons ourselves.
+pub fn set_executable(path: impl AsRef<Path>) -> Result<(), Error> {
+    let path: &Path = path.as_ref();
+    debug!("Making file '{}' executable...", path.display());
+
+    // Read the current permissions from the given file.
+    let mut perms: Permissions = match fs::metadata(path) {
+        Ok(metadata) => metadata.permissions(),
+        Err(err)     => { return Err(Error::FileMetadataError{ path: path.into(), err }); },
+    };
+
+    // Overwrite the permissions
+    perms.set_mode(perms.mode() | PermissionSet{ user: PermissionFlags::EXECUTE, group: PermissionFlags::NONE, other: PermissionFlags::NONE }.octets());
+
+    // Write it back
+    match fs::set_permissions(path, perms) {
+        Ok(_)    => Ok(()),
+        Err(err) => Err(Error::FilePermissionsError{ path: path.into(), err }),
     }
 }
 
@@ -448,6 +605,145 @@ pub async fn copy_dir_recursively_async(source: impl AsRef<Path>, target: impl A
     }
 
     // Done with recursion? Done with copying
+    Ok(())
+}
+
+
+
+/// Downloads some file from the interwebs to the given location.
+/// 
+/// # Arguments
+/// - `source`: The URL to download the file from.
+/// - `target`: The location to download the file to.
+/// - `verification`: Some method to verify the file is what we think it is. See the `VerifyMethod`-enum for more information.
+/// - `verbose`: If not `None`, will print to the output with accents given in the given `Style` (use a non-exciting Style to print without styles).
+/// 
+/// # Returns
+/// Nothing, except that when it does you can assume a file exists at the given location.
+/// 
+/// # Errors
+/// This function may error if we failed to download the file or write it (which may happen if the parent directory of `local` does not exist, among other things).
+pub async fn download_file_async<'c>(source: impl AsRef<str>, target: impl AsRef<Path>, security: DownloadSecurity<'c>, verbose: Option<Style>) -> Result<(), Error> {
+    let source   : &str  = source.as_ref();
+    let target   : &Path = target.as_ref();
+    debug!("Downloading '{}' to '{}' (Security: {})...", source, target.display(), security);
+    if let Some(style) = &verbose { println!("Downloading {}...", style.apply_to(source)); }
+
+    // Assert the download directory exists
+    let dir: Option<&Path> = target.parent();
+    if dir.is_some() && !dir.unwrap().exists() { return Err(Error::DirNotFound{ path: dir.unwrap().into() }); }
+
+    // Open the target file for writing
+    let mut handle: tfs::File = match tfs::File::create(target).await {
+        // Ok(handle) => {
+        //     // Prepare the permissions to set by reading the file's metadata
+        //     let mut permissions: Permissions = match handle.metadata() {
+        //         Ok(metadata) => metadata.permissions(),
+        //         Err(err)     => { return Err(Error::FileMetadataError{ what: "temporary binary", path: local.into(), err }); },
+        //     };
+        //     permissions.set_mode(permissions.mode() | 0o100);
+
+        //     // Set them
+        //     if let Err(err) = handle.set_permissions(permissions) { return Err(Error::FilePermissionsError{ what: "temporary binary", path: local.into(), err }); }
+
+        //     // Return the handle
+        //     handle
+        // },
+        Ok(handle) => handle,
+        Err(err)   => { return Err(Error::FileCreateError{ what: "downloaded", path: target.into(), err }); },
+    };
+
+    // Send a request
+    let res: Response = if security.https {
+        debug!("Sending download request to '{}' (HTTPS enabled)...", source);
+
+        // Assert the address starts with HTTPS first
+        if Url::parse(source).ok().map(|u| u.scheme() != "https").unwrap_or(true) { return Err(Error::NotHttpsError{ address: source.into() }); }
+
+        // Do the thing
+        match reqwest::get(source).await {
+            Ok(req)  => req,
+            Err(err) => { return Err(Error::RequestError{ address: source.into(), err }); },
+        }
+
+    } else {
+        debug!("Sending download request to '{}'...", source);
+        match reqwest::get(source).await {
+            Ok(req)  => req,
+            Err(err) => { return Err(Error::RequestError{ address: source.into(), err }); },
+        }
+    };
+
+    // Assert it succeeded
+    if !res.status().is_success() { return Err(Error::RequestFailure{ address: source.into(), code: res.status(), err: res.text().await.ok() }); }
+
+    // Create the progress bar based on whether if there is a length
+    debug!("Downloading response to file '{}'...", target.display());
+    let len: Option<u64> = res.headers().get("Content-Length").and_then(|len| len.to_str().ok()).and_then(|len| u64::from_str(len).ok());
+    let prgs: Option<ProgressBar> = if verbose.is_some() {
+        Some(if let Some(len) = len {
+            ProgressBar::new(len).with_style(ProgressStyle::with_template("    {bar:60} {bytes}/{total_bytes} ETA {eta_precise}").unwrap())
+        } else {
+            ProgressBar::new_spinner().with_style(ProgressStyle::with_template("    {elapsed_precise} {bar:60} {bytes}").unwrap())
+        })
+    } else {
+        None
+    };
+
+    // Prepare getting a checksum if that is our method of choice
+    let mut hasher: Option<Sha256> = if security.checksum.is_some() {
+        Some(Sha256::new())
+    } else {
+        None
+    };
+
+    // Download the response to the opened output file
+    let mut stream = res.bytes_stream();
+    while let Some(next) = stream.next().await {
+        // Unwrap the result
+        let next: _ = match next {
+            Ok(next) => next,
+            Err(err) => { return Err(Error::DownloadError{ address: source.into(), err }); },
+        };
+
+        // Write it to the file
+        if let Err(err) = handle.write(&*next).await { return Err(Error::FileWriteError{ what: "downloaded", path: target.into(), err }); }
+
+        // If desired, update the hash
+        if let Some(hasher) = &mut hasher {
+            hasher.update(&*next);
+        }
+
+        // Update what we've written if needed
+        if let Some(prgs) = &prgs {
+            prgs.update(|state| state.set_pos(state.pos() + next.len() as u64));
+        }
+    }
+    if let Some(prgs) = &prgs {
+        prgs.finish_and_clear();
+    }
+
+    // Assert the checksums are the same if we're doing that
+    if let Some(checksum) = security.checksum {
+        // Finalize the hasher first
+        let result = hasher.unwrap().finalize();
+        debug!("Verifying checksum...");
+
+        // Assert the checksums check out (wheezes)
+        if &result[..] != checksum { return Err(Error::FileChecksumError{ what: "downloaded", path: target.into(), expected: hex::encode(&result[..]), got: hex::encode(checksum) }); }
+
+        // Print that the checksums are equal if asked
+        if let Some(style) = verbose {
+            // Create the dim styles
+            let dim    : Style = Style::new().dim();
+            let accent : Style = style.dim();
+
+            // Write it with those styles
+            println!("{}{}{}", dim.apply_to(" > Checksum "), accent.apply_to(hex::encode(&result[..])), dim.apply_to(" OK"));
+        }
+    }
+
+    // Done
     Ok(())
 }
 

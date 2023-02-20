@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    20 Feb 2023, 11:15:51
+//    20 Feb 2023, 12:48:01
 //  Auto updated?
 //    Yes
 // 
@@ -12,33 +12,27 @@
 //!   Handles commands relating to node.yml generation.
 // 
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::fs::{self, File, Permissions};
+use std::fs::{self, File};
 use std::io::Write;
-use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::net::{IpAddr, Ipv4Addr, SocketAddrV4};
-use std::str::FromStr;
 
-use console::style;
+use console::{style, Style};
 use enum_debug::EnumDebug as _;
-use futures_util::stream::StreamExt as _;
 use hex_literal::hex;
-use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, warn};
 use rand::Rng as _;
 use rand::distributions::Alphanumeric;
 use serde::Serialize;
-use sha2::{Digest as _, Sha256};
 
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::backend::{BackendFile, Credentials};
 use brane_cfg::node::{CentralConfig, CentralKafkaTopics, CentralNames, CentralPaths, CentralPorts, CentralServices, CommonNames, CommonPaths, CommonPorts, CommonServices, NodeConfig, NodeKindConfig, WorkerConfig, WorkerNames, WorkerPaths, WorkerPorts, WorkerServices};
 use brane_cfg::policies::{ContainerPolicy, PolicyFile, UserPolicy};
-use brane_shr::fs::{copy_file, pipe_reader};
+use brane_shr::fs::{download_file_async, set_executable, DownloadSecurity};
 use specifications::address::Address;
 use specifications::package::Capability;
 
@@ -285,96 +279,6 @@ fn write_policy_header(writer: &mut impl Write) -> Result<(), std::io::Error> {
 }
 
 
-
-/// Downloads some executable to the given location.
-/// 
-/// # Arguments
-/// - `what`: Some more human-readable description of what we are downloading.
-/// - `remote`: The URL to download the file from.
-/// - `local`: The location to download the file to.
-/// - `checksum`: The checksum to verify the executable with before running.
-/// 
-/// # Returns
-/// Nothing, except that when it does you can assume a file exists at the given location.
-/// 
-/// Also keeps the user up-to-date with prints and a progress bar.
-/// 
-/// # Errors
-/// This function may error if we failed to download the file or write it (which may happen if the parent directory of `local` does not exist).
-async fn download_exe(what: impl Display, remote: impl AsRef<str>, local: impl AsRef<Path>, checksum: impl AsRef<[u8]>) -> Result<(), Error> {
-    let remote   : &str  = remote.as_ref();
-    let local    : &Path = local.as_ref();
-    let checksum : &[u8] = checksum.as_ref();
-    println!("Downloading {}...", style(what).green().bold());
-
-    // Assert the download directory exists
-    let dir: Option<&Path> = local.parent();
-    if dir.is_some() && !dir.unwrap().exists() { return Err(Error::DirNotFound{ path: dir.unwrap().into() }); }
-
-    // Open the local file
-    debug!("Opening output file '{}'...", local.display());
-    let mut handle: File = match File::create(local) {
-        Ok(handle) => {
-            // Prepare the permissions to set by reading the file's metadata
-            let mut permissions: Permissions = match handle.metadata() {
-                Ok(metadata) => metadata.permissions(),
-                Err(err)     => { return Err(Error::FileMetadataError{ what: "temporary binary", path: local.into(), err }); },
-            };
-            permissions.set_mode(permissions.mode() | 0o100);
-
-            // Set them
-            if let Err(err) = handle.set_permissions(permissions) { return Err(Error::FilePermissionsError{ what: "temporary binary", path: local.into(), err }); }
-
-            // Return the handle
-            handle
-        },
-        Err(err)   => { return Err(Error::FileCreateError{ what: "temporary binary", path: local.into(), err }); },
-    };
-
-    // Send a request
-    debug!("Sending download request to '{}'...", remote);
-    let req: reqwest::Response = match reqwest::get(remote).await {
-        Ok(req)  => req,
-        Err(err) => { return Err(Error::RequestError{ address: remote.into(), err }); },
-    };
-    if !req.status().is_success() { return Err(Error::RequestFailure{ address: remote.into(), code: req.status(), err: req.text().await.ok() }); }
-
-    // Create the progress bar based on whether if there is a length
-    debug!("Downloading...");
-    let len: Option<u64> = req.headers().get("Content-Length").and_then(|len| len.to_str().ok()).and_then(|len| u64::from_str(len).ok());
-    let prgs: ProgressBar = if let Some(len) = len {
-        ProgressBar::new(len).with_style(ProgressStyle::with_template("    {bar:60} {bytes}/{total_bytes} ETA {eta_precise}").unwrap())
-    } else {
-        ProgressBar::new_spinner().with_style(ProgressStyle::with_template("    {elapsed_precise} {bar:60} {bytes}").unwrap())
-    };
-
-    // Download and get the checksum at the _same time_
-    let mut hasher = Sha256::new();
-    let mut stream = req.bytes_stream();
-    while let Some(next) = stream.next().await {
-        // Unwrap the result
-        let next: _ = match next {
-            Ok(next) => next,
-            Err(err) => { return Err(Error::DownloadError{ address: remote.into(), err }); },
-        };
-
-        // Write it to the file & update the running hash
-        if let Err(err) = handle.write(&*next) { return Err(Error::FileWriteError{ what: "temporary binary", path: local.into(), err }); }
-        hasher.update(&*next);
-
-        // Update what we've written
-        prgs.update(|state| state.set_pos(state.pos() + next.len() as u64));
-    }
-    let result = hasher.finalize();
-    prgs.finish_and_clear();
-
-    // Assert the checksums are the same
-    if &result[..] != checksum { return Err(Error::FileChecksumError{ path: local.into(), expected: hex::encode(&result[..]), got: hex::encode(checksum) }); }
-    println!("{}{}{}", style(" > Checksum ").dim(), style(hex::encode(&result[..])).green().bold().dim(), style(" OK").dim());
-
-    // Done
-    Ok(())
-}
 
 /// Writes the given config file to the given location.
 /// 
@@ -745,23 +649,13 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
     kind.resolve_hostname();
     info!("Generating {} certificates for {} @ {} to '{}'...", kind.variant(), kind.location_id(), kind.hostname(), path.display());
 
-    // Make sure the parent directory exists if there is one
-    if let Some(parent) = path.parent() {
-        // If it's empty, we assume current directory
-        let parent: Cow<Path> = if parent.to_string_lossy().is_empty() {
-            Cow::Owned(PathBuf::from("."))
-        } else {
-            Cow::Borrowed(parent)
-        };
-
-        // Check as normal
-        if !parent.exists() {
-            if !fix_dirs { return Err(Error::DirNotFound { path: parent.into() }); }
-            debug!("Creating missing '{}' directory (fix_dirs == true)...", parent.display());
-            if let Err(err) = fs::create_dir_all(&parent) { return Err(Error::DirCreateError { path: parent.into(), err }); }
-        } else if !parent.is_dir() {
-            return Err(Error::DirNotADir { path: parent.into() });
-        }
+    // Make sure the target directory exists
+    if !path.exists() {
+        if !fix_dirs { return Err(Error::DirNotFound { path: path.into() }); }
+        debug!("Creating missing '{}' directory (fix_dirs == true)...", path.display());
+        if let Err(err) = fs::create_dir_all(&path) { return Err(Error::DirCreateError { path: path.into(), err }); }
+    } else if !path.is_dir() {
+        return Err(Error::DirNotADir { path: path.into() });
     }
 
     // Make sure the cfssl binary is there
@@ -771,7 +665,20 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
         debug!("'{}' already exists", cfssl_path.display());
     } else {
         debug!("'{}' does not exist, downloading...", cfssl_path.display());
-        download_exe("cfssl", "https://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssl_1.6.3_linux_amd64", &cfssl_path, CHECKSUM_CFSSL).await?;
+
+        // Call our beautiful download function
+        let addr: &str = "http://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssl_1.6.3_linux_amd64";
+        if let Err(err) = download_file_async(
+            addr,
+            &cfssl_path,
+            DownloadSecurity::checksum(&CHECKSUM_CFSSL),
+            Some(Style::new().green().bold()),
+        ).await {
+            return Err(Error::DownloadError{ source: addr.into(), target: cfssl_path, err });
+        }
+
+        // Make the file executable
+        if let Err(err) = set_executable(&cfssl_path) { return Err(Error::ExecutableError { err }); }
     }
 
     // Make sure the cfssljson binary is there
@@ -781,7 +688,20 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
         debug!("'{}' already exists", cfssljson_path.display());
     } else {
         debug!("'{}' does not exist, downloading...", cfssljson_path.display());
-        download_exe("cfssljson", "https://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssljson_1.6.3_linux_amd64", &cfssljson_path, CHECKSUM_CFSSLJSON).await?;
+
+        // Call our beautiful download function
+        let addr: &str = "http://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssljson_1.6.3_linux_amd64";
+        if let Err(err) = download_file_async(
+            addr,
+            &cfssljson_path,
+            DownloadSecurity::checksum(&CHECKSUM_CFSSLJSON),
+            Some(Style::new().green().bold()),
+        ).await {
+            return Err(Error::DownloadError{ source: addr.into(), target: cfssl_path, err });
+        }
+
+        // Make the file executable
+        if let Err(err) = set_executable(&cfssljson_path) { return Err(Error::ExecutableError { err }); }
     }
 
     // Now make sure the generic config JSON is there
@@ -871,24 +791,24 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
 
             // Write the key file into it...
             let key_path: PathBuf = certs_dir.join("client-key.pem");
-            let key: File = match File::open(&key_path) {
+            let mut key: File = match File::open(&key_path) {
                 Ok(key)  => key,
                 Err(err) => { return Err(Error::FileOpenError{ what: "client private key", path: key_path, err }); },
             };
-            if let Err(err) = pipe_reader(key, &mut output) { return Err(Error::PipeError{ source: key_path, target: id_path, err }); }
+            if let Err(err) = std::io::copy(&mut key, &mut output) { return Err(Error::CopyError{ source: key_path, target: id_path, err }); }
 
             // And then the certificate file
             let cert_path: PathBuf = certs_dir.join("client.pem");
-            let cert: File = match File::open(&cert_path) {
+            let mut cert: File = match File::open(&cert_path) {
                 Ok(key)  => key,
                 Err(err) => { return Err(Error::FileOpenError{ what: "client certificate", path: cert_path, err }); },
             };
-            if let Err(err) = pipe_reader(cert, output) { return Err(Error::PipeError{ source: cert_path, target: id_path, err }); }
+            if let Err(err) = std::io::copy(&mut cert, &mut output) { return Err(Error::CopyError{ source: cert_path, target: id_path, err }); }
 
             // Finally, write the CA file as well.
             let out_ca_path: PathBuf = path.join("ca.pem");
             debug!("Copying server CA certificate to '{}'...", out_ca_path.display());
-            if let Err(err) = copy_file(ca_cert, &out_ca_path) { return Err(Error::PipeError{ source: ca_cert.clone(), target: out_ca_path, err }); }
+            if let Err(err) = std::fs::copy(ca_cert, &out_ca_path) { return Err(Error::CopyError{ source: ca_cert.clone(), target: out_ca_path, err }); }
         },
     }
 

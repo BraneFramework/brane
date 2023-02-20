@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    20 Feb 2023, 10:52:25
+//    20 Feb 2023, 12:45:41
 //  Auto updated?
 //    Yes
 // 
@@ -20,7 +20,6 @@ use std::process::{Command, ExitStatus};
 use bollard::ClientVersion;
 use console::style;
 use enum_debug::EnumDebug as _;
-use reqwest::StatusCode;
 
 use brane_cfg::node::NodeKind;
 use brane_tsk::docker::ImageSource;
@@ -44,14 +43,12 @@ pub enum GenerateError {
 
     /// The given file is not a file.
     FileNotAFile{ path: PathBuf },
-    /// Failed to send a request to the given address.
-    RequestError{ address: String, err: reqwest::Error },
-    /// The given server responded with a non-2xx status code.
-    RequestFailure{ address: String, code: StatusCode, err: Option<String> },
-    /// Failed to download the full file stream.
-    DownloadError{ address: String, err: reqwest::Error },
     /// Failed to write to the output file.
     FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to download a file.
+    DownloadError{ source: String, target: PathBuf, err: brane_shr::fs::Error },
+    /// Failed to set a file to executable.
+    ExecutableError{ err: brane_shr::fs::Error },
 
     /// Failed to get a file handle's metadata.
     FileMetadataError{ what: &'static str, path: PathBuf, err: std::io::Error },
@@ -75,8 +72,8 @@ pub enum GenerateError {
     CaKeyNotAFile{ path: PathBuf },
     /// Failed to open a new file.
     FileOpenError{ what: &'static str, path: PathBuf, err: std::io::Error },
-    /// Failed to pipe one file into another.
-    PipeError{ source: PathBuf, target: PathBuf, err: brane_shr::fs::Error },
+    /// Failed to copy one file into another.
+    CopyError{ source: PathBuf, target: PathBuf, err: std::io::Error },
 
     /// Failed to create a new file.
     FileCreateError{ what: &'static str, path: PathBuf, err: std::io::Error },
@@ -106,11 +103,10 @@ impl Display for GenerateError {
 
             CanonicalizeError{ path, err } => write!(f, "Failed to canonicalize path '{}': {}", path.display(), err),
 
-            FileNotAFile{ path }                    => write!(f, "File '{}' exists but not as a file", path.display()),
-            RequestError{ address, err }            => write!(f, "Failed to send GET-request to '{}': {}", address, err),
-            RequestFailure{ address, code, err }    => write!(f, "GET-request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
-            DownloadError{ address, err }           => write!(f, "Failed to download file '{}': {}", address, err),
-            FileWriteError{ what, path, err }       => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
+            FileNotAFile{ path }                 => write!(f, "File '{}' exists but not as a file", path.display()),
+            FileWriteError{ what, path, err }    => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
+            DownloadError{ source, target, err } => write!(f, "Failed to download '{}' to '{}': {}", source, target.display(), err),
+            ExecutableError{ err }               => write!(f, "Failed to make file executable: {}", err),
 
             FileMetadataError{ what, path, err }    => write!(f, "Failed to get metadata of {} file '{}': {}", what, path.display(), err),
             FilePermissionsError{ what, path, err } => write!(f, "Failed to set permissions of {} file '{}': {}", what, path.display(), err),
@@ -123,7 +119,7 @@ impl Display for GenerateError {
             CaKeyNotFound{ path }                   => write!(f, "Certificate authority's private key '{}' not found", path.display()),
             CaKeyNotAFile{ path }                   => write!(f, "Certificate authority's private key '{}' exists but is not a file", path.display()),
             FileOpenError{ what, path, err }        => write!(f, "Failed to open {} file '{}': {}", what, path.display(), err),
-            PipeError{ source, target, err }        => write!(f, "Failed to write '{}' to '{}': {}", source.display(), target.display(), err),
+            CopyError{ source, target, err }        => write!(f, "Failed to write '{}' to '{}': {}", source.display(), target.display(), err),
 
             FileCreateError{ what, path, err }      => write!(f, "Failed to create new {} file '{}': {}", what, path.display(), err),
             FileHeaderWriteError{ what, path, err } => write!(f, "Failed to write header to {} file '{}': {}", what, path.display(), err),

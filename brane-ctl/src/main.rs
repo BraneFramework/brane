@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    20 Feb 2023, 11:04:45
+//    20 Feb 2023, 11:30:44
 //  Auto updated?
 //    Yes
 // 
@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 use humanlog::{DebugMode, HumanLogger};
-use log::{error, LevelFilter};
+use log::error;
 
 use specifications::address::Address;
 use specifications::package::Capability;
