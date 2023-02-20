@@ -14,10 +14,11 @@ clap = { version = "4.0.24", features = ["derive","env"] }
 console = "0.15"
 dotenvy = "0.15"
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
-env_logger = "0.10"
+# env_logger = "0.10"
 futures-util = "0.3"
 hex = "0.4.3"
 hex-literal = "0.3.4"
+humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
 human-panic = "1.0"
 indicatif = "0.17"
 lazy_static = "1.4.0"

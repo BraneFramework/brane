@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    15 Feb 2023, 16:01:46
+//    20 Feb 2023, 10:58:34
 //  Auto updated?
 //    Yes
 // 
@@ -248,6 +248,74 @@ pub enum GenerateNodeSubcommand {
         #[clap(long, default_value = "50053", help = "The port on which the local checker service is available.")]
         chk_port : u16,
     },
+}
+
+/// A bit awkward here, but defines the generate subcommand for certificates. This basically defines the possible certificate kinds to generate.
+#[derive(Debug, EnumDebug, Subcommand)]
+pub enum GenerateCertsSubcommand {
+    /// It's a server certificate (which includes generating the CA).
+    Server {
+        /// The domain name for which to generate the certificates.
+        #[clap(name="LOCATION_ID", help = "The name of the location for which we are generating server certificates.")]
+        location_id : String,
+        /// The hostname for which to generate the certificates.
+        #[clap(short='H', long, default_value="$LOCATION_ID", help = "The hostname of the location for which we are generating server certificates. Can use '$LOCATION_ID' to use the same value as given for the location ID.")]
+        hostname    : String,
+    },
+
+    /// It's a client certificate.
+    Client {
+        /// The domain name for which to generate the certificates.
+        #[clap(name="LOCATION_ID", help = "The name of the location for which we are generating server certificates. Note that this the location ID of the client, not the server.")]
+        location_id : String,
+        /// The hostname for which to generate the certificates.
+        #[clap(short='H', long, default_value="$LOCATION_ID", help = "The hostname of the location for which we are generating server certificates. Note that this the hostname of the client, not the server. Can use '$LOCATION_ID' to use the same value as given for the location ID.")]
+        hostname    : String,
+
+        /// The location of the certificate authority's certificate.
+        #[clap(short, long, default_value = "./ca.pem", help = "The path to the certificate authority's certificate file that we will use to sign the client certificate.")]
+        ca_cert : PathBuf,
+        /// The location of the certificate authority's key.
+        #[clap(short='k', long, default_value = "./ca-key.pem", help = "The path to the certificate authority's private key file that we will use to sign the client certificate.")]
+        ca_key  : PathBuf,
+    },
+}
+impl GenerateCertsSubcommand {
+    /// Resolves the internal hostname iff it's currently referring to the internal location ID.
+    #[inline]
+    pub fn resolve_hostname(&mut self) {
+        use GenerateCertsSubcommand::*;
+        match self {
+            Server{ location_id, hostname, .. } |
+            Client{ location_id, hostname, .. } => {
+                if hostname == "$LOCATION_ID" {
+                    *hostname = location_id.clone();
+                }
+            },
+        }
+    }
+
+
+
+    /// Helper function that returns the location ID irrespective of the variant.
+    #[inline]
+    pub fn location_id(&self) -> &str {
+        use GenerateCertsSubcommand::*;
+        match self {
+            Server{ location_id, .. } |
+            Client{ location_id, .. } => location_id,
+        }
+    }
+
+    /// Helper function that returns the hostname irrespective of the variant.
+    #[inline]
+    pub fn hostname(&self) -> &str {
+        use GenerateCertsSubcommand::*;
+        match self {
+            Server{ hostname, .. } |
+            Client{ hostname, .. } => hostname,
+        }
+    }
 }
 
 /// A bit awkward here, but defines the generate subcommand for the backend file. This basically defines the possible kinds of backends to generate.

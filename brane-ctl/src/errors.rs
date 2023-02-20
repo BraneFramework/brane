@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    17 Feb 2023, 14:20:11
+//    20 Feb 2023, 10:52:25
 //  Auto updated?
 //    Yes
 // 
@@ -65,6 +65,18 @@ pub enum GenerateError {
     SpawnError{ cmd: Command, err: std::io::Error },
     /// A spawned fob failed.
     SpawnFailure{ cmd: Command, status: ExitStatus, err: String },
+    /// Assertion that the CA certificate exists failed.
+    CaCertNotFound{ path: PathBuf },
+    /// Assertion that the CA certificate is a file failed.
+    CaCertNotAFile{ path: PathBuf },
+    /// Assertion that the CA key exists failed.
+    CaKeyNotFound{ path: PathBuf },
+    /// Assertion that the CA key is a file failed.
+    CaKeyNotAFile{ path: PathBuf },
+    /// Failed to open a new file.
+    FileOpenError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to pipe one file into another.
+    PipeError{ source: PathBuf, target: PathBuf, err: brane_shr::fs::Error },
 
     /// Failed to create a new file.
     FileCreateError{ what: &'static str, path: PathBuf, err: std::io::Error },
@@ -106,6 +118,12 @@ impl Display for GenerateError {
             ConfigSerializeError{ err }             => write!(f, "Failed to serialize config: {}", err),
             SpawnError{ cmd, err }                  => write!(f, "Failed to run command '{:?}': {}", cmd, err),
             SpawnFailure{ cmd, status, err }        => write!(f, "Command '{:?}' failed{}\n\nstderr:\n{}\n\n", cmd, if let Some(code) = status.code() { format!(" with exit code {}", code) } else { String::new() }, err),
+            CaCertNotFound{ path }                  => write!(f, "Certificate authority's certificate '{}' not found", path.display()),
+            CaCertNotAFile{ path }                  => write!(f, "Certificate authority's certificate '{}' exists but is not a file", path.display()),
+            CaKeyNotFound{ path }                   => write!(f, "Certificate authority's private key '{}' not found", path.display()),
+            CaKeyNotAFile{ path }                   => write!(f, "Certificate authority's private key '{}' exists but is not a file", path.display()),
+            FileOpenError{ what, path, err }        => write!(f, "Failed to open {} file '{}': {}", what, path.display(), err),
+            PipeError{ source, target, err }        => write!(f, "Failed to write '{}' to '{}': {}", source.display(), target.display(), err),
 
             FileCreateError{ what, path, err }      => write!(f, "Failed to create new {} file '{}': {}", what, path.display(), err),
             FileHeaderWriteError{ what, path, err } => write!(f, "Failed to write header to {} file '{}': {}", what, path.display(), err),

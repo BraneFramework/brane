@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    17 Feb 2023, 14:29:02
+//    20 Feb 2023, 11:04:45
 //  Auto updated?
 //    Yes
 // 
@@ -16,13 +16,14 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
+use humanlog::{DebugMode, HumanLogger};
 use log::{error, LevelFilter};
 
 use specifications::address::Address;
 use specifications::package::Capability;
 use specifications::version::Version;
 
-use brane_ctl::spec::{DockerClientVersion, GenerateBackendSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair, StartSubcommand};
+use brane_ctl::spec::{DockerClientVersion, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair, StartSubcommand};
 use brane_ctl::{generate, lifetime, packages};
 
 
@@ -43,6 +44,9 @@ struct Arguments {
     /// If given, prints `info` and `debug` prints.
     #[clap(long, global=true, help = "If given, prints additional information during execution.")]
     debug       : bool,
+    /// If given, prints `info`, `debug` and `trace` prints.
+    #[clap(long, global=true, conflicts_with = "debug", help = "If given, prints the largest amount of debug information as possible.")]
+    trace       : bool,
     /// The path to the node config file to use.
     #[clap(short, long, global=true, default_value = "./node.yml", help = "The 'node.yml' file that describes properties about the node itself (i.e., the location identifier, where to find directories, which ports to use, ...)")]
     node_config : PathBuf,
@@ -143,22 +147,19 @@ enum GenerateSubcommand {
 
     #[clap(name = "certs", about = "Generates root & server certificates for the given domain.")]
     Certs {
-        /// The domain name for which to generate the certificates.
-        #[clap(name="LOCATION_ID", help = "The name of the location for which we are generating server certificates.")]
-        location_id : String,
-        /// The hostname for which to generate the certificates.
-        #[clap(name="HOSTNAME", help = "The hostname of the location for which we are generating server certificates.")]
-        hostname    : String,
-
         /// If given, will generate missing directories instead of throwing errors.
-        #[clap(short='f', long, help = "If given, will generate any missing directories.")]
+        #[clap(short='f', long, global=true, help = "If given, will generate any missing directories.")]
         fix_dirs : bool,
         /// The directory to write to.
-        #[clap(short, long, default_value = "./", help = "The path of the directory to write the generated certificate files.")]
+        #[clap(short, long, default_value = "./", global=true, help = "The path of the directory to write the generated certificate files.")]
         path     : PathBuf,
         /// The directory to write temporary scripts to.
-        #[clap(short, long, default_value = "/tmp", help = "The path of the directory to write the temporary scripts to we use for certificate generation.")]
+        #[clap(short, long, default_value = "/tmp", global=true, help = "The path of the directory to write the temporary scripts to we use for certificate generation.")]
         temp_dir : PathBuf,
+
+        /// The type of certificate to generate.
+        #[clap(subcommand)]
+        kind : Box<GenerateCertsSubcommand>,
     },
 
     #[clap(name = "infra", about = "Generates a new 'infra.yml' file.")]
@@ -254,14 +255,29 @@ async fn main() {
     // Parse the arguments
     let args: Arguments = Arguments::parse();
 
-    // Initialize the logger
-    let mut logger = env_logger::builder();
-    logger.format_module_path(false);
-    if args.debug {
-        logger.filter_module("brane", LevelFilter::Debug).init();
-    } else {
-        logger.filter_module("brane", LevelFilter::Warn).init();
+    // // Initialize the logger
+    // let mut logger = env_logger::builder();
+    // logger.format_module_path(false);
+    // if args.debug {
+    //     logger.filter_module("brane", LevelFilter::Debug).init();
+    // } else {
+    //     logger.filter_module("brane", LevelFilter::Warn).init();
 
+    //     human_panic::setup_panic!(Metadata {
+    //         name: "Brane CTL".into(),
+    //         version: env!("CARGO_PKG_VERSION").into(),
+    //         authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
+    //         homepage: env!("CARGO_PKG_HOMEPAGE").into(),
+    //     });
+    // }
+
+    // Initialize the logger
+    if let Err(err) = HumanLogger::terminal(if args.trace { DebugMode::Full } else if args.debug { DebugMode::Debug } else { DebugMode::Friendly }).init() {
+        eprintln!("WARNING: Failed to setup logger: {} (no logging for this session)", err);
+    }
+
+    // Setup the friendlier version of panic
+    if !args.trace && !args.debug {
         human_panic::setup_panic!(Metadata {
             name: "Brane CTL".into(),
             version: env!("CARGO_PKG_VERSION").into(),
@@ -278,9 +294,9 @@ async fn main() {
                 if let Err(err) = generate::node(args.node_config, hosts, proxy, fix_dirs, config_path, *kind) { error!("{}", err); std::process::exit(1); }
             },
 
-            GenerateSubcommand::Certs { location_id, hostname, fix_dirs, path, temp_dir } => {
+            GenerateSubcommand::Certs { fix_dirs, path, temp_dir, kind } => {
                 // Call the thing
-                if let Err(err) = generate::certs(location_id, hostname, fix_dirs, path, temp_dir).await { error!("{}", err); std::process::exit(1); }
+                if let Err(err) = generate::certs(fix_dirs, path, temp_dir, *kind).await { error!("{}", err); std::process::exit(1); }
             },
 
             GenerateSubcommand::Infra{ locations, fix_dirs, path, names, reg_ports, job_ports } => {

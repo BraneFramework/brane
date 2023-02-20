@@ -4,7 +4,7 @@
 //  Created:
 //    09 Nov 2022, 11:12:06
 //  Last edited:
-//    30 Jan 2023, 13:50:17
+//    20 Feb 2023, 11:17:20
 //  Auto updated?
 //    Yes
 // 
@@ -14,6 +14,8 @@
 
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter, Result as FResult};
+use std::fs;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use async_compression::tokio::bufread::GzipDecoder;
@@ -222,10 +224,21 @@ pub enum Error {
     /// The given path contains a '..' where it is not allowed.
     PathWithParentDir{ what: &'static str, path: PathBuf },
 
+    /// Failed to read from the given reader.
+    ReaderReadError{ what: &'static str, err: std::io::Error },
+    /// Failed to write to the given writer.
+    WriterWriteError{ what: &'static str, err: std::io::Error },
+
+    /// Some file already exists while we expected it wouldn't.
+    FileExistsError{ what: &'static str, path: PathBuf },
     /// Failed to create a file.
     FileCreateError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to open an existing file.
     FileOpenError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to read from a file.
+    FileReadError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to write to a file.
+    FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to copy a file.
     FileCopyError{ source: PathBuf, target: PathBuf, err: std::io::Error },
 
@@ -263,8 +276,14 @@ impl Display for Error {
             PathNotFileNotDir{ what, path } => write!(f, "{} '{}' exists but is not a file nor a directory (don't know what to do with it)", what.capitalize(), path.display()),
             PathWithParentDir{ what, path } => write!(f, "Given {} path '{}' contains a parent directory component ('..'); this is not allowed", what, path.display()),
 
+            ReaderReadError{ what, err }  => write!(f, "Failed to read from {} reader: {}", what, err),
+            WriterWriteError{ what, err } => write!(f, "Failed to write to {} writer: {}", what, err),
+
+            FileExistsError{ what, path }        => write!(f, "{} file '{}' already exists", what.capitalize(), path.display()),
             FileCreateError{ what, path, err }   => write!(f, "Failed to create {} file '{}': {}", what, path.display(), err),
             FileOpenError{ what, path, err }     => write!(f, "Faield to open {} file '{}': {}", what, path.display(), err),
+            FileReadError{ what, path, err }     => write!(f, "Failed to read from {} file '{}': {}", what, path.display(), err),
+            FileWriteError{ what, path, err }    => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
             FileCopyError{ source, target, err } => write!(f, "Failed to copy file '{}' to '{}': {}", source.display(), target.display(), err),
 
             DirNotADir{ what, path }                    => write!(f, "{} directory '{}' exists but is not a directory", what.capitalize(), path.display()),
@@ -290,6 +309,70 @@ impl std::error::Error for Error {}
 
 
 /***** LIBRARY *****/
+/// Writes the given reader's contents to the given writer.
+/// 
+/// # Arguments
+/// - `source`: The reader to read to the end and write to...
+/// - `target`: The writer to write all of the reader's contents to.
+/// 
+/// # Errors
+/// This function erorrs if we failed to read or write anything from the reader or to the writer, respectively.
+pub fn pipe_reader(mut source: impl Read, mut target: impl Write) -> Result<(), Error> {
+    // Write in chunks
+    let mut buf: [u8; 4096] = [ 0; 4096 ];
+    loop {
+        // Read as much as possible from the reader
+        let chunk_len: usize = match source.read(&mut buf) {
+            Ok(len)  => len,
+            Err(err) => { return Err(Error::ReaderReadError{ what: "source", err }); },
+        };
+
+        // Quit if there was nothing to read anymore
+        if chunk_len == 0 { return Ok(()); }
+
+        // Write all of that to the writer
+        if let Err(err) = target.write(&buf[..chunk_len]) { return Err(Error::WriterWriteError { what: "target", err }); }
+    }
+}
+
+/// Writes the given file's contents to the given file.
+/// 
+/// # Arguments
+/// - `source`: The current, existing file to copy.
+/// - `target`: The target, non-existing location where the file will be copied to.
+/// 
+/// # Errors
+/// This function errors if we failed to read or write anything of if some files or directories do or do not exist.
+pub fn copy_file(source: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<(), Error> {
+    let source: &Path = source.as_ref();
+    let target: &Path = target.as_ref();
+    debug!("Copying file '{}' to '{}'...", source.display(), target.display());
+
+    // Assert the target does not yet exist
+    if target.exists() { return Err(Error::FileExistsError{ what: "target", path: target.into() }); }
+
+    // Attempt to open the source
+    let source_h: fs::File = match fs::File::open(source) {
+        Ok(handle) => handle,
+        Err(err)   => { return Err(Error::FileOpenError { what: "source", path: source.into(), err }); },
+    };
+    // Attempt to open the target
+    let target_h: fs::File = match fs::File::create(source) {
+        Ok(handle) => handle,
+        Err(err)   => { return Err(Error::FileOpenError { what: "target", path: target.into(), err }); },
+    };
+
+    // Now use the pipe function for the rest
+    match pipe_reader(source_h, target_h) {
+        Ok(_)                                     => Ok(()),
+        Err(Error::ReaderReadError{ what, err })  => Err(Error::FileReadError{ what, path: source.into(), err }),
+        Err(Error::WriterWriteError{ what, err }) => Err(Error::FileWriteError{ what, path: source.into(), err }),
+        Err(err)                                  => Err(err),
+    }
+}
+
+
+
 /// Recursively copies the given directory using tokio's async library.
 /// 
 /// # Arguments

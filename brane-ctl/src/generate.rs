@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    17 Feb 2023, 14:22:58
+//    20 Feb 2023, 11:15:51
 //  Auto updated?
 //    Yes
 // 
@@ -12,6 +12,7 @@
 //!   Handles commands relating to node.yml generation.
 // 
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs::{self, File, Permissions};
@@ -37,11 +38,12 @@ use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::backend::{BackendFile, Credentials};
 use brane_cfg::node::{CentralConfig, CentralKafkaTopics, CentralNames, CentralPaths, CentralPorts, CentralServices, CommonNames, CommonPaths, CommonPorts, CommonServices, NodeConfig, NodeKindConfig, WorkerConfig, WorkerNames, WorkerPaths, WorkerPorts, WorkerServices};
 use brane_cfg::policies::{ContainerPolicy, PolicyFile, UserPolicy};
+use brane_shr::fs::{copy_file, pipe_reader};
 use specifications::address::Address;
 use specifications::package::Capability;
 
 pub use crate::errors::GenerateError as Error;
-use crate::spec::{GenerateBackendSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair};
+use crate::spec::{GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair};
 use crate::utils::resolve_config_path;
 
 
@@ -433,7 +435,7 @@ fn generate_ca_cert(cfssl: impl AsRef<Path>, cfssljson: impl AsRef<Path>, ca_csr
     let cfssljson : &Path = cfssljson.as_ref();
     let ca_csr    : &Path = ca_csr.as_ref();
     let path      : &Path = path.as_ref();
-    info!("Generating {}...", style("CA certificate").green().bold());
+    info!("Generating CA certificate...");
 
     // Prepare the command to run
     let mut cmd: Command = Command::new("bash");
@@ -441,6 +443,7 @@ fn generate_ca_cert(cfssl: impl AsRef<Path>, cfssljson: impl AsRef<Path>, ca_csr
     cmd.arg(format!("\"{}\" gencert -initca \"{}\" | \"{}\" -bare \"{}\"", cfssl.display(), ca_csr.display(), cfssljson.display(), path.display()));
 
     // Run it
+    debug!("CA certificate generation command: {:?}", cmd);
     let output: Output = match cmd.output() {
         Ok(output) => output,
         Err(err)   => { return Err(Error::SpawnError{ cmd, err }); },
@@ -454,13 +457,13 @@ fn generate_ca_cert(cfssl: impl AsRef<Path>, cfssljson: impl AsRef<Path>, ca_csr
 /// Generates a server certificate given the CSR configuration files.
 /// 
 /// # Arguments
-/// - `what`: Some more human-readable description of what we are generating.
+/// - `profile`: Whether we are generating a 'client' or a 'server'.
 /// - `cfssl`: The path to the cfssl binary.
 /// - `cfssljson`: The path to the cfssljson binary.
 /// - `ca_cert`: The path to the CA certificate.
 /// - `ca_key`: The path to the private CA key.
 /// - `ca_config`: The path to the CA config file to use.
-/// - `server_csr`: The path to the file that describes the new certificate.
+/// - `csr_file`: The path to the file that describes the new certificate.
 /// - `path`: The path to write the resulting certificate file to.
 /// 
 /// # Returns
@@ -470,22 +473,24 @@ fn generate_ca_cert(cfssl: impl AsRef<Path>, cfssljson: impl AsRef<Path>, ca_csr
 /// 
 /// # Errors
 /// This function may error if we failed to call the command or the command itself fails.
-fn generate_server_cert(cfssl: impl AsRef<Path>, cfssljson: impl AsRef<Path>, ca_cert: impl AsRef<Path>, ca_key: impl AsRef<Path>, ca_config: impl AsRef<Path>, server_csr: impl AsRef<Path>, path: impl AsRef<Path>) -> Result<(), Error> {
-    let cfssl      : &Path = cfssl.as_ref();
-    let cfssljson  : &Path = cfssljson.as_ref();
-    let ca_cert    : &Path = ca_cert.as_ref();
-    let ca_key     : &Path = ca_key.as_ref();
-    let ca_config  : &Path = ca_config.as_ref();
-    let server_csr : &Path = server_csr.as_ref();
-    let path       : &Path = path.as_ref();
-    info!("Generating {}...", style("server certificate").green().bold());
+fn generate_client_server_cert(profile: impl AsRef<str>, cfssl: impl AsRef<Path>, cfssljson: impl AsRef<Path>, ca_cert: impl AsRef<Path>, ca_key: impl AsRef<Path>, ca_config: impl AsRef<Path>, csr_file: impl AsRef<Path>, path: impl AsRef<Path>) -> Result<(), Error> {
+    let profile   : &str  = profile.as_ref();
+    let cfssl     : &Path = cfssl.as_ref();
+    let cfssljson : &Path = cfssljson.as_ref();
+    let ca_cert   : &Path = ca_cert.as_ref();
+    let ca_key    : &Path = ca_key.as_ref();
+    let ca_config : &Path = ca_config.as_ref();
+    let csr_file  : &Path = csr_file.as_ref();
+    let path      : &Path = path.as_ref();
+    info!("Generating {} certificate...", profile);
 
     // Prepare the command to run
     let mut cmd: Command = Command::new("bash");
     cmd.arg("-c");
-    cmd.arg(format!("\"{}\" gencert -ca=\"{}\" -ca-key=\"{}\" -config=\"{}\" -profile=server \"{}\" | \"{}\" -bare \"{}\"", cfssl.display(), ca_cert.display(), ca_key.display(), ca_config.display(), server_csr.display(), cfssljson.display(), path.display()));
+    cmd.arg(format!("\"{}\" gencert -ca=\"{}\" -ca-key=\"{}\" -config=\"{}\" -profile={} \"{}\" | \"{}\" -bare \"{}\"", cfssl.display(), ca_cert.display(), ca_key.display(), ca_config.display(), profile, csr_file.display(), cfssljson.display(), path.display()));
 
     // Run it
+    debug!("{} certificate generation command: {:?}", profile, cmd);
     let output: Output = match cmd.output() {
         Ok(output) => output,
         Err(err)   => { return Err(Error::SpawnError{ cmd, err }); },
@@ -553,7 +558,7 @@ struct CfsslCaCsr {
 
 /// Defines the JSON format for the `server-csr.json` file we use to let `cfssl` generate a server certificate for us.
 #[derive(Clone, Debug, Serialize)]
-struct CfsslServerCsr {
+struct CfsslClientServerCsr {
     /// The common name for the server certificate.
     #[serde(rename = "CN")]
     cn    : String,
@@ -720,30 +725,40 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
 /// Handles generating root & server certificates for the current domain.
 /// 
 /// # Arguments
-/// - `location_id`: The identifier of the location to generate them for.
-/// - `hostname`: The hostname of the location to generate the certificates for.
 /// - `fix_dirs`: if true, will generate missing directories instead of complaining.
 /// - `path`: The path of the directory to write the new certificate files to.
 /// - `temp_dir`: The path of the directory where we store the temporary scripts.
+/// - `kind`: The kind of certificate(s) to generate.
 /// 
 /// # Returns
 /// Nothing, but does write several new files to the given directory and updates the user on stdout on success.
 /// 
 /// # Errors
 /// This function may error if I/O errors occur while downloading the auxillary scripts or while writing the files.
-pub async fn certs(location_id: impl Into<String>, hostname: impl Into<String>, fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into<PathBuf>) -> Result<(), Error> {
-    let location_id : String  = location_id.into();
-    let hostname    : String  = hostname.into();
+pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into<PathBuf>, mut kind: GenerateCertsSubcommand) -> Result<(), Error> {
     let path        : PathBuf = path.into();
     let temp_dir    : PathBuf = temp_dir.into();
-    info!("Generating root & server certificates for {} @ {} to '{}'...", location_id, hostname, path.display());
 
-    // Make sure the parent directory exists
+
+    /* GENERAL */
+    // Don't forget to resolve the hostname
+    kind.resolve_hostname();
+    info!("Generating {} certificates for {} @ {} to '{}'...", kind.variant(), kind.location_id(), kind.hostname(), path.display());
+
+    // Make sure the parent directory exists if there is one
     if let Some(parent) = path.parent() {
+        // If it's empty, we assume current directory
+        let parent: Cow<Path> = if parent.to_string_lossy().is_empty() {
+            Cow::Owned(PathBuf::from("."))
+        } else {
+            Cow::Borrowed(parent)
+        };
+
+        // Check as normal
         if !parent.exists() {
             if !fix_dirs { return Err(Error::DirNotFound { path: parent.into() }); }
             debug!("Creating missing '{}' directory (fix_dirs == true)...", parent.display());
-            if let Err(err) = fs::create_dir_all(parent) { return Err(Error::DirCreateError { path: parent.into(), err }); }
+            if let Err(err) = fs::create_dir_all(&parent) { return Err(Error::DirCreateError { path: parent.into(), err }); }
         } else if !parent.is_dir() {
             return Err(Error::DirNotADir { path: parent.into() });
         }
@@ -796,30 +811,89 @@ pub async fn certs(location_id: impl Into<String>, hostname: impl Into<String>, 
     // Generate a random ID to avoid* conflicting* repeated files
     let id: String = rand::thread_rng().sample_iter(Alphanumeric).map(|c| char::from(c)).take(3).collect::<String>();
 
-    // Then write the CA config itself (always, since it contains call-specific information)
-    let ca_csr_path: PathBuf = temp_dir.join(format!("ca-csr-{}.json", id));
-    debug!("Generating '{}'...", ca_csr_path.display());
-    generate_config("CA CSR config", CfsslCaCsr {
-        cn    : location_id.clone(),
-        key   : CfsslCsrKey { algo: "rsa".into(), size: 4096 },
-        names : vec![ HashMap::from([ ("".into(), "".into()) ]) ],
-    }, &ca_csr_path)?;
-    // And the server config
-    let server_csr_path: PathBuf = temp_dir.join(format!("server-csr-{}.json", id));
-    debug!("Generating '{}'...", server_csr_path.display());
-    generate_config("server CSR config", CfsslServerCsr {
-        cn    : location_id.clone(),
-        hosts : vec![ hostname ],
-        key   : CfsslCsrKey { algo: "rsa".into(), size: 4096 },
-        names : vec![ HashMap::from([ ("".into(), "".into()) ]) ],
-    }, &server_csr_path)?;
 
-    // Now call the `cfssl` binary twice to generate the certificates
-    generate_ca_cert(&cfssl_path, &cfssljson_path, ca_csr_path, path.join("ca"))?;
-    generate_server_cert(&cfssl_path, &cfssljson_path, path.join("ca.pem"), path.join("ca-key.pem"), ca_config_path, server_csr_path, path.join("server"))?;
+
+    /* KIND-SPECIFIC */
+    match &kind {
+        GenerateCertsSubcommand::Server { location_id, hostname } => {
+            // Then write the CA config itself (always, since it contains call-specific information)
+            let ca_csr_path: PathBuf = temp_dir.join(format!("ca-csr-{}.json", id));
+            debug!("Generating '{}'...", ca_csr_path.display());
+            generate_config("CA CSR config", CfsslCaCsr {
+                cn    : location_id.clone(),
+                key   : CfsslCsrKey { algo: "rsa".into(), size: 4096 },
+                names : vec![ HashMap::from([ ("".into(), "".into()) ]) ],
+            }, &ca_csr_path)?;
+            // And the server config
+            let server_csr_path: PathBuf = temp_dir.join(format!("server-csr-{}.json", id));
+            debug!("Generating '{}'...", server_csr_path.display());
+            generate_config("server CSR config", CfsslClientServerCsr {
+                cn    : location_id.clone(),
+                hosts : vec![ hostname.clone() ],
+                key   : CfsslCsrKey { algo: "rsa".into(), size: 4096 },
+                names : vec![ HashMap::from([ ("".into(), "".into()) ]) ],
+            }, &server_csr_path)?;
+
+            // Now call the `cfssl` binary twice to generate the certificates
+            generate_ca_cert(&cfssl_path, &cfssljson_path, ca_csr_path, path.join("ca"))?;
+            generate_client_server_cert("server", &cfssl_path, &cfssljson_path, path.join("ca.pem"), path.join("ca-key.pem"), ca_config_path, server_csr_path, path.join("server"))?;
+        },
+
+        GenerateCertsSubcommand::Client { location_id, hostname, ca_cert, ca_key } => {
+            // Generate the client config
+            let client_csr_path: PathBuf = temp_dir.join(format!("client-csr-{}.json", id));
+            debug!("Generating '{}'...", client_csr_path.display());
+            generate_config("client CSR config", CfsslClientServerCsr {
+                cn    : location_id.clone(),
+                hosts : vec![ hostname.clone() ],
+                key   : CfsslCsrKey { algo: "rsa".into(), size: 4096 },
+                names : vec![ HashMap::from([ ("".into(), "".into()) ]) ],
+            }, &client_csr_path)?;
+
+            // Assert the input certificate and key are there
+            if !ca_cert.exists() { return Err(Error::CaCertNotFound{ path: ca_cert.clone() }); }
+            if !ca_cert.is_file() { return Err(Error::CaCertNotAFile{ path: ca_cert.clone() }); }
+            if !ca_key.exists() { return Err(Error::CaKeyNotFound{ path: ca_cert.clone() }); }
+            if !ca_key.is_file() { return Err(Error::CaKeyNotAFile{ path: ca_cert.clone() }); }
+
+            // Generate the key file(s) in a temporary directory
+            let certs_dir : PathBuf = temp_dir.join(format!("certs-{}", id));
+            if let Err(err) = fs::create_dir_all(&certs_dir) { return Err(Error::DirCreateError{ path: certs_dir, err }); }
+            generate_client_server_cert("client", &cfssl_path, &cfssljson_path, ca_cert, ca_key, ca_config_path, client_csr_path, certs_dir.join("client"))?;
+
+            // Create the output ID file
+            let id_path: PathBuf = path.join("client-id.pem");
+            debug!("Merging certificate and key into '{}'...", id_path.display());
+            let mut output: File = match File::create(&id_path) {
+                Ok(output) => output,
+                Err(err)   => { return Err(Error::FileCreateError{ what: "client identity", path: id_path, err }); },
+            };
+
+            // Write the key file into it...
+            let key_path: PathBuf = certs_dir.join("client-key.pem");
+            let key: File = match File::open(&key_path) {
+                Ok(key)  => key,
+                Err(err) => { return Err(Error::FileOpenError{ what: "client private key", path: key_path, err }); },
+            };
+            if let Err(err) = pipe_reader(key, &mut output) { return Err(Error::PipeError{ source: key_path, target: id_path, err }); }
+
+            // And then the certificate file
+            let cert_path: PathBuf = certs_dir.join("client.pem");
+            let cert: File = match File::open(&cert_path) {
+                Ok(key)  => key,
+                Err(err) => { return Err(Error::FileOpenError{ what: "client certificate", path: cert_path, err }); },
+            };
+            if let Err(err) = pipe_reader(cert, output) { return Err(Error::PipeError{ source: cert_path, target: id_path, err }); }
+
+            // Finally, write the CA file as well.
+            let out_ca_path: PathBuf = path.join("ca.pem");
+            debug!("Copying server CA certificate to '{}'...", out_ca_path.display());
+            if let Err(err) = copy_file(ca_cert, &out_ca_path) { return Err(Error::PipeError{ source: ca_cert.clone(), target: out_ca_path, err }); }
+        },
+    }
 
     // Done!
-    println!("Successfully generated certificates for domain {}", style(location_id).green().bold());
+    println!("Successfully generated {} certificates for domain {}", kind.variant().to_string().to_lowercase(), style(kind.location_id()).green().bold());
     Ok(())
 }
 
