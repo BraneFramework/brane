@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    20 Feb 2023, 12:45:41
+//    20 Feb 2023, 15:50:48
 //  Auto updated?
 //    Yes
 // 
@@ -22,12 +22,45 @@ use console::style;
 use enum_debug::EnumDebug as _;
 
 use brane_cfg::node::NodeKind;
+use brane_shr::debug::Capitalizeable;
 use brane_tsk::docker::ImageSource;
 use specifications::container::Image;
 use specifications::version::Version;
 
 
 /***** LIBRARY *****/
+/// Errors that relate to downloading stuff (the subcommand, specifically).
+#[derive(Debug)]
+pub enum DownloadError {
+    /// The given directory does not exist.
+    DirNotFound{ what: &'static str, path: PathBuf },
+    /// The given directory exists but is not a directory.
+    DirNotADir{ what: &'static str, path: PathBuf },
+    /// Could not create a new directory at the given location.
+    DirCreateError{ what: &'static str, path: PathBuf, err: std::io::Error },
+
+    /// Failed to create a temporary directory.
+    TempDirError{ err: std::io::Error },
+    /// Failed to run the actual download command.
+    DownloadError{ address: String, path: PathBuf, err: brane_shr::fs::Error },
+}
+impl Display for DownloadError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use self::DownloadError::*;
+        match self {
+            DirNotFound{ what, path }         => write!(f, "{} directory '{}' not found", what.capitalize(), path.display()),
+            DirNotADir{ what, path }          => write!(f, "{} directory '{}' exists but is not a directory", what.capitalize(), path.display()),
+            DirCreateError{ what, path, err } => write!(f, "Failed to create {} directory '{}': {}", what, path.display(), err),
+
+            TempDirError{ err }                 => write!(f, "Failed to create a temporary directory: {}", err),
+            DownloadError{ address, path, err } => write!(f, "Failed to download '{}' to '{}': {}", address, path.display(), err),
+        }
+    }
+}
+impl Error for DownloadError {}
+
+
+
 /// Errors that relate to generating files.
 #[derive(Debug)]
 pub enum GenerateError {
@@ -293,3 +326,28 @@ impl<E: Display> Display for LocationPairParseError<E> {
     }
 }
 impl<E: Debug + Display> Error for LocationPairParseError<E> {}
+
+
+
+/// Errors that relate to parsing architecture iDs.
+#[derive(Debug)]
+pub enum ArchParseError {
+    /// Failed to spawn the `uname -m` command.
+    SpawnError{ command: Command, err: std::io::Error },
+    /// The `uname -m` command returned a non-zero exit code.
+    SpawnFailure{ command: Command, status: ExitStatus, err: String },
+    /// It's an unknown architecture.
+    UnknownArch{ raw: String },
+}
+impl Display for ArchParseError {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use ArchParseError::*;
+        match self {
+            SpawnError{ command, err }           => write!(f, "Failed to run '{:?}': {}", command, err),
+            SpawnFailure{ command, status, err } => write!(f, "Command '{:?}' failed with exit code {}\n\nstderr:\n{}\n\n", command, status.code().unwrap_or(-1), err),
+            UnknownArch{ raw }                   => write!(f, "Unknown architecture '{}'", raw),
+        }
+    }
+}
+impl Error for ArchParseError {}

@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    20 Feb 2023, 11:30:44
+//    20 Feb 2023, 15:46:52
 //  Auto updated?
 //    Yes
 // 
@@ -23,8 +23,8 @@ use specifications::address::Address;
 use specifications::package::Capability;
 use specifications::version::Version;
 
-use brane_ctl::spec::{DockerClientVersion, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair, StartSubcommand};
-use brane_ctl::{generate, lifetime, packages};
+use brane_ctl::spec::{Arch, DockerClientVersion, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair, StartSubcommand};
+use brane_ctl::{download, generate, lifetime, packages};
 
 
 /***** STATICS *****/
@@ -60,11 +60,12 @@ struct Arguments {
 #[derive(Debug, Subcommand)]
 enum CtlSubcommand {
     #[clap(subcommand)]
+    Download(Box<DownloadSubcommand>),
+    #[clap(subcommand)]
     Generate(Box<GenerateSubcommand>),
 
     #[clap(subcommand)]
     Packages(Box<PackageSubcommand>),
-
     #[clap(subcommand)]
     Data(Box<DataSubcommand>),
 
@@ -96,7 +97,6 @@ enum CtlSubcommand {
         #[clap(subcommand)]
         kind : Box<StartSubcommand>,
     },
-
     #[clap(name = "stop", about = "Stops the local node if it is running.")]
     Stop {
         /// The docker-compose command we run.
@@ -118,6 +118,32 @@ enum CtlSubcommand {
         #[clap(short, long, help = "If given, shows the local node version in an easy-to-be-parsed format. Note that, if given in combination with '--ctl', this one is always reported second.")]
         node : bool,
     },
+}
+
+/// Defines download-related subcommands for the `branectl` tool.
+#[derive(Debug, Subcommand)]
+#[clap(name = "download", about = "Groups commands that can automatically download stuff from the project's repository.")]
+enum DownloadSubcommand {
+    #[clap(name = "services", about = "Downloads all of the Brane service images from the GitHub repository to the local machine.")]
+    Services {
+        /// Whether to create any missing directories or not.
+        #[clap(short, long, global=true, help="If given, will automatically create missing directories.")]
+        fix_dirs : bool,
+        /// The directory to download them to.
+        #[clap(short, long, default_value="./target/release", global=true, help="The directory to download the images to. Note: if you leave it at the default, then you won't have to manually specify anything when running 'branectl start'.")]
+        path     : PathBuf,
+
+        /// The architecture for which to download the services.
+        #[clap(short, long, default_value="$LOCAL", global=true, help="The processor architecture for which to download the images. Specify '$LOCAL' to use the architecture of the current machine.")]
+        arch    : Arch,
+        /// The version of the services to download.
+        #[clap(short, long, default_value=env!("CARGO_PKG_VERSION"), global=true, help="The version of the images to download from GitHub. You can specify 'latest' to download the latest version (but that might be incompatible with this CTL version)")]
+        version : Version,
+
+        /// Whether to download the central or the worker VMs.
+        #[clap(subcommand)]
+        kind : DownloadServicesSubcommand,
+    }
 }
 
 /// Defines generate-related subcommands for the `branectl` tool.
@@ -288,6 +314,12 @@ async fn main() {
 
     // Now match on the command
     match args.subcommand {
+        CtlSubcommand::Download(subcommand) => match *subcommand {
+            DownloadSubcommand::Services { fix_dirs, path, arch, version, kind } => {
+                // Run the subcommand
+                if let Err(err) = download::services(fix_dirs, path, arch, version, kind).await { error!("{}", err); std::process::exit(1); }
+            },
+        },
         CtlSubcommand::Generate(subcommand) => match *subcommand {
             GenerateSubcommand::Node{ hosts, proxy, fix_dirs, config_path, kind } => {
                 // Call the thing
@@ -320,7 +352,6 @@ async fn main() {
                 if let Err(err) = packages::hash(args.node_config, image).await { error!("{}", err); std::process::exit(1); }
             }
         },
-
         CtlSubcommand::Data(subcommand) => match *subcommand {
             
         },
@@ -328,7 +359,6 @@ async fn main() {
         CtlSubcommand::Start{ exe, file, docker_socket, docker_version, version, mode, profile_dir, kind, } => {
             if let Err(err) = lifetime::start(exe, file, docker_socket, docker_version, version, args.node_config, mode, profile_dir, *kind).await { error!("{}", err); std::process::exit(1); }
         },
-
         CtlSubcommand::Stop{ exe, file } => {
             if let Err(err) = lifetime::stop(exe, file, args.node_config) { error!("{}", err); std::process::exit(1); }
         },

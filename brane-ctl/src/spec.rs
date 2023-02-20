@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    20 Feb 2023, 10:58:34
+//    20 Feb 2023, 15:40:33
 //  Auto updated?
 //    Yes
 // 
@@ -15,6 +15,7 @@
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::net::IpAddr;
 use std::path::PathBuf;
+use std::process::{Command, Output};
 use std::str::FromStr;
 
 use bollard::ClientVersion;
@@ -23,10 +24,73 @@ use enum_debug::EnumDebug;
 
 use brane_tsk::docker::ImageSource;
 
-use crate::errors::{DockerClientVersionParseError, HostnamePairParseError, LocationPairParseError};
+use crate::errors::{ArchParseError, DockerClientVersionParseError, HostnamePairParseError, LocationPairParseError};
 
 
 /***** AUXILLARY *****/
+/// A formatter for architectures that writes it in a way that Brane understands.
+#[derive(Debug)]
+pub struct ArchBraneFormatter<'a> {
+    /// The architecture to format.
+    arch : &'a Arch,
+}
+impl<'a> Display for ArchBraneFormatter<'a> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        match self.arch {
+            Arch::X86_64  => write!(f, "x86_64"),
+            Arch::Aarch64 => write!(f, "aarch64"),
+        }
+    }
+}
+
+/// Defines the possible architectures for which we can download images.
+#[derive(Clone, Copy, Debug, EnumDebug)]
+pub enum Arch {
+    /// Typical Intel/AMD machines.
+    X86_64,
+    /// Apple ARM
+    Aarch64,
+}
+impl Arch {
+    /// Returns a formatter that writes the architecture in a Brane-friendly way.
+    #[inline]
+    pub fn brane(&self) -> ArchBraneFormatter { ArchBraneFormatter{ arch: self } }
+}
+impl FromStr for Arch {
+    type Err = ArchParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            // User-specified ones
+            "x86_64"  | "amd64" => Ok(Self::X86_64),
+            "aarch64" | "arm64" => Ok(Self::Aarch64),
+
+            // Meta-argument for resolving the local architecture
+            "$LOCAL" => {
+                // Prepare our magic command to run (`uname -m`)
+                let mut cmd: Command = Command::new("uname");
+                cmd.arg("-m");
+
+                // Call it
+                let res: Output = match cmd.output() {
+                    Ok(res)  => res,
+                    Err(err) => { return Err(ArchParseError::SpawnError{ command: cmd, err }); },
+                };
+                if !res.status.success() { return Err(ArchParseError::SpawnFailure { command: cmd, status: res.status, err: String::from_utf8_lossy(&res.stderr).into() }); }
+
+                // Attempt to parse the default output again
+                Self::from_str(&String::from_utf8_lossy(&res.stdout))
+            },
+
+            // Any other is a failure
+            _ => Err(ArchParseError::UnknownArch{ raw: s.into() }),
+        }
+    }
+}
+
+
+
 /// Defines a wrapper around ClientVersion that allows it to be parsed.
 #[derive(Clone, Copy, Debug)]
 pub struct DockerClientVersion(pub ClientVersion);
@@ -143,8 +207,22 @@ impl<const C: char, T: FromStr> FromStr for LocationPair<C, T> {
 
 
 /***** LIBRARY *****/
+/// A bit awkward here, but defines the subcommand for downloading service images from the repo.
+#[derive(Debug, EnumDebug, Subcommand)]
+pub enum DownloadServicesSubcommand {
+    /// Download the services for a central node.
+    #[clap(name = "central", about = "Downloads the central node services (brane-api, brane-drv, brane-plr, brane-prx)")]
+    Central,
+    /// Download the services for a worker node.
+    #[clap(name = "worker", about = "Downloads the worker node services (brane-reg, brane-job, brane-prx)")]
+    Worker,
+    /// Download the auxillary services for the central node.
+    #[clap(name = "auxillary", about = "Downloads the auxillary services for the central node. Note that most of these are actually downloaded using Docker.")]
+    Auxillary,
+}
+
 /// A bit awkward here, but defines the generate subcommand for the node file. This basically defines the possible kinds of nodes to generate.
-#[derive(Debug, Subcommand)]
+#[derive(Debug, EnumDebug, Subcommand)]
 pub enum GenerateNodeSubcommand {
     /// Starts a central node.
     #[clap(name = "central", about = "Generates a node.yml file for a central node with default values.")]
