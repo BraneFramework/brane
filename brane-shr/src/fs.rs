@@ -4,7 +4,7 @@
 //  Created:
 //    09 Nov 2022, 11:12:06
 //  Last edited:
-//    20 Feb 2023, 12:44:46
+//    20 Feb 2023, 17:38:17
 //  Auto updated?
 //    Yes
 // 
@@ -15,6 +15,7 @@
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::fs::{self, Permissions};
+// use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
 use std::os::unix::fs::PermissionsExt as _;
 use std::ops::{BitOr, BitOrAssign};
 use std::path::{Path, PathBuf};
@@ -229,6 +230,8 @@ pub enum Error {
     PathNotFileNotDir{ what: &'static str, path: PathBuf },
     /// The given path contains a '..' where it is not allowed.
     PathWithParentDir{ what: &'static str, path: PathBuf },
+    /// Failed to rename the given path to the target path.
+    PathRenameError{ source: PathBuf, target: PathBuf, err: std::io::Error },
 
     /// The given file is not a file.
     FileNotAFile{ path: PathBuf },
@@ -244,6 +247,8 @@ pub enum Error {
     FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to copy a file.
     FileCopyError{ source: PathBuf, target: PathBuf, err: std::io::Error },
+    /// Failed to remove a file.
+    FileRemoveError{ path: PathBuf, err: std::io::Error },
     /// The checksum of a file was not what we expected.
     FileChecksumError{ what: &'static str, path: PathBuf, got: String, expected: String },
     
@@ -257,6 +262,8 @@ pub enum Error {
     DirReadError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to read a single entry within the directory's entries.
     DirEntryReadError{ what: &'static str, path: PathBuf, entry: usize, err: std::io::Error },
+    /// Failed to remove a directory.
+    DirRemoveError{ path: PathBuf, err: std::io::Error },
 
     /// The given address did not have HTTPS enabled.
     NotHttpsError{ address: String },
@@ -287,10 +294,11 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Error::*;
         match self {
-            PathExistsError{ what, path }   => write!(f, "{} '{}' already exists", what.capitalize(), path.display()),
-            PathNotFoundError{ what, path } => write!(f, "{} '{}' not found", what.capitalize(), path.display()),
-            PathNotFileNotDir{ what, path } => write!(f, "{} '{}' exists but is not a file nor a directory (don't know what to do with it)", what.capitalize(), path.display()),
-            PathWithParentDir{ what, path } => write!(f, "Given {} path '{}' contains a parent directory component ('..'); this is not allowed", what, path.display()),
+            PathExistsError{ what, path }          => write!(f, "{} '{}' already exists", what.capitalize(), path.display()),
+            PathNotFoundError{ what, path }        => write!(f, "{} '{}' not found", what.capitalize(), path.display()),
+            PathNotFileNotDir{ what, path }        => write!(f, "{} '{}' exists but is not a file nor a directory (don't know what to do with it)", what.capitalize(), path.display()),
+            PathWithParentDir{ what, path }        => write!(f, "Given {} path '{}' contains a parent directory component ('..'); this is not allowed", what, path.display()),
+            PathRenameError{ source, target, err } => write!(f, "Failed to rename '{}' to '{}': {}", source.display(), target.display(), err),
 
             FileNotAFile{ path }                           => write!(f, "File '{}' exists but not as a file", path.display()),
             FileCreateError{ what, path, err }             => write!(f, "Failed to create {} file '{}': {}", what, path.display(), err),
@@ -299,6 +307,7 @@ impl Display for Error {
             FilePermissionsError{ path, err }              => write!(f, "Failed to update the permissions of file '{}': {}", path.display(), err),
             FileWriteError{ what, path, err }              => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
             FileCopyError{ source, target, err }           => write!(f, "Failed to copy file '{}' to '{}': {}", source.display(), target.display(), err),
+            FileRemoveError{ path, err }                   => write!(f, "Failed to remove file '{}': {}", path.display(), err),
             FileChecksumError{ what, path, got, expected } => write!(f, "Checksum of {} file '{}' is incorrect: expected '{}', got '{}'", what, path.display(), got, expected),
 
             DirNotFound{ path }                         => write!(f, "Directory '{}' not found", path.display()),
@@ -306,6 +315,7 @@ impl Display for Error {
             DirCreateError{ what, path, err }           => write!(f, "Failed to create {} directory '{}': {}", what, path.display(), err),
             DirReadError{ what, path, err }             => write!(f, "Failed to read {} directory '{}': {}", what, path.display(), err),
             DirEntryReadError{ what, path, entry, err } => write!(f, "Failed to read entry {} from {} directory '{}': {}", entry, what, path.display(), err),
+            DirRemoveError{ path, err }                 => write!(f, "Failed to remove director '{}': {}", path.display(), err),
 
             NotHttpsError{ address }             => write!(f, "Security policy requires HTTPS is enabled, but '{}' does not enable it (or we cannot parse the URL)", address),
             RequestError{ address, err }         => write!(f, "Failed to send GET-request to '{}': {}", address, err),
@@ -530,6 +540,46 @@ pub fn set_executable(path: impl AsRef<Path>) -> Result<(), Error> {
 
 
 
+/// Moves the given or directory from one location to another.
+/// 
+/// If possible, it will attempt to use the efficient `rename()`; otherwise, it will perform te extensive copy.
+/// 
+/// # Arguments
+/// - `source`: The current, existing file or directory to copy.
+/// - `target`: The target, non-existing location where the directory will be copied to.
+/// 
+/// # Errors
+/// This function errors if we failed to read or write anything or if some directories do or do not exist.
+pub async fn move_path_async(source: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<(), Error> {
+    let source : &Path = source.as_ref();
+    let target : &Path = target.as_ref();
+    debug!("Moving '{}' to '{}'...", source.display(), target.display());
+
+    // TODO: As soon as the feature below becomes stable, which appears to be very soon, we can uncomment this to have the cheap one first :)
+    // // Attempt to use the cheap command
+    // match tfs::rename(source, target).await {
+    //     Ok(_)    => { return Ok(()); },
+    //     Err(err) => if err.kind() != std::io::ErrorKind::CrossesDevices { return Err(Error::PathRenameError{ source: source.into(), target: target.into(), err }); },
+    // }
+
+    // That failed; do the expensive one by first copying...
+    if source.is_file() {
+        if let Err(err) = tfs::copy(source, target).await { return Err(Error::FileCopyError{ source: source.into(), target: target.into(), err }); }
+    } else {
+        copy_dir_recursively_async(source, target).await?;
+    }
+
+    // Then remove the old one
+    if source.is_file() {
+        if let Err(err) = tfs::remove_file(source).await { return Err(Error::FileRemoveError{ path: source.into(), err }); }
+    } else {
+        if let Err(err) = tfs::remove_dir_all(source).await { return Err(Error::DirRemoveError{ path: source.into(), err }); }
+    }
+
+    // And we're done!
+    Ok(())
+}
+
 /// Recursively copies the given directory using tokio's async library.
 /// 
 /// # Arguments
@@ -682,9 +732,9 @@ pub async fn download_file_async<'c>(source: impl AsRef<str>, target: impl AsRef
     let len: Option<u64> = res.headers().get("Content-Length").and_then(|len| len.to_str().ok()).and_then(|len| u64::from_str(len).ok());
     let prgs: Option<ProgressBar> = if verbose.is_some() {
         Some(if let Some(len) = len {
-            ProgressBar::new(len).with_style(ProgressStyle::with_template("    {bar:60} {bytes}/{total_bytes} ETA {eta_precise}").unwrap())
+            ProgressBar::new(len).with_style(ProgressStyle::with_template("    {bar:60} {bytes}/{total_bytes} {binary_bytes_per_sec} ETA {eta_precise}").unwrap())
         } else {
-            ProgressBar::new_spinner().with_style(ProgressStyle::with_template("    {elapsed_precise} {bar:60} {bytes}").unwrap())
+            ProgressBar::new_spinner().with_style(ProgressStyle::with_template("    {elapsed_precise} {bar:60} {bytes} {binary_bytes_per_sec}").unwrap())
         })
     } else {
         None
@@ -771,9 +821,8 @@ pub async fn archive_async(source: impl AsRef<Path>, tarball: impl AsRef<Path>, 
     };
 
     // Create the encoder & tarfile around this file
-    // let enc     : GzipEncoder<_>          = GzipEncoder::new(handle);
-    // let mut tar : Builder<GzipEncoder<_>> = Builder::new(enc);
-    let mut tar : Builder<_> = Builder::new(handle);
+    let enc     : GzipEncoder<_>          = GzipEncoder::new(handle);
+    let mut tar : Builder<GzipEncoder<_>> = Builder::new(enc);
 
     // Now add the source recursively
     let mut is_root_dir: bool = true;
@@ -859,11 +908,9 @@ pub async fn unarchive_async(tarball: impl AsRef<Path>, target: impl AsRef<Path>
     };
 
     // Create the decoder & tarfile around this file
-    // let dec         : GzipDecoder<_>          = GzipDecoder::new(tio::BufReader::new(handle));
-    // let mut tar     : Archive<GzipDecoder<_>> = Archive::new(dec);
-    let mut tar     : Archive<_>              = Archive::new(tio::BufReader::new(handle));
-    // let mut entries : Entries<GzipDecoder<_>> = match tar.entries() {
-    let mut entries : Entries<_> = match tar.entries() {
+    let dec         : GzipDecoder<_>          = GzipDecoder::new(tio::BufReader::new(handle));
+    let mut tar     : Archive<GzipDecoder<_>> = Archive::new(dec);
+    let mut entries : Entries<GzipDecoder<_>> = match tar.entries() {
         Ok(entries) => entries,
         Err(err)    => { return Err(Error::TarEntriesError{ path: tarball.into(), err }); },
     };

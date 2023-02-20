@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    20 Feb 2023, 15:50:48
+//    20 Feb 2023, 17:29:45
 //  Auto updated?
 //    Yes
 // 
@@ -43,6 +43,14 @@ pub enum DownloadError {
     TempDirError{ err: std::io::Error },
     /// Failed to run the actual download command.
     DownloadError{ address: String, path: PathBuf, err: brane_shr::fs::Error },
+    /// Failed to extract the given archive.
+    UnarchiveError{ tar: PathBuf, target: PathBuf, err: brane_shr::fs::Error },
+    /// Failed to read all entries in a directory.
+    ReadDirError{ path: PathBuf, err: std::io::Error },
+    /// Failed to read a certain entry in a directory.
+    ReadEntryError{ path: PathBuf, entry: usize, err: std::io::Error },
+    /// Failed to move something.
+    MoveError{ source: PathBuf, target: PathBuf, err: brane_shr::fs::Error },
 }
 impl Display for DownloadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -54,6 +62,10 @@ impl Display for DownloadError {
 
             TempDirError{ err }                 => write!(f, "Failed to create a temporary directory: {}", err),
             DownloadError{ address, path, err } => write!(f, "Failed to download '{}' to '{}': {}", address, path.display(), err),
+            UnarchiveError{ tar, target, err }  => write!(f, "Failed to unpack '{}' to '{}': {}", tar.display(), target.display(), err),
+            ReadDirError{ path, err }           => write!(f, "Failed to read directory '{}': {}", path.display(), err),
+            ReadEntryError{ path, entry, err }  => write!(f, "Failed to read entry {} in directory '{}': {}", entry, path.display(), err),
+            MoveError{ source, target, err }    => write!(f, "Failed to move '{}' to '{}': {}", source.display(), target.display(), err),
         }
     }
 }

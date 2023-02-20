@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    20 Feb 2023, 15:46:52
+//    20 Feb 2023, 17:33:06
 //  Auto updated?
 //    Yes
 // 
@@ -139,6 +139,9 @@ enum DownloadSubcommand {
         /// The version of the services to download.
         #[clap(short, long, default_value=env!("CARGO_PKG_VERSION"), global=true, help="The version of the images to download from GitHub. You can specify 'latest' to download the latest version (but that might be incompatible with this CTL version)")]
         version : Version,
+        /// Whether to overwrite existing images or not.
+        #[clap(short='F', long, global=true, help="If given, will overwrite services that are already there. Otherwise, these are not overwritten. Note that regardless, a download will still be performed.")]
+        force   : bool,
 
         /// Whether to download the central or the worker VMs.
         #[clap(subcommand)]
@@ -315,9 +318,9 @@ async fn main() {
     // Now match on the command
     match args.subcommand {
         CtlSubcommand::Download(subcommand) => match *subcommand {
-            DownloadSubcommand::Services { fix_dirs, path, arch, version, kind } => {
+            DownloadSubcommand::Services { fix_dirs, path, arch, version, force, kind } => {
                 // Run the subcommand
-                if let Err(err) = download::services(fix_dirs, path, arch, version, kind).await { error!("{}", err); std::process::exit(1); }
+                if let Err(err) = download::services(fix_dirs, path, arch, version, force, kind).await { error!("{}", err); std::process::exit(1); }
             },
         },
         CtlSubcommand::Generate(subcommand) => match *subcommand {

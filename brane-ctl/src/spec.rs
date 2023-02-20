@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    20 Feb 2023, 15:40:33
+//    20 Feb 2023, 17:34:04
 //  Auto updated?
 //    Yes
 // 
@@ -80,7 +80,7 @@ impl FromStr for Arch {
                 if !res.status.success() { return Err(ArchParseError::SpawnFailure { command: cmd, status: res.status, err: String::from_utf8_lossy(&res.stderr).into() }); }
 
                 // Attempt to parse the default output again
-                Self::from_str(&String::from_utf8_lossy(&res.stdout))
+                Self::from_str(String::from_utf8_lossy(&res.stdout).trim())
             },
 
             // Any other is a failure
