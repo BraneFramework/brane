@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    22 Feb 2023, 13:30:19
+//    22 Feb 2023, 14:43:26
 //  Auto updated?
 //    Yes
 // 
@@ -56,6 +56,8 @@ pub enum DownloadError {
     DockerConnectError{ err: brane_tsk::docker::Error },
     /// Failed to pull an image.
     PullError{ name: String, image: String, err: brane_tsk::docker::Error },
+    /// Failed to save a pulled image.
+    SaveError{ name: String, image: String, path: PathBuf, err: brane_tsk::docker::Error },
 }
 impl Display for DownloadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -72,8 +74,9 @@ impl Display for DownloadError {
             ReadEntryError{ path, entry, err }  => write!(f, "Failed to read entry {} in directory '{}': {}", entry, path.display(), err),
             MoveError{ source, target, err }    => write!(f, "Failed to move '{}' to '{}': {}", source.display(), target.display(), err),
 
-            DockerConnectError{ err }     => write!(f, "Failed to connect to local Docker daemon: {}", err),
-            PullError{ name, image, err } => write!(f, "Failed to pull '{}' as '{}': {}", image, name, err),
+            DockerConnectError{ err }        => write!(f, "Failed to connect to local Docker daemon: {}", err),
+            PullError{ name, image, err }    => write!(f, "Failed to pull '{}' as '{}': {}", image, name, err),
+            SaveError{ name, path, err, .. } => write!(f, "Failed to save image '{}' to '{}': {}", name, path.display(), err),
         }
     }
 }

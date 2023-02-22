@@ -18,6 +18,7 @@ All notable changes to the Brane framework will be documented in this file.
 - Various option and flags (`--debug`, `-n`/`--node-config`, `-e`/`--exe`, `-f`/`--file`, `-m`/`--mode`) to be able to be used in subcommands as well in `branectl`.
 - `branectl` to default to `docker compose` instead of `docker-compose` as compose executable (**breaking change**).
 - `branectl` using the friendlier, in-house [humanlog](https://github.com/Lut99/humanlog-rs) logger instead of `envlogger`.
+- `make.py` to move the download capabilities to `branectl`, allowing for a friendlier (and easier) interface.
 
 ### Fixed
 - The previous version not making it through the tests.

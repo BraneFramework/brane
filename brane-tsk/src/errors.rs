@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:27:26
 //  Last edited:
-//    26 Jan 2023, 09:56:47
+//    22 Feb 2023, 14:56:52
 //  Auto updated?
 //    Yes
 // 
@@ -608,6 +608,14 @@ pub enum DockerError {
     ImageFileOpenError{ path: PathBuf, err: std::io::Error },
     /// Failed to import the given image file.
     ImageImportError{ path: PathBuf, err: bollard::errors::Error },
+    /// Failed to create the given image file.
+    ImageFileCreateError{ path: PathBuf, err: std::io::Error },
+    /// Failed to download a piece of the image from the Docker client.
+    ImageExportError{ name: String, err: bollard::errors::Error },
+    /// Failed to write a chunk of the exported image.
+    ImageFileWriteError{ path: PathBuf, err: std::io::Error },
+    /// Failed to shutdown the given file.
+    ImageFileShutdownError{ path: PathBuf, err: std::io::Error },
 
     /// Failed to pull the given image file.
     ImagePullError{ source: String, err: bollard::errors::Error },
@@ -662,8 +670,12 @@ impl Display for DockerError {
 
             ContainerRemoveError{ name, err } => write!(f, "Fialed to remove Docker container with name '{}': {}", name, err),
 
-            ImageFileOpenError{ path, err } => write!(f, "Failed to open image file '{}': {}", path.display(), err),
-            ImageImportError{ path, err }   => write!(f, "Failed to import image file '{}' into Docker engine: {}", path.display(), err),
+            ImageFileOpenError{ path, err }     => write!(f, "Failed to open image file '{}': {}", path.display(), err),
+            ImageImportError{ path, err }       => write!(f, "Failed to import image file '{}' into Docker engine: {}", path.display(), err),
+            ImageFileCreateError{ path, err }   => write!(f, "Failed to create image file '{}': {}", path.display(), err),
+            ImageExportError{ name, err }       => write!(f, "Failed to export image '{}': {}", name, err),
+            ImageFileWriteError{ path, err }    => write!(f, "Failed to write to image file '{}': {}", path.display(), err),
+            ImageFileShutdownError{ path, err } => write!(f, "Failed to shut image file '{}' down: {}", path.display(), err),
 
             ImagePullError{ source, err }       => write!(f, "Failed to pull image '{}' into Docker engine: {}", source, err),
             ImageTagError{ image, source, err } => write!(f, "Failed to tag pulled image '{}' as '{}': {}", source, image, err),

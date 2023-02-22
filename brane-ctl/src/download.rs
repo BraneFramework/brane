@@ -4,7 +4,7 @@
 //  Created:
 //    20 Feb 2023, 14:59:16
 //  Last edited:
-//    22 Feb 2023, 13:30:53
+//    22 Feb 2023, 15:28:44
 //  Auto updated?
 //    Yes
 // 
@@ -24,7 +24,7 @@ use specifications::version::Version;
 use tempfile::TempDir;
 
 use brane_shr::fs::{download_file_async, move_path_async, unarchive_async, DownloadSecurity};
-use brane_tsk::docker::{connect_local, ensure_image, Docker, ImageSource};
+use brane_tsk::docker::{connect_local, ensure_image, save_image, Docker, ImageSource};
 use specifications::container::Image;
 
 pub use crate::errors::DownloadError as Error;
@@ -219,16 +219,22 @@ pub async fn services(fix_dirs: bool, path: impl AsRef<Path>, arch: Arch, versio
 
             // Download the pre-determined set of auxillary images
             for (name, image) in AUXILLARY_DOCKER_IMAGES {
-                println!("Downloading auxillary image {}...", style(name).bold().green());
+                // We can skip it if it already exists
+                let image_path: PathBuf = path.join(format!("{}.tar", name));
+                if !force && image_path.exists() {
+                    debug!("Image '{}' already exists (skipping)", image_path.display());
+                    continue;
+                }
 
                 // Make sure the image is pulled
+                println!("Downloading auxillary image {}...", style(image).bold().green());
                 if let Err(err) = ensure_image(&docker, Image::new(name, None::<&str>, None::<&str>), ImageSource::Registry(image.into())).await {
                     return Err(Error::PullError{ name: name.into(), image: image.into(), err });
                 }
 
                 // Save the image to the correct path
-                let image_path: PathBuf = path.join(format!("{}.tar", name));
-                if let Err(err) = save_image(&docker, )
+                println!("Exporting auxillary image {}...", style(name).bold().green());
+                if let Err(err) = save_image(&docker, Image::from(image), &image_path).await { return Err(Error::SaveError{ name: name.into(), image: image.into(), path: image_path, err }); }
             }
         },
     }

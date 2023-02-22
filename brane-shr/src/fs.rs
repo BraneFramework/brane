@@ -4,7 +4,7 @@
 //  Created:
 //    09 Nov 2022, 11:12:06
 //  Last edited:
-//    20 Feb 2023, 17:38:17
+//    22 Feb 2023, 14:35:59
 //  Auto updated?
 //    Yes
 // 
@@ -732,7 +732,7 @@ pub async fn download_file_async<'c>(source: impl AsRef<str>, target: impl AsRef
     let len: Option<u64> = res.headers().get("Content-Length").and_then(|len| len.to_str().ok()).and_then(|len| u64::from_str(len).ok());
     let prgs: Option<ProgressBar> = if verbose.is_some() {
         Some(if let Some(len) = len {
-            ProgressBar::new(len).with_style(ProgressStyle::with_template("    {bar:60} {bytes}/{total_bytes} {binary_bytes_per_sec} ETA {eta_precise}").unwrap())
+            ProgressBar::new(len).with_style(ProgressStyle::with_template("    {bar:60} {bytes}/{total_bytes} {bytes_per_sec} ETA {eta_precise}").unwrap())
         } else {
             ProgressBar::new_spinner().with_style(ProgressStyle::with_template("    {elapsed_precise} {bar:60} {bytes} {binary_bytes_per_sec}").unwrap())
         })
