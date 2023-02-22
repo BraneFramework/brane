@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    20 Feb 2023, 17:33:06
+//    22 Feb 2023, 10:39:28
 //  Auto updated?
 //    Yes
 // 
@@ -25,15 +25,6 @@ use specifications::version::Version;
 
 use brane_ctl::spec::{Arch, DockerClientVersion, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair, StartSubcommand};
 use brane_ctl::{download, generate, lifetime, packages};
-
-
-/***** STATICS *****/
-lazy_static::lazy_static!{
-    static ref API_DEFAULT_VERSION: String = format!("{}", bollard::API_DEFAULT_VERSION);
-}
-
-
-
 
 
 /***** ARGUMENTS *****/

@@ -4,7 +4,7 @@
 //  Created:
 //    20 Feb 2023, 14:59:16
 //  Last edited:
-//    20 Feb 2023, 17:45:50
+//    22 Feb 2023, 10:30:04
 //  Auto updated?
 //    Yes
 // 
@@ -24,9 +24,22 @@ use specifications::version::Version;
 use tempfile::TempDir;
 
 use brane_shr::fs::{download_file_async, move_path_async, unarchive_async, DownloadSecurity};
+use brane_tsk::docker::{ensure_image, ImageSource};
 
 pub use crate::errors::DownloadError as Error;
 use crate::spec::{Arch, DownloadServicesSubcommand};
+
+
+/***** CONSTANTS *****/
+/// Defines the auxillary images that we want to download from Docker.
+const AUXILLARY_DOCKER_IMAGES: [(&str, &str); 3] = [
+    ("aux-scylla", "scylladb/scylla:4.6.3"),
+    ("aux-kafka", "ubuntu/kafka:3.1-22.04_beta"),
+    ("aux-zookeeper", "ubuntu/zookeeper:3.1-22.04_beta"),
+];
+
+
+
 
 
 /***** HELPER FUNCTIONS *****/
@@ -197,7 +210,16 @@ pub async fn services(fix_dirs: bool, path: impl AsRef<Path>, arch: Arch, versio
         },
 
         DownloadServicesSubcommand::Auxillary => {
+            // Attempt to connect to the local Docker daemon.
+            let docker: Docker = connect_local()?;
 
+            // Download the pre-determined set of auxillary images
+            for (name, image) in &AUXILLARY_DOCKER_IMAGES {
+                println!("Downloading auxillary image {}...", style(name).bold().green());
+
+                // Make sure the image is pulled
+                
+            }
         },
     }
 

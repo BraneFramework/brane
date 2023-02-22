@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    20 Feb 2023, 17:34:04
+//    22 Feb 2023, 10:42:36
 //  Auto updated?
 //    Yes
 // 
@@ -18,13 +18,22 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::str::FromStr;
 
-use bollard::ClientVersion;
 use clap::Subcommand;
 use enum_debug::EnumDebug;
 
-use brane_tsk::docker::ImageSource;
+use brane_tsk::docker::{API_DEFAULT_VERSION, ClientVersion, ImageSource};
 
 use crate::errors::{ArchParseError, DockerClientVersionParseError, HostnamePairParseError, LocationPairParseError};
+
+
+/***** STATICS *****/
+lazy_static::lazy_static!{
+    /// The default Docker API version that we're using.
+    pub static ref API_DEFAULT_VERSION: String = format!("{}", API_DEFAULT_VERSION);
+}
+
+
+
 
 
 /***** AUXILLARY *****/
@@ -218,7 +227,13 @@ pub enum DownloadServicesSubcommand {
     Worker,
     /// Download the auxillary services for the central node.
     #[clap(name = "auxillary", about = "Downloads the auxillary services for the central node. Note that most of these are actually downloaded using Docker.")]
-    Auxillary,
+    Auxillary {
+        /// The path of the Docker socket.
+        #[clap(short, long, default_value="/var/run/docker.sock", help="The path of the Docker socket to connect to.")]
+        socket : PathBuf,
+        /// The client version to connect with.
+        #[clap(short, long, default_value=)]
+    },
 }
 
 /// A bit awkward here, but defines the generate subcommand for the node file. This basically defines the possible kinds of nodes to generate.
