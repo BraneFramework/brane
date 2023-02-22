@@ -4,7 +4,7 @@
 //  Created:
 //    19 Sep 2022, 14:57:17
 //  Last edited:
-//    23 Jan 2023, 11:52:26
+//    22 Feb 2023, 10:29:50
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use base64ct::{Base64, Encoding};
-use bollard::{API_DEFAULT_VERSION, ClientVersion, Docker};
+pub use bollard::Docker;
+use bollard::{API_DEFAULT_VERSION, ClientVersion};
 use bollard::container::{
     Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions, StartContainerOptions,
     WaitContainerOptions
@@ -169,7 +170,7 @@ impl<'de> Deserialize<'de> for ImageSource {
     }
 }
 impl FromStr for ImageSource {
-    type Err = ();
+    type Err = std::convert::Infallible;
 
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> { Ok(Self::from(s)) }
@@ -619,6 +620,27 @@ async fn pull_image(docker: &Docker, image: impl Into<Image>, source: impl Into<
 
 
 /***** AUXILLARY FUNCTIONS *****/
+/// Creates a new connection to the local Docker daemon.
+/// 
+/// # Arguments
+/// - `path`: The path to the Docker socket to connect to.
+/// - `version`: The version of the client we use to connect to the daemon.
+/// 
+/// # Returns
+/// A new `Docker`-instance that may be used in some of the other functions in this module.
+/// 
+/// # Errors
+/// This function errors if we could not connect to the local daemon.
+pub fn connect_local(path: impl AsRef<Path>, version: ClientVersion) -> Result<Docker, Error> {
+    let path: &Path = path.as_ref();
+
+    // Connect to docker
+    match Docker::connect_with_unix(&path.to_string_lossy(), 900, &version) {
+        Ok(res)     => Ok(res),
+        Err(reason) => Err(Error::ConnectionError{ path: path.into(), version, err: reason }),
+    }
+}
+
 /// Helps any VM aiming to use Docker by preprocessing the given list of arguments and function result into a list of bindings (and resolving the the arguments while at it).
 /// 
 /// # Arguments
@@ -851,13 +873,8 @@ pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl
 /// # Errors
 /// This function errors for many reasons, some of which include not being able to connect to Docker or the container failing (to start).
 pub async fn launch(exec: ExecuteInfo, path: impl AsRef<Path>, version: ClientVersion) -> Result<String, Error> {
-    let path: &Path = path.as_ref();
-
     // Connect to docker
-    let docker = match Docker::connect_with_unix(&path.to_string_lossy(), 900, &version) {
-        Ok(res)     => res,
-        Err(reason) => { return Err(Error::ConnectionError{ path: path.into(), version, err: reason }); }
-    };
+    let docker: Docker = connect_local(path, version)?;
 
     // Either import or pull image, if not already present
     ensure_image(&docker, &exec.image, &exec.image_source).await?;
@@ -881,13 +898,9 @@ pub async fn launch(exec: ExecuteInfo, path: impl AsRef<Path>, version: ClientVe
 /// This function may error for many reasons, which usually means that the container is unknown or the Docker engine is unreachable.
 pub async fn join(name: impl AsRef<str>, path: impl AsRef<Path>, version: ClientVersion, keep_container: bool) -> Result<(i32, String, String), Error> {
     let name : &str  = name.as_ref();
-    let path : &Path = path.as_ref();
 
     // Connect to docker
-    let docker = match Docker::connect_with_unix(&path.to_string_lossy(), 900, &version) {
-        Ok(res)     => res,
-        Err(reason) => { return Err(Error::ConnectionError{ path: path.into(), version, err: reason }); }
-    };
+    let docker: Docker = connect_local(path, version)?;
 
     // And now wait for it
     join_container(&docker, name, keep_container).await
@@ -909,10 +922,7 @@ pub async fn join(name: impl AsRef<str>, path: impl AsRef<Path>, version: Client
 pub async fn run_and_wait(exec: ExecuteInfo, keep_container: bool) -> Result<(i32, String, String), Error> {
     // This next bit's basically launch but copied so that we have a docker connection of our own.
     // Connect to docker
-    let docker = match Docker::connect_with_unix("/var/run/docker.sock", 900, API_DEFAULT_VERSION) {
-        Ok(res)     => res,
-        Err(reason) => { return Err(Error::ConnectionError{ path: "/var/run/docker.sock".into(), version: *API_DEFAULT_VERSION, err: reason }); }
-    };
+    let docker: Docker = connect_local("/var/run/docker.sock", *API_DEFAULT_VERSION)?;
 
     // Either import or pull image, if not already present
     ensure_image(&docker, &exec.image, &exec.image_source).await?;
@@ -937,10 +947,7 @@ pub async fn get_container_address(name: impl AsRef<str>) -> Result<String, Erro
     let name: &str = name.as_ref();
 
     // Try to connect to the local instance
-    let docker = match Docker::connect_with_unix("/var/run/docker.sock", 900, API_DEFAULT_VERSION) {
-        Ok(conn)    => conn,
-        Err(reason) => { return Err(Error::ConnectionError{ path: "/var/run/docker.sock".into(), version: *API_DEFAULT_VERSION, err: reason }); }
-    };
+    let docker: Docker = connect_local("/var/run/docker.sock", *API_DEFAULT_VERSION)?;
 
     // Try to inspect the container in question
     let container = match docker.inspect_container(name.as_ref(), None).await {
@@ -978,10 +985,7 @@ pub async fn get_container_address(name: impl AsRef<str>) -> Result<String, Erro
 /// This function errors if removing the image failed. Reasons for this may be if the image did not exist, the Docker engine was not reachable, or ...
 pub async fn remove_image(image: &Image) -> Result<(), Error> {
     // Try to connect to the local instance
-    let docker = match Docker::connect_with_unix("/var/run/docker.sock", 900, API_DEFAULT_VERSION) {
-        Ok(conn)    => conn,
-        Err(reason) => { return Err(Error::ConnectionError{ path: "/var/run/docker.sock".into(), version: *API_DEFAULT_VERSION, err: reason }); }
-    };
+    let docker: Docker = connect_local("/var/run/docker.sock", *API_DEFAULT_VERSION)?;
 
     // Check if the image still exists
     let info = docker.inspect_image(&image.name()).await;
