@@ -4,7 +4,7 @@
 //  Created:
 //    19 Sep 2022, 14:57:17
 //  Last edited:
-//    22 Feb 2023, 10:29:50
+//    22 Feb 2023, 13:40:52
 //  Auto updated?
 //    Yes
 // 
@@ -18,8 +18,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use base64ct::{Base64, Encoding};
-pub use bollard::Docker;
-use bollard::{API_DEFAULT_VERSION, ClientVersion};
+pub use bollard::{API_DEFAULT_VERSION, ClientVersion, Docker};
 use bollard::container::{
     Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions, StartContainerOptions,
     WaitContainerOptions
@@ -851,6 +850,21 @@ pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl
             pull_image(docker, image, source).await
         },
     }
+}
+
+/// Saves an already pulled image to some file on disk.
+/// 
+/// # Arguments
+/// - `docker`: An already connected local instance of Docker.
+/// - `image`: The Docker image name, version & potential digest of the image to write to disk.
+/// - `target`: The location to write the image to.
+pub async fn save_image(docker: &Docker, image: impl Into<Image>, target: impl AsRef<Path>) -> Result<(), Error> {
+    let image  : Image = image.into();
+    let target : &Path = target.into();
+    debug!("Saving image {}{} to '{}'...", image.name, if let Some(version) = &image.version{ format!(":{}", version) } else { String::new() }, target.display());
+
+    // Done
+    Ok(())
 }
 
 

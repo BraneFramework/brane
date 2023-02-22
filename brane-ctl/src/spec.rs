@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    22 Feb 2023, 10:42:36
+//    22 Feb 2023, 13:21:00
 //  Auto updated?
 //    Yes
 // 
@@ -21,7 +21,7 @@ use std::str::FromStr;
 use clap::Subcommand;
 use enum_debug::EnumDebug;
 
-use brane_tsk::docker::{API_DEFAULT_VERSION, ClientVersion, ImageSource};
+use brane_tsk::docker::{ClientVersion, ImageSource};
 
 use crate::errors::{ArchParseError, DockerClientVersionParseError, HostnamePairParseError, LocationPairParseError};
 
@@ -29,7 +29,7 @@ use crate::errors::{ArchParseError, DockerClientVersionParseError, HostnamePairP
 /***** STATICS *****/
 lazy_static::lazy_static!{
     /// The default Docker API version that we're using.
-    pub static ref API_DEFAULT_VERSION: String = format!("{}", API_DEFAULT_VERSION);
+    pub static ref API_DEFAULT_VERSION: String = format!("{}", brane_tsk::docker::API_DEFAULT_VERSION);
 }
 
 
@@ -230,9 +230,10 @@ pub enum DownloadServicesSubcommand {
     Auxillary {
         /// The path of the Docker socket.
         #[clap(short, long, default_value="/var/run/docker.sock", help="The path of the Docker socket to connect to.")]
-        socket : PathBuf,
+        socket         : PathBuf,
         /// The client version to connect with.
-        #[clap(short, long, default_value=)]
+        #[clap(short, long, default_value=API_DEFAULT_VERSION.as_str(), help="The client version to connect to the Docker instance with.")]
+        client_version : DockerClientVersion,
     },
 }
 

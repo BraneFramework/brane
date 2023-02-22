@@ -4,7 +4,7 @@
 //  Created:
 //    20 Feb 2023, 14:59:16
 //  Last edited:
-//    22 Feb 2023, 10:30:04
+//    22 Feb 2023, 13:30:53
 //  Auto updated?
 //    Yes
 // 
@@ -24,7 +24,8 @@ use specifications::version::Version;
 use tempfile::TempDir;
 
 use brane_shr::fs::{download_file_async, move_path_async, unarchive_async, DownloadSecurity};
-use brane_tsk::docker::{ensure_image, ImageSource};
+use brane_tsk::docker::{connect_local, ensure_image, Docker, ImageSource};
+use specifications::container::Image;
 
 pub use crate::errors::DownloadError as Error;
 use crate::spec::{Arch, DownloadServicesSubcommand};
@@ -182,7 +183,7 @@ pub async fn services(fix_dirs: bool, path: impl AsRef<Path>, arch: Arch, versio
     if !path.is_dir() { return Err(Error::DirNotADir { what: "output", path: path.into() }); }
 
     // Now match on what we are downloading
-    match kind {
+    match &kind {
         DownloadServicesSubcommand::Central => {
             // Resolve the address to use
             let address: String = if version.is_latest() {
@@ -209,16 +210,25 @@ pub async fn services(fix_dirs: bool, path: impl AsRef<Path>, arch: Arch, versio
             download_brane_services(address, path, format!("worker-instance-{}", arch.brane()), force).await?;
         },
 
-        DownloadServicesSubcommand::Auxillary => {
+        DownloadServicesSubcommand::Auxillary{ socket, client_version } => {
             // Attempt to connect to the local Docker daemon.
-            let docker: Docker = connect_local()?;
+            let docker: Docker = match connect_local(socket, client_version.0) {
+                Ok(docker) => docker,
+                Err(err)   => { return Err(Error::DockerConnectError{ err }); },
+            };
 
             // Download the pre-determined set of auxillary images
-            for (name, image) in &AUXILLARY_DOCKER_IMAGES {
+            for (name, image) in AUXILLARY_DOCKER_IMAGES {
                 println!("Downloading auxillary image {}...", style(name).bold().green());
 
                 // Make sure the image is pulled
-                
+                if let Err(err) = ensure_image(&docker, Image::new(name, None::<&str>, None::<&str>), ImageSource::Registry(image.into())).await {
+                    return Err(Error::PullError{ name: name.into(), image: image.into(), err });
+                }
+
+                // Save the image to the correct path
+                let image_path: PathBuf = path.join(format!("{}.tar", name));
+                if let Err(err) = save_image(&docker, )
             }
         },
     }

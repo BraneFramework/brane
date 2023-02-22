@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    20 Feb 2023, 17:29:45
+//    22 Feb 2023, 13:30:19
 //  Auto updated?
 //    Yes
 // 
@@ -51,6 +51,11 @@ pub enum DownloadError {
     ReadEntryError{ path: PathBuf, entry: usize, err: std::io::Error },
     /// Failed to move something.
     MoveError{ source: PathBuf, target: PathBuf, err: brane_shr::fs::Error },
+
+    /// Failed to connect to local Docker client.
+    DockerConnectError{ err: brane_tsk::docker::Error },
+    /// Failed to pull an image.
+    PullError{ name: String, image: String, err: brane_tsk::docker::Error },
 }
 impl Display for DownloadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -66,6 +71,9 @@ impl Display for DownloadError {
             ReadDirError{ path, err }           => write!(f, "Failed to read directory '{}': {}", path.display(), err),
             ReadEntryError{ path, entry, err }  => write!(f, "Failed to read entry {} in directory '{}': {}", entry, path.display(), err),
             MoveError{ source, target, err }    => write!(f, "Failed to move '{}' to '{}': {}", source.display(), target.display(), err),
+
+            DockerConnectError{ err }     => write!(f, "Failed to connect to local Docker daemon: {}", err),
+            PullError{ name, image, err } => write!(f, "Failed to pull '{}' as '{}': {}", image, name, err),
         }
     }
 }
