@@ -4,7 +4,7 @@
 //  Created:
 //    19 Sep 2022, 14:57:17
 //  Last edited:
-//    22 Feb 2023, 13:40:52
+//    22 Feb 2023, 15:38:20
 //  Auto updated?
 //    Yes
 // 
@@ -26,8 +26,8 @@ use bollard::container::{
 use bollard::image::{CreateImageOptions, ImportImageOptions, RemoveImageOptions, TagImageOptions};
 use bollard::models::{DeviceRequest, EndpointSettings, HostConfig};
 use enum_debug::EnumDebug as _;
-use futures_util::stream::TryStreamExt;
-use futures_util::StreamExt;
+use futures_util::stream::TryStreamExt as _;
+use futures_util::StreamExt as _;
 use hyper::Body;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ use serde::de::{Deserializer, Visitor};
 use serde::ser::Serializer;
 use sha2::{Digest, Sha256};
 use tokio::fs::{self as tfs, File as TFile};
-use tokio::io::AsyncReadExt;
+use tokio::io::{self as tio, AsyncReadExt as _, AsyncWriteExt as _};
 use tokio_tar::Archive;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
@@ -606,8 +606,14 @@ async fn pull_image(docker: &Docker, image: impl Into<Image>, source: impl Into<
         return Err(Error::ImagePullError{ source, err });
     }
 
-    // Tag it with the appropriate name & version
-    let options = Some(TagImageOptions{ repo: image.name.clone(), tag: image.version.clone().unwrap() });
+    // Set the options
+    let options: Option<TagImageOptions<_>> = Some(if let Some(version) = &image.version {
+        TagImageOptions{ repo: image.name.clone(), tag: version.clone() }
+    } else {
+        TagImageOptions{ repo: image.name.clone(), ..Default::default() }
+    });
+
+    // Now tag it
     match docker.tag_image(&source, options).await {
         Ok(_)    => Ok(()),
         Err(err) => Err(Error::ImageTagError{ image, source, err }),
@@ -860,8 +866,43 @@ pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl
 /// - `target`: The location to write the image to.
 pub async fn save_image(docker: &Docker, image: impl Into<Image>, target: impl AsRef<Path>) -> Result<(), Error> {
     let image  : Image = image.into();
-    let target : &Path = target.into();
+    let target : &Path = target.as_ref();
     debug!("Saving image {}{} to '{}'...", image.name, if let Some(version) = &image.version{ format!(":{}", version) } else { String::new() }, target.display());
+
+    // Open the output file
+    let mut handle: tio::BufWriter<tfs::File> = match tfs::File::create(target).await {
+        Ok(handle) => tio::BufWriter::new(handle),
+        Err(err)   => { return Err(Error::ImageFileCreateError{ path: target.into(), err }); },
+    };
+
+    // Decide the name of the image
+    let name: String = if let Some(digest) = image.digest {
+        digest
+    } else {
+        format!("{}{}", image.name, if let Some(version) = image.version { format!(":{}", version) } else { String::new() })
+    };
+
+    // Read the image tar as raw bytes from the Daemon
+    let mut total: usize = 0;
+    let mut stream = docker.export_image(&name);
+    while let Some(chunk) = stream.next().await {
+        // Unwrap the chunk
+        let chunk = match chunk {
+            Ok(chunk) => chunk,
+            Err(err)  => { return Err(Error::ImageExportError{ name, err }); },
+        };
+        debug!("Next chunk: {} bytes", chunk.len());
+
+        // Write it to the file
+        if let Err(err) = handle.write(&*chunk).await { return Err(Error::ImageFileWriteError{ path: target.into(), err }); }
+        debug!("Write OK");
+        total += chunk.len();
+    }
+    println!("Total downloaded size: {} bytes", total);
+
+    // Finish the stream & the handle
+    if let Err(err) = handle.flush().await { return Err(Error::ImageFileShutdownError{ path: target.into(), err }); }
+    if let Err(err) = handle.shutdown().await { return Err(Error::ImageFileShutdownError{ path: target.into(), err }); }
 
     // Done
     Ok(())
