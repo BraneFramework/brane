@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    22 Feb 2023, 14:43:51
+//    23 Feb 2023, 16:04:28
 //  Auto updated?
 //    Yes
 // 
@@ -78,8 +78,11 @@ enum CtlSubcommand {
         version : Version,
 
         /// Sets the '$MODE' variable, which can easily switch the location of compiled binaries.
-        #[clap(short, long, global=true, default_value = "release", help = "Sets the mode ($MODE) to use in the image flags of the `start` command.")]
+        #[clap(short, long, global=true, default_value = "release", conflicts_with = "skip-import", help = "Sets the mode ($MODE) to use in the image flags of the `start` command.")]
         mode        : String,
+        /// Whether to skip importing images or not.
+        #[clap(short, long, global=true, help = "If given, skips the import of the images. This is useful if you have already loaded the images in your Docker daemon manually.")]
+        skip_import : bool,
         /// The profile directory to mount, if any.
         #[clap(short, long, help = "If given, mounts the '/logs/profile' directories in the instance container(s) to the same (given) directory on the host. Use this to effectively reach the profile files.")]
         profile_dir : Option<PathBuf>,
@@ -350,8 +353,8 @@ async fn main() {
             
         },
 
-        CtlSubcommand::Start{ exe, file, docker_socket, docker_version, version, mode, profile_dir, kind, } => {
-            if let Err(err) = lifetime::start(exe, file, docker_socket, docker_version, version, args.node_config, mode, profile_dir, *kind).await { error!("{}", err); std::process::exit(1); }
+        CtlSubcommand::Start{ exe, file, docker_socket, docker_version, version, mode, skip_import, profile_dir, kind, } => {
+            if let Err(err) = lifetime::start(exe, file, docker_socket, docker_version, version, args.node_config, mode, skip_import, profile_dir, *kind).await { error!("{}", err); std::process::exit(1); }
         },
         CtlSubcommand::Stop{ exe, file } => {
             if let Err(err) = lifetime::stop(exe, file, args.node_config) { error!("{}", err); std::process::exit(1); }

@@ -4,7 +4,7 @@
 //  Created:
 //    19 Sep 2022, 14:57:17
 //  Last edited:
-//    22 Feb 2023, 15:38:20
+//    23 Feb 2023, 14:24:44
 //  Auto updated?
 //    Yes
 // 
@@ -52,6 +52,11 @@ use crate::errors::ExecuteError;
 /***** CONSTANTS *****/
 /// Defines the prefix to the Docker image tar's manifest config blob (which contains the image digest)
 pub(crate) const MANIFEST_CONFIG_PREFIX: &str = "blobs/sha256/";
+
+/// Defines an _alternative_ postfix to the Docker image tar's manifest config blob (which contains the image digest).
+/// 
+/// This one is actually used in saved images.
+pub(crate) const MANIFEST_CONFIG_POSTFIX: &str = ".json";
 
 
 
@@ -761,6 +766,11 @@ pub async fn get_digest(path: impl AsRef<Path>) -> Result<String, Error> {
             let digest = if manifest.config.starts_with(MANIFEST_CONFIG_PREFIX) {
                 let mut digest = String::from("sha256:");
                 digest.push_str(&manifest.config[MANIFEST_CONFIG_PREFIX.len()..]);
+                digest
+            } else if manifest.config.ends_with(MANIFEST_CONFIG_POSTFIX) {
+                let config_len: usize = manifest.config.len();
+                let mut digest = String::from("sha256:");
+                digest.push_str(&manifest.config[..config_len - MANIFEST_CONFIG_PREFIX.len()]);
                 digest
             } else {
                 return Err(Error::ImageTarIllegalDigest{ path: path.to_path_buf(), entry: entry_path, digest: manifest.config });

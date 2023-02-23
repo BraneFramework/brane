@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    15 Feb 2023, 11:55:43
+//    23 Feb 2023, 16:05:19
 //  Auto updated?
 //    Yes
 // 
@@ -379,6 +379,7 @@ fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl
 /// - `version`: The Brane version to start.
 /// - `node_config_path`: The path to the node config file to potentially override.
 /// - `mode`: The mode ('release' or 'debug', typically) to resolve certain image sources with.
+/// - `skip_import`: If true, then this command will not import any images.
 /// - `profile`: Whether the profile folder should be mounted and, if so, where.
 /// - `command`: The `StartSubcommand` that carries additional information, including which of the node types to launch.
 /// 
@@ -387,7 +388,7 @@ fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl
 /// 
 /// # Errors
 /// This function errors if we failed to run the `docker-compose` command or if we failed to assert that the given command matches the node kind of the `node.yml` file on disk.
-pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, profile_dir: Option<PathBuf>, command: StartSubcommand) -> Result<(), Error> {
+pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, skip_import: bool, profile_dir: Option<PathBuf>, command: StartSubcommand) -> Result<(), Error> {
     let exe              : &str    = exe.as_ref();
     let file             : PathBuf = file.into();
     let node_config_path : PathBuf = node_config_path.into();
@@ -416,18 +417,20 @@ pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket
             let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hosts, profile_dir)?;
 
             // Map the images & load them
-            let images: HashMap<&'static str, ImageSource> = HashMap::from([
-                ("aux-scylla", aux_scylla),
-                ("aux-kafka", aux_kafka),
-                ("aux-zookeeper", aux_zookeeper),
-                ("aux-xenon", aux_xenon),
+            if !skip_import {
+                let images: HashMap<&'static str, ImageSource> = HashMap::from([
+                    ("aux-scylla", aux_scylla),
+                    ("aux-kafka", aux_kafka),
+                    ("aux-zookeeper", aux_zookeeper),
+                    ("aux-xenon", aux_xenon),
 
-                ("brane-prx", resolve_mode(brane_prx, &mode)),
-                ("brane-api", resolve_mode(brane_api, &mode)),
-                ("brane-drv", resolve_mode(brane_drv, &mode)),
-                ("brane-plr", resolve_mode(brane_plr, &mode)),
-            ]);
-            load_images(&docker, images, &version).await?;
+                    ("brane-prx", resolve_mode(brane_prx, &mode)),
+                    ("brane-api", resolve_mode(brane_api, &mode)),
+                    ("brane-drv", resolve_mode(brane_drv, &mode)),
+                    ("brane-plr", resolve_mode(brane_plr, &mode)),
+                ]);
+                load_images(&docker, images, &version).await?;
+            }
 
             // Construct the environment variables
             let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
@@ -450,12 +453,14 @@ pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket
             let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hosts, profile_dir)?;
 
             // Map the images & load them
-            let images: HashMap<&'static str, ImageSource> = HashMap::from([
-                ("brane-prx", resolve_mode(brane_prx, &mode)),
-                ("brane-reg", resolve_mode(brane_reg, &mode)),
-                ("brane-job", resolve_mode(brane_job, &mode)),
-            ]);
-            load_images(&docker, images, &version).await?;
+            if !skip_import {
+                let images: HashMap<&'static str, ImageSource> = HashMap::from([
+                    ("brane-prx", resolve_mode(brane_prx, &mode)),
+                    ("brane-reg", resolve_mode(brane_reg, &mode)),
+                    ("brane-job", resolve_mode(brane_job, &mode)),
+                ]);
+                load_images(&docker, images, &version).await?;
+            }
 
             // Construct the environment variables
             let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
