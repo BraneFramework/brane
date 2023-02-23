@@ -10,6 +10,7 @@ All notable changes to the Brane framework will be documented in this file.
 - Support for generating certificates in `branectl` with the `generate certs`-subcommand.
   - _technically_ this is a breaking change because we changes the location of the command from toplevel to be nested under `generate`, but since it was not implemented we don't mark it as such.
 - The `--trace` flag to `branectl` that unlocks even more detailled logs.
+- Support for compiling `branectl` containerized, to meet `GLIBC` requirements.
 
 ### Changed
 - Protobuf descriptions to be in pure Rust instead of `.proto` files. This should allow use to re-use Rust structs in a more ergonimic style, as well as get rid of the very annoying `protoc` dependency.

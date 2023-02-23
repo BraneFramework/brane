@@ -5,7 +5,7 @@
 # Created:
 #   09 Jun 2022, 12:20:28
 # Last edited:
-#   24 Jan 2023, 16:35:35
+#   23 Feb 2023, 13:36:40
 # Auto updated?
 #   Yes
 #
@@ -32,14 +32,11 @@ import urllib.request
 
 
 ##### CONSTANTS #####
-# The version of Brane for which this make script is made
-# Only relevant when downloading files
-VERSION = "1.0.0"
-
 # List of services that live in the control part of an instance
 CENTRAL_SERVICES = [ "prx", "api", "drv", "plr" ]
 # List of auxillary services in the control part of an instance
-AUX_CENTRAL_SERVICES = [ "scylla", "kafka", "zookeeper", "xenon" ]
+# At least, the ones we have to build.
+AUX_CENTRAL_SERVICES = [ "xenon" ]
 # List of services that live in a worker node in an instance
 WORKER_SERVICES = [ "prx", "job", "reg" ]
 # List of auxillary services in a worker node in an instance
@@ -251,7 +248,6 @@ def resolve_args(text: str, args: argparse.Namespace) -> str:
         - `$DOCKER_ARCH` with a Docker-appropriate identifier for the architecture (based on the '--arch' flag)
         - `$JUICEFS_ARCH` with a JuiceFS-appropriate identifier for the architecture (based on the '--arch' flag)
         - `$CWD` with the current working directory (based on what `os.getcwd()` reports)
-        - `$VERSION` with the script's target Brane version (based on the '--version' flag)
     """
 
     return text \
@@ -262,8 +258,7 @@ def resolve_args(text: str, args: argparse.Namespace) -> str:
         .replace("$RUST_ARCH", args.arch.to_rust()) \
         .replace("$DOCKER_ARCH", args.arch.to_docker()) \
         .replace("$JUICEFS_ARCH", args.arch.to_juicefs()) \
-        .replace("$CWD", os.getcwd()) \
-        .replace("$VERSION", args.version)
+        .replace("$CWD", os.getcwd())
 
 def cache_outdated(args: argparse.Namespace, file: str, is_src: bool) -> bool:
     """
@@ -382,7 +377,7 @@ def flags_changed(args: argparse.Namespace, name: str) -> bool:
 
         Flags examined are:
         - `--dev`
-        - `--down`
+        - `--con`
     """
 
     # Get absolute version of the hash_cache
@@ -397,7 +392,7 @@ def flags_changed(args: argparse.Namespace, name: str) -> bool:
     # Attempt to read the cache file
     cached: dict[str, typing.Any] = {
         "dev": None,
-        "down": None,
+        "con": None,
     }
     try:
         with open(fsrc, "r") as h:
@@ -421,8 +416,8 @@ def flags_changed(args: argparse.Namespace, name: str) -> bool:
                 # Split on the flag to parse further
                 if flag == "dev":
                     cached["dev"] = value.lower() == "true"
-                elif flag == "down":
-                    cached["down"] = value.lower() == "true"
+                elif flag == "con":
+                    cached["con"] = value.lower() == "true"
 
     except IOError as e:
         pwarning(f"Could not read flags cache file '{fsrc}': {e} (assuming target is outdated)")
@@ -453,7 +448,7 @@ def update_flags(args: argparse.Namespace, name: str):
     # Set the values
     cached = {
         "dev": args.dev,
-        "down": args.down,
+        "con": args.con,
     }
 
     # Write it
@@ -549,158 +544,6 @@ def get_image_digest(path: str) -> str:
 
 
 ##### HELPER CLASSES #####
-class ProgressBar:
-    """
-        Class that shows a simply progress bar on the CLI.
-    """
-
-    _width     : int
-    _i         : int
-    _max       : int
-    _prefix    : str
-    _draw_time : float
-    _last_draw : float
-
-
-    def __init__(self, start: int=0, stop: int=99, prefix: str="", width: int | None = None, draw_time: float=0.5) -> None:
-        """
-            Constructor for the ProgressBar class.
-
-            Arguments:
-            - `start`: The start value of the progressbar (before calling update() or set()).
-            - `stop`: The end value. As soon as update() or set() pushes the value equal to (or above) this one, the progress bar will reach 100%.
-            - `prefix`: Some extra text to preview at the start of the bar.
-            - `width`: The width (in characters) or the progress bar. If 'None', tries to deduce it automatically (using ).
-            - `draw_time`: The time (in seconds) between two draw calls.
-        """
-
-        # Deduce the wdith
-        if width is None:
-            if hasattr(sys.stdout, 'isatty') and sys.stdout.isatty():
-                width = os.get_terminal_size().columns
-            else:
-                width = 80
-
-        # Set the values
-        self._width     = width
-        self._i         = start
-        self._max       = stop
-        self._prefix    = prefix
-        self._last_bin  = -10
-        self._draw_time = draw_time
-        self._last_draw = 0
-
-
-
-    def should_draw(self) -> bool:
-        """
-            Returns whether the ProgressBar's default timeout has passed.
-        """
-
-        return time.time() - self._last_draw > self._draw_time
-
-
-
-    def draw(self) -> None:
-        """
-            Re-draws the progress bar by going to the start of the line (using '\r') and drawing it.
-
-            Any potential 'draw timing' (i.e., only updating the terminal every half a second or so) should be done when calling this function.
-        """
-
-        # Switch on whether the terminal is a tty
-        if hasattr(sys.stdout, 'isatty') and sys.stdout.isatty():
-            # Compute the non-prefix width
-            width = self._width - len(self._prefix)
-
-            # Write the prefix first
-            print(f"\r{self._prefix}", end="")
-
-            # Write the start of the bar
-            if width < 1: return
-            print(f"[", end="")
-
-            # Now write the bar itself to a string of the appropriate height
-            if width > 2:
-                bar_end = int((self._i / self._max) * (width - 2)) if self._i < self._max else (width - 2)
-                bar = "=" * bar_end + " " * ((width - 2) - bar_end)
-
-                # Overwrite the middle part with the progress percentage
-                percentage = self._i / self._max * 100
-                spercentage = f"{percentage:.1f}%"
-                if len(bar) >= len(spercentage):
-                    percentage_start = (len(bar) // 2) - (len(spercentage) // 2)
-                    bar = bar[:percentage_start] + spercentage + bar[percentage_start + len(spercentage):]
-                print(bar, end="")
-
-            # Write the end thingy
-            if width < 2: return
-            print(f"]", end="")
-        else:
-            # Simply write the progress bin we just reached
-            percentage = self._i / self._max * 100
-            if percentage - self._last_bin >= 10:
-                self._last_bin += 10
-                print(f"{self._prefix if self._last_bin < 0 else ''}{self._last_bin}{'...' if self._last_bin < 100 else ''}", end="")
-
-        # Don't forget to flush stdout
-        sys.stdout.flush()
-
-    def update(self, step=1, force_draw=False) -> None:
-        """
-            Updates the progress bar with the given number of steps (i.e., relative update).
-
-            If `force_draw` is False, only redraws every half second. Otherwise, always draws when update() is called.
-        """
-
-        # Update the value
-        self._i += step
-        if self._i < 0: self._i = 0
-        if self._i > self._max: self._i = self._max
-
-        # Redraw if necessary
-        if force_draw or self.should_draw():
-            self.draw()
-            self._last_draw = time.time()
-
-    def update_to(self, i, force_draw=False) -> None:
-        """
-            Sets the progress bar to the given amount of value (i.e., absolute update).
-
-            If `force_draw` is False, only redraws every half second. Otherwise, always draws when update() is called.
-        """
-
-        # Update the value
-        self._i = i
-        if self._i < 0: self._i = 0
-        if self._i > self._max: self._i = self._max
-
-        # Redraw if necessary
-        if force_draw or self.should_draw():
-            self.draw()
-            self._last_draw = time.time()
-
-    def stop(self) -> None:
-        """
-            Stops the progress bar by writing a newline.
-
-            Always draws, then stops drawing forever.
-        """
-
-        self._i = self._max
-        self.draw()
-        self._last_draw = sys.maxsize * 2 + 1
-        print()
-
-
-
-    def update_prefix(self, prefix) -> None:
-        """
-            Changes the prefix before the progress bar.
-        """
-
-        self._prefix = prefix
-
 class CargoTomlParser:
     """
         Parses a given file as if it were a Cargo.toml file.
@@ -2746,110 +2589,6 @@ class CrateTarget(Target):
         # Done
         return [ cmd ]
 
-class DownloadTarget(Target):
-    """
-        Defines a build target that downloads a file.
-    """
-
-    _addr : str
-
-
-    def __init__(self, name: str, output: str, address: str, deps: typing.List[str] = [], description: str = "") -> None:
-        """
-            Constructor for the DownloadTarget class.
-
-            Arguments:
-            - `name`: The name of the target. Only used within this script to reference it later.
-            - `output`: The location of the downloaded file.
-            - `address`: The address to pull the file from. Supports being redirected.
-            - `deps`: A list of dependencies for the Target. If any of these strong dependencies needs to be recompiled _any_ incurred changes, then this Target will be rebuild as well.
-            - `description`: If a non-empty string, then it's a description of the target s.t. it shows up in the list of all Targets.
-        """
-
-        # Set the toplevel stuff
-        super().__init__(name, [], {}, [ output ], deps, description)
-
-        # Store the address and the getter (the output is the only destination file for this Target)
-        self._addr = address
-
-
-
-    def _is_outdated(self, _args: argparse.Namespace) -> bool:
-        """
-            The DownloadTarget is always outdated, since we don't know anything about the source before downloading.
-
-            We will probably do something more clever in the future, though.
-        """
-
-        pdebug(f"Target '{self.name}' is marked as outdated because it relies on a to-be-downloaded asset")
-        return True
-
-    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
-        """
-            Returns the commands to run to build the target given the given
-            architecture and release mode.
-
-            Will raise errors if it somehow fails to do so.
-        """
-
-        # Define the function that downloads the file
-        addr    = resolve_args(self._addr, args)
-        outfile = resolve_args(self._dsts[0], args)
-        def get_file() -> int:
-            res = urllib.request.urlopen(addr)
-
-            # Run the request
-            try:
-                with open(outfile, "wb") as f:
-                    # Make sure it succeeded
-                    if res.status != 200:
-                        cancel(f"Failed to download file: server returned exit code {res.status} ({http.client.responses[res.status]}): {res.reason}")
-
-                    # Iterate over the result
-                    print(f"   (File size: {to_bytes(int(res.headers['Content-length']))})")
-                    prgs = ProgressBar(stop=int(res.headers['Content-length']), prefix=" " * 13)
-                    chunk_start = time.time()
-                    chunk = res.read(65535)
-                    while(len(chunk) > 0):
-                        # Write the chunk (timed)
-                        chunk_time = time.time() - chunk_start
-                        f.write(chunk)
-                        chunk_start = time.time()
-
-                        # Update the progressbar
-                        prgs.update_prefix(f"   {to_bytes(int(len(chunk) * (1 / chunk_time))).rjust(10)}/s ")
-                        prgs.update(len(chunk))
-
-                        # Fetch the next chunk
-                        chunk = res.read(65535)
-                    prgs.stop()
-
-            # # Catch request Errors
-            # except urllib.request.exceptions.RequestException as e:
-            #     cancel(f"Failed to download file: {e}", code=e.errno)
-
-            # Catch IO Errors
-            except IOError as e:
-                cancel(f"Failed to download file: {e}", code=e.errno)
-
-            # Catch KeyboardInterrupt
-            except KeyboardInterrupt as e:
-                print("\n > Rolling back file download...")
-                try:
-                    os.remove(outfile)
-                except IOError as e2:
-                    pwarning(f"Failed to rollback file: {e2}")
-                raise e
-
-            # Done
-            return 0
-
-        # Wrap the function in a command
-        cmd = PseudoCommand(f"Downloading '{addr}' to '{outfile}'...", get_file)
-
-        # Now return it + the command to make the thing executable
-        return [ cmd, ShellCommand("chmod", "+x", outfile) ]
-
 class ImageTarget(Target):
     """
         Target that builds an image according to a Dockerfile.
@@ -2916,50 +2655,6 @@ class ImageTarget(Target):
 
         # Return the commands to run
         return [ mkdir, build ]
-
-class ImagePullTarget(Target):
-    """
-        Defines a build target that saves an image from a remote repository to a local .tar file.
-    """
-
-    _registry : str
-
-
-    def __init__(self, name: str, output: str, registry: str, deps: typing.List[str] = [], description: str = "") -> None:
-        """
-            Constructor for the DownloadTarget class.
-
-            Arguments:
-            - `name`: The name of the target. Only used within this script to reference it later.
-            - `output`: The location of the downloaded file.
-            - `registry`: The Docker `registry/image:tag` identifier that describes the container to download.
-            - `deps`: A list of dependencies for the Target. If any of these strong dependencies needs to be recompiled _any_ incurred changes, then this Target will be rebuild as well.
-            - `description`: If a non-empty string, then it's a description of the target s.t. it shows up in the list of all Targets.
-        """
-
-        # Set the toplevel stuff
-        super().__init__(name, [], {}, [ output ], deps, description)
-
-        # Store the address and the getter (the output is the only destination file for this Target)
-        self._registry = registry
-
-
-
-    def _cmds(self, args: argparse.Namespace) -> typing.List[Command]:
-        """
-            Returns the commands to run to build the target given the given
-            architecture and release mode.
-
-            Will raise errors if it somehow fails to do so.
-        """
-
-        # Generate the three commands
-        mkdir = ShellCommand("mkdir", "-p", f"{os.path.dirname(self._dsts[0])}")
-        pull  = ShellCommand("docker", "pull", f"{self._registry}")
-        save  = ShellCommand("docker", "save", "--output", f"{self._dsts[0]}", f"{self._registry}")
-
-        # Return them
-        return [ mkdir, pull, save ]
 
 class InContainerTarget(Target):
     """
@@ -3265,29 +2960,25 @@ targets = {
                 dsts=["./target/containers/x86_64-unknown-linux-musl/release/brane"],
                 deps=["install-build-image"],
             ),
-            False : EitherTarget("cli-not-con",
-                "down", {
-                    True  : DownloadTarget("cli-download",
-                        "./target/$RELEASE/brane", "https://github.com/epi-project/brane/releases/download/v$VERSION/brane-$OS-$ARCH"
-                    ),
-                    False : CrateTarget("cli-compiled",
-                        "brane-cli", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=False
-                    )
-                },
+            False : CrateTarget("cli-compiled",
+                "brane-cli", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=False
             ),
         },
-        description = "Builds the Brane Command-Line Interface (Brane CLI). You may use '--precompiled' to download it from the internet instead."
+        description = "Builds the Brane Command-Line Interface (Brane CLI). You may use '--containerized' to build it in a container."
     ),
     "ctl" : EitherTarget("ctl",
-        "down", {
-            True  : DownloadTarget("ctl-download",
-                "./target/$RELEASE/brane", "https://github.com/epi-project/brane/releases/download/v$VERSION/branectl-$OS-$ARCH"
+        "con", {
+            True  : InContainerTarget("ctl-con",
+                "brane-build", volumes=[ ("$CWD", "/build") ], command=["brane-ctl", "--arch", "$ARCH"],
+                keep_alive=True,
+                dsts=["./target/containers/x86_64-unknown-linux-musl/release/branectl"],
+                deps=["install-build-image"],
             ),
             False : CrateTarget("ctl-compiled",
                 "brane-ctl", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=False,
             )
         },
-        description = "Builds the Brane Command-Line Interface (Brane CLI). You may use '--precompiled' to download it from the internet instead."
+        description = "Builds the Brane Command-Line Tool (Brane CTL). You may use '--containerized' to build it in a container."
     ),
     "cc" : EitherTarget("cc",
         "con", {
@@ -3297,64 +2988,23 @@ targets = {
                 dsts=["./target/containers/x86_64-unknown-linux-musl/release/branec"],
                 deps=["install-build-image"],
             ),
-            False : EitherTarget("cc-not-con",
-                "down", {
-                    True  : DownloadTarget("cc-download",
-                        "./target/$RELEASE/branec", "https://github.com/epi-project/brane/releases/download/v$VERSION/branec-$OS-$ARCH",
-                    ),
-                    False : CrateTarget("cc-compiled",
-                        "brane-cc", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=False,
-                    ),
-                },
+            False : CrateTarget("cc-compiled",
+                "brane-cc", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=False,
             ),
         },
-        description = "Builds the Brane Command-Line Compiler (Brane CC). You may use '--precompiled' to download it from the internet instead, or '--containerized' to build it in a container."
+        description = "Builds the Brane Command-Line Compiler (Brane CC). You may use '--containerized' to build it in a container."
     ),
     "branelet" : CrateTarget("branelet",
         "brane-let", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=True,
         description = "Builds the Brane in-package executable, for use with the `build --init` command in the CLI."
     ),
-    "download-instance": DownloadTarget("download-instance",
-        "./target/release/brane-central-$ARCH.tar.gz", "https://github.com/epi-project/brane/releases/download/v$VERSION/brane-central-$ARCH.tar.gz",
-        description="Downloads the container images that comprise the central Brane instance."
+    "instance" : VoidTarget("instance",
+        deps=[ f"{svc}-image" for svc in CENTRAL_SERVICES ] + [ f"{svc}-image" for svc in AUX_CENTRAL_SERVICES ],
+        description="Builds the container images that comprise a central node in a Brane instance."
     ),
-    "instance" : EitherTarget("instance",
-        "down", {
-            True: ShellTarget("instance-download",
-                [
-                    ShellCommand("tar", "-xzf", "$CWD/target/release/brane-central-$ARCH.tar.gz", cwd="./target/$RELEASE/"),
-                    ShellCommand("bash", "-c", "cp ./target/$RELEASE/$ARCH/* ./target/$RELEASE"),
-                ],
-                srcs_deps={ "download-instance": [ "./target/release/brane-central-$ARCH.tar.gz" ] },
-                dsts=[ f"./target/$RELEASE/brane-{svc}.tar" for svc in CENTRAL_SERVICES ],
-                deps=[ "download-instance" ]
-            ),
-            False: VoidTarget("instance-compiled",
-                deps=[ f"{svc}-image" for svc in CENTRAL_SERVICES ] + [ f"{svc}-image" for svc in AUX_CENTRAL_SERVICES ],
-            ),
-        },
-        description="Either builds or downloads the container images that comprise the central node of a Brane instance (depending on whether '--download' is given)."
-    ),
-    "download-worker-instance": DownloadTarget("download-worker-instance",
-        "./target/release/brane-worker-$ARCH.tar.gz", "https://github.com/epi-project/brane/releases/download/v$VERSION/brane-worker-$ARCH.tar.gz",
-        description="Downloads the container images that comprise a worker node in the Brane instance."
-    ),
-    "worker-instance" : EitherTarget("worker-instance",
-        "down", {
-            True: ShellTarget("worker-instance-download",
-                [
-                    ShellCommand("tar", "-xzf", "$CWD/target/release/brane-worker-$ARCH.tar.gz", cwd="./target/$RELEASE/"),
-                    ShellCommand("bash", "-c", "cp ./target/$RELEASE/$ARCH/* ./target/$RELEASE"),
-                ],
-                srcs_deps={ "download-worker-instance": [ "./target/release/brane-worker-$ARCH.tar.gz" ] },
-                dsts=[ f"./target/$RELEASE/brane-{svc}.tar" for svc in WORKER_SERVICES ],
-                deps=[ "download-worker-instance" ]
-            ),
-            False: VoidTarget("worker-instance-compiled",
-                deps=[ f"{svc}-image" for svc in WORKER_SERVICES ] + [ f"{svc}-image" for svc in AUX_WORKER_SERVICES ],
-            ),
-        },
-        description="Either builds or downloads the container images that comprise a worker node in the Brane instance (depending on whether '--download' is given)."
+    "worker-instance" : VoidTarget("worker-instance",
+        deps=[ f"{svc}-image" for svc in WORKER_SERVICES ] + [ f"{svc}-image" for svc in AUX_WORKER_SERVICES ],
+        description="Builds the container images that comprise a worker node in a Brane instance."
     ),
 
 
@@ -3384,27 +3034,13 @@ targets = {
         dep="cc",
         description="Installs the compiler executable to the '/usr/local/bin' directory."
     ),
-    "install-instance" : EitherTarget("install-instance",
-        "down", {
-            True: VoidTarget("install-instance-download",
-                deps=[ "instance" ],
-            ),
-            False: VoidTarget("install-instance-compiled",
-                deps=[ f"install-{svc}-image" for svc in CENTRAL_SERVICES ] + [ f"install-{svc}-image" for svc in AUX_CENTRAL_SERVICES ],
-            ),
-        },
-        description="Installs the central node of a Brane instance by loading the compiled or downloaded images into the local Docker engine."
+    "install-instance" : VoidTarget("install-instance",
+        deps=[ f"install-{svc}-image" for svc in CENTRAL_SERVICES ] + [ f"install-{svc}-image" for svc in AUX_CENTRAL_SERVICES ],
+        description="Installs the central node of a Brane instance by loading the compiled images into the local Docker engine."
     ),
-    "install-worker-instance" : EitherTarget("install-instance",
-        "down", {
-            True: VoidTarget("install-worker-instance-download",
-                deps=[ "worker-instance" ],
-            ),
-            False: VoidTarget("install-instance-worker-compiled",
-                deps=[ f"install-{svc}-image" for svc in WORKER_SERVICES ] + [ f"install-{svc}-image" for svc in AUX_WORKER_SERVICES ],
-            ),
-        },
-        description="Installs a worker node of a Brane instance by loading the compiled or downloaded images into the local Docker engine."
+    "install-worker-instance" : VoidTarget("install-worker-instance",
+        deps=[ f"install-{svc}-image" for svc in WORKER_SERVICES ] + [ f"install-{svc}-image" for svc in AUX_WORKER_SERVICES ],
+        description="Installs a worker node of a Brane instance by loading the compiled images into the local Docker engine."
     ),
 }
 
@@ -3451,52 +3087,7 @@ for svc in CENTRAL_SERVICES + WORKER_SERVICES:
 
 for svc in AUX_CENTRAL_SERVICES + AUX_WORKER_SERVICES:
     # We might do different things
-    if svc == "scylla":
-        # We generate the image tar using an image pull target
-        targets[f"{svc}-image"] = ImagePullTarget(f"{svc}-image",
-            f"./target/release/aux-{svc}.tar",
-            "scylladb/scylla:4.6.3",
-            description=f"Saves the container image for the aux-{svc} auxillary service to a .tar file."
-        )
-
-        # Then generate the install target
-        targets[f"install-{svc}-image"] = InstallImageTarget(f"install-{svc}-image",
-            f"./target/release/aux-{svc}.tar", f"aux-{svc}",
-            dep=f"{svc}-image",
-            description=f"Installs the aux-{svc} image by loading it into the local Docker engine."
-        )
-
-    elif svc == "kafka":
-        # We generate the image tar using an image pull target
-        targets[f"{svc}-image"] = ImagePullTarget(f"{svc}-image",
-            f"./target/release/aux-{svc}.tar",
-            "ubuntu/kafka:3.1-22.04_beta",
-            description=f"Saves the container image for the aux-{svc} auxillary service to a .tar file."
-        )
-
-        # Then generate the install target
-        targets[f"install-{svc}-image"] = InstallImageTarget(f"install-{svc}-image",
-            f"./target/release/aux-{svc}.tar", f"aux-{svc}",
-            dep=f"{svc}-image",
-            description=f"Installs the aux-{svc} image by loading it into the local Docker engine."
-        )
-
-    elif svc == "zookeeper":
-        # We generate the image tar using an image pull target
-        targets[f"{svc}-image"] = ImagePullTarget(f"{svc}-image",
-            f"./target/release/aux-{svc}.tar",
-            "ubuntu/zookeeper:3.1-22.04_beta",
-            description=f"Saves the container image for the aux-{svc} auxillary service to a .tar file."
-        )
-
-        # Then generate the install target
-        targets[f"install-{svc}-image"] = InstallImageTarget(f"install-{svc}-image",
-            f"./target/release/aux-{svc}.tar", f"aux-{svc}",
-            dep=f"{svc}-image",
-            description=f"Installs the aux-{svc} image by loading it into the local Docker engine."
-        )
-
-    elif svc == "xenon":
+    if svc == "xenon":
         # Generate the service image build target
         targets[f"{svc}-image"] = ImageTarget(f"{svc}-image",
             f"./contrib/images/Dockerfile.xenon", f"./target/release/aux-{svc}.tar", build_args={ "JUICEFS_ARCH": "$JUICEFS_ARCH" },
@@ -3820,13 +3411,11 @@ if __name__ == "__main__":
     # Define things that influence the compilation mode
     parser.add_argument("target", nargs="*", help="The target to build. Use '--targets' to see a complete list.")
     parser.add_argument("--dev", "--development", action="store_true", help="If given, builds the binaries and images in development mode. This adds debug symbols to binaries, enables extra debug prints and (in the case of the instance) enables an optimized, out-of-image building procedure. Will result in _much_ larger images.")
-    parser.add_argument("--down", "--download", action="store_true", help="If given, will download (some of) the binaries instead of compiling them. Specifically, downloads a CLI binary and relevant instance images. Ignored for other targets/binaries.")
     parser.add_argument("--con", "--containerized", action="store_true", help=f"If given, will compile (some of) the binaries in a container instead of cross-compiling them.")
     parser.add_argument("-f", "--force", action="store_true", help=f"If given, forces recompilation of all assets (regardless of whether they have been build before or not). Note that this does not clear any Cargo or Docker cache, so they might still consider your source to be cached (run `{sys.argv[0] if len(sys.argv) >= 1 else 'make.py'} clean` to clear those caches).")
     parser.add_argument("-d", "--dry-run", action="store_true", help=f"If given, skips the effects of compiling the assets, only simulating what would be done (implies '--debug').")
 
     # Define settings
-    parser.add_argument("-v", "--version", default=VERSION, help=f"Determines the version of Brane executables to download. If not downloading, then this flag is ignored and the current source files are used instead.")
     parser.add_argument("-o", "--os", help=f"Determines the OS for which to compile. Only relevant for the Brane-CLI. By default, will be the host's OS (host OS: '{Os.host()}')")
     parser.add_argument("-a", "--arch", help=f"The target architecture for which to compile. By default, will be the host's architecture (host architecture: '{Arch.host()}')")
     parser.add_argument("-c", "--cache", default="./target/make_cache", help="The location of the cache location for file hashes and such.")
