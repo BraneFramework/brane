@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    23 Feb 2023, 16:05:19
+//    27 Feb 2023, 13:56:11
 //  Auto updated?
 //    Yes
 // 
@@ -15,9 +15,11 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs::File;
+use std::io::Write;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::str::FromStr as _;
 
 use bollard::Docker;
 use console::style;
@@ -126,6 +128,72 @@ fn resolve_mode(source: impl AsRef<ImageSource>, mode: impl AsRef<str>) -> Image
 #[inline]
 fn resolve_exe(exe: impl AsRef<str>) -> Result<(String, Vec<String>), Error> {
     shlex::split(exe.as_ref()).map(|mut args| (args.remove(0), args)).ok_or_else(|| Error::ExeParseError{ raw: exe.as_ref().into() })
+}
+
+/// Resolve the given Docker Compose file either by using the given one, or using the baked-in one.
+/// 
+/// # Arguments
+/// - `file`: The path given by the user.
+/// - `kind`: The kind of this node.
+/// - `version`: The Brane version for which we are resolving.
+/// 
+/// # Returns
+/// A new path which points to a Docker Compose file that exists for sure.
+/// 
+/// # Errors
+/// This function errors if we failed to verify the given file exists, or failed to unpack the builtin file.
+fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, mut version: Version) -> Result<PathBuf, Error> {
+    // Switch on whether it exists or not
+    match file {
+        Some(file) => {
+            // It does; only verify the file exists
+            if !file.exists() { return Err(Error::DockerComposeNotFound{ path: file }); }
+            if !file.is_file() { return Err(Error::DockerComposeNotAFile{ path: file }); }
+
+            // OK
+            debug!("Using given file '{}'", file.display());
+            Ok(file)
+        },
+
+        None => {
+            // It does not; unpack the builtins
+
+            // Verify the version matches what we have
+            if version.is_latest() { version = Version::from_str(env!("CARGO_PKG_VERSION")).unwrap(); }
+            if version != Version::from_str(env!("CARGO_PKG_VERSION")).unwrap() { return Err(Error::DockerComposeNotBakedIn { kind, version }); }
+
+            // Write the target location if it does not yet exist
+            let compose_path: PathBuf = PathBuf::from("/tmp").join(format!("docker-compose-{}-{}.yml", kind, version));
+            if !compose_path.exists() {
+                debug!("Unpacking baked-in {} Docker Compose file to '{}'...", kind, compose_path.display());
+
+                // Attempt to open the target location
+                let mut handle: File = match File::create(&compose_path) {
+                    Ok(handle) => handle,
+                    Err(err)   => { return Err(Error::DockerComposeCreateError{ path: compose_path, err }); },
+                };
+
+                // Write the correct file to it
+                match kind {
+                    NodeKind::Central => {
+                        if let Err(err) = write!(handle, "{}", include_str!("../../docker-compose-central.yml")) {
+                            return Err(Error::DockerComposeWriteError{ path: compose_path, err });
+                        }
+                    },
+
+                    NodeKind::Worker => {
+                        if let Err(err) = write!(handle, "{}", include_str!("../../docker-compose-worker.yml")) {
+                            return Err(Error::DockerComposeWriteError{ path: compose_path, err });
+                        }
+                    },
+                }
+            }
+
+            // OK
+            debug!("Using baked-in file '{}'", compose_path.display());
+            Ok(compose_path)
+        },
+    }
 }
 
 /// Generate an additional, temporary `docker-compose.yml` file that adds additional hostnames and/or additional volumes.
@@ -388,11 +456,10 @@ fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl
 /// 
 /// # Errors
 /// This function errors if we failed to run the `docker-compose` command or if we failed to assert that the given command matches the node kind of the `node.yml` file on disk.
-pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, skip_import: bool, profile_dir: Option<PathBuf>, command: StartSubcommand) -> Result<(), Error> {
+pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, skip_import: bool, profile_dir: Option<PathBuf>, command: StartSubcommand) -> Result<(), Error> {
     let exe              : &str    = exe.as_ref();
-    let file             : PathBuf = file.into();
     let node_config_path : PathBuf = node_config_path.into();
-    info!("Starting node from Docker compose file '{}', defined in '{}'", file.display(), node_config_path.display());
+    info!("Starting node from Docker compose file '{}', defined in '{}'", file.as_ref().map(|f| f.display().to_string()).unwrap_or_else(|| "<baked-in>".into()), node_config_path.display());
 
     // Start by loading the node config file
     debug!("Loading node config file '{}'...", node_config_path.display());
@@ -400,6 +467,10 @@ pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket
         Ok(config) => config,
         Err(err)   => { return Err(Error::NodeConfigLoadError{ err }); },
     };
+
+    // Resolve the Docker Compose file
+    debug!("Resolving Docker Compose file...");
+    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), version)?;
 
     // Match on the command
     match command {
@@ -491,11 +562,10 @@ pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket
 /// 
 /// # Errors
 /// This function errors if we failed to run docker-compose.
-pub fn stop(exe: impl AsRef<str>, file: impl Into<PathBuf>, node_config_path: impl Into<PathBuf>) -> Result<(), Error> {
+pub fn stop(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl Into<PathBuf>) -> Result<(), Error> {
     let exe              : &str    = exe.as_ref();
-    let file             : PathBuf = file.into();
     let node_config_path : PathBuf = node_config_path.into();
-    info!("Stopping node from Docker compose file '{}', defined in '{}'", file.display(), node_config_path.display());
+    info!("Stopping node from Docker compose file '{}', defined in '{}'", file.as_ref().map(|f| f.display().to_string()).unwrap_or_else(|| "<baked-in>".into()), node_config_path.display());
 
     // Start by loading the node config file
     debug!("Loading node config file '{}'...", node_config_path.display());
@@ -503,6 +573,10 @@ pub fn stop(exe: impl AsRef<str>, file: impl Into<PathBuf>, node_config_path: im
         Ok(config) => config,
         Err(err)   => { return Err(Error::NodeConfigLoadError{ err }); },
     };
+
+    // Resolve the Docker Compose file
+    debug!("Resolving Docker Compose file...");
+    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), Version::from_str(env!("CARGO_PKG_VERSION")).unwrap())?;
 
     // Construct the environment variables
     let envs: HashMap<&str, OsString> = construct_envs(&Version::latest(), &node_config_path, &node_config)?;

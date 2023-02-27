@@ -4,7 +4,7 @@
 //  Created:
 //    04 Oct 2022, 11:09:56
 //  Last edited:
-//    26 Jan 2023, 13:28:31
+//    27 Feb 2023, 15:19:37
 //  Auto updated?
 //    Yes
 // 
@@ -168,6 +168,22 @@ impl Display for NodeConfigError {
     }
 }
 impl Error for NodeConfigError {}
+
+/// Defines errors that may occur when parsing proxy protocol strings.
+#[derive(Debug)]
+pub enum ProxyProtocolParseError {
+    /// The protocol (version) is unknown to us.
+    UnknownProtocol{ raw: String },
+}
+impl Display for ProxyProtocolParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use ProxyProtocolParseError::*;
+        match self {
+            UnknownProtocol{ raw } => write!(f, "Unknown proxy protocol '{}'", raw),
+        }
+    }
+}
+impl Error for ProxyProtocolParseError {}
 
 
 

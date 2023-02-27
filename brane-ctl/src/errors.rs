@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    22 Feb 2023, 14:43:26
+//    27 Feb 2023, 13:48:39
 //  Auto updated?
 //    Yes
 // 
@@ -202,6 +202,17 @@ pub enum LifetimeError {
     /// Failed to resolve the executable to a list of shell arguments.
     ExeParseError{ raw: String },
 
+    /// Failed to verify the given Docker Compose file exists.
+    DockerComposeNotFound{ path: PathBuf },
+    /// Failed to verify the given Docker Compose file is a file.
+    DockerComposeNotAFile{ path: PathBuf },
+    /// Relied on a build-in for a Docker Compose version that is not the default one.
+    DockerComposeNotBakedIn{ kind: NodeKind, version: Version },
+    /// Failed to open a new Docker Compose file.
+    DockerComposeCreateError{ path: PathBuf, err: std::io::Error },
+    /// Failed to write to a Docker Compose file.
+    DockerComposeWriteError{ path: PathBuf, err: std::io::Error },
+
     /// Failed to open the extra hosts file.
     HostsFileCreateError{ path: PathBuf, err: std::io::Error },
     /// Failed to write to the extra hosts file.
@@ -230,6 +241,12 @@ impl Display for LifetimeError {
         match self {
             CanonicalizeError{ path, err } => write!(f, "Failed to canonicalize path '{}': {}", path.display(), err),
             ExeParseError{ raw }           => write!(f, "Failed to parse '{}' as a valid string of bash-arguments", raw),
+
+            DockerComposeNotFound{ path }            => write!(f, "Docker Compose file '{}' not found", path.display()),
+            DockerComposeNotAFile{ path }            => write!(f, "Docker Compose file '{}' exists but is not a file", path.display()),
+            DockerComposeNotBakedIn{ kind, version } => write!(f, "No baked-in {} Docker Compose for Brane version v{} exists (give it yourself using '--file')", kind, version),
+            DockerComposeCreateError{ path, err }    => write!(f, "Failed to create Docker Compose file '{}': {}", path.display(), err),
+            DockerComposeWriteError{ path, err }     => write!(f, "Failed to write to Docker Compose file '{}': {}", path.display(), err),
 
             HostsFileCreateError{ path, err } => write!(f, "Failed to create extra hosts file '{}': {}", path.display(), err),
             HostsFileWriteError{ path, err }  => write!(f, "Failed to write to extra hosts file '{}': {}", path.display(), err),

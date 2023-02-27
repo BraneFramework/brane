@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 11:43:56
 //  Last edited:
-//    26 Jan 2023, 09:57:16
+//    27 Feb 2023, 15:32:14
 //  Auto updated?
 //    Yes
 // 
@@ -36,11 +36,15 @@ pub enum RedirectError {
     IllegalServerName{ raw: String, err: rustls::client::InvalidDnsNameError },
     /// Failed to create a new tcp listener.
     ListenerCreateError{ address: SocketAddr, err: std::io::Error },
-    /// Failed to create a new socks client.
-    SocksCreateError{ address: Address, err: anyhow::Error },
+    /// Failed to create a new socks5 client.
+    Socks5CreateError{ address: Address, err: anyhow::Error },
+    /// Failed to create a new socks6 client.
+    Socks6CreateError{ address: Address, err: anyhow::Error },
 
     /// Failed to connect using a regular ol' TcpStream.
     TcpStreamConnectError{ address: String, err: std::io::Error },
+    /// Failed to connect using a SOCKS5 client.
+    Socks5ConnectError{ address: String, proxy: Address, err: anyhow::Error },
     /// Failed to connect using a SOCKS6 client.
     Socks6ConnectError{ address: String, proxy: Address, err: anyhow::Error },
 }
@@ -53,10 +57,12 @@ impl Display for RedirectError {
             TlsWithNonHostnameError{ kind }     => write!(f, "Got a request for TLS but with a non-hostname {} address provided", kind),
             IllegalServerName{ raw, err }       => write!(f, "Cannot parse '{}' as a valid server name: {}", raw, err),
             ListenerCreateError{ address, err } => write!(f, "Failed to create new TCP listener on '{}': {}", address, err),
-            SocksCreateError{ address, err }    => write!(f, "Failed to create new SOCKS6 client to '{}': {}", address, err),
+            Socks5CreateError{ address, err }   => write!(f, "Failed to create new SOCKS5 client to '{}': {}", address, err),
+            Socks6CreateError{ address, err }   => write!(f, "Failed to create new SOCKS6 client to '{}': {}", address, err),
 
             TcpStreamConnectError{ address, err }     => write!(f, "Failed to connect to '{}': {}", address, err),
-            Socks6ConnectError{ address, proxy, err } => write!(f, "Failed to connect to '{}' through proxy '{}': {}", address, proxy, err),
+            Socks5ConnectError{ address, proxy, err } => write!(f, "Failed to connect to '{}' through SOCKS5-proxy '{}': {}", address, proxy, err),
+            Socks6ConnectError{ address, proxy, err } => write!(f, "Failed to connect to '{}' through SOCKS6-proxy '{}': {}", address, proxy, err),
         }
     }
 }

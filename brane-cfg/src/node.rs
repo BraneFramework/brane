@@ -4,7 +4,7 @@
 //  Created:
 //    16 Nov 2022, 16:54:43
 //  Last edited:
-//    26 Jan 2023, 09:56:22
+//    27 Feb 2023, 15:24:45
 //  Auto updated?
 //    Yes
 // 
@@ -24,13 +24,86 @@ use std::str::FromStr;
 
 use enum_debug::EnumDebug;
 use serde::{Deserialize, Serialize};
+use serde::de::{self, Deserializer, Visitor};
+use serde::ser::Serializer;
 
 use specifications::address::Address;
 
 pub use crate::errors::NodeConfigError as Error;
+use crate::errors::ProxyProtocolParseError;
 
 
 /***** AUXILLARY *****/
+/// Defines the supported proxy protocols (versions).
+#[derive(Clone, Copy, Debug, EnumDebug, Eq, Hash, PartialEq)]
+pub enum ProxyProtocol {
+    /// Version 5
+    Socks5,
+    /// Version 6
+    Socks6,
+}
+impl Display for ProxyProtocol {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use ProxyProtocol::*;
+        match self {
+            Socks5 => write!(f, "SOCKS5"),
+            Socks6 => write!(f, "SOCKS6"),
+        }
+    }
+}
+impl FromStr for ProxyProtocol {
+    type Err = ProxyProtocolParseError;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "socks5" => Ok(Self::Socks5),
+            "socks6" => Ok(Self::Socks6),
+            _        => Err(ProxyProtocolParseError::UnknownProtocol { raw: s.into() }),
+        }
+    }
+}
+impl Serialize for ProxyProtocol {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+impl<'de> Deserialize<'de> for ProxyProtocol {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        /// Visitor for the ProxyProtocol.
+        struct ProxyProtocolVisitor;
+        impl<'de> Visitor<'de> for ProxyProtocolVisitor {
+            type Value = ProxyProtocol;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> FResult {
+                write!(f, "a proxy protocol identifier")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                match ProxyProtocol::from_str(v) {
+                    Ok(prot) => Ok(prot),
+                    Err(err) => Err(E::custom(err)),
+                }
+            }
+        }
+
+        // Call the visitor
+        deserializer.deserialize_str(ProxyProtocolVisitor)
+    }
+}
+
+
+
 /// Defines the possible node types.
 #[derive(Clone, Copy, Debug, EnumDebug, Eq, Hash, PartialEq)]
 pub enum NodeKind {
@@ -39,7 +112,6 @@ pub enum NodeKind {
     /// The worker node, which lives on a hospital and does all the heavy work.
     Worker,
 }
-
 impl Display for NodeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use NodeKind::*;
@@ -49,7 +121,6 @@ impl Display for NodeKind {
         }
     }
 }
-
 impl FromStr for NodeKind {
     type Err = Error;
 
@@ -74,7 +145,7 @@ pub struct NodeConfig {
     /// Defines any custom hostname -> IP mappings.
     pub hosts : HashMap<String, IpAddr>,
     /// Defines the proxy address to use for control messages, if any.
-    pub proxy : Option<Address>,
+    pub proxy : Option<ProxyConfig>,
 
     /// Defines the names of the services that occur on every kind of node.
     pub names    : CommonNames,
@@ -199,6 +270,15 @@ impl From<&mut NodeConfig> for NodeConfig {
 }
 
 
+
+/// Define configuration for control proxy traffic.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ProxyConfig {
+    /// The address of the proxy itself.
+    pub address  : Address,
+    /// The protocol that we use to communicate to the proxy.
+    pub protocol : ProxyProtocol,
+}
 
 /// Define NodeKind-specific configuration.
 #[derive(Clone, Debug, Deserialize, EnumDebug, Serialize)]

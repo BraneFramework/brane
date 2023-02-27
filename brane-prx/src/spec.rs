@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 11:02:54
 //  Last edited:
-//    26 Jan 2023, 09:57:34
+//    27 Feb 2023, 15:28:45
 //  Auto updated?
 //    Yes
 // 
@@ -19,7 +19,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use specifications::address::Address;
+use brane_cfg::node::ProxyConfig;
 
 use crate::ports::PortAllocator;
 
@@ -32,7 +32,7 @@ pub struct Context {
     pub node_config_path : PathBuf,
 
     /// The address to proxy to if at all.
-    pub proxy  : Option<Address>,
+    pub proxy  : Option<ProxyConfig>,
     /// Specificies ports we're already serving on.
     pub opened : Mutex<HashMap<(String, Option<NewPathRequestTlsOptions>), u16>>,
     /// Specificies available path ports.

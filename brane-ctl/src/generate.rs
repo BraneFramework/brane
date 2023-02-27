@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    20 Feb 2023, 12:48:01
+//    27 Feb 2023, 15:26:20
 //  Auto updated?
 //    Yes
 // 
@@ -30,7 +30,7 @@ use serde::Serialize;
 
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::backend::{BackendFile, Credentials};
-use brane_cfg::node::{CentralConfig, CentralKafkaTopics, CentralNames, CentralPaths, CentralPorts, CentralServices, CommonNames, CommonPaths, CommonPorts, CommonServices, NodeConfig, NodeKindConfig, WorkerConfig, WorkerNames, WorkerPaths, WorkerPorts, WorkerServices};
+use brane_cfg::node::{CentralConfig, CentralKafkaTopics, CentralNames, CentralPaths, CentralPorts, CentralServices, CommonNames, CommonPaths, CommonPorts, CommonServices, NodeConfig, NodeKindConfig, ProxyConfig, ProxyProtocol, WorkerConfig, WorkerNames, WorkerPaths, WorkerPorts, WorkerServices};
 use brane_cfg::policies::{ContainerPolicy, PolicyFile, UserPolicy};
 use brane_shr::fs::{download_file_async, set_executable, DownloadSecurity};
 use specifications::address::Address;
@@ -503,7 +503,7 @@ struct CfsslCsrKey {
 /// 
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Address>, fix_dirs: bool, config_path: impl Into<PathBuf>, command: GenerateNodeSubcommand) -> Result<(), Error> {
+pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Address>, proxy_protocol: ProxyProtocol, fix_dirs: bool, config_path: impl Into<PathBuf>, command: GenerateNodeSubcommand) -> Result<(), Error> {
     let path        : PathBuf = path.into();
     let config_path : PathBuf = config_path.into();
     info!("Generating node.yml for a {}...", match &command { GenerateNodeSubcommand::Central { .. } => { "central node".into() }, GenerateNodeSubcommand::Worker{ location_id, .. } => { format!("worker node with location ID '{}'", location_id) } });
@@ -537,7 +537,10 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
             // Generate the config's contents
             NodeConfig {
                 hosts,
-                proxy,
+                proxy : proxy.map(|a| ProxyConfig {
+                    address  : a,
+                    protocol : proxy_protocol,
+                }),
 
                 names    : CommonNames{ prx : prx_name.clone() },
                 paths    : CommonPaths{ certs: canonicalize(certs)?, packages: canonicalize(packages)? },
@@ -582,7 +585,10 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
             // Generate the config's contents
             NodeConfig {
                 hosts,
-                proxy,
+                proxy : proxy.map(|a| ProxyConfig {
+                    address  : a,
+                    protocol : proxy_protocol,
+                }),
 
                 names    : CommonNames{ prx: prx_name.clone() },
                 paths    : CommonPaths{ certs: canonicalize(resolve_config_path(certs, &config_path))?, packages: canonicalize(resolve_config_path(packages, &config_path))? },

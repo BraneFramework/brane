@@ -4,7 +4,7 @@
 //  Created:
 //    23 Mar 2022, 15:15:12
 //  Last edited:
-//    14 Nov 2022, 11:37:56
+//    27 Feb 2023, 13:45:34
 //  Auto updated?
 //    Yes
 // 
@@ -275,7 +275,7 @@ impl<'de> Visitor<'de> for VersionVisitor {
 
 /***** VERSION *****/
 /// Implements the Version, which is used to keep track of package versions.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub struct Version {
     /// The major version number. If all three are set to u64::MAX, is interpreted as an unresolved 'latest' version number.
     pub major : u64,

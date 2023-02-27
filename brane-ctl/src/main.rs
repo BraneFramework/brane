@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    23 Feb 2023, 16:04:28
+//    27 Feb 2023, 15:28:24
 //  Auto updated?
 //    Yes
 // 
@@ -19,6 +19,7 @@ use dotenvy::dotenv;
 use humanlog::{DebugMode, HumanLogger};
 use log::error;
 
+use brane_cfg::node::ProxyProtocol;
 use specifications::address::Address;
 use specifications::package::Capability;
 use specifications::version::Version;
@@ -70,18 +71,18 @@ enum CtlSubcommand {
         #[clap(short, global=true, long, default_value = "docker compose", help = "The command to use to run Docker Compose.")]
         exe            : String,
         /// The docker-compose file that we start.
-        #[clap(short, global=true, long, default_value = "docker-compose-$NODE.yml", help = "The docker-compose.yml file that defines the services to start. You can use '$NODE' to match either 'central' or 'worker', depending how we started.")]
-        file           : PathBuf,
+        #[clap(short, global=true, long, help = concat!("The docker-compose.yml file that defines the services to start. You can use '$NODE' to match either 'central' or 'worker', depending how we started. If omitted, will use the baked-in counterpart (although that only works for the default version, v", env!("CARGO_PKG_VERSION") , ")."))]
+        file           : Option<PathBuf>,
 
         /// The specific Brane version to start.
         #[clap(short, long, default_value = env!("CARGO_PKG_VERSION"), help = "The Brane version to import.")]
         version : Version,
 
         /// Sets the '$MODE' variable, which can easily switch the location of compiled binaries.
-        #[clap(short, long, global=true, default_value = "release", conflicts_with = "skip-import", help = "Sets the mode ($MODE) to use in the image flags of the `start` command.")]
+        #[clap(long, global=true, default_value = "release", conflicts_with = "skip_import", help = "Sets the mode ($MODE) to use in the image flags of the `start` command.")]
         mode        : String,
         /// Whether to skip importing images or not.
-        #[clap(short, long, global=true, help = "If given, skips the import of the images. This is useful if you have already loaded the images in your Docker daemon manually.")]
+        #[clap(long, global=true, help = "If given, skips the import of the images. This is useful if you have already loaded the images in your Docker daemon manually.")]
         skip_import : bool,
         /// The profile directory to mount, if any.
         #[clap(short, long, help = "If given, mounts the '/logs/profile' directories in the instance container(s) to the same (given) directory on the host. Use this to effectively reach the profile files.")]
@@ -97,8 +98,8 @@ enum CtlSubcommand {
         #[clap(short, long, default_value = "docker compose", help = "The command to use to run Docker Compose.")]
         exe  : String,
         /// The docker-compose file that we start.
-        #[clap(short, long, default_value = "docker-compose-$NODE.yml", help = "The docker-compose.yml file that defines the services to stop. You can use '$NODE' to match either 'central' or 'worker', depending how we started.")]
-        file : PathBuf,
+        #[clap(short, long, help = concat!("The docker-compose.yml file that defines the services to stop. You can use '$NODE' to match either 'central' or 'worker', depending how we started. If omitted, will use the baked-in counterpart (although that only works for the default version, v", env!("CARGO_PKG_VERSION"), ")."))]
+        file : Option<PathBuf>,
     },
 
     #[clap(name = "version", about = "Returns the version of this CTL tool and/or the local node.")]
@@ -154,7 +155,10 @@ enum GenerateSubcommand {
         hosts : Vec<HostnamePair>,
         /// Defines any proxy node to proxy control messages through.
         #[clap(long, help = "If given, reroutes all control network traffic for this node through the given proxy.")]
-        proxy : Option<Address>,
+        proxy          : Option<Address>,
+        /// Defines the protocol of connecting to the proxy.
+        #[clap(long, default_value = "socks5", help = "The manner of connection to the remote proxy. Only has effect if the remote proxy is given (i.e., you specified '--proxy' as well).")]
+        proxy_protocol : ProxyProtocol,
 
         /// If given, will generate missing directories instead of throwing errors.
         #[clap(short='f', long, help = " If given, will generate any missing directories.")]
@@ -318,9 +322,9 @@ async fn main() {
             },
         },
         CtlSubcommand::Generate(subcommand) => match *subcommand {
-            GenerateSubcommand::Node{ hosts, proxy, fix_dirs, config_path, kind } => {
+            GenerateSubcommand::Node{ hosts, proxy, proxy_protocol, fix_dirs, config_path, kind } => {
                 // Call the thing
-                if let Err(err) = generate::node(args.node_config, hosts, proxy, fix_dirs, config_path, *kind) { error!("{}", err); std::process::exit(1); }
+                if let Err(err) = generate::node(args.node_config, hosts, proxy, proxy_protocol, fix_dirs, config_path, *kind) { error!("{}", err); std::process::exit(1); }
             },
 
             GenerateSubcommand::Certs { fix_dirs, path, temp_dir, kind } => {
