@@ -4,7 +4,7 @@
 //  Created:
 //    18 Oct 2022, 13:47:17
 //  Last edited:
-//    09 Jan 2023, 13:52:19
+//    28 Feb 2023, 18:25:23
 //  Auto updated?
 //    Yes
 // 
@@ -21,7 +21,8 @@ use log::LevelFilter;
 use log::{debug, error, info};
 use tonic::transport::Server;
 
-use brane_cfg::node::NodeConfig;
+use brane_cfg::spec::Config;
+use brane_cfg::node::{NodeConfig, WorkerConfig};
 use brane_prx::client::ProxyClient;
 use specifications::working::JobServiceServer;
 
@@ -74,7 +75,10 @@ async fn main() {
             std::process::exit(1);
         },
     };
-    if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", opts.node_config_path.display()); std::process::exit(1); }
+    let worker: WorkerConfig = match node_config.node.try_into_worker() {
+        Some(worker) => worker,
+        None         => { error!("Given NodeConfig file '{}' does not have properties for a worker node.", opts.node_config_path.display()); std::process::exit(1); },
+    };
 
     // Initialize the Xenon thingy
     // debug!("Initializing Xenon...");
@@ -85,14 +89,14 @@ async fn main() {
     let server = WorkerServer::new(
         opts.node_config_path,
         opts.keep_containers,
-        Arc::new(ProxyClient::new(node_config.services.prx)),
+        Arc::new(ProxyClient::new(worker.services.prx.address)),
     );
 
     // Start gRPC server with callback service.
-    debug!("gRPC server ready to serve on '{}'", node_config.node.worker().ports.job);
+    debug!("gRPC server ready to serve on '{}'", worker.services.job.bind);
     if let Err(err) = Server::builder()
         .add_service(JobServiceServer::new(server))
-        .serve(node_config.node.worker().ports.job)
+        .serve(worker.services.job.bind)
         .await
     {
         error!("Failed to start gRPC server: {}", err);

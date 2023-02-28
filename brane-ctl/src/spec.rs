@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    22 Feb 2023, 13:21:00
+//    28 Feb 2023, 19:12:18
 //  Auto updated?
 //    Yes
 // 
@@ -22,6 +22,7 @@ use clap::Subcommand;
 use enum_debug::EnumDebug;
 
 use brane_tsk::docker::{ClientVersion, ImageSource};
+use specifications::address::Address;
 
 use crate::errors::{ArchParseError, DockerClientVersionParseError, HostnamePairParseError, LocationPairParseError};
 
@@ -243,6 +244,10 @@ pub enum GenerateNodeSubcommand {
     /// Starts a central node.
     #[clap(name = "central", about = "Generates a node.yml file for a central node with default values.")]
     Central {
+        /// The hostname of this node.
+        #[clap(name = "HOSTNAME", help = "The hostname that other nodes in the instance can use to reach this node.")]
+        hostname : Address,
+
         /// Custom `infra.yml` path.
         #[clap(short, long, default_value = "$CONFIG/infra.yml", help = "The location of the 'infra.yml' file. Use '$CONFIG' to reference the value given by --config-path.")]
         infra    : PathBuf,
@@ -290,6 +295,9 @@ pub enum GenerateNodeSubcommand {
         /// The location ID of this node.
         #[clap(name = "LOCATION_ID", help = "The location identifier (location ID) of this node.")]
         location_id : String,
+        /// The hostname of this node.
+        #[clap(name = "HOSTNAME", help = "The hostname that other nodes in the instance can use to reach this node.")]
+        hostname    : Address,
 
         /// Custom backend file path.
         #[clap(long, default_value = "$CONFIG/backend.yml", help = "The location of the `backend.yml` file. Use `$CONFIG` to reference the value given by --config-path. ")]

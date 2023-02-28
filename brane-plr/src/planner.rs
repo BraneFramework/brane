@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    28 Feb 2023, 16:21:34
+//    28 Feb 2023, 18:55:47
 //  Auto updated?
 //    Yes
 // 
@@ -516,7 +516,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
     let group_id         : String  = group_id.into();
 
     // Ensure that the input/output topics exists.
-    let topics  : Vec<&str> = vec![ &central_config.topics.plr_cmd, &central_config.topics.plr_res ];
+    let topics  : Vec<&str> = vec![ &central_config.services.plr.cmd, &central_config.services.plr.res ];
     let brokers : String    = central_config.services.aux_kafka.address.to_string();
     if let Err(err) = ensure_topics(topics.clone(), &brokers).await {
         return Err(PlanError::KafkaTopicError{ brokers, topics: topics.into_iter().map(|t| t.into()).collect(), err });
@@ -544,7 +544,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
     };
 
     // Now restore the committed offsets
-    if let Err(err) = restore_committed_offsets(&consumer, &central_config.topics.plr_cmd) {
+    if let Err(err) = restore_committed_offsets(&consumer, &central_config.services.plr.cmd) {
         return Err(PlanError::KafkaOffsetsError{ err });
     }
 
@@ -590,14 +590,14 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
                 let mut workflow: Workflow = match serde_json::from_str(&message) {
                     Ok(workflow) => workflow,
                     Err(err)     => {
-                        error!("Failed to parse incoming message workflow on topic '{}' as Workflow JSON: {}\n\nworkflow:\n{}\n{}\n{}\n", central.topics.plr_cmd, err, (0..80).map(|_| '-').collect::<String>(), message, (0..80).map(|_| '-').collect::<String>());
+                        error!("Failed to parse incoming message workflow on topic '{}' as Workflow JSON: {}\n\nworkflow:\n{}\n{}\n{}\n", central.services.plr.cmd, err, (0..80).map(|_| '-').collect::<String>(), message, (0..80).map(|_| '-').collect::<String>());
                         return Ok(());
                     }
                 };
                 parsing.stop();
 
                 // Send that we've started planning
-                if let Err(err) = send_update(producer.clone(), &central.topics.plr_res, &id, PlanningStatus::Started(None)).await { error!("Failed to update client that planning has started: {}", err); };
+                if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Started(None)).await { error!("Failed to update client that planning has started: {}", err); };
 
                 // Load the infrastructure file
                 let index = report.time("Index retrieval");
@@ -641,7 +641,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
                         debug!("Planning main edges...");
                         if let Err(err) = alg.time_fut("<<<main>>>", plan_edges(&mut table, &mut edges, &central.services.api.address, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
                             error!("Failed to plan main edges for workflow with correlation ID '{}': {}", id, err);
-                            if let Err(err) = send_update(producer.clone(), &central.topics.plr_res, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
+                            if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
                             return Ok(());
                         };
 
@@ -662,7 +662,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
                             debug!("Planning '{}' edges...", table.funcs[*idx].name);
                             if let Err(err) = alg.time_fut(workflow.table.funcs[*idx].name.to_string(), plan_edges(&mut table, edges, &central.services.api.address, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
                                 error!("Failed to plan function '{}' edges for workflow with correlation ID '{}': {}", table.funcs[*idx].name, id, err);
-                                if let Err(err) = send_update(producer.clone(), &central.topics.plr_res, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
+                                if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
                                 return Ok(());
                             }
                         }
@@ -684,14 +684,14 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
                     Ok(splan) => splan,
                     Err(err)  => {
                         error!("Failed to serialize plan: {}", err);
-                        if let Err(err) = send_update(producer.clone(), &central.topics.plr_res, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
+                        if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
                         return Ok(());
                     },
                 };
                 ser.stop();
 
                 // Send the result
-                if let Err(err) = send_update(producer.clone(), &central.topics.plr_res, &id, PlanningStatus::Success(splan)).await { error!("Failed to update client that planning has succeeded: {}", err); }
+                if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Success(splan)).await { error!("Failed to update client that planning has succeeded: {}", err); }
                 debug!("Planning OK");
             }
 

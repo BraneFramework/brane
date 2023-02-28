@@ -4,7 +4,7 @@
 //  Created:
 //    30 Sep 2022, 11:59:58
 //  Last edited:
-//    28 Feb 2023, 16:35:44
+//    28 Feb 2023, 18:28:22
 //  Auto updated?
 //    Yes
 // 
@@ -20,7 +20,8 @@ use dotenvy::dotenv;
 use log::{debug, error, info, LevelFilter};
 use tonic::transport::Server;
 
-use brane_cfg::node::NodeConfig;
+use brane_cfg::spec::Config as _;
+use brane_cfg::node::{CentralConfig, NodeConfig};
 use brane_prx::client::ProxyClient;
 use specifications::driving::DriverServiceServer;
 

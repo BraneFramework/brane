@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    27 Feb 2023, 15:26:20
+//    28 Feb 2023, 19:15:23
 //  Auto updated?
 //    Yes
 // 
@@ -28,9 +28,10 @@ use rand::Rng as _;
 use rand::distributions::Alphanumeric;
 use serde::Serialize;
 
+use brane_cfg::spec::Config as _;
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::backend::{BackendFile, Credentials};
-use brane_cfg::node::{CentralConfig, CentralKafkaTopics, CentralNames, CentralPaths, CentralPorts, CentralServices, CommonNames, CommonPaths, CommonPorts, CommonServices, NodeConfig, NodeKindConfig, ProxyConfig, ProxyProtocol, WorkerConfig, WorkerNames, WorkerPaths, WorkerPorts, WorkerServices};
+use brane_cfg::node::{CentralConfig, CentralPaths, CentralServices, KafkaService, NodeConfig, NodeSpecificConfig, PrivateService, ProxyConfig, ProxyProtocol, PublicService, WorkerConfig, WorkerPaths, WorkerServices};
 use brane_cfg::policies::{ContainerPolicy, PolicyFile, UserPolicy};
 use brane_shr::fs::{download_file_async, set_executable, DownloadSecurity};
 use specifications::address::Address;
@@ -494,6 +495,7 @@ struct CfsslCsrKey {
 /// - `path`: The path to write the central node.yml to.
 /// - `hosts`: List of additional hostnames to set in the launched containers.
 /// - `proxy`: The address to proxy to, if any (not the address of the proxy service, but rather that of a 'real' proxy).
+/// - `proxy_protocol`: The protocol to use for the proxy. Obviously, only relevant if we are proxying (i.e., `proxy` is not None).
 /// - `fix_dirs`: if true, will generate missing directories instead of complaining.
 /// - `config_path`: The path to the config directory that other paths may use as their base.
 /// - `command`: The GenerateSubcommand that contains the specific values to write, as well as whether to write a central or worker node.
@@ -524,7 +526,14 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
     debug!("Generating node config...");
     let node_config: NodeConfig = match command {
         // Generate the central node
-        GenerateNodeSubcommand::Central { infra, certs, packages, prx_name, api_name, drv_name, plr_name, prx_port, api_port, drv_port, plr_cmd_topic, plr_res_topic } => {
+        GenerateNodeSubcommand::Central { mut hostname, infra, certs, packages, prx_name, api_name, drv_name, plr_name, prx_port, api_port, drv_port, plr_cmd_topic, plr_res_topic } => {
+            // Remove any scheme from the hostname
+            if let Address::Hostname(ref mut domain, _) = hostname {
+                if let Some(pos) = domain.find("://") {
+                    *domain = domain[pos + 3..].into();
+                }
+            }
+
             // Resolve any path depending on the '$CONFIG'
             let infra : PathBuf = resolve_config_path(infra, &config_path);
             let certs : PathBuf = resolve_config_path(certs, &config_path);
@@ -536,31 +545,75 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
 
             // Generate the config's contents
             NodeConfig {
-                hosts,
-                proxy : proxy.map(|a| ProxyConfig {
+                hostnames : hosts,
+                proxy     : proxy.map(|a| ProxyConfig {
                     address  : a,
                     protocol : proxy_protocol,
                 }),
 
-                names    : CommonNames{ prx : prx_name.clone() },
-                paths    : CommonPaths{ certs: canonicalize(certs)?, packages: canonicalize(packages)? },
-                ports    : CommonPorts{ prx : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into() },
-                services : CommonServices{ prx : Address::Hostname(format!("http://{}", prx_name), prx_port) },
-
-                node : NodeKindConfig::Central(CentralConfig {
-                    names : CentralNames{ api: api_name.clone(), drv: drv_name, plr: plr_name },
+                node : NodeSpecificConfig::Central(CentralConfig {
                     paths : CentralPaths {
+                        certs    : canonicalize(certs)?,
+                        packages : canonicalize(packages)?,
+
                         infra : canonicalize(infra)?,
                     },
-                    ports    : CentralPorts { api: SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), api_port).into(), drv: SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), drv_port).into() },
-                    services : CentralServices{ brokers: vec![ Address::Hostname("aux-kafka".into(), 9092) ], scylla: Address::Hostname("aux-scylla".into(), 9042), api: Address::Hostname(format!("http://{}", api_name), api_port) },
-                    topics   : CentralKafkaTopics{ planner_command: plr_cmd_topic, planner_results: plr_res_topic },
+
+                    services : CentralServices {
+                        api : PublicService {
+                            name    : api_name.clone(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), api_port).into(),
+                            address : Address::Hostname(format!("http://{}", api_name), api_port),
+
+                            external_address : Address::Hostname(format!("http://{}", hostname), api_port),
+                        },
+                        drv : PublicService {
+                            name    : drv_name.clone(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), drv_port).into(),
+                            address : Address::Hostname(format!("grpc://{}", drv_name), drv_port),
+
+                            external_address : Address::Hostname(format!("grpc://{}", hostname), drv_port),
+                        },
+                        plr : KafkaService {
+                            name : plr_name,
+                            cmd  : plr_cmd_topic,
+                            res  : plr_res_topic,
+                        },
+                        prx : PrivateService {
+                            name    : prx_name.clone(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
+                            address : Address::Hostname(format!("http://{}", prx_name), prx_port),
+                        },
+
+                        aux_scylla : PrivateService {
+                            name    : "aux-scylla".into(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 9042).into(),
+                            address : Address::Hostname("aux-scylla".into(), 9042),
+                        },
+                        aux_kafka : PrivateService {
+                            name    : "aux-kafka".into(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 9092).into(),
+                            address : Address::Hostname("aux-kafka".into(), 9092),
+                        },
+                        aux_zookeeper : PrivateService {
+                            name    : "aux-zookeeper".into(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 65535).into(),
+                            address : Address::Hostname("aux-zookeeper".into(), 65535),
+                        },
+                    },
                 }),
             }
         },
 
         // Generate the worker node
-        GenerateNodeSubcommand::Worker { location_id, backend, policies, certs, packages, data, results, temp_data, temp_results, prx_name, reg_name, job_name, chk_name, prx_port, reg_port, job_port, chk_port } => {
+        GenerateNodeSubcommand::Worker { location_id, mut hostname, backend, policies, certs, packages, data, results, temp_data, temp_results, prx_name, reg_name, job_name, chk_name, prx_port, reg_port, job_port, chk_port } => {
+            // Remove any scheme from the hostname
+            if let Address::Hostname(ref mut domain, _) = hostname {
+                if let Some(pos) = domain.find("://") {
+                    *domain = domain[pos + 3..].into();
+                }
+            }
+
             // Resolve the service names
             let prx_name: String = prx_name.replace("$LOCATION", &location_id);
             let reg_name: String = reg_name.replace("$LOCATION", &location_id);
@@ -584,30 +637,56 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
 
             // Generate the config's contents
             NodeConfig {
-                hosts,
-                proxy : proxy.map(|a| ProxyConfig {
+                hostnames : hosts,
+                proxy     : proxy.map(|a| ProxyConfig {
                     address  : a,
                     protocol : proxy_protocol,
                 }),
 
-                names    : CommonNames{ prx: prx_name.clone() },
-                paths    : CommonPaths{ certs: canonicalize(resolve_config_path(certs, &config_path))?, packages: canonicalize(resolve_config_path(packages, &config_path))? },
-                ports    : CommonPorts{ prx : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into() },
-                services : CommonServices{ prx : Address::Hostname(format!("http://{}", prx_name), prx_port) },
+                node : NodeSpecificConfig::Worker(WorkerConfig {
+                    name : location_id,
 
-                node : NodeKindConfig::Worker(WorkerConfig {
-                    location_id,
-                    names : WorkerNames { reg: reg_name.clone(), job: job_name, chk: chk_name.clone() },
                     paths : WorkerPaths {
+                        certs    : canonicalize(certs)?,
+                        packages : canonicalize(packages)?,
+
                         backend      : canonicalize(resolve_config_path(backend, &config_path))?,
                         policies     : canonicalize(resolve_config_path(policies, &config_path))?,
+
                         data         : canonicalize(data)?,
                         results      : canonicalize(results)?,
                         temp_data    : canonicalize(temp_data)?,
                         temp_results : canonicalize(temp_results)?,
                     },
-                    ports    : WorkerPorts { reg: SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), reg_port).into(), job: SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), job_port).into() },
-                    services : WorkerServices { reg: Address::Hostname(format!("https://{}", reg_name), reg_port), chk: Address::Hostname(format!("http://{}", chk_name), chk_port) },
+
+                    services : WorkerServices {
+                        reg : PublicService {
+                            name    : reg_name.clone(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), reg_port).into(),
+                            address : Address::Hostname(format!("https://{}", reg_name), reg_port),
+
+                            external_address : Address::Hostname(format!("https://{}", hostname), reg_port),
+                        },
+                        job : PublicService {
+                            name    : job_name.clone(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), job_port).into(),
+                            address : Address::Hostname(format!("grpc://{}", job_name), job_port),
+
+                            external_address : Address::Hostname(format!("grpc://{}", hostname), job_port),
+                        },
+                        chk : PublicService {
+                            name    : chk_name.clone(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), chk_port).into(),
+                            address : Address::Hostname(format!("https://{}", chk_name), chk_port),
+
+                            external_address : Address::Hostname(format!("https://{}", hostname), chk_port),
+                        },
+                        prx : PrivateService {
+                            name    : prx_name.clone(),
+                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
+                            address : Address::Hostname(format!("https://{}", prx_name), prx_port),
+                        },
+                    },
                 }),
             }
         },
@@ -623,7 +702,7 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
     // Write the top comment header thingy
     if let Err(err) = write_node_header(&mut handle) { return Err(Error::FileHeaderWriteError{ what: "infra.yml", path, err }); }
     // Write the file itself
-    if let Err(err) = node_config.to_writer(handle) { return Err(Error::NodeWriteError{ path, err }); }
+    if let Err(err) = node_config.to_writer(handle, true) { return Err(Error::NodeWriteError{ path, err }); }
 
     // Done
     println!("Successfully generated {}", style(path.display().to_string()).bold().green());

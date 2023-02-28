@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2022, 15:18:32
 //  Last edited:
-//    05 Jan 2023, 12:39:01
+//    28 Feb 2023, 18:27:27
 //  Auto updated?
 //    Yes
 // 
@@ -39,7 +39,8 @@ use warp::hyper::body::{Bytes, Sender};
 use warp::reply::Response;
 use warp::{http::StatusCode, Rejection, Reply};
 
-use brane_cfg::node::{NodeConfig, NodeKind};
+use brane_cfg::spec::Config as _;
+use brane_cfg::node::{CentralConfig, NodeConfig, NodeKind};
 use specifications::package::PackageInfo;
 use specifications::version::Version;
 
@@ -387,7 +388,10 @@ where
         Ok(config) => config,
         Err(err)   => { fail!(Error::NodeConfigLoadError{ err }); },
     };
-    if !node_config.node.is_central() { fail!(Error::NodeConfigUnexpectedKind{ path: context.node_config_path, got: node_config.node.kind(), expected: NodeKind::Central }); }
+    let central: &CentralConfig = match node_config.node.try_central() {
+        Some(central) => central,
+        None          => { fail!(Error::NodeConfigUnexpectedKind{ path: context.node_config_path, got: node_config.node.kind(), expected: NodeKind::Central }); },
+    };
 
 
 
@@ -438,7 +442,7 @@ where
     // Re-open the file
     debug!("Extracting submitted archive file...");
     let info_path  : PathBuf = tempdir_path.join("package.yml");
-    let image_path : PathBuf = node_config.paths.packages.join(format!("{}.tar", id));
+    let image_path : PathBuf = central.paths.packages.join(format!("{}.tar", id));
     {
         let handle: tfs::File = match tfs::File::open(&tar_path).await {
             Ok(handle) => handle,
@@ -508,7 +512,7 @@ where
     };
 
     // Copy the image tar to the proper location
-    let result_path: PathBuf = node_config.paths.packages.join(format!("{}-{}.tar", info.name, info.version));
+    let result_path: PathBuf = central.paths.packages.join(format!("{}-{}.tar", info.name, info.version));
     debug!("Moving image '{}' to '{}'...", image_path.display(), result_path.display());
     if let Err(err) = tfs::rename(&image_path, &result_path).await {
         fail!(image_path, Error::FileMoveError{ from: image_path, to: result_path, err });

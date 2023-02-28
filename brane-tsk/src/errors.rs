@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:27:26
 //  Last edited:
-//    28 Feb 2023, 16:44:33
+//    28 Feb 2023, 18:23:02
 //  Auto updated?
 //    Yes
 // 
@@ -316,7 +316,7 @@ pub enum ExecuteError {
     /// Failed to update the client of a status change.
     ClientUpdateError{ status: TaskStatus, err: tokio::sync::mpsc::error::SendError<Result<TaskReply, Status>> },
     /// Failed to load the node config file.
-    NodeConfigReadError{ path: PathBuf, err: brane_cfg::node::Error },
+    NodeConfigReadError{ path: PathBuf, err: brane_cfg::spec::YamlError },
     /// Failed to load the infra file.
     InfraReadError{ path: PathBuf, err: brane_cfg::infra::Error },
     /// The given location was unknown.
@@ -495,7 +495,7 @@ pub enum CommitError {
 
     // Instance-only (client side)
     /// Failed to load the node config file.
-    NodeConfigReadError{ path: PathBuf, err: brane_cfg::node::Error },
+    NodeConfigReadError{ path: PathBuf, err: brane_cfg::spec::YamlError },
     /// Failed to load the infra file.
     InfraReadError{ path: PathBuf, err: brane_cfg::infra::Error },
     /// The given location was unknown.

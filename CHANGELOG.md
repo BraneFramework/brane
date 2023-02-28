@@ -25,6 +25,7 @@ All notable changes to the Brane framework will be documented in this file.
 - `branectl` using the friendlier, in-house [humanlog](https://github.com/Lut99/humanlog-rs) logger instead of [env_logger](https://docs.rs/env_logger/latest/env_logger/).
 - `make.py` to move the download capabilities to `branectl`, allowing for a friendlier (and easier) interface.
 - `aux-xenon` to be an image in the Brane release tar (central node).
+- The general layout of `node.yml` to be more sensible (it focusses on services rather than names, ports, etc) (**breaking change**)
 
 ### Fixed
 - The previous version not making it through the tests.

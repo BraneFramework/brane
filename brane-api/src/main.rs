@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2022, 15:15:36
 //  Last edited:
-//    05 Jan 2023, 11:01:28
+//    28 Feb 2023, 18:53:28
 //  Auto updated?
 //    Yes
 // 
@@ -23,7 +23,8 @@ use log::{debug, error, info, LevelFilter};
 use scylla::{Session, SessionBuilder};
 use warp::Filter;
 
-use brane_cfg::node::NodeConfig;
+use brane_cfg::spec::Config as _;
+use brane_cfg::node::{CentralConfig, NodeConfig};
 use brane_prx::client::ProxyClient;
 
 use brane_api::errors::ApiError;
@@ -79,18 +80,21 @@ async fn main() {
             std::process::exit(1);
         },
     };
-    if !node_config.node.is_central() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", opts.node_config_path.display()); std::process::exit(1); }
+    let central: CentralConfig = match node_config.node.try_into_central() {
+        Some(central) => central,
+        None          => { error!("Given NodeConfig file '{}' does not have properties for a worker node.", opts.node_config_path.display()); std::process::exit(1); },
+    };
 
     // Configure Scylla.
     debug!("Connecting to scylla...");
     let scylla = match SessionBuilder::new()
-        .known_node(&node_config.node.central().services.scylla.to_string())
+        .known_node(&central.services.aux_scylla.address.to_string())
         .connection_timeout(Duration::from_secs(3))
         .build()
         .await
     {
         Ok(scylla)  => scylla,
-        Err(reason) => { error!("{}", ApiError::ScyllaConnectError{ host: node_config.node.central().services.scylla.clone(), err: reason }); std::process::exit(-1); }
+        Err(reason) => { error!("{}", ApiError::ScyllaConnectError{ host: central.services.aux_scylla.address, err: reason }); std::process::exit(-1); }
     };
     debug!("Connected successfully.");
 
@@ -101,7 +105,7 @@ async fn main() {
     // Configure Juniper.
     let node_config_path : PathBuf          = opts.node_config_path;
     let scylla                              = Arc::new(scylla);
-    let proxy            : Arc<ProxyClient> = Arc::new(ProxyClient::new(node_config.services.prx));
+    let proxy            : Arc<ProxyClient> = Arc::new(ProxyClient::new(central.services.prx.address));
     let context = warp::any().map(move || Context {
         node_config_path : node_config_path.clone(),
         scylla           : scylla.clone(),
@@ -180,7 +184,7 @@ async fn main() {
     let routes = data.or(packages.or(infra.or(health.or(version.or(graphql))))).with(warp::log("brane-api"));
 
     // Run the server
-    warp::serve(routes).run(node_config.node.central().ports.api).await;
+    warp::serve(routes).run(central.services.api.bind).await;
 }
 
 ///

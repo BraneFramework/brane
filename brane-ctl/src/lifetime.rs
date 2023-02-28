@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    27 Feb 2023, 13:56:11
+//    28 Feb 2023, 18:43:38
 //  Auto updated?
 //    Yes
 // 
@@ -12,6 +12,7 @@
 //!   Commands that relate to managing the lifetime of the local node.
 // 
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs::File;
@@ -28,7 +29,8 @@ use rand::Rng;
 use rand::distributions::Alphanumeric;
 use serde::{Deserialize, Serialize};
 
-use brane_cfg::node::{CentralPaths, CentralPorts, CommonPaths, NodeConfig, NodeKind, NodeKindConfig, WorkerPaths, WorkerPorts};
+use brane_cfg::spec::Config as _;
+use brane_cfg::node::{CentralPaths, CentralServices, NodeConfig, NodeKind, NodeSpecificConfig, WorkerPaths, WorkerServices};
 use brane_tsk::docker::{ensure_image, get_digest, ImageSource};
 use specifications::container::Image;
 use specifications::version::Version;
@@ -76,6 +78,37 @@ struct ComposeOverrideFileService {
 #[inline]
 fn canonicalize(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
     let path: &Path = path.as_ref();
+    match path.canonicalize() {
+        Ok(path) => Ok(path),
+        Err(err) => Err(Error::CanonicalizeError{ path: path.into(), err }),
+    }
+}
+
+/// Makes the given path join canonical, casting the error for convenience.
+/// 
+/// Essentially, if the second path is relative, then it will join them (in the order given) and make the result canonical. Otherwise, just the second path is made canonical.
+/// 
+/// # Arguments
+/// - `lhs`: The first path to make canonical iff the second path is relative.
+/// - `rhs`: The second path to make canonical and potentially join with the first (iff it is relative).
+/// 
+/// # Returns
+/// The "join" of the paths, but canonical.
+/// 
+/// # Errors
+/// This function errors if we failed to make the path canonical (i.e., something did not exist).
+fn canonicalize_join(lhs: impl AsRef<Path>, rhs: impl AsRef<Path>) -> Result<PathBuf, Error> {
+    let lhs: &Path = lhs.as_ref();
+    let rhs: &Path = rhs.as_ref();
+
+    // Join them, if necessary
+    let path: Cow<Path> = if rhs.is_relative() {
+        Cow::Owned(lhs.join(rhs))
+    } else {
+        Cow::Borrowed(rhs)
+    };
+
+    // Canonicalize the result
     match path.canonicalize() {
         Ok(path) => Ok(path),
         Err(err) => Err(Error::CanonicalizeError{ path: path.into(), err }),
@@ -322,61 +355,71 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
     // Match on the node kind
     let node_config_dir: &Path = node_config_path.parent().unwrap();
     match &node_config.node {
-        NodeKindConfig::Central(central) => {
+        NodeSpecificConfig::Central(central) => {
             // Now we do a little ugly something, but we unpack the paths and ports here so that we get compile errors if we add more later on
-            let CommonPaths{ certs, packages } = &node_config.paths;
-            let CentralPaths{ infra } = &central.paths;
-            let CentralPorts{ api, drv }       = &central.ports;
+            let CentralPaths {
+                certs, packages,
+                infra,
+            } = &central.paths;
+            let CentralServices {
+                api, drv, plr, prx,
+                aux_scylla: _, aux_kafka: _, aux_zookeeper: _,
+            } = &central.services;
 
             // Add the environment variables, which are basically just central-specific paths and ports to mount in the compose file
             res.extend([
                 // Names
-                ("PRX_NAME", OsString::from(&node_config.names.prx.as_str())),
-                ("API_NAME", OsString::from(&node_config.node.central().names.api.as_str())),
-                ("DRV_NAME", OsString::from(&node_config.node.central().names.drv.as_str())),
-                ("PLR_NAME", OsString::from(&node_config.node.central().names.plr.as_str())),
+                ("PRX_NAME", OsString::from(&prx.name.as_str())),
+                ("API_NAME", OsString::from(&api.name.as_str())),
+                ("DRV_NAME", OsString::from(&drv.name.as_str())),
+                ("PLR_NAME", OsString::from(&plr.name.as_str())),
 
                 // Paths
-                ("INFRA", canonicalize(node_config_dir.join(infra))?.as_os_str().into()),
-                ("CERTS", canonicalize(node_config_dir.join(certs))?.as_os_str().into()),
-                ("PACKAGES", canonicalize(node_config_dir.join(packages))?.as_os_str().into()),
+                ("INFRA", canonicalize_join(node_config_dir, infra)?.as_os_str().into()),
+                ("CERTS", canonicalize_join(node_config_dir, certs)?.as_os_str().into()),
+                ("PACKAGES", canonicalize_join(node_config_dir, packages)?.as_os_str().into()),
     
                 // Ports
-                ("API_PORT", OsString::from(format!("{}", api.port()))),
-                ("DRV_PORT", OsString::from(format!("{}", drv.port()))),
+                ("API_PORT", OsString::from(format!("{}", api.bind.port()))),
+                ("DRV_PORT", OsString::from(format!("{}", drv.bind.port()))),
             ]);
         },
 
-        NodeKindConfig::Worker(worker) => {
+        NodeSpecificConfig::Worker(worker) => {
             // Now we do a little ugly something, but we unpack the paths here so that we get compile errors if we add more later on
-            let CommonPaths{ certs, packages }                                           = &node_config.paths;
-            let WorkerPaths{ backend, policies, data, results, temp_data, temp_results } = &worker.paths;
-            let WorkerPorts{ reg, job }                                                  = &worker.ports;
+            let WorkerPaths {
+                certs, packages,
+                backend, policies,
+                data, results, temp_data, temp_results,
+            } = &worker.paths;
+            let WorkerServices {
+                reg, job, chk, prx,
+            } = &worker.services;
 
             // Add the environment variables, which are basically just central-specific paths to mount in the compose file
             res.extend([
                 // Also add the location ID
-                ("LOCATION_ID", OsString::from(&worker.location_id)),
+                ("LOCATION_ID", OsString::from(&worker.name)),
 
                 // Names
-                ("PRX_NAME", OsString::from(&node_config.names.prx.as_str())),
-                ("REG_NAME", OsString::from(&node_config.node.worker().names.reg.as_str())),
-                ("JOB_NAME", OsString::from(&node_config.node.worker().names.job.as_str())),
-                ("CHK_NAME", OsString::from(&node_config.node.worker().names.chk.as_str())),
+                ("PRX_NAME", OsString::from(&prx.name.as_str())),
+                ("REG_NAME", OsString::from(&reg.name.as_str())),
+                ("JOB_NAME", OsString::from(&job.name.as_str())),
+                ("CHK_NAME", OsString::from(&chk.name.as_str())),
 
                 // Paths
-                ("BACKEND", canonicalize(node_config_dir.join(backend))?.as_os_str().into()),
-                ("POLICIES", canonicalize(node_config_dir.join(policies))?.as_os_str().into()),
-                ("CERTS", canonicalize(node_config_dir.join(certs))?.as_os_str().into()),
-                ("PACKAGES", canonicalize(node_config_dir.join(packages))?.as_os_str().into()),
-                ("DATA", canonicalize(node_config_dir.join(data))?.as_os_str().into()),
-                ("RESULTS", canonicalize(node_config_dir.join(results))?.as_os_str().into()),
-                ("TEMP_DATA", canonicalize(node_config_dir.join(temp_data))?.as_os_str().into()),
-                ("TEMP_RESULTS", canonicalize(node_config_dir.join(temp_results))?.as_os_str().into()),
+                ("BACKEND", canonicalize_join(node_config_dir, backend)?.as_os_str().into()),
+                ("POLICIES", canonicalize_join(node_config_dir, policies)?.as_os_str().into()),
+                ("CERTS", canonicalize_join(node_config_dir, certs)?.as_os_str().into()),
+                ("PACKAGES", canonicalize_join(node_config_dir, packages)?.as_os_str().into()),
+                ("DATA", canonicalize_join(node_config_dir, data)?.as_os_str().into()),
+                ("RESULTS", canonicalize_join(node_config_dir, results)?.as_os_str().into()),
+                ("TEMP_DATA", canonicalize_join(node_config_dir, temp_data)?.as_os_str().into()),
+                ("TEMP_RESULTS", canonicalize_join(node_config_dir, temp_results)?.as_os_str().into()),
 
                 // Ports
-                ("REG_PORT", OsString::from(format!("{}", reg.port()))),
-                ("JOB_PORT", OsString::from(format!("{}", job.port()))),
+                ("REG_PORT", OsString::from(format!("{}", reg.bind.port()))),
+                ("JOB_PORT", OsString::from(format!("{}", job.bind.port()))),
             ]);
         },
     }
@@ -485,7 +528,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, docker_socket: P
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hosts, profile_dir)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, profile_dir)?;
 
             // Map the images & load them
             if !skip_import {
@@ -521,7 +564,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, docker_socket: P
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hosts, profile_dir)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, profile_dir)?;
 
             // Map the images & load them
             if !skip_import {
@@ -537,7 +580,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, docker_socket: P
             let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
 
             // Launch the docker-compose command
-            run_compose(resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().location_id), hostfile, envs)?;
+            run_compose(resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().name), hostfile, envs)?;
         },
     }
 
@@ -583,7 +626,7 @@ pub fn stop(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl 
 
     // Resolve the filename and deduce the project name
     let file  : PathBuf = resolve_node(file, if node_config.node.kind() == NodeKind::Central { "central" } else { "worker" });
-    let pname : String  = format!("brane-{}", match &node_config.node { NodeKindConfig::Central(_) => "central".into(), NodeKindConfig::Worker(node) => format!("worker-{}", node.location_id) });
+    let pname : String  = format!("brane-{}", match &node_config.node { NodeSpecificConfig::Central(_) => "central".into(), NodeSpecificConfig::Worker(node) => format!("worker-{}", node.name) });
 
     // Now launch docker-compose
     let exe: (String, Vec<String>) = resolve_exe(exe)?;

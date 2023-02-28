@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    28 Feb 2023, 16:38:29
+//    28 Feb 2023, 18:55:59
 //  Auto updated?
 //    Yes
 // 
@@ -243,7 +243,7 @@ impl InstancePlanner {
 
         // Ensure that the to-be-listened on topic exists
         let brokers: String = self.central_cfg.services.aux_kafka.address.to_string();
-        if let Err(err) = ensure_topics(vec![ &self.central_cfg.topics.plr_res ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.central_cfg.topics.plr_res.clone() ], err }); };
+        if let Err(err) = ensure_topics(vec![ &self.central_cfg.services.plr.res ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.central_cfg.services.plr.res.clone() ], err }); };
 
         // Create one consumer per topic that we're reading (i.e., one)
         let consumer: StreamConsumer = match ClientConfig::new()
@@ -259,7 +259,7 @@ impl InstancePlanner {
         };
 
         // Restore previous offsets
-        if let Err(err) = restore_committed_offsets(&consumer, &self.central_cfg.topics.plr_res) { return Err(PlanError::KafkaOffsetsError { err }); }
+        if let Err(err) = restore_committed_offsets(&consumer, &self.central_cfg.services.plr.res) { return Err(PlanError::KafkaOffsetsError { err }); }
 
         // Run the Kafka consumer to monitor the planning events on a new thread (or at least, concurrently)
         let waker   : Arc<Mutex<Option<Waker>>>                                      = self.waker.clone();
@@ -355,7 +355,7 @@ impl InstancePlanner {
         // Ensure that the to-be-send-on topic exists
         let kf = prof.time(format!("workflow {} Kafka preparation", correlation_id));
         let brokers: String = self.central_cfg.services.aux_kafka.address.to_string();
-        if let Err(err) = ensure_topics(vec![ &self.central_cfg.topics.plr_cmd ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.central_cfg.topics.plr_cmd.clone() ], err }); };
+        if let Err(err) = ensure_topics(vec![ &self.central_cfg.services.plr.cmd ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.central_cfg.services.plr.cmd.clone() ], err }); };
         kf.stop();
 
         // Serialize the workflow
@@ -368,13 +368,13 @@ impl InstancePlanner {
 
         // Populate a "PlanningCommand" with that (i.e., just populate a future record with the string)
         let remote = prof.time(format!("workflow '{}' on brane-plr", correlation_id));
-        let message: FutureRecord<String, [u8]> = FutureRecord::to(&self.central_cfg.topics.plr_cmd)
+        let message: FutureRecord<String, [u8]> = FutureRecord::to(&self.central_cfg.services.plr.cmd)
             .key(&correlation_id)
             .payload(swork.as_bytes());
 
         // Send the message
         if let Err((err, _)) = self.producer.send(message, Timeout::After(Duration::from_secs(5))).await {
-            return Err(PlanError::KafkaSendError { correlation_id, topic: self.central_cfg.topics.plr_cmd.clone(), err });
+            return Err(PlanError::KafkaSendError { correlation_id, topic: self.central_cfg.services.plr.cmd.clone(), err });
         }
 
         // Now we wait until the message has been planned.

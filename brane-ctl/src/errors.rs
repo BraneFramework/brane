@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    27 Feb 2023, 13:48:39
+//    28 Feb 2023, 19:08:04
 //  Auto updated?
 //    Yes
 // 
@@ -136,7 +136,7 @@ pub enum GenerateError {
     /// Failed to write the header to the new file.
     FileHeaderWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to write the main body to the new file.
-    NodeWriteError{ path: PathBuf, err: brane_cfg::node::Error },
+    NodeWriteError{ path: PathBuf, err: brane_cfg::spec::YamlError },
 
     /// The given location is unknown.
     UnknownLocation{ loc: String },
@@ -224,7 +224,7 @@ pub enum LifetimeError {
     ImageLoadError{ image: Image, source: ImageSource, err: brane_tsk::docker::Error },
 
     /// Failed to load the given node config file.
-    NodeConfigLoadError{ err: brane_cfg::node::Error },
+    NodeConfigLoadError{ err: brane_cfg::spec::YamlError },
     /// Failed to connect to the local Docker daemon.
     DockerConnectError{ socket: PathBuf, version: ClientVersion, err: bollard::errors::Error },
     /// The given start command (got) did not match the one in the `node.yml` file (expected).
@@ -271,7 +271,7 @@ impl Error for LifetimeError {}
 #[derive(Debug)]
 pub enum PackagesError {
     /// Failed to load the given node config file.
-    NodeConfigLoadError{ err: brane_cfg::node::Error },
+    NodeConfigLoadError{ err: brane_cfg::spec::YamlError },
     /// The given file is not a file.
     FileNotAFile{ path: PathBuf },
     /// Failed to parse the given `NAME[:VERSION]` pair.

@@ -4,7 +4,7 @@
 //  Created:
 //    28 Feb 2023, 10:07:36
 //  Last edited:
-//    28 Feb 2023, 13:43:25
+//    28 Feb 2023, 18:21:46
 //  Auto updated?
 //    Yes
 // 
@@ -164,3 +164,6 @@ impl<T: DeserializeOwned + Serialize + for<'de> YamlConfig<'de>> Config for T {
         }
     }
 }
+
+/// A type alias for the ConfigError for the YamlConfig.
+pub type YamlError = ConfigError<serde_yaml::Error>;

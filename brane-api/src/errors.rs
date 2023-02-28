@@ -4,7 +4,7 @@
 //  Created:
 //    04 Feb 2022, 10:35:12
 //  Last edited:
-//    26 Jan 2023, 09:58:44
+//    28 Feb 2023, 18:25:59
 //  Auto updated?
 //    Yes
 // 
@@ -183,7 +183,7 @@ pub enum PackageError {
     FileSendError{ path: PathBuf, err: warp::hyper::Error },
 
     /// Failed to load the node config.
-    NodeConfigLoadError{ err: brane_cfg::node::Error },
+    NodeConfigLoadError{ err: brane_cfg::spec::YamlError },
     /// The given node config was not for central nodes.
     NodeConfigUnexpectedKind{ path: PathBuf, got: NodeKind, expected: NodeKind },
     /// Failed to create a temporary directory.

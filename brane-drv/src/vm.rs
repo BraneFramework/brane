@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2022, 10:14:26
 //  Last edited:
-//    28 Feb 2023, 16:38:59
+//    28 Feb 2023, 18:22:49
 //  Auto updated?
 //    Yes
 // 
@@ -167,7 +167,8 @@ impl VmPlugin for InstancePlugin {
             // Resolve to an address and return that with the other addresses
             ( 
                 state.proxy.clone(),
-                node_config.node.central().services.api.clone(),
+                // NOTE: We grab the external address, since this address is only forwarded to the job service on the worker node
+                node_config.node.central().services.api.external_address.clone(),
                 match infra.get(info.location) {
                     Some(info) => info.delegate.clone(),
                     None       => { return Err(ExecuteError::UnknownLocationError{ loc: info.location.clone() }); },

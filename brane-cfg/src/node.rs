@@ -4,7 +4,7 @@
 //  Created:
 //    28 Feb 2023, 10:01:27
 //  Last edited:
-//    28 Feb 2023, 16:13:09
+//    28 Feb 2023, 18:56:31
 //  Auto updated?
 //    Yes
 // 
@@ -296,8 +296,6 @@ pub struct CentralConfig {
     pub paths    : CentralPaths,
     /// Defines the services for this node.
     pub services : CentralServices,
-    /// Defines the Kafka topics for this node.
-    pub topics   : CentralTopics,
 }
 
 /// Defines the paths for the central/control node.
@@ -324,7 +322,7 @@ pub struct CentralServices {
     pub drv : PublicService,
     /// Describes the planner service.
     #[serde(alias = "planner")]
-    pub plr : PrivateService,
+    pub plr : KafkaService,
     /// Describes the proxy service.
     #[serde(alias = "proxy")]
     pub prx : PrivateService,
@@ -342,17 +340,6 @@ pub struct CentralServices {
     // /// Describes the Xenon service.
     // #[serde(alias = "xenon")]
     // pub aux_xenon     : PrivateService,
-}
-
-/// Defines the Kafka topics used by the central service.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CentralTopics {
-    /// Defines the topic to send planning commands on.
-    #[serde(alias = "planner_command")]
-    pub plr_cmd : String,
-    /// Defines the topic to send planning results on.
-    #[serde(alias = "planner_result")]
-    pub plr_res : String,
 }
 
 
@@ -435,4 +422,17 @@ pub struct PrivateService {
     pub address : Address,
     /// Defines the port (and hostname) to which the Docker container will bind itself.
     pub bind    : SocketAddr,
+}
+
+/// Defines a service that is only reachable over Kafka.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct KafkaService {
+    /// Defines the name of the Docker container.
+    pub name : String,
+    /// The topic on which we can send commands to the service.
+    #[serde(alias = "command_topic")]
+    pub cmd  : String,
+    /// The topic on which we can receive results of the service.
+    #[serde(alias = "result_topic")]
+    pub res  : String,
 }
