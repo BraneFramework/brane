@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:27:26
 //  Last edited:
-//    22 Feb 2023, 14:56:52
+//    28 Feb 2023, 16:44:33
 //  Auto updated?
 //    Yes
 // 
@@ -167,7 +167,7 @@ pub enum PreprocessError {
 
     // Instance only (client-side)
     /// Failed to load the node config file.
-    NodeConfigReadError{ path: PathBuf, err: brane_cfg::node::Error },
+    NodeConfigReadError{ path: PathBuf, err: brane_cfg::spec::YamlError },
     /// Failed to load the infra file.
     InfraReadError{ path: PathBuf, err: brane_cfg::infra::Error },
     /// The given location was unknown.

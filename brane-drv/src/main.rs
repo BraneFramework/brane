@@ -4,7 +4,7 @@
 //  Created:
 //    30 Sep 2022, 11:59:58
 //  Last edited:
-//    09 Jan 2023, 13:58:15
+//    28 Feb 2023, 16:35:44
 //  Auto updated?
 //    Yes
 // 
@@ -74,10 +74,13 @@ async fn main() {
             std::process::exit(1);
         },
     };
-    if !node_config.node.is_central() { error!("Given NodeConfig file '{}' does not have properties for a central node.", opts.node_config_path.display()); std::process::exit(1); }
+    let central: CentralConfig = match node_config.node.try_into_central() {
+        Some(central) => central,
+        None          => { error!("Given NodeConfig file '{}' does not have properties for a central node.", opts.node_config_path.display()); std::process::exit(1); },
+    };
 
     // Create our side of the planner, and launch its event monitor
-    let planner: Arc<InstancePlanner> = match InstancePlanner::new(node_config.clone()) {
+    let planner: Arc<InstancePlanner> = match InstancePlanner::new(central.clone()) {
         Ok(planner) => Arc::new(planner),
         Err(err)    => { error!("Failed to create InstancePlanner: {}", err); std::process::exit(1); },
     };
@@ -86,15 +89,15 @@ async fn main() {
     // Start the DriverHandler
     let handler = DriverHandler::new(
         &opts.node_config_path,
-        Arc::new(ProxyClient::new(node_config.services.prx)),
+        Arc::new(ProxyClient::new(central.services.prx.address)),
         planner.clone(),
     );
 
     // Start gRPC server with callback service.
-    debug!("gRPC server ready to serve on '{}'", node_config.node.central().ports.drv);
+    debug!("gRPC server ready to serve on '{}'", central.services.drv.bind);
     if let Err(err) = Server::builder()
         .add_service(DriverServiceServer::new(handler))
-        .serve(node_config.node.central().ports.drv)
+        .serve(central.services.drv.bind)
         .await
     {
         error!("Failed to start gRPC server: {}", err);

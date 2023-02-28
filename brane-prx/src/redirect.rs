@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 11:26:46
 //  Last edited:
-//    27 Feb 2023, 15:32:29
+//    28 Feb 2023, 15:50:31
 //  Auto updated?
 //    Yes
 // 
@@ -14,7 +14,7 @@
 
 use std::future::Future;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -28,8 +28,9 @@ use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 use url::Url;
 
+use brane_cfg::spec::Config as _;
 use brane_cfg::certs::{load_certstore, load_identity};
-use brane_cfg::node::{NodeConfig, ProxyProtocol};
+use brane_cfg::node::{NodeConfig, NodeSpecificConfig, ProxyProtocol};
 use specifications::address::Address;
 
 pub use crate::errors::RedirectError as Error;
@@ -212,8 +213,14 @@ pub async fn path_server(node_config_path: PathBuf, listener: TcpListener, clien
                 },
             };
 
+            // Load the certificate path
+            let cert_path: &Path = match &node_config.node {
+                NodeSpecificConfig::Central(node) => &node.paths.certs,
+                NodeSpecificConfig::Worker(node)  => &node.paths.certs,
+            };
+
             // Load the root CA certificate file
-            let ca_path: PathBuf = node_config.paths.certs.join(&tls.location).join("ca.pem");
+            let ca_path: PathBuf = cert_path.join(&tls.location).join("ca.pem");
             let ca: RootCertStore = match load_certstore(&ca_path) {
                 Ok(store) => store,
                 Err(err)  => {
@@ -225,7 +232,7 @@ pub async fn path_server(node_config_path: PathBuf, listener: TcpListener, clien
             // If any, also load the client file
             let client: Option<(PathBuf, Vec<Certificate>, PrivateKey)> = if tls.use_client_auth {
                 debug!(":{}->{}: Adding client certificate...", socket_addr.port(), address);
-                let client_path: PathBuf = node_config.paths.certs.join(&tls.location).join("client-id.pem");
+                let client_path: PathBuf = cert_path.join(&tls.location).join("client-id.pem");
                 match load_identity(&client_path) {
                     Ok((certs, key)) => Some((client_path, certs, key)),
                     Err(err)         => {

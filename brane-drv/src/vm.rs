@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2022, 10:14:26
 //  Last edited:
-//    01 Feb 2023, 15:18:24
+//    28 Feb 2023, 16:38:59
 //  Auto updated?
 //    Yes
 // 
@@ -28,6 +28,7 @@ use tonic::{Response, Status, Streaming};
 use brane_ast::Workflow;
 use brane_ast::locations::Location;
 use brane_ast::ast::DataName;
+use brane_cfg::spec::Config as _;
 use brane_cfg::infra::InfraFile;
 use brane_cfg::node::NodeConfig;
 use brane_exe::{Error as VmError, FullValue, RunState, Vm};

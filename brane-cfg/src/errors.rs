@@ -4,7 +4,7 @@
 //  Created:
 //    04 Oct 2022, 11:09:56
 //  Last edited:
-//    27 Feb 2023, 15:19:37
+//    28 Feb 2023, 12:52:14
 //  Auto updated?
 //    Yes
 // 
@@ -13,7 +13,7 @@
 // 
 
 use std::error::Error;
-use std::fmt::{Display, Formatter, Result as FResult};
+use std::fmt::{Debug, Display, Formatter, Result as FResult};
 use std::path::PathBuf;
 
 
@@ -43,7 +43,6 @@ pub enum CertsError {
     /// The given keyfile was empty.
     EmptyKeyFile{ path: PathBuf },
 }
-
 impl Display for CertsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use CertsError::*;
@@ -63,7 +62,6 @@ impl Display for CertsError {
         }
     }
 }
-
 impl Error for CertsError {}
 
 
@@ -129,9 +127,6 @@ impl Error for CredsFileError {}
 /// Errors that relate to a NodeConfig.
 #[derive(Debug)]
 pub enum NodeConfigError {
-    /// The given NodeKind was unknown to us.
-    UnknownNodeKind{ raw: String },
-
     /// Failed to open the given config path.
     FileOpenError{ path: PathBuf, err: std::io::Error },
     /// Failed to read from the given config path.
@@ -153,8 +148,6 @@ impl Display for NodeConfigError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use NodeConfigError::*;
         match self {
-            UnknownNodeKind{ raw } => write!(f, "Unknown node kind '{}'", raw),
-
             FileOpenError{ path, err }  => write!(f, "Failed to open the node config file '{}': {}", path.display(), err),
             FileReadError{ path, err }  => write!(f, "Failed to read the ndoe config file '{}': {}", path.display(), err),
             FileParseError{ path, err } => write!(f, "Failed to parse node config file '{}' as YAML: {}", path.display(), err),
@@ -185,6 +178,22 @@ impl Display for ProxyProtocolParseError {
 }
 impl Error for ProxyProtocolParseError {}
 
+/// Defines errors that may occur when parsing node kind strings.
+#[derive(Debug)]
+pub enum NodeKindParseError {
+    /// The given NodeKind was unknown to us.
+    UnknownNodeKind{ raw: String },
+}
+impl Display for NodeKindParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use NodeKindParseError::*;
+        match self {
+            UnknownNodeKind{ raw } => write!(f, "Unknown node kind '{}'", raw),
+        }
+    }
+}
+impl Error for NodeKindParseError {}
+
 
 
 /// Errors that relate to the PolicyFile.
@@ -213,3 +222,45 @@ impl Display for PolicyFileError {
     }
 }
 impl Error for PolicyFileError {}
+
+
+
+/// Defines general errors for configs.
+#[derive(Debug)]
+pub enum ConfigError<E: Debug> {
+    /// Failed to create the output file.
+    OutputCreateError{ path: PathBuf, err: std::io::Error },
+    /// Failed to open the input file.
+    InputOpenError{ path: PathBuf, err: std::io::Error },
+
+    /// Failed to serialize the config to a string.
+    StringSerializeError{ err: E },
+    /// Failed to serialize the config to a given writer.
+    WriterSerializeError{ err: E },
+    /// Failed to serialize the config to a given file.
+    FileSerializeError{ path: PathBuf, err: E },
+
+    /// Failed to deserialize a string to the config.
+    StringDeserializeError{ err: E },
+    /// Failed to deserialize a reader to the config.
+    ReaderDeserializeError{ err: E },
+    /// Failed to deserialize a file to the config.
+    FileDeserializeError{ path: PathBuf, err: E },
+}
+impl<E: Error> Display for ConfigError<E> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use ConfigError::*;
+        match self {
+            OutputCreateError{ path, err } => write!(f, "Failed to create output file '{}': {}", path.display(), err),
+            InputOpenError{ path, err }    => write!(f, "Faield to open input file '{}': {}", path.display(), err),
+
+            StringSerializeError{ err }     => write!(f, "Failed to serialize to string: {}", err),
+            WriterSerializeError{ err }     => write!(f, "Failed to serialize to a writer: {}", err),
+            FileSerializeError{ path, err } => write!(f, "Failed to serialize to output file '{}': {}", path.display(), err),
+
+            StringDeserializeError{ err }     => write!(f, "Failed to deserialize from string: {}", err),
+            ReaderDeserializeError{ err }     => write!(f, "Failed to deserialize from a reader: {}", err),
+            FileDeserializeError{ path, err } => write!(f, "Failed to deserialize from input file '{}': {}", path.display(), err),
+        }
+    }
+}

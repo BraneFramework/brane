@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:11:44
 //  Last edited:
-//    05 Jan 2023, 11:35:05
+//    28 Feb 2023, 16:00:22
 //  Auto updated?
 //    Yes
 // 
@@ -21,7 +21,8 @@ use log::{debug, error, info, LevelFilter};
 use rustls::Certificate;
 use warp::Filter;
 
-use brane_cfg::node::NodeConfig;
+use brane_cfg::spec::Config as _;
+use brane_cfg::node::{NodeConfig, WorkerConfig};
 
 use brane_reg::spec::Context;
 use brane_reg::server::serve_with_auth;
@@ -129,8 +130,14 @@ async fn main() {
         .and_then(health::get);
     let filter = list_assets.or(get_asset).or(download_asset).or(download_result).or(infra_capabilities).or(version).or(health);
 
+    // Extract the things we need from the config
+    let worker: &WorkerConfig = match node_config.node.try_worker() {
+        Some(worker) => worker,
+        None         => { error!("Provided with a non-worker `node.yml` (please change it so that it lists the properties of a worker node)"); std::process::exit(1); },
+    };
+
     // Run it
-    match serve_with_auth(node_config.paths.certs.join("server.pem"), node_config.paths.certs.join("server-key.pem"), node_config.paths.certs.join("ca.pem"), filter, node_config.node.worker().ports.reg).await {
+    match serve_with_auth(worker.paths.certs.join("server.pem"), worker.paths.certs.join("server-key.pem"), worker.paths.certs.join("ca.pem"), filter, worker.services.reg.bind).await {
         Ok(_)    => {},
         Err(err) => {
             error!("{}", err);

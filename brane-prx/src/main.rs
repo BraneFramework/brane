@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 10:52:33
 //  Last edited:
-//    28 Nov 2022, 14:11:39
+//    28 Feb 2023, 16:14:42
 //  Auto updated?
 //    Yes
 // 
@@ -13,6 +13,7 @@
 // 
 
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -22,7 +23,8 @@ use dotenvy::dotenv;
 use log::{debug, error, info, LevelFilter};
 use warp::Filter;
 
-use brane_cfg::node::NodeConfig;
+use brane_cfg::spec::Config as _;
+use brane_cfg::node::{NodeConfig, NodeSpecificConfig};
 
 use brane_prx::spec::Context;
 use brane_prx::ports::PortAllocator;
@@ -127,7 +129,13 @@ async fn main() {
         .and(context.clone())
         .and_then(manage::new_path);
 
+    // Extract the proxy address
+    let bind_addr: SocketAddr = match node_config.node {
+        NodeSpecificConfig::Central(node) => node.services.prx.bind,
+        NodeSpecificConfig::Worker(node)  => node.services.prx.bind,
+    };
+
     // Run the server
-    info!("Reading to accept new connections @ '{}'...", node_config.ports.prx);
-    warp::serve(filter).run(node_config.ports.prx).await
+    info!("Reading to accept new connections @ '{}'...", bind_addr);
+    warp::serve(filter).run(bind_addr).await
 }

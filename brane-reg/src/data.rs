@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:40:40
 //  Last edited:
-//    01 Feb 2023, 15:40:04
+//    28 Feb 2023, 15:47:43
 //  Auto updated?
 //    Yes
 // 
@@ -26,6 +26,7 @@ use warp::http::HeaderValue;
 use warp::hyper::{Body, StatusCode};
 use warp::hyper::body::{Bytes, Sender};
 use warp::reply::{self, Response};
+use brane_cfg::spec::Config as _;
 use brane_cfg::certs::extract_client_name;
 use brane_cfg::node::NodeConfig;
 use brane_cfg::policies::{PolicyFile, UserPolicy};
@@ -209,7 +210,7 @@ pub async fn list(context: Arc<Context>) -> Result<impl Reply, Rejection> {
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
     // Start profiling (F first function, but now we can use the location)
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info"), format!("brane-reg_{}_info", node_config.node.worker().location_id));
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info"), format!("brane-reg_{}_info", node_config.node.worker().name));
     let _guard = report.time("Total");
 
     // Load the store
@@ -270,7 +271,7 @@ pub async fn get(name: String, context: Arc<Context>) -> Result<impl Reply, Reje
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
     // Start profiling (F first function, but now we can use the location)
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info/{}", name), format!("brane-reg_{}_info-{}", node_config.node.worker().location_id, name));
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info/{}", name), format!("brane-reg_{}_info-{}", node_config.node.worker().name, name));
     let _guard = report.time("Total");
 
     // Load the store
@@ -341,7 +342,7 @@ pub async fn download_data(cert: Option<Certificate>, name: String, context: Arc
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
     // Start profiling (F first function, but now we can use the location)
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/download/{}", name), format!("brane-reg_{}_download-{}", node_config.node.worker().location_id, name));
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/download/{}", name), format!("brane-reg_{}_download-{}", node_config.node.worker().name, name));
 
     // Load the store
     debug!("Loading data ('{}') and results ('{}')...", node_config.node.worker().paths.data.display(), node_config.node.worker().paths.results.display());
@@ -496,7 +497,7 @@ pub async fn download_result(cert: Option<Certificate>, name: String, context: A
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
     // Start profiling (F first function, but now we can use the location)
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /results/download/{}", name), format!("brane-reg_{}_download-{}", node_config.node.worker().location_id, name));
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /results/download/{}", name), format!("brane-reg_{}_download-{}", node_config.node.worker().name, name));
 
     // Load the store
     debug!("Loading data ('{}') and results ('{}')...", node_config.node.worker().paths.data.display(), node_config.node.worker().paths.results.display());

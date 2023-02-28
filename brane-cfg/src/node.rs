@@ -1,36 +1,34 @@
-//  NODE.rs
+//  NODE V 2.rs
 //    by Lut99
 // 
 //  Created:
-//    16 Nov 2022, 16:54:43
+//    28 Feb 2023, 10:01:27
 //  Last edited:
-//    27 Feb 2023, 15:24:45
+//    28 Feb 2023, 16:13:09
 //  Auto updated?
 //    Yes
 // 
 //  Description:
-//!   Defines a `node.json` file that describes the node - in particular,
-//!   under which ports it is reachable, where its directories may be
-//!   found, etc.
+//!   Defines an improved and more sensible version of the `node.yml`
+//!   file.
 // 
 
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FResult};
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
 use std::net::{IpAddr, SocketAddr};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use enum_debug::EnumDebug;
 use serde::{Deserialize, Serialize};
-use serde::de::{self, Deserializer, Visitor};
 use serde::ser::Serializer;
+use serde::de::{self, Deserializer, Visitor};
 
 use specifications::address::Address;
 
 pub use crate::errors::NodeConfigError as Error;
-use crate::errors::ProxyProtocolParseError;
+use crate::errors::{NodeKindParseError, ProxyProtocolParseError};
+use crate::spec::YamlConfig;
 
 
 /***** AUXILLARY *****/
@@ -122,14 +120,14 @@ impl Display for NodeKind {
     }
 }
 impl FromStr for NodeKind {
-    type Err = Error;
+    type Err = NodeKindParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "central" => Ok(Self::Central),
             "worker"  => Ok(Self::Worker),
     
-            raw => Err(Error::UnknownNodeKind { raw: raw.into() }),
+            raw => Err(NodeKindParseError::UnknownNodeKind{ raw: raw.into() }),
         }
     }
 }
@@ -139,137 +137,18 @@ impl FromStr for NodeKind {
 
 
 /***** LIBRARY *****/
-/// Defines a `node.json` file that describes the environment layout of a node (what type it is, its location ID, where to find folders/services, etc).
+/// Defines the toplevel `node.yml` layout.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct NodeConfig {
-    /// Defines any custom hostname -> IP mappings.
-    pub hosts : HashMap<String, IpAddr>,
-    /// Defines the proxy address to use for control messages, if any.
-    pub proxy : Option<ProxyConfig>,
+    /// Custom hostname <-> IP mappings to satisfy rustls
+    pub hostnames : HashMap<String, IpAddr>,
+    /// The proxy to use for control messages, if any.
+    pub proxy     : Option<ProxyConfig>,
 
-    /// Defines the names of the services that occur on every kind of node.
-    pub names    : CommonNames,
-    /// Defines the paths used by various services that occur on every kind of node.
-    pub paths    : CommonPaths,
-    /// Defines the ports where various services hosts themselves that occur on any kind of node.
-    pub ports    : CommonPorts,
-    /// Defines service addresses that occur on any kind of node.
-    pub services : CommonServices,
-
-    /// NodeKind-specific configuration options,
-    pub node : NodeKindConfig,
+    /// Any node-specific config
+    pub node : NodeSpecificConfig,
 }
-
-impl NodeConfig {
-    /// Constructor for the NodeConfig that reads it from the given path.
-    /// 
-    /// # Arguments
-    /// - `path`: The path to read the NodeConfig from.
-    /// 
-    /// # Returns
-    /// A new NodeConfig instance with the contents defined in the file.
-    /// 
-    /// # Errors
-    /// This function errors if the given file cannot be read or has an invalid format.
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, Error> {
-        let path: &Path = path.as_ref();
-
-        // Get the raw file to parse
-        let mut raw: String = String::new();
-        {
-            // Open the file
-            let mut handle: File = match File::open(path) {
-                Ok(handle) => handle,
-                Err(err)   => { return Err(Error::FileOpenError { path: path.into(), err }); },
-            };
-
-            // Read the file
-            if let Err(err) = handle.read_to_string(&mut raw) { return Err(Error::FileReadError { path: path.into(), err }); }
-        }
-
-        // Parse with serde
-        match serde_yaml::from_str(&raw) {
-            Ok(config) => Ok(config),
-            Err(err)   => Err(Error::FileParseError { path: path.into(), err }),
-        }
-    }
-
-    /// Writes the NodeConfig to the given path.
-    /// 
-    /// # Arguments
-    /// - `path`: The path to write the NodeConfig to.
-    /// 
-    /// # Returns
-    /// Nothing, but does obviously create a new file with this NodeConfig's contents.
-    /// 
-    /// # Errors
-    /// This function errors if the given file cannot be written or we failed to serialize ourselves.
-    pub fn to_path(&self, path: impl AsRef<Path>) -> Result<(), Error> {
-        let path: &Path = path.as_ref();
-
-        // Serialize the config
-        let config: String = match serde_yaml::to_string(self) {
-            Ok(config) => config,
-            Err(err)   => { return Err(Error::ConfigSerializeError{ err }); },
-        };
-
-        // Write it
-        {
-            // Create the file
-            let mut handle: File = match File::create(path) {
-                Ok(handle) => handle,
-                Err(err)   => { return Err(Error::FileCreateError { path: path.into(), err }); },
-            };
-
-            // Write the serialized config
-            if let Err(err) = handle.write_all(config.as_bytes()) { return Err(Error::FileWriteError { path: path.into(), err }); }
-        }
-
-        // Done
-        Ok(())
-    }
-
-    /// Writes the NodeConfig to the given writer.
-    /// 
-    /// # Arguments
-    /// - `writer`: The path to write the NodeConfig to.
-    /// 
-    /// # Returns
-    /// Nothing, but does obviously populate the given writer with its own serialized contents.
-    /// 
-    /// # Errors
-    /// This function errors if we failed to write or failed to serialize ourselves.
-    pub fn to_writer(&self, writer: impl Write) -> Result<(), Error> {
-        let mut writer = writer;
-
-        // Serialize the config
-        let config: String = match serde_yaml::to_string(self) {
-            Ok(config) => config,
-            Err(err)   => { return Err(Error::ConfigSerializeError{ err }); },
-        };
-
-        // Write it
-        if let Err(err) = writer.write_all(config.as_bytes()) { return Err(Error::WriterWriteError{ err }); }
-
-        // Done
-        Ok(())
-    }
-}
-
-impl AsRef<NodeConfig> for NodeConfig {
-    #[inline]
-    fn as_ref(&self) -> &Self { self }
-}
-impl From<&NodeConfig> for NodeConfig {
-    #[inline]
-    fn from(value: &NodeConfig) -> Self { value.clone() }
-}
-impl From<&mut NodeConfig> for NodeConfig {
-    #[inline]
-    fn from(value: &mut NodeConfig) -> Self { value.clone() }
-}
-
-
+impl<'de> YamlConfig<'de> for NodeConfig {}
 
 /// Define configuration for control proxy traffic.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -280,223 +159,225 @@ pub struct ProxyConfig {
     pub protocol : ProxyProtocol,
 }
 
-/// Define NodeKind-specific configuration.
+
+
+/// Defines the services from the various nodes.
 #[derive(Clone, Debug, Deserialize, EnumDebug, Serialize)]
-#[serde(rename_all = "snake_case", tag = "kind")]
-pub enum NodeKindConfig {
-    /// The central node, which is the user's access point and does all the orchestration.
+#[serde(rename_all = "snake_case")]
+pub enum NodeSpecificConfig {
+    /// Defines the services for the control node
+    #[serde(alias = "control")]
     Central(CentralConfig),
-    /// The worker node, which lives on a hospital and does all the heavy work.
+    /// Defines the services for the worker node
     Worker(WorkerConfig),
 }
-
-impl NodeKindConfig {
+impl NodeSpecificConfig {
     /// Returns the kind of this config.
     #[inline]
     pub fn kind(&self) -> NodeKind {
-        use NodeKindConfig::*;
+        use NodeSpecificConfig::*;
         match self {
             Central(_) => NodeKind::Central,
             Worker(_)  => NodeKind::Worker,
         }
     }
 
-    /// Returns if this NodeConfigKind is a `NodeConfigKind::Central of sorts.
+    /// Returns if this NodeSpecificConfig is a `NodeSpecificConfig::Central`.
+    /// 
+    /// # Returns
+    /// True if it is, or false otherwise.
     #[inline]
     pub fn is_central(&self) -> bool { matches!(self, Self::Central(_)) }
-    /// Returns this NodeConfigKind as if it was a `NodeConfigKind::Central`.
+    /// Provides immutable access to the central-node specific configuration.
     /// 
-    /// Will panic otherwise.
-    #[inline]
-    pub fn central(&self) -> &CentralConfig { if let Self::Central(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeConfigKind::Central", self.variant()); } }
-    /// Returns this NodeConfigKind mutably as if it was a `NodeConfigKind::Central`.
+    /// # Returns
+    /// A reference to the internal CentralConfig struct.
     /// 
-    /// Will panic otherwise.
+    /// # Panics
+    /// This function panics if we were not `NodeSpecificConfig::Central`. If you are looking for a more user-friendly version, check `NodeSpecificConfig::try_central()` instead.
     #[inline]
-    pub fn central_mut(&mut self) -> &mut CentralConfig { if let Self::Central(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeConfigKind::Central", self.variant()); } }
-    /// Consumes this NodeConfigKind into a `NodeConfigKind::Central`.
+    pub fn central(&self) -> &CentralConfig { if let Self::Central(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeSpecificConfig::Central", self.variant()); } }
+    /// Provides mutable access to the central-node specific configuration.
     /// 
-    /// Will panic if it was not.
+    /// # Returns
+    /// A mutable reference to the internal CentralConfig struct.
+    /// 
+    /// # Panics
+    /// This function panics if we were not `NodeSpecificConfig::Central`. If you are looking for a more user-friendly version, check `NodeSpecificConfig::try_central_mut()` instead.
     #[inline]
-    pub fn into_central(self) -> CentralConfig { if let Self::Central(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeConfigKind::Central", self.variant()); } }
+    pub fn central_mut(&mut self) -> &mut CentralConfig { if let Self::Central(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeSpecificConfig::Central", self.variant()); } }
+    /// Returns the internal central-node specific configuration.
+    /// 
+    /// # Returns
+    /// The internal CentralConfig struct.
+    /// 
+    /// # Panics
+    /// This function panics if we were not `NodeSpecificConfig::Central`. If you are looking for a more user-friendly version, check `NodeSpecificConfig::try_into_central()` instead.
+    #[inline]
+    pub fn into_central(self) -> CentralConfig { if let Self::Central(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeSpecificConfig::Central", self.variant()); } }
+    /// Provides immutable access to the central-node specific configuration.
+    /// 
+    /// # Returns
+    /// A reference to the internal CentralConfig struct if we were a `NodeSpecificConfig::Central`. Will return `None` otherwise.
+    #[inline]
+    pub fn try_central(&self) -> Option<&CentralConfig> { if let Self::Central(config) = self { Some(config) } else { None } }
+    /// Provides mutable access to the central-node specific configuration.
+    /// 
+    /// # Returns
+    /// A mutable reference to the internal CentralConfig struct if we were a `NodeSpecificConfig::Central`. Will return `None` otherwise.
+    #[inline]
+    pub fn try_central_mut(&mut self) -> Option<&mut CentralConfig> { if let Self::Central(config) = self { Some(config) } else { None } }
+    /// Returns the internal central-node specific configuration.
+    /// 
+    /// # Returns
+    /// The internal CentralConfig struct if we were a `NodeSpecificConfig::Central`. Will return `None` otherwise.
+    #[inline]
+    pub fn try_into_central(self) -> Option<CentralConfig> { if let Self::Central(config) = self { Some(config) } else { None } }
 
-    /// Returns if this NodeConfigKind is a `NodeConfigKind::Worker of sorts.
+    /// Returns if this NodeSpecificConfig is a `NodeSpecificConfig::Worker`.
+    /// 
+    /// # Returns
+    /// True if it is, or false otherwise.
     #[inline]
     pub fn is_worker(&self) -> bool { matches!(self, Self::Worker(_)) }
-    /// Returns this NodeConfigKind as if it was a `NodeConfigKind::Worker`.
+    /// Provides immutable access to the worker-node specific configuration.
     /// 
-    /// Will panic otherwise.
-    #[inline]
-    pub fn worker(&self) -> &WorkerConfig { if let Self::Worker(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeConfigKind::Worker", self.variant()); } }
-    /// Returns this NodeConfigKind mutably as if it was a `NodeConfigKind::Worker`.
+    /// # Returns
+    /// A reference to the internal WorkerConfig struct.
     /// 
-    /// Will panic otherwise.
+    /// # Panics
+    /// This function panics if we were not `NodeSpecificConfig::Worker`. If you are looking for a more user-friendly version, check `NodeSpecificConfig::try_worker()` instead.
     #[inline]
-    pub fn worker_mut(&mut self) -> &mut WorkerConfig { if let Self::Worker(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeConfigKind::Worker", self.variant()); } }
-    /// Consumes this NodeConfigKind into a `NodeConfigKind::Worker`.
+    pub fn worker(&self) -> &WorkerConfig { if let Self::Worker(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeSpecificConfig::Worker", self.variant()); } }
+    /// Provides mutable access to the worker-node specific configuration.
     /// 
-    /// Will panic if it was not.
+    /// # Returns
+    /// A mutable reference to the internal WorkerConfig struct.
+    /// 
+    /// # Panics
+    /// This function panics if we were not `NodeSpecificConfig::Worker`. If you are looking for a more user-friendly version, check `NodeSpecificConfig::try_worker_mut()` instead.
     #[inline]
-    pub fn into_worker(self) -> WorkerConfig { if let Self::Worker(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeConfigKind::Worker", self.variant()); } }
-}
-
-impl AsRef<NodeKindConfig> for NodeKindConfig {
-   #[inline]
-   fn as_ref(&self) -> &Self { self }
-}
-impl From<&NodeKindConfig> for NodeKindConfig {
-   #[inline]
-   fn from(value: &NodeKindConfig) -> Self { value.clone() }
-}
-impl From<&mut NodeKindConfig> for NodeKindConfig {
-   #[inline]
-   fn from(value: &mut NodeKindConfig) -> Self { value.clone() }
-}
-
-
-
-/// Defines common services names used on every kind of node.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CommonNames {
-    /// Defines the name of the proxy service.
-    #[serde(alias = "proxy")]
-    pub prx : String,
-}
-
-/// Defines common paths used on every kind of node.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CommonPaths {
-    /// The path of the certificate directory.
-    pub certs   : PathBuf,
-    /// The path of the package directory.
-    pub packages : PathBuf,
-}
-
-/// Defines common hosted services that are available on every kind of node.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub struct CommonPorts {
-    /// Defines where the proxy service hosts itself.
-    #[serde(alias = "proxy")]
-    pub prx : SocketAddr,
-}
-
-/// Defines common services that are available on every kind of node.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CommonServices {
-    /// Defines where the proxy service may be found.
-    #[serde(alias = "proxy")]
-    pub prx : Address,
+    pub fn worker_mut(&mut self) -> &mut WorkerConfig { if let Self::Worker(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeSpecificConfig::Worker", self.variant()); } }
+    /// Returns the internal worker-node specific configuration.
+    /// 
+    /// # Returns
+    /// The internal WorkerConfig struct.
+    /// 
+    /// # Panics
+    /// This function panics if we were not `NodeSpecificConfig::Worker`. If you are looking for a more user-friendly version, check `NodeSpecificConfig::try_into_worker()` instead.
+    #[inline]
+    pub fn into_worker(self) -> WorkerConfig { if let Self::Worker(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeSpecificConfig::Worker", self.variant()); } }
+    /// Provides immutable access to the worker-node specific configuration.
+    /// 
+    /// # Returns
+    /// A reference to the internal WorkerConfig struct if we were a `NodeSpecificConfig::Worker`. Will return `None` otherwise.
+    #[inline]
+    pub fn try_worker(&self) -> Option<&WorkerConfig> { if let Self::Worker(config) = self { Some(config) } else { None } }
+    /// Provides mutable access to the worker-node specific configuration.
+    /// 
+    /// # Returns
+    /// A mutable reference to the internal WorkerConfig struct if we were a `NodeSpecificConfig::Worker`. Will return `None` otherwise.
+    #[inline]
+    pub fn try_worker_mut(&mut self) -> Option<&mut WorkerConfig> { if let Self::Worker(config) = self { Some(config) } else { None } }
+    /// Returns the internal worker-node specific configuration.
+    /// 
+    /// # Returns
+    /// The internal WorkerConfig struct if we were a `NodeSpecificConfig::Worker`. Will return `None` otherwise.
+    #[inline]
+    pub fn try_into_worker(self) -> Option<WorkerConfig> { if let Self::Worker(config) = self { Some(config) } else { None } }
 }
 
 
 
-/// Defines the properties that are specific to a central node.
+/// Defines the configuration for the central/control node.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CentralConfig {
-    /// Defines the names of services on the central node.
-    pub names    : CentralNames,
-    /// Defines the paths configuration for the central node.
+    /// Defines the paths for this node.
     pub paths    : CentralPaths,
-    /// Defines where various externally available services bind themselves to.
-    pub ports    : CentralPorts,
-    /// Defines how to reach services.
+    /// Defines the services for this node.
     pub services : CentralServices,
-    /// Defines Kafka topics shared across services.
-    pub topics   : CentralKafkaTopics,
+    /// Defines the Kafka topics for this node.
+    pub topics   : CentralTopics,
 }
 
-/// Defines service names used on a central node.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CentralNames {
-    /// Defines the name of the API service.
-    #[serde(alias = "registry")]
-    pub api : String,
-    /// Defines the name of the driver service.
-    #[serde(alias = "driver")]
-    pub drv : String,
-    /// Defines the name of the planner service.
-    #[serde(alias = "planner")]
-    pub plr : String,
-}
-
-/// Defines where to find various paths for a central node.
+/// Defines the paths for the central/control node.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CentralPaths {
-    /// The path of the infrastructure file.
-    pub infra   : PathBuf,
+    /// The path to the certificate directory.
+    pub certs    : PathBuf,
+    /// The path to the package directory.
+    pub packages : PathBuf,
+
+    /// The path to the infrastructure file.
+    pub infra    : PathBuf,
 }
 
-/// Defines various ports for external services on the central node.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub struct CentralPorts {
-    /// The port of the API service
-    #[serde(alias = "registry")]
-    pub api : SocketAddr,
-    /// The port of the driver service
-    #[serde(alias = "driver")]
-    pub drv : SocketAddr,
-}
-
-/// Defines where central node internal services are hosted.
+/// Defines the services for the central/control node.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CentralServices {
-    /// Defines where the Kafka broker(s) live(s).
-    #[serde(alias = "kafka_brokers")]
-    pub brokers : Vec<Address>,
-    /// Defines where to find the Scylla database.
-    #[serde(alias = "scylla_database")]
-    pub scylla  : Address,
-
-    /// Defines how to reach the API service.
+    // Brane services
+    /// Describes the API (global registry) service.
     #[serde(alias = "registry")]
-    pub api : Address,
+    pub api : PublicService,
+    /// Describes the driver service.
+    #[serde(alias = "driver")]
+    pub drv : PublicService,
+    /// Describes the planner service.
+    #[serde(alias = "planner")]
+    pub plr : PrivateService,
+    /// Describes the proxy service.
+    #[serde(alias = "proxy")]
+    pub prx : PrivateService,
+
+    // Auxillary services
+    /// Describes the Scylla service.
+    #[serde(alias = "scylla")]
+    pub aux_scylla    : PrivateService,
+    /// Describes the Kafka service.
+    #[serde(alias = "kafka")]
+    pub aux_kafka     : PrivateService,
+    /// Describes the Kafka Zookeeper service.
+    #[serde(alias = "zookeeper")]
+    pub aux_zookeeper : PrivateService,
+    // /// Describes the Xenon service.
+    // #[serde(alias = "xenon")]
+    // pub aux_xenon     : PrivateService,
 }
 
-/// Defines topics and such used on a central node.
+/// Defines the Kafka topics used by the central service.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CentralKafkaTopics {
-    /// The topic for the planner to receive new planning requests on.
-    pub planner_command : String,
-    /// The topic for the planner to send planning results on.
-    pub planner_results : String,
+pub struct CentralTopics {
+    /// Defines the topic to send planning commands on.
+    #[serde(alias = "planner_command")]
+    pub plr_cmd : String,
+    /// Defines the topic to send planning results on.
+    #[serde(alias = "planner_result")]
+    pub plr_res : String,
 }
 
 
 
-/// Defines the properties that are specific to a worker node.
+/// Defines the configuration for the worker node.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct WorkerConfig {
-    /// Defines the location ID of this location.
-    #[serde(alias = "id")]
-    pub location_id : String,
+    /// Defines the name for this worker.
+    #[serde(alias = "location_id")]
+    pub name : String,
 
-    /// Defines the names of services on the worker node.
-    pub names    : WorkerNames,
-    /// Defines the paths configuration for the worker node.
+    /// Defines the paths for this node.
     pub paths    : WorkerPaths,
-    /// Defines the ports for various _external_ services on this worker node.
-    pub ports    : WorkerPorts,
-    /// Defines where to find the various worker services.
+    /// Defines the services for this node.
     pub services : WorkerServices,
 }
 
-/// Defines service names used on a worker node.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct WorkerNames {
-    /// Defines the name of the local registr service.
-    #[serde(alias = "registr")]
-    pub reg : String,
-    /// Defines the name of the local delegate service.
-    #[serde(alias = "delegate")]
-    pub job : String,
-    /// Defines the name of the local checker service.
-    #[serde(alias = "checker")]
-    pub chk : String,
-}
-
-/// Defines where to find various paths for a worker node.
+/// Defines the paths for the worker node.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct WorkerPaths {
+    /// The path to the certificate directory.
+    pub certs    : PathBuf,
+    /// The path to the package directory.
+    pub packages : PathBuf,
+
     /// The path of the backend file (`backend.yml`).
     pub backend  : PathBuf,
     /// The path to the "policy" file (`policies.yml` - temporary)
@@ -512,24 +393,46 @@ pub struct WorkerPaths {
     pub temp_results : PathBuf,
 }
 
-/// Defines various ports for external services on the worker node.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub struct WorkerPorts {
-    /// The port of the registry service.
-    #[serde(alias = "registry")]
-    pub reg : SocketAddr,
-    /// The port of the job service.
-    #[serde(alias = "delegate")]
-    pub job : SocketAddr,
-}
-
-/// Defines where central node internal services are hosted.
+/// Defines the services for the worker node.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct WorkerServices {
-    /// Defines where the registry service lives.
-    #[serde(alias = "registr")]
-    pub reg : Address,
-    /// Defines where the checker service lives.
+    /// Defines the (local) registry service.
+    #[serde(alias = "registry")]
+    pub reg : PublicService,
+    /// Defines the job (local driver) service.
+    #[serde(alias = "driver")]
+    pub job : PublicService,
+    /// Defines the checker service.
     #[serde(alias = "checker")]
-    pub chk : Address,
+    pub chk : PublicService,
+    /// Defines the proxy service.
+    #[serde(alias = "proxy")]
+    pub prx : PrivateService,
+}
+
+
+
+/// Defines what we need to know for a public service (i.e., a service that is reachable from outside the Docker network, i.e., the node).
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PublicService {
+    /// Defines the name of the Docker container.
+    pub name    : String,
+    /// Defines how the services on the same node can reach this service (which can be optimized due to the same-Docker-network property).
+    pub address : Address,
+    /// Defines the port (and hostname) to which the Docker container will bind itself. This is also the port on which the service will be externally reachable.
+    pub bind    : SocketAddr,
+
+    /// Defines how the services on _other_ nodes can reach this service.
+    pub external_address : Address,
+}
+
+/// Defines what we need to know for a private service (i.e., a service that is only reachable from within the Docker network, i.e., the node).
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PrivateService {
+    /// Defines the name of the Docker container.
+    pub name    : String,
+    /// Defines how the services on the same node can reach this service (which can be optimized due to the same-Docker-network property).
+    pub address : Address,
+    /// Defines the port (and hostname) to which the Docker container will bind itself.
+    pub bind    : SocketAddr,
 }
