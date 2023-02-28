@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2022, 11:21:14
 //  Last edited:
-//    01 Feb 2023, 15:44:00
+//    28 Feb 2023, 08:16:38
 //  Auto updated?
 //    Yes
 // 
@@ -798,7 +798,7 @@ async fn execute_task_local(node_config: &NodeConfig, dinfo: DockerInfo, tx: &Se
 /// # Errors
 /// This fnction may error for many many reasons, but chief among those are unavailable backends or a crashing task.
 async fn execute_task(node_config: &NodeConfig, proxy: Arc<ProxyClient>, tx: Sender<Result<ExecuteReply, Status>>, workflow: Workflow, cinfo: ControlNodeInfo, tinfo: TaskInfo, keep_container: bool, prof: ProfileScopeHandle<'_>) -> Result<(), ExecuteError> {
-    let mut tinfo          = tinfo;
+    let mut tinfo = tinfo;
 
     // We update the user first on that the job has been received
     info!("Starting execution of task '{}'", tinfo.name);
