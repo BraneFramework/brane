@@ -466,8 +466,8 @@ async fn main() -> Result<()> {
     if !options.skip_check {
         match brane_cli::utils::check_dependencies().await {
             Ok(Ok(()))   => {},
-            Ok(Err(err)) => { eprintln!("Dependencies not met: {}", err); process::exit(1); }
-            Err(err)     => { eprintln!("Could not check for dependencies: {}", err); process::exit(1); }
+            Ok(Err(err)) => { eprintln!("Dependencies not met: {err}"); process::exit(1); }
+            Err(err)     => { eprintln!("Could not check for dependencies: {err}"); process::exit(1); }
         }
     }
 
@@ -530,7 +530,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
             match kind {
                 PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(host_arch), workdir, file, init, keep_files).await.map_err(|err| CliError::BuildError{ err })?,
                 PackageKind::Oas => build_oas::handle(arch.unwrap_or(host_arch), workdir, file, init, keep_files).await.map_err(|err| CliError::BuildError{ err })?,
-                _                => eprintln!("Unsupported package kind: {}", kind),
+                _                => eprintln!("Unsupported package kind: {kind}"),
             }
         }
         Certs { subcommand } => {
@@ -577,7 +577,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
         }
         Import { arch, repo, workdir, file, kind, init } => {
             // Prepare the input URL and output directory
-            let url = format!("https://github.com/{}", repo);
+            let url = format!("https://github.com/{repo}");
             let dir = match tempdir() {
                 Ok(dir)  => dir,
                 Err(err) => { return Err(CliError::ImportError{ err: ImportError::TempDirError{ err } }); }
@@ -637,7 +637,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
             match kind {
                 PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(host_arch), workdir, file, init, false).await.map_err(|err| CliError::BuildError{ err })?,
                 PackageKind::Oas => build_oas::handle(arch.unwrap_or(host_arch), workdir, file, init, false).await.map_err(|err| CliError::BuildError{ err })?,
-                _                => eprintln!("Unsupported package kind: {}", kind),
+                _                => eprintln!("Unsupported package kind: {kind}"),
             }
         }
         Inspect { name, version, syntax } => {

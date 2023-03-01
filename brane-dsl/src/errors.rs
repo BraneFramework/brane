@@ -58,9 +58,7 @@ pub(crate) fn convert_parser_error(
                     } else {
                         write!(
                             &mut result,
-                            "{i}: expected '{expected}', but EOF\n\n",
-                            i = i,
-                            expected = c,
+                            "{i}: expected '{c}', but EOF\n\n",
                         )
                         .unwrap();
                     }
@@ -114,10 +112,10 @@ pub(crate) fn convert_parser_error(
                 let mismatch = tokens.tok[0].inner();
                 let line = String::from_utf8(mismatch.get_line_beginning().to_vec()).unwrap();
 
-                writeln!(result, "{} in section '{}', at: {}", i, s, line).unwrap()
+                writeln!(result, "{i} in section '{s}', at: {line}").unwrap()
             }
             e => {
-                writeln!(result, "Compiler error: unkown error from parser: {:?}", e).unwrap();
+                writeln!(result, "Compiler error: unkown error from parser: {e:?}").unwrap();
             }
         }
     }
@@ -139,9 +137,9 @@ pub(crate) fn convert_scanner_error(
 
         if input.is_empty() {
             match kind {
-                VerboseErrorKind::Char(c) => write!(&mut result, "{}: expected '{}', got empty input\n\n", i, c),
-                VerboseErrorKind::Context(s) => write!(&mut result, "{}: in {}, got empty input\n\n", i, s),
-                VerboseErrorKind::Nom(e) => write!(&mut result, "{}: in {:?}, got empty input\n\n", i, e),
+                VerboseErrorKind::Char(c) => write!(&mut result, "{i}: expected '{c}', got empty input\n\n"),
+                VerboseErrorKind::Context(s) => write!(&mut result, "{i}: in {s}, got empty input\n\n"),
+                VerboseErrorKind::Nom(e) => write!(&mut result, "{i}: in {e:?}, got empty input\n\n"),
             }
         } else {
             let prefix = &input.as_bytes()[..offset];
@@ -257,10 +255,10 @@ impl Display for SymbolTableError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use SymbolTableError::*;
         match self {
-            DuplicateFunction{ name, .. }      => write!(f, "Duplicate definition of function '{}'", name),
-            DuplicateClass{ name, .. }         => write!(f, "Duplicate definition of class '{}'", name),
-            DuplicateVariable{ name, .. }      => write!(f, "Duplicate definition of variable '{}'", name),
-            DuplicateField{ c_name, name, .. } => write!(f, "Duplicate definition of field '{}' in class '{}'", name, c_name),
+            DuplicateFunction{ name, .. }      => write!(f, "Duplicate definition of function '{name}'"),
+            DuplicateClass{ name, .. }         => write!(f, "Duplicate definition of class '{name}'"),
+            DuplicateVariable{ name, .. }      => write!(f, "Duplicate definition of variable '{name}'"),
+            DuplicateField{ c_name, name, .. } => write!(f, "Duplicate definition of field '{name}' in class '{c_name}'"),
         }
     }
 }
@@ -280,7 +278,7 @@ impl Display for LanguageParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use LanguageParseError::*;
         match self {
-            UnknownLanguageId{ raw } => write!(f, "Unknown language ID '{}'", raw),
+            UnknownLanguageId{ raw } => write!(f, "Unknown language ID '{raw}'"),
         }
     }
 }
@@ -299,7 +297,7 @@ impl Display for PatternError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use PatternError::*;
         match self {
-            UnknownPattern{ raw, .. } => write!(f, "Pattern '{}' is unknown (are you missing a package import?)", raw),
+            UnknownPattern{ raw, .. } => write!(f, "Pattern '{raw}' is unknown (are you missing a package import?)"),
         }
     }
 }
@@ -333,14 +331,14 @@ impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use self::ParseError::*;
         match self {
-            ScanError { err }   => write!(f, "Syntax error: {}", err),
-            ScannerError{ err } => write!(f, "Syntax error: {}", err),
+            ScanError { err }   => write!(f, "Syntax error: {err}"),
+            ScannerError{ err } => write!(f, "Syntax error: {err}"),
             LeftoverSourceError => write!(f, "Syntax error: not all input could be parsed"),
 
-            ParseError { lang, err }    => write!(f, "{} parse error: {}", lang, err),
-            ParserError{ lang, err }    => write!(f, "{} parse error: {}", lang, err),
-            Eof{ lang, err }            => write!(f, "{} parse error: reached end-of-file unexpectedly ({})", lang, err),
-            LeftoverTokensError{ lang } => write!(f, "{} parse error: not all input could be parsed", lang),
+            ParseError { lang, err }    => write!(f, "{lang} parse error: {err}"),
+            ParserError{ lang, err }    => write!(f, "{lang} parse error: {err}"),
+            Eof{ lang, err }            => write!(f, "{lang} parse error: reached end-of-file unexpectedly ({err})"),
+            LeftoverTokensError{ lang } => write!(f, "{lang} parse error: not all input could be parsed"),
         }
     }
 }

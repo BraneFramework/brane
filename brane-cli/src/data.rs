@@ -74,7 +74,7 @@ pub async fn download_data(api_endpoint: impl AsRef<str>, proxy_addr: &Option<St
     let location: &str = access.keys().choose(&mut rng).unwrap();
 
     // Send a GET-request to resolve that location to a delegate
-    let registry_addr: String = format!("{}/infra/registries/{}", api_endpoint, location);
+    let registry_addr: String = format!("{api_endpoint}/infra/registries/{location}");
     let res: Response = match reqwest::get(&registry_addr).await {
         Ok(res)  => res,
         Err(err) => { return Err(DataError::RequestError{ what: "registry", address: registry_addr, err }); },
@@ -132,7 +132,7 @@ pub async fn download_data(api_endpoint: impl AsRef<str>, proxy_addr: &Option<St
         Ok(tar_dir) => tar_dir,
         Err(err)    => { return Err(DataError::TempDirError{ err }); },
     };
-    let tar_path: PathBuf = tar_dir.path().join(format!("data_{}.tar.gz", name));
+    let tar_path: PathBuf = tar_dir.path().join(format!("data_{name}.tar.gz"));
 
     // Compute the final data path in the datasets directory
     let data_dir: PathBuf = match ensure_dataset_dir(name, true) {
@@ -150,7 +150,7 @@ pub async fn download_data(api_endpoint: impl AsRef<str>, proxy_addr: &Option<St
 
 
     /* Step 4: Build the client. */
-    let download_addr: String = format!("{}/data/download/{}", registry_addr, name);
+    let download_addr: String = format!("{registry_addr}/data/download/{name}");
     debug!("Sending download request to '{}'...", download_addr);
     let mut client: ClientBuilder = Client::builder()
         .use_rustls_tls()

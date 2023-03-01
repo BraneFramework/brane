@@ -132,7 +132,7 @@ pub fn pass_stmt(writer: &mut impl Write, stmt: &Stmt, indent: usize) -> std::io
                     write!(writer, "]")?;
                 }
             } else {
-                panic!("Got a non-Semver Literal '{:?}' in an import statement; this should never happen!", version);
+                panic!("Got a non-Semver Literal '{version:?}' in an import statement; this should never happen!");
             }
             // Do newline
             writeln!(writer)?;
@@ -356,7 +356,7 @@ pub fn pass_expr(writer: &mut impl Write, expr: &Expr, indent: usize) -> std::io
     match expr {
         Cast{ expr, target, .. } => {
             // Print the cast operator
-            write!(writer, "(({}) ", target)?;
+            write!(writer, "(({target}) ")?;
             // Print the expression
             pass_expr(writer, expr, indent)?;
             // Print the closing bracket
@@ -651,10 +651,10 @@ pub fn pass_literal(writer: &mut impl Write, literal: &Literal) -> std::io::Resu
             write!(writer, "{}", *value)?;
         },
         String{ value, .. } => {
-            write!(writer, "\"{}\"", value)?;
+            write!(writer, "\"{value}\"")?;
         },
         Semver{ value, .. } => {
-            write!(writer, "{}", value)?;
+            write!(writer, "{value}")?;
         }
         Void{ .. } => {
             write!(writer, "<void>")?;

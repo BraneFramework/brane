@@ -189,7 +189,7 @@ async fn run(
             let output: String = match serde_json::to_string(&result) {
                 Ok(output) => output,
                 Err(err)   => {
-                    let err = LetError::ResultJSONError{ value: format!("{:?}", result), err };
+                    let err = LetError::ResultJSONError{ value: format!("{result:?}"), err };
                     // if let Some(ref mut callback) = callback {
                     //     if let Err(err) = callback.decode_failed(format!("{}", err)).await { log::error!("Could not update driver on DecodeFailed: {}", err); }
                     // }

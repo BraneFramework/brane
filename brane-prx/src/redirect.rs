@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 11:26:46
 //  Last edited:
-//    26 Jan 2023, 09:57:26
+//    28 Feb 2023, 15:50:31
 //  Auto updated?
 //    Yes
 // 
@@ -14,7 +14,7 @@
 
 use std::future::Future;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -22,14 +22,15 @@ use log::{debug, error, info};
 use never_say_never::Never;
 use rustls::{Certificate, ConfigBuilder, PrivateKey, RootCertStore, ServerName};
 use rustls::client::ClientConfig;
-use socksx::Socks6Client;
+use socksx::{Socks5Client, Socks6Client};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 use url::Url;
 
+use brane_cfg::spec::Config as _;
 use brane_cfg::certs::{load_certstore, load_identity};
-use brane_cfg::node::NodeConfig;
+use brane_cfg::node::{NodeConfig, NodeSpecificConfig, ProxyProtocol};
 use specifications::address::Address;
 
 pub use crate::errors::RedirectError as Error;
@@ -41,8 +42,10 @@ use crate::spec::{Context, NewPathRequestTlsOptions};
 pub enum RemoteClient {
     /// A normal client without any proxying (which for us is just the address).
     Direct,
-    /// A Socks6Client that does the heavy work for us.
-    Proxied(Socks6Client, Address),
+    /// A socksx-client that proxies using the SOCKS5-protocol.
+    Socks5(Socks5Client, Address),
+    /// A socksx-client that proxies using the SOCKS6-protocol.
+    Socks6(Socks6Client, Address),
 }
 
 impl RemoteClient {
@@ -63,7 +66,11 @@ impl RemoteClient {
                 Err(err) => Err(Error::TcpStreamConnectError{ address: address.into(), err }),
             },
 
-            Proxied(client, proxy) => match client.connect(address.to_string(), None, None).await {
+            Socks5(client, proxy) => match client.connect(address.to_string()).await {
+                Ok((conn, addr)) => { debug!("{:?}", addr); Ok(conn) },
+                Err(err)         => Err(Error::Socks5ConnectError{ address: address.into(), proxy: proxy.clone(), err }),
+            },
+            Socks6(client, proxy) => match client.connect(address.to_string(), None, None).await {
                 Ok((conn, addr)) => { debug!("{:?}", addr); Ok(conn) },
                 Err(err)         => Err(Error::Socks6ConnectError{ address: address.into(), proxy: proxy.clone(), err }),
             },
@@ -121,15 +128,28 @@ pub async fn path_server_factory(context: &Arc<Context>, socket_addr: SocketAddr
     };
 
     // Now match on what to do
-    if let Some(proxy_addr) = &context.proxy {
-        // Attempt to open the socks client
-        let client: Socks6Client = match Socks6Client::new(proxy_addr.to_string(), None).await {
-            Ok(client) => client,
-            Err(err)   => { return Err(Error::SocksCreateError{ address: proxy_addr.clone(), err }); },
+    if let Some(proxy_cfg) = &context.proxy {
+        // Open the relevant client
+        let client: RemoteClient = match proxy_cfg.protocol {
+            ProxyProtocol::Socks5 => {
+                // Attempt to open the socks 5 client
+                match Socks5Client::new(proxy_cfg.address.to_string(), None).await {
+                    Ok(client) => RemoteClient::Socks5(client, proxy_cfg.address.clone()),
+                    Err(err)   => { return Err(Error::Socks5CreateError{ address: proxy_cfg.address.clone(), err }); },
+                }
+            },
+
+            ProxyProtocol::Socks6 => {
+                // Attempt to open the socks 6 client
+                match Socks6Client::new(proxy_cfg.address.to_string(), None).await {
+                    Ok(client) => RemoteClient::Socks6(client, proxy_cfg.address.clone()),
+                    Err(err)   => { return Err(Error::Socks6CreateError{ address: proxy_cfg.address.clone(), err }); },
+                }
+            },
         };
 
         // If that was successfull, return the future
-        Ok(path_server(context.node_config_path.clone(), listener, RemoteClient::Proxied(client, proxy_addr.clone()), socket_addr, remote_addr, tls))
+        Ok(path_server(context.node_config_path.clone(), listener, client, socket_addr, remote_addr, tls))
 
     } else {
         // Otherwise, just pass the address as 'to-be-connected'
@@ -193,8 +213,14 @@ pub async fn path_server(node_config_path: PathBuf, listener: TcpListener, clien
                 },
             };
 
+            // Load the certificate path
+            let cert_path: &Path = match &node_config.node {
+                NodeSpecificConfig::Central(node) => &node.paths.certs,
+                NodeSpecificConfig::Worker(node)  => &node.paths.certs,
+            };
+
             // Load the root CA certificate file
-            let ca_path: PathBuf = node_config.paths.certs.join(&tls.location).join("ca.pem");
+            let ca_path: PathBuf = cert_path.join(&tls.location).join("ca.pem");
             let ca: RootCertStore = match load_certstore(&ca_path) {
                 Ok(store) => store,
                 Err(err)  => {
@@ -206,7 +232,7 @@ pub async fn path_server(node_config_path: PathBuf, listener: TcpListener, clien
             // If any, also load the client file
             let client: Option<(PathBuf, Vec<Certificate>, PrivateKey)> = if tls.use_client_auth {
                 debug!(":{}->{}: Adding client certificate...", socket_addr.port(), address);
-                let client_path: PathBuf = node_config.paths.certs.join(&tls.location).join("client-id.pem");
+                let client_path: PathBuf = cert_path.join(&tls.location).join("client-id.pem");
                 match load_identity(&client_path) {
                     Ok((certs, key)) => Some((client_path, certs, key)),
                     Err(err)         => {

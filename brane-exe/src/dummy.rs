@@ -73,9 +73,9 @@ fn default_return_value(data_type: &DataType, workflow: &Workflow, name: impl As
                     return FullValue::Instance(name.clone(), props);
                 }
             }
-            panic!("Unknown class '{}'", name);
+            panic!("Unknown class '{name}'");
         },
-        DataType::IntermediateResult => FullValue::IntermediateResult(result.clone().unwrap_or_else(|| panic!("Task {}::{} does not define it returns an IntermediateResult, and yet it does", package_name, name)).into()),
+        DataType::IntermediateResult => FullValue::IntermediateResult(result.clone().unwrap_or_else(|| panic!("Task {package_name}::{name} does not define it returns an IntermediateResult, and yet it does")).into()),
 
         // Invalid types
         DataType::Any            |
@@ -85,7 +85,7 @@ fn default_return_value(data_type: &DataType, workflow: &Workflow, name: impl As
         DataType::NonVoid        |
         DataType::Semver         |
         DataType::Function{ .. } |
-        DataType::Data           => { panic!("Task {}::{} returns an {}, while a task shouldn't", package_name, name, data_type); },
+        DataType::Data           => { panic!("Task {package_name}::{name} returns an {data_type}, while a task shouldn't"); },
     }
 }
 
@@ -134,7 +134,7 @@ impl VmPlugin for DummyPlugin {
         info!("Processing dummy call to '{}'@'{}' with {} in {}[{}]...",
             info.name,
             info.location,
-            info.args.iter().map(|(n, v)| format!("{}={:?}", n, v)).collect::<Vec<String>>().join(","),
+            info.args.iter().map(|(n, v)| format!("{n}={v:?}")).collect::<Vec<String>>().join(","),
             info.package_name,
             info.package_version,
         );
@@ -353,7 +353,7 @@ impl DummyVm {
         // Fetch the global state if there is one
         let state    : RwLockWriteGuard<DummyState> = self.state.global.write().unwrap();
         let mut text : MutexGuard<String>           = state.text.lock().unwrap();
-        print!("{}", text);
+        print!("{text}");
         *text = String::new();
     }
 }

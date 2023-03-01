@@ -93,7 +93,7 @@ impl CompileResult {
         if let Self::Workflow(w, warns) = self {
             (w, warns)
         } else {
-            panic!("Cannot unwrap CompileResult::{} as a Workflow", self);
+            panic!("Cannot unwrap CompileResult::{self} as a Workflow");
         }
     }
 
@@ -109,7 +109,7 @@ impl CompileResult {
         if let Self::Unresolved(u, warns) = self {
             (u, warns)
         } else {
-            panic!("Cannot unwrap CompileResult::{} as an UnresolvedWorkflow", self);
+            panic!("Cannot unwrap CompileResult::{self} as an UnresolvedWorkflow");
         }
     }
 
@@ -125,7 +125,7 @@ impl CompileResult {
         if let Self::Program(p, warns) = self {
             (p, warns)
         } else {
-            panic!("Cannot unwrap CompileResult::{} as a Program", self);
+            panic!("Cannot unwrap CompileResult::{self} as a Program");
         }
     }
 
@@ -143,7 +143,7 @@ impl CompileResult {
         if let Self::Eof(e) = self {
             e
         } else {
-            panic!("Cannot unwrap CompileResult::{} as an Eof", self);
+            panic!("Cannot unwrap CompileResult::{self} as an Eof");
         }
     }
 
@@ -159,7 +159,7 @@ impl CompileResult {
         if let Self::Err(e) = self {
             e
         } else {
-            panic!("Cannot unwrap CompileResult::{} as an Error", self);
+            panic!("Cannot unwrap CompileResult::{self} as an Error");
         }
     }
 }

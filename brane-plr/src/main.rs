@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2022, 17:27:16
 //  Last edited:
-//    28 Nov 2022, 16:26:45
+//    28 Feb 2023, 16:21:56
 //  Auto updated?
 //    Yes
 // 
@@ -31,7 +31,9 @@ use std::path::PathBuf;
 use clap::Parser;
 use dotenvy::dotenv;
 use log::{debug, error, info, LevelFilter};
-use brane_cfg::node::NodeConfig;
+
+use brane_cfg::spec::Config as _;
+use brane_cfg::node::{CentralConfig, NodeConfig};
 
 use brane_plr::planner::planner_server;
 
@@ -81,10 +83,13 @@ async fn main() {
             std::process::exit(1);
         },
     };
-    if !node_config.node.is_central() { error!("Given NodeConfig file '{}' does not have properties for a central node.", opts.node_config_path.display()); std::process::exit(1); }
+    let config: CentralConfig = match node_config.node.try_into_central() {
+        Some(config) => config,
+        None         => { error!("Presented with a non-central `node.yml` file (please adapt it to provide properties for a central node)"); std::process::exit(1); },
+    };
 
     // We simply start a new planner, which takes over this function
-    if let Err(err) = planner_server(opts.node_config_path, node_config, opts.group_id).await {
+    if let Err(err) = planner_server(opts.node_config_path, config, opts.group_id).await {
         error!("Failed to run InstancePlanner server: {}", err);
         std::process::exit(1);
     }

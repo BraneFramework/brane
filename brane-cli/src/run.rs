@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    30 Jan 2023, 13:31:40
+//    01 Mar 2023, 11:14:27
 //  Auto updated?
 //    Yes
 // 
@@ -306,12 +306,12 @@ pub async fn initialize_instance_vm(api_endpoint: impl AsRef<str>, drv_endpoint:
 
     // We fetch a local copy of the indices for compiling
     debug!("Fetching global package & data indices from '{}'...", api_endpoint);
-    let package_addr: String = format!("{}/graphql", api_endpoint);
+    let package_addr: String = format!("{api_endpoint}/graphql");
     let pindex: Arc<PackageIndex> = match brane_tsk::api::get_package_index(&package_addr).await {
         Ok(pindex) => Arc::new(pindex),
         Err(err)   => { return Err(Error::RemotePackageIndexError{ address: package_addr, err }); },
     };
-    let data_addr: String = format!("{}/data/info", api_endpoint);
+    let data_addr: String = format!("{api_endpoint}/data/info");
     let dindex: Arc<DataIndex> = match brane_tsk::api::get_data_index(&data_addr).await {
         Ok(dindex) => Arc::new(dindex),
         Err(err)   => { return Err(Error::RemoteDataIndexError{ address: data_addr, err }); },
@@ -341,7 +341,7 @@ pub async fn initialize_instance_vm(api_endpoint: impl AsRef<str>, drv_endpoint:
         debug!("Using new session '{}'", raw);
         match AppId::from_str(&raw) {
             Ok(session) => session,
-            Err(err)    => { return Err(Error::AppIdError{ address: drv_endpoint.into(), raw, err }); },
+            Err(err)    => { return Err(Error::AppIdError{ address: drv_endpoint.into(), raw, err: Box::new(err) }); },
         }
     };
 
@@ -492,13 +492,13 @@ pub async fn run_instance_vm(drv_endpoint: impl AsRef<str>, state: &mut Instance
                 // The remote send us a normal text message
                 if let Some(stdout) = reply.stdout {
                     debug!("Remote returned stdout");
-                    print!("{}", stdout);
+                    print!("{stdout}");
                 }
 
                 // The remote send us an error
                 if let Some(stderr) = reply.stderr {
                     debug!("Remote returned error");
-                    eprintln!("{}", stderr);
+                    eprintln!("{stderr}");
                 }
 
                 // Update the value to the latest if one is sent
@@ -548,7 +548,7 @@ pub async fn run_instance_vm(drv_endpoint: impl AsRef<str>, state: &mut Instance
 pub fn process_dummy_result(result: FullValue) {
     // We only print
     if result != FullValue::Void {
-        println!("\nWorkflow returned value {}", style(format!("'{}'", result)).bold().cyan());
+        println!("\nWorkflow returned value {}", style(format!("'{result}'")).bold().cyan());
 
         // Treat some values special
         match result {
@@ -584,7 +584,7 @@ pub fn process_dummy_result(result: FullValue) {
 pub fn process_offline_result(result: FullValue) -> Result<(), Error> {
     // We only print
     if result != FullValue::Void {
-        println!("\nWorkflow returned value {}", style(format!("'{}'", result)).bold().cyan());
+        println!("\nWorkflow returned value {}", style(format!("'{result}'")).bold().cyan());
 
         // Treat some values special
         match result {
@@ -650,7 +650,7 @@ pub async fn process_instance_result(api_endpoint: impl AsRef<str>, proxy_addr: 
 
     // We only print
     if result != FullValue::Void {
-        println!("\nWorkflow returned value {}", style(format!("'{}'", result)).bold().cyan());
+        println!("\nWorkflow returned value {}", style(format!("'{result}'")).bold().cyan());
 
         // Treat some values special
         match result {
@@ -662,7 +662,7 @@ pub async fn process_instance_result(api_endpoint: impl AsRef<str>, proxy_addr: 
             // If it's a dataset, attempt to download it
             FullValue::Data(name) => {
                 // Fetch a new, local DataIndex to get up-to-date entries
-                let data_addr: String = format!("{}/data/info", api_endpoint);
+                let data_addr: String = format!("{api_endpoint}/data/info");
                 let index: DataIndex = match brane_tsk::api::get_data_index(&data_addr).await {
                     Ok(dindex) => dindex,
                     Err(err)   => { return Err(Error::RemoteDataIndexError{ address: data_addr, err }); },

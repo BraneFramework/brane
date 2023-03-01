@@ -4,7 +4,7 @@
 //  Created:
 //    14 Sep 2022, 11:32:04
 //  Last edited:
-//    14 Nov 2022, 10:35:24
+//    01 Mar 2023, 09:51:43
 //  Auto updated?
 //    Yes
 // 
@@ -86,10 +86,10 @@ impl<'a> Iterator for SnippetFetcher<'a> {
                     '<' => { n_open_triang += 1; },
 
                     // Close
-                    ')' => { if n_open_paren  > 0 { n_open_paren  -= 1; } },
-                    ']' => { if n_open_square > 0 { n_open_square -= 1; } },
-                    '}' => { if n_open_curly  > 0 { n_open_curly  -= 1; } },
-                    '>' => { if n_open_triang > 0 { n_open_triang -= 1; } },
+                    ')' => { n_open_paren  = n_open_paren.saturating_sub(1); },
+                    ']' => { n_open_square = n_open_square.saturating_sub(1); },
+                    '}' => { n_open_curly  = n_open_curly.saturating_sub(1); },
+                    '>' => { n_open_triang = n_open_triang.saturating_sub(1); },
 
                     // The rest is fine
                     _ => {},

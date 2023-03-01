@@ -684,7 +684,7 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
                 },
 
                 // The rest should never get here
-                op => { panic!("Got unary operator '{}' in a UnaOp expression; this should never happen!", op); }
+                op => { panic!("Got unary operator '{op}' in a UnaOp expression; this should never happen!"); }
             }
         },
         BinOp{ op, ref mut lhs, ref mut rhs, .. } => {

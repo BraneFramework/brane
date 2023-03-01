@@ -60,7 +60,7 @@ impl Default for FunctionSignature {
 impl Display for FunctionSignature {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        write!(f, "({}) -> {}", self.args.iter().map(|d| format!("{}", d)).collect::<Vec<String>>().join(", "), self.ret)
+        write!(f, "({}) -> {}", self.args.iter().map(|d| format!("{d}")).collect::<Vec<String>>().join(", "), self.ret)
     }
 }
 
@@ -266,9 +266,9 @@ impl Display for DataType {
             String  => write!(f, "String"),
             Semver  => write!(f, "Semver"),
 
-            Array(t)    => write!(f, "Array<{}>", t),
-            Function(s) => write!(f, "Func<{}>", s),
-            Class(n)    => write!(f, "Class<{}>", n),
+            Array(t)    => write!(f, "Array<{t}>"),
+            Function(s) => write!(f, "Func<{s}>"),
+            Class(n)    => write!(f, "Class<{n}>"),
         }
     }
 }

@@ -977,8 +977,8 @@ impl Display for Operator {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Operator::*;
         match self {
-            Unary(o)  => write!(f, "{}", o),
-            Binary(o) => write!(f, "{}", o),
+            Unary(o)  => write!(f, "{o}"),
+            Binary(o) => write!(f, "{o}"),
         }
     }
 }

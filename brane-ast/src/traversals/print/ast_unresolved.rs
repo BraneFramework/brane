@@ -69,7 +69,7 @@ pub fn pass_table(writer: &mut impl Write, table: &TableState, indent: usize) ->
     for f in &table.funcs {
         writeln!(writer, "{}Function {}({}){} [", indent!(indent),
             &f.name,
-            f.signature.args.iter().map(|a| format!("{}", a)).collect::<Vec<String>>().join(", "),
+            f.signature.args.iter().map(|a| format!("{a}")).collect::<Vec<String>>().join(", "),
             if f.signature.ret != DataType::Void { format!(" -> {}", f.signature.ret) } else { String::new() },
         )?;
 
@@ -101,7 +101,7 @@ pub fn pass_table(writer: &mut impl Write, table: &TableState, indent: usize) ->
             let f: &FunctionState = &table.funcs[*m];
             writeln!(writer, "{}method {}({}){};", indent!(INDENT_SIZE + indent),
                 &f.name,
-                f.signature.args.iter().map(|a| format!("{}", a)).collect::<Vec<String>>().join(", "),
+                f.signature.args.iter().map(|a| format!("{a}")).collect::<Vec<String>>().join(", "),
                 if f.signature.ret != DataType::Void { format!(" -> {}", f.signature.ret) } else { String::new() },
             )?;
         }
@@ -134,7 +134,7 @@ pub fn pass_f_edges(writer: &mut impl Write, workflow: &UnresolvedWorkflow, tabl
         let f: &FunctionState = table.func(*i);
         writeln!(writer, "{}Function {}({}){} {{", indent!(indent),
             &f.name,
-            f.signature.args.iter().map(|a| format!("{}", a)).collect::<Vec<String>>().join(", "),
+            f.signature.args.iter().map(|a| format!("{a}")).collect::<Vec<String>>().join(", "),
             if f.signature.ret != DataType::Void { format!(" -> {}", f.signature.ret) } else { String::new() },
         )?;
 
@@ -321,15 +321,15 @@ pub fn pass_edge_instr(writer: &mut impl Write, instr: &EdgeInstr, table: &mut V
     // Match the instruction
     use EdgeInstr::*;
     match instr {
-        Cast{ res_type } => { write!(writer, "{} {}", instr, res_type)?; },
+        Cast{ res_type } => { write!(writer, "{instr} {res_type}")?; },
 
-        Branch{ next }    => { write!(writer, "{} {}", instr, next)?; },
-        BranchNot{ next } => { write!(writer, "{} {}", instr, next)?; },
+        Branch{ next }    => { write!(writer, "{instr} {next}")?; },
+        BranchNot{ next } => { write!(writer, "{instr} {next}")?; },
 
-        Proj{ field } => { write!(writer, "{} {}", instr, field)?; },
+        Proj{ field } => { write!(writer, "{instr} {field}")?; },
 
-        Array{ length, res_type } => { write!(writer, "{} {},{}", instr, res_type, length)?; },
-        ArrayIndex{ res_type }    => { write!(writer, "{} {}", instr, res_type)?; },
+        Array{ length, res_type } => { write!(writer, "{instr} {res_type},{length}")?; },
+        ArrayIndex{ res_type }    => { write!(writer, "{instr} {res_type}")?; },
         Instance{ def }           => { write!(writer, "{} {}", instr, table.class(*def).name)?; },
 
         VarDec{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
@@ -337,14 +337,14 @@ pub fn pass_edge_instr(writer: &mut impl Write, instr: &EdgeInstr, table: &mut V
         VarSet{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
         VarGet{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
 
-        Boolean{ value } => { write!(writer, "{} {}", instr, value)?; },
-        Integer{ value } => { write!(writer, "{} {}", instr, value)?; },
-        Real{ value }    => { write!(writer, "{} {}", instr, value)?; },
+        Boolean{ value } => { write!(writer, "{instr} {value}")?; },
+        Integer{ value } => { write!(writer, "{instr} {value}")?; },
+        Real{ value }    => { write!(writer, "{instr} {value}")?; },
         String{ value }  => { write!(writer, "{} \"{}\"", instr, value.replace('\n', "\\n").replace('\t', "\\t").replace('\r', "\\r").replace('\\', "\\\\").replace('\"', "\\\""))?; },
         Function{ def }  => { write!(writer, "{} {}", instr, table.func(*def).name)?; },
 
         // Any other instruction is just printing it without any value
-        instr => { write!(writer, "{}", instr)?; }
+        instr => { write!(writer, "{instr}")?; }
     }
 
     // Done

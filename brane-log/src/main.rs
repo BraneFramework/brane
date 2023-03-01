@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
             )
             .map(|r| {
                 if let Err(e) = r {
-                    println!("Websocket error: {}", e);
+                    println!("Websocket error: {e}");
                 }
             })
             .await

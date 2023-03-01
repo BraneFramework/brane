@@ -4,7 +4,7 @@
 //  Created:
 //    23 Mar 2022, 15:15:12
 //  Last edited:
-//    14 Nov 2022, 11:37:56
+//    01 Mar 2023, 09:46:03
 //  Auto updated?
 //    Yes
 // 
@@ -199,7 +199,7 @@ pub enum ResolveError {
 impl Display for ResolveError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
-            ResolveError::AlreadyResolved{ version } => write!(f, "Cannot resolve already resolved version '{}'", version),
+            ResolveError::AlreadyResolved{ version } => write!(f, "Cannot resolve already resolved version '{version}'"),
             ResolveError::NotResolved                => write!(f, "Cannot resolve version with unresolved versions"),
             ResolveError::NoVersions                 => write!(f, "Cannot resolve version without any versions given"),
         }
@@ -233,12 +233,12 @@ impl Display for ParseError {
         use ParseError::*;
         match self {
             AccidentalLatest => write!(f, "A version with all numbers to {} (64-bit, unsigned integer max) cannot be created; use 'latest' instead", u64::MAX),
-            MajorParseError{ raw, err } => write!(f, "Could not parse major version number '{}': {}", raw, err),
-            MinorParseError{ raw, err } => write!(f, "Could not parse minor version number '{}': {}", raw, err),
-            PatchParseError{ raw, err } => write!(f, "Could not parse patch version number '{}': {}", raw, err),
+            MajorParseError{ raw, err } => write!(f, "Could not parse major version number '{raw}': {err}"),
+            MinorParseError{ raw, err } => write!(f, "Could not parse minor version number '{raw}': {err}"),
+            PatchParseError{ raw, err } => write!(f, "Could not parse patch version number '{raw}': {err}"),
 
-            TooManyColons{ raw, got }               => write!(f, "Given 'NAME[:VERSION]' pair '{}' has too many colons (got {}, expected at most 1)", raw, got),
-            IllegalVersion{ raw, raw_version, err } => write!(f, "Could not parse version '{}' in '{}': {}", raw_version, raw, err),
+            TooManyColons{ raw, got }               => write!(f, "Given 'NAME[:VERSION]' pair '{raw}' has too many colons (got {got}, expected at most 1)"),
+            IllegalVersion{ raw, raw_version, err } => write!(f, "Could not parse version '{raw_version}' in '{raw}': {err}"),
         }
     }
 }
@@ -265,7 +265,7 @@ impl<'de> Visitor<'de> for VersionVisitor {
         E: de::Error,
     {
         // Parse the value with the Version parser
-        Version::from_str(value).map_err(|err| E::custom(format!("{}", err)))
+        Version::from_str(value).map_err(|err| E::custom(format!("{err}")))
     }
 }
 
@@ -275,7 +275,7 @@ impl<'de> Visitor<'de> for VersionVisitor {
 
 /***** VERSION *****/
 /// Implements the Version, which is used to keep track of package versions.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub struct Version {
     /// The major version number. If all three are set to u64::MAX, is interpreted as an unresolved 'latest' version number.
     pub major : u64,
@@ -368,7 +368,7 @@ impl Version {
     /// Nothing on success (except that this version now is equal to the latest version in the bunch), or a VersionError otherwise.
     pub fn resolve_latest<I: IntoIterator<Item=Self>>(&mut self, iter: I) -> Result<(), ResolveError> {
         // Crash if we're already resolved
-        if !self.is_latest() { return Err(ResolveError::AlreadyResolved{ version: self.clone() }); }
+        if !self.is_latest() { return Err(ResolveError::AlreadyResolved{ version: *self }); }
 
         // Go through the iterator
         let mut last_version: Option<Version> = None;
@@ -380,7 +380,7 @@ impl Version {
             if let Some(lversion) = &last_version {
                 // Update if this version is newer
                 if &version > lversion {
-                    last_version = Some(version.clone());
+                    last_version = Some(version);
                 }
             } else {
                 // Simply set, as this is the first one
@@ -591,14 +591,14 @@ impl From<&semver::Version> for Version {
 impl From<Version> for String {
     #[inline]
     fn from(value: Version) -> Self {
-        format!("{}", value)
+        format!("{value}")
     }
 }
 
 impl From<&Version> for String {
     #[inline]
     fn from(value: &Version) -> Self {
-        format!("{}", value)
+        format!("{value}")
     }
 }
 

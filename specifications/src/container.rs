@@ -61,10 +61,10 @@ impl Display for LocalContainerInfoError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
             LocalContainerInfoError::FileOpenError{ path, err } => write!(f, "Could not open local container file '{}': {}", path.display(), err),
-            LocalContainerInfoError::FileParseError{ err }      => write!(f, "Could not read & parse local container file: {}", err),
+            LocalContainerInfoError::FileParseError{ err }      => write!(f, "Could not read & parse local container file: {err}"),
 
             LocalContainerInfoError::FileCreateError{ path, err } => write!(f, "Could not create local container file '{}': {}", path.display(), err),
-            LocalContainerInfoError::FileWriteError{ err }        => write!(f, "Could not serialize & write local container file: {}", err),
+            LocalContainerInfoError::FileWriteError{ err }        => write!(f, "Could not serialize & write local container file: {err}"),
         }
     }
 }
@@ -91,10 +91,10 @@ impl Display for ContainerInfoError {
     fn fmt (&self, f: &mut Formatter<'_>) -> FResult {
         match self {
             ContainerInfoError::FileReadError{ path, err } => write!(f, "Could not open & read container file '{}': {}", path.display(), err),
-            ContainerInfoError::ParseError{ err }          => write!(f, "Could not parse container file YAML: {}", err),
+            ContainerInfoError::ParseError{ err }          => write!(f, "Could not parse container file YAML: {err}"),
 
             ContainerInfoError::FileCreateError{ path, err } => write!(f, "Could not create container file '{}': {}", path.display(), err),
-            ContainerInfoError::FileWriteError{ err }        => write!(f, "Could not serialize & write container file: {}", err),
+            ContainerInfoError::FileWriteError{ err }        => write!(f, "Could not serialize & write container file: {err}"),
         }
     }
 }
@@ -249,7 +249,7 @@ pub struct ImageDockerFormatter<'a> {
 }
 impl<'a> Display for ImageDockerFormatter<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        write!(f, "{}", if let Some(digest) = &self.image.digest { digest[7..].into() } else { format!("{}{}", self.image.name, if let Some(version) = &self.image.version { format!(":{}", version) } else { String::new() }) })
+        write!(f, "{}", if let Some(digest) = &self.image.digest { digest[7..].into() } else { format!("{}{}", self.image.name, if let Some(version) = &self.image.version { format!(":{version}") } else { String::new() }) })
     }
 }
 
@@ -287,7 +287,7 @@ impl Image {
 
     /// Returns the name-part of the Image (i.e., the name + version).
     #[inline]
-    pub fn name(&self) -> String { format!("{}{}", self.name, if let Some(version) = &self.version { format!(":{}", version) } else { String::new() }) }
+    pub fn name(&self) -> String { format!("{}{}", self.name, if let Some(version) = &self.version { format!(":{version}") } else { String::new() }) }
 
     /// Returns the digest-part of the Image.
     #[inline]
@@ -304,7 +304,7 @@ impl Image {
 impl Display for Image {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        write!(f, "{}{}{}", self.name, if let Some(version) = &self.version { format!(":{}", version) } else { String::new() }, if let Some(digest) = &self.digest { format!("@{}", digest) } else { String::new() })
+        write!(f, "{}{}{}", self.name, if let Some(version) = &self.version { format!(":{version}") } else { String::new() }, if let Some(digest) = &self.digest { format!("@{digest}") } else { String::new() })
     }
 }
 

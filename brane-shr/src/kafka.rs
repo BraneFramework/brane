@@ -46,13 +46,13 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Error::*;
         match self {
-            AdminClientError{ brokers, err }        => write!(f, "Failed to create admin client to Kafka brokers '{}': {}", brokers, err),
-            TopicsCreateError{ brokers, err }       => write!(f, "Failed to create new topics on Kafka brokers '{}': {}", brokers, err),
-            TopicCreateError{ brokers, topic, err } => write!(f, "Failed to create new topic '{}' on Kafka brokers '{}': {}", topic, brokers, err),
+            AdminClientError{ brokers, err }        => write!(f, "Failed to create admin client to Kafka brokers '{brokers}': {err}"),
+            TopicsCreateError{ brokers, err }       => write!(f, "Failed to create new topics on Kafka brokers '{brokers}': {err}"),
+            TopicCreateError{ brokers, topic, err } => write!(f, "Failed to create new topic '{topic}' on Kafka brokers '{brokers}': {err}"),
 
-            OffsetsRetrieveError{ topic, err } => write!(f, "Failed to retrieve committed offsets for topic '{}': {}", topic, err),
-            OffsetsAssignError{ topic, err }   => write!(f, "Failed to assign committed offsets for topic '{}': {}", topic, err),
-            OffsetsRestoreError{ topic, err }  => write!(f, "Failed to restore committed offsets for topic '{}': {}", topic, err),
+            OffsetsRetrieveError{ topic, err } => write!(f, "Failed to retrieve committed offsets for topic '{topic}': {err}"),
+            OffsetsAssignError{ topic, err }   => write!(f, "Failed to assign committed offsets for topic '{topic}': {err}"),
+            OffsetsRestoreError{ topic, err }  => write!(f, "Failed to restore committed offsets for topic '{topic}': {err}"),
         }
     }
 }

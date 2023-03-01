@@ -36,7 +36,7 @@ use specifications::version::Version;
 /// Nothing, but does print the err to stderr.
 fn prettyprint_err_instr(edge: usize, instr: Option<usize>, err: &dyn Error) {
     // Print the thing
-    eprintln!("{}: {}: {}", style(format!("{}{}", edge, if let Some(instr) = instr { format!(":{}", instr) } else { String::new() })).bold(), style("error").red().bold(), err);
+    eprintln!("{}: {}: {}", style(format!("{}{}", edge, if let Some(instr) = instr { format!(":{instr}") } else { String::new() })).bold(), style("error").red().bold(), err);
 
     // Done
 }
@@ -51,7 +51,7 @@ fn prettyprint_err_instr(edge: usize, instr: Option<usize>, err: &dyn Error) {
 /// Nothing, but does print the err to stderr.
 fn prettyprint_err(edge: usize, err: &dyn Error) {
     // Print the thing
-    eprintln!("{}: {}: {}", style(format!("{}", edge)).bold(), style("error").red().bold(), err);
+    eprintln!("{}: {}: {}", style(format!("{edge}")).bold(), style("error").red().bold(), err);
 
     // Done
 }
@@ -130,9 +130,9 @@ impl Display for ValueError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ValueError::*;
         match self {
-            JsonError{ err } => write!(f, "Cannot parse the given JSON value to a Value: {}", err),
+            JsonError{ err } => write!(f, "Cannot parse the given JSON value to a Value: {err}"),
 
-            CastError { got, target } => write!(f, "Cannot cast a value of type {} to {}", got, target),
+            CastError { got, target } => write!(f, "Cannot cast a value of type {got} to {target}"),
         }
     }
 }
@@ -153,7 +153,7 @@ impl Display for StackError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use StackError::*;
         match self {
-            StackOverflowError { size } => write!(f, "Stack overflow occurred (has space for {} values)", size),
+            StackOverflowError { size } => write!(f, "Stack overflow occurred (has space for {size} values)"),
         }
     }
 }
@@ -190,14 +190,14 @@ impl Display for FrameStackError {
         use FrameStackError::*;
         match self {
             EmptyError            => write!(f, "Frame stack empty"),
-            OverflowError{ size } => write!(f, "Frame stack overflow occurred (has space for {} frames/nested calls)", size),
+            OverflowError{ size } => write!(f, "Frame stack overflow occurred (has space for {size} frames/nested calls)"),
 
-            UndeclaredVariable{ name }          => write!(f, "Undeclared variable '{}'", name),
-            DuplicateDeclaration{ name }        => write!(f, "Cannot declare variable '{}' if it is already declared", name),
-            UndeclaredUndeclaration{ name }     => write!(f, "Cannot undeclare variable '{}' that was never declared", name),
-            UninitializedVariable{ name }       => write!(f, "Uninitialized variable '{}'", name),
-            VarTypeError{ name, got, expected } => write!(f, "Cannot assign value of type {} to variable '{}' of type {}", got, name, expected),
-            VariableNotInScope{ name }          => write!(f, "Variable '{}' is declared but not currently in scope", name),
+            UndeclaredVariable{ name }          => write!(f, "Undeclared variable '{name}'"),
+            DuplicateDeclaration{ name }        => write!(f, "Cannot declare variable '{name}' if it is already declared"),
+            UndeclaredUndeclaration{ name }     => write!(f, "Cannot undeclare variable '{name}' that was never declared"),
+            UninitializedVariable{ name }       => write!(f, "Uninitialized variable '{name}'"),
+            VarTypeError{ name, got, expected } => write!(f, "Cannot assign value of type {got} to variable '{name}' of type {expected}"),
+            VariableNotInScope{ name }          => write!(f, "Variable '{name}' is declared but not currently in scope"),
         }
     }
 }
@@ -222,9 +222,9 @@ impl Display for VarRegError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use VarRegError::*;
         match self {
-            DuplicateDeclaration{ id, old_name, old_type, new_name, new_type } => write!(f, "Variable {} was already declared before (old '{}: {}', new '{}: {}')", id, old_name, old_type, new_name, new_type),
-            UndeclaredVariable{ id }                                           => write!(f, "Variable {} was not declared", id),
-            UninitializedVariable{ id }                                        => write!(f, "Variable {} was not initialized", id),
+            DuplicateDeclaration{ id, old_name, old_type, new_name, new_type } => write!(f, "Variable {id} was already declared before (old '{old_name}: {old_type}', new '{new_name}: {new_type}')"),
+            UndeclaredVariable{ id }                                           => write!(f, "Variable {id} was not declared"),
+            UninitializedVariable{ id }                                        => write!(f, "Variable {id} was not initialized"),
         }
     }
 }
@@ -322,10 +322,10 @@ impl VmError {
         match self {
             // ReaderReadError{ .. }  => eprintln!("{}", self),
             // CompileError{ .. }     => eprintln!("{}", self),
-            GlobalStateError{ .. } => eprintln!("{}", self),
+            GlobalStateError{ .. } => eprintln!("{self}"),
 
-            UnknownFunction{ .. } => eprintln!("{}", self),
-            PcOutOfBounds{ .. }   => eprintln!("{}", self),
+            UnknownFunction{ .. } => eprintln!("{self}"),
+            PcOutOfBounds{ .. }   => eprintln!("{self}"),
 
             EmptyStackError { edge, instr, .. }        => prettyprint_err_instr(*edge, *instr, self),
             StackTypeError { edge, instr, .. }         => prettyprint_err_instr(*edge, *instr, self),
@@ -372,45 +372,45 @@ impl Display for VmError {
         match self {
             // ReaderReadError { err } => write!(f, "Failed to read from the given reader: {}", err),
             // CompileError{ .. }      => write!(f, "Could not compile the given source text (see output above)"),
-            GlobalStateError{ err } => write!(f, "Could not create custom state: {}", err),
+            GlobalStateError{ err } => write!(f, "Could not create custom state: {err}"),
 
-            UnknownFunction{ func }           => write!(f, "Unknown function with index {}", func),
-            PcOutOfBounds{ func, edges, got } => write!(f, "Edge index {} is out-of-bounds for function {} of {} edges", got, if *func < usize::MAX { format!("{}", func) } else { "<main>".into() }, edges),
+            UnknownFunction{ func }           => write!(f, "Unknown function with index {func}"),
+            PcOutOfBounds{ func, edges, got } => write!(f, "Edge index {} is out-of-bounds for function {} of {} edges", got, if *func < usize::MAX { format!("{func}") } else { "<main>".into() }, edges),
 
-            EmptyStackError { expected, .. }                     => write!(f, "Expected a value of type {} on the stack, but stack was empty", expected),
-            StackTypeError { got, expected, .. }                 => write!(f, "Expected a value of type {} on the stack, but got a value of type {}", expected, got),
+            EmptyStackError { expected, .. }                     => write!(f, "Expected a value of type {expected} on the stack, but stack was empty"),
+            StackTypeError { got, expected, .. }                 => write!(f, "Expected a value of type {expected} on the stack, but got a value of type {got}"),
             StackLhsRhsTypeError { got, expected, .. }           => write!(f, "Expected a lefthand-side and righthand-side of (the same) {} type on the stack, but got types {} and {}, respectively (remember that rhs is on top)", expected, got.0, got.1),
-            ArrayTypeError{ got, expected, .. }                  => write!(f, "Expected an array element of type {} on the stack, but got a value of type {}", expected, got),
-            InstanceTypeError{ class, field, got, expected, .. } => write!(f, "Expected field '{}' of class '{}' to have type {}, but found type {}", field, class, expected, got),
-            CastError{ err, .. }                                 => write!(f, "Failed to cast top value on the stack: {}", err),
-            ArrIdxOutOfBoundsError { got, max, .. }              => write!(f, "Index {} is out-of-bounds for an array of length {}", got, max),
-            ProjUnknownFieldError{ class, field, .. }            => write!(f, "Class '{}' has not field '{}'", class, field),
-            VarDecError{ err, .. }                               => write!(f, "Could not declare variable: {}", err),
-            VarUndecError{ err, .. }                             => write!(f, "Could not undeclare variable: {}", err),
-            VarGetError{ err, .. }                               => write!(f, "Could not get variable: {}", err),
-            VarSetError{ err, .. }                               => write!(f, "Could not set variable: {}", err),
+            ArrayTypeError{ got, expected, .. }                  => write!(f, "Expected an array element of type {expected} on the stack, but got a value of type {got}"),
+            InstanceTypeError{ class, field, got, expected, .. } => write!(f, "Expected field '{field}' of class '{class}' to have type {expected}, but found type {got}"),
+            CastError{ err, .. }                                 => write!(f, "Failed to cast top value on the stack: {err}"),
+            ArrIdxOutOfBoundsError { got, max, .. }              => write!(f, "Index {got} is out-of-bounds for an array of length {max}"),
+            ProjUnknownFieldError{ class, field, .. }            => write!(f, "Class '{class}' has not field '{field}'"),
+            VarDecError{ err, .. }                               => write!(f, "Could not declare variable: {err}"),
+            VarUndecError{ err, .. }                             => write!(f, "Could not undeclare variable: {err}"),
+            VarGetError{ err, .. }                               => write!(f, "Could not get variable: {err}"),
+            VarSetError{ err, .. }                               => write!(f, "Could not set variable: {err}"),
 
-            SpawnError{ err, .. }                                 => write!(f, "Failed to spawn new thread: {}", err),
-            BranchTypeError{ branch, got, expected, .. }          => write!(f, "Branch {} in parallel statement did not return value of type {}; got {} instead", branch, expected, got),
-            IllegalBranchType{ branch, merge, got, expected, .. } => write!(f, "Branch {} returned a value of type {}, but the current merge strategy ({:?}) requires values of {} type", branch, got, merge, expected),
-            FunctionTypeError{ name, arg, got, expected, .. }     => write!(f, "Argument {} for function '{}' has incorrect type: expected {}, got {}", arg, name, expected, got),
-            UnresolvedLocation{ name, .. }                        => write!(f, "Cannot call task '{}' because it has no resolved location.", name),
+            SpawnError{ err, .. }                                 => write!(f, "Failed to spawn new thread: {err}"),
+            BranchTypeError{ branch, got, expected, .. }          => write!(f, "Branch {branch} in parallel statement did not return value of type {expected}; got {got} instead"),
+            IllegalBranchType{ branch, merge, got, expected, .. } => write!(f, "Branch {branch} returned a value of type {got}, but the current merge strategy ({merge:?}) requires values of {expected} type"),
+            FunctionTypeError{ name, arg, got, expected, .. }     => write!(f, "Argument {arg} for function '{name}' has incorrect type: expected {expected}, got {got}"),
+            UnresolvedLocation{ name, .. }                        => write!(f, "Cannot call task '{name}' because it has no resolved location."),
             UnknownInput{ task, name, .. }                        => write!(f, "{} '{}' is not a possible input for task '{}'", name.variant(), name.name(), task),
             UnplannedInput{ task, name, .. }                      => write!(f, "{} '{}' as input for task '{}' is not yet planned", name.variant(), name.name(), task),
             // UnavailableDataset{ name, .. }                        => write!(f, "Dataset '{}' is unavailable at execution time", name),
-            FrameStackPushError{ err, .. }                        => write!(f, "Failed to push to frame stack: {}", err),
-            FrameStackPopError{ err, .. }                         => write!(f, "Failed to pop from frame stack: {}", err),
-            ReturnTypeError{ got, expected, .. }                  => write!(f, "Got incorrect return type for function: expected {}, got {}", expected, got),
+            FrameStackPushError{ err, .. }                        => write!(f, "Failed to push to frame stack: {err}"),
+            FrameStackPopError{ err, .. }                         => write!(f, "Failed to pop from frame stack: {err}"),
+            ReturnTypeError{ got, expected, .. }                  => write!(f, "Got incorrect return type for function: expected {expected}, got {got}"),
 
-            TaskTypeError{ name, arg, got, expected, .. } => write!(f, "Task '{}' expected argument {} to be of type {}, but got {}", name, arg, expected, got),
+            TaskTypeError{ name, arg, got, expected, .. } => write!(f, "Task '{name}' expected argument {arg} to be of type {expected}, but got {got}"),
 
-            UnknownData{ name, .. }             => write!(f, "Encountered unknown dataset '{}'", name),
-            UnknownResult{ name, .. }           => write!(f, "Encountered unknown result '{}'", name),
-            UnknownPackage{ name, version, .. } => write!(f, "Unknown package with name '{}'{}", name, if !version.is_latest() { format!(" and version {}", version) } else { String::new() }),
-            ArgumentsSerializeError{ err, .. }  => write!(f, "Could not serialize task arguments: {}", err),
+            UnknownData{ name, .. }             => write!(f, "Encountered unknown dataset '{name}'"),
+            UnknownResult{ name, .. }           => write!(f, "Encountered unknown result '{name}'"),
+            UnknownPackage{ name, version, .. } => write!(f, "Unknown package with name '{}'{}", name, if !version.is_latest() { format!(" and version {version}") } else { String::new() }),
+            ArgumentsSerializeError{ err, .. }  => write!(f, "Could not serialize task arguments: {err}"),
 
-            StackError{ err, .. } => write!(f, "{}", err),
-            Custom{ err, .. }     => write!(f, "{}", err),
+            StackError{ err, .. } => write!(f, "{err}"),
+            Custom{ err, .. }     => write!(f, "{err}"),
         }
     }
 }
@@ -444,11 +444,11 @@ impl Display for LocalVmError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use LocalVmError::*;
         match self {
-            Base64DecodeError{ name, raw, err } => write!(f, "Could not decode result '{}' from task '{}' as Base64: {}", raw, name, err),
-            Utf8DecodeError{ name, err }        => write!(f, "Could not decode base64-decoded result from task '{}' as UTF-8: {}", name, err),
-            JsonDecodeError{ name, raw, err }   => write!(f, "Could not decode result '{}' from task '{}' as JSON: {}", raw, name, err),
+            Base64DecodeError{ name, raw, err } => write!(f, "Could not decode result '{raw}' from task '{name}' as Base64: {err}"),
+            Utf8DecodeError{ name, err }        => write!(f, "Could not decode base64-decoded result from task '{name}' as UTF-8: {err}"),
+            JsonDecodeError{ name, raw, err }   => write!(f, "Could not decode result '{raw}' from task '{name}' as JSON: {err}"),
 
-            DataNotAvailable{ name, loc }      => write!(f, "Dataset '{}' is not available on the local location '{}'", name, loc),
+            DataNotAvailable{ name, loc }      => write!(f, "Dataset '{name}' is not available on the local location '{loc}'"),
             IllegalDataPath{ name, path, err } => write!(f, "Invalid path '{}' to dataset '{}': {}", path.display(), name, err),
             ColonInDataPath{ name, path }      => write!(f, "Encountered colon (:) in path '{}' to dataset '{}'; provide another path without", path.display(), name),
             TransferNotSupported               => write!(f, "Transfers are not supported in the LocalVm"),
@@ -471,7 +471,7 @@ impl Display for DummyVmError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use DummyVmError::*;
         match self {
-            ExecError{ err } => write!(f, "Failed to execute workflow: {}", err),
+            ExecError{ err } => write!(f, "Failed to execute workflow: {err}"),
         }
     }
 }

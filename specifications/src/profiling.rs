@@ -4,7 +4,7 @@
 //  Created:
 //    01 Feb 2023, 09:54:51
 //  Last edited:
-//    01 Feb 2023, 15:12:42
+//    01 Mar 2023, 09:43:00
 //  Auto updated?
 //    Yes
 // 
@@ -283,7 +283,7 @@ impl ProfileScopeHandle<'static> {
 impl<'s> ProfileScopeHandle<'s> {
     /// Finishes a scope, by janking the handle wrapping it out-of-scope.
     #[inline]
-    pub fn finish(self: Self) {}
+    pub fn finish(self) {}
 }
 impl<'s> Deref for ProfileScopeHandle<'s> {
     type Target = ProfileScope;
@@ -312,7 +312,7 @@ impl ProfileScopeHandleOwned {
 impl ProfileScopeHandleOwned {
     /// Finishes a scope, by janking the handle wrapping it out-of-scope.
     #[inline]
-    pub fn finish(self: Self) {}
+    pub fn finish(self) {}
 }
 impl Deref for ProfileScopeHandleOwned {
     type Target = ProfileScope;

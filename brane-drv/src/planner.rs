@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    01 Feb 2023, 13:40:59
+//    28 Feb 2023, 18:55:59
 //  Auto updated?
 //    Yes
 // 
@@ -30,7 +30,7 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::util::Timeout;
 
 use brane_ast::Workflow;
-use brane_cfg::node::NodeConfig;
+use brane_cfg::node::CentralConfig;
 use brane_shr::kafka::{ensure_topics, restore_committed_offsets};
 use brane_tsk::errors::PlanError;
 use brane_tsk::spec::TaskId;
@@ -92,7 +92,7 @@ impl Future for WaitUntilPlanned {
                     debug!("Planning of workflow '{}' started{}",
                         self.correlation_id,
                         if let Some(name) = name {
-                            format!(" by planner '{}'", name)
+                            format!(" by planner '{name}'")
                         } else {
                             String::new()
                         }
@@ -194,7 +194,7 @@ async fn wait_planned(correlation_id: impl AsRef<str>, waker: Arc<Mutex<Option<W
 /// The planner is in charge of assigning locations to tasks in a workflow. This one is very simple, assigning 'localhost' to whatever it sees.
 pub struct InstancePlanner {
     /// The Kafka servers we're connecting to.
-    node_config : NodeConfig,
+    central_cfg : CentralConfig,
 
     /// The Kafka producer with which we send commands and such.
     producer  : Arc<FutureProducer>,
@@ -208,15 +208,15 @@ impl InstancePlanner {
     /// Constructor for the InstancePlanner.
     /// 
     /// # Arguments
-    /// - `node_config`: The configuration for this node's environment. For us, mostly Kafka topics and associated broker.
+    /// - `central_cfg`: The configuration for this node's environment. For us, mostly Kafka topics and associated broker.
     /// 
     /// # Returns
     /// A new InstancePlanner instance.
     #[inline]
-    pub fn new(node_config: NodeConfig) -> Result<Self, PlanError> {
-        let brokers: String = node_config.node.central().services.brokers.iter().map(|a| a.to_string()).collect::<Vec<String>>().join(",");
+    pub fn new(central_cfg: CentralConfig) -> Result<Self, PlanError> {
+        let brokers: String = central_cfg.services.aux_kafka.address.to_string();
         Ok(Self {
-            node_config,
+            central_cfg,
 
             producer  : match ClientConfig::new().set("bootstrap.servers", &brokers).set("message.timeout.ms", "5000").create() {
                 Ok(producer) => Arc::new(producer),
@@ -242,8 +242,8 @@ impl InstancePlanner {
         let group_id  : &str = group_id.as_ref();
 
         // Ensure that the to-be-listened on topic exists
-        let brokers: String = self.node_config.node.central().services.brokers.iter().map(|a| a.to_string()).collect::<Vec<String>>().join(",");
-        if let Err(err) = ensure_topics(vec![ &self.node_config.node.central().topics.planner_results ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.node_config.node.central().topics.planner_results.clone() ], err }); };
+        let brokers: String = self.central_cfg.services.aux_kafka.address.to_string();
+        if let Err(err) = ensure_topics(vec![ &self.central_cfg.services.plr.res ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.central_cfg.services.plr.res.clone() ], err }); };
 
         // Create one consumer per topic that we're reading (i.e., one)
         let consumer: StreamConsumer = match ClientConfig::new()
@@ -259,7 +259,7 @@ impl InstancePlanner {
         };
 
         // Restore previous offsets
-        if let Err(err) = restore_committed_offsets(&consumer, &self.node_config.node.central().topics.planner_results) { return Err(PlanError::KafkaOffsetsError { err }); }
+        if let Err(err) = restore_committed_offsets(&consumer, &self.central_cfg.services.plr.res) { return Err(PlanError::KafkaOffsetsError { err }); }
 
         // Run the Kafka consumer to monitor the planning events on a new thread (or at least, concurrently)
         let waker   : Arc<Mutex<Option<Waker>>>                                      = self.waker.clone();
@@ -283,7 +283,7 @@ impl InstancePlanner {
                             // Match on the kind, inserting the proper states
                             match PlanningStatusKind::from_i32(msg.kind) {
                                 Some(PlanningStatusKind::Started) => {
-                                    debug!("Status update: Workflow '{}' is now being planned{}", msg.id, if let Some(name) = &msg.result { format!(" by planner '{}'", name) } else { String::new() });
+                                    debug!("Status update: Workflow '{}' is now being planned{}", msg.id, if let Some(name) = &msg.result { format!(" by planner '{name}'") } else { String::new() });
                                     owned_updates.insert(msg.id, PlanningStatus::Started(msg.result));
                                 },
         
@@ -300,7 +300,7 @@ impl InstancePlanner {
                                     owned_updates.insert(msg.id, PlanningStatus::Success(plan));
                                 },
                                 Some(PlanningStatusKind::Failed) => {
-                                    debug!("Status update: Workflow '{}' failed to been planned{}", msg.id, if let Some(reason) = &msg.result { format!(": {}", reason) } else { String::new() });
+                                    debug!("Status update: Workflow '{}' failed to been planned{}", msg.id, if let Some(reason) = &msg.result { format!(": {reason}") } else { String::new() });
                                     owned_updates.insert(msg.id, PlanningStatus::Failed(msg.result));
                                 },
                                 Some(PlanningStatusKind::Error) => {
@@ -353,13 +353,13 @@ impl InstancePlanner {
         let correlation_id: String = format!("{}", TaskId::generate());
 
         // Ensure that the to-be-send-on topic exists
-        let kf = prof.time(format!("workflow {} Kafka preparation", correlation_id));
-        let brokers: String = self.node_config.node.central().services.brokers.iter().map(|a| a.to_string()).collect::<Vec<String>>().join(",");
-        if let Err(err) = ensure_topics(vec![ &self.node_config.node.central().topics.planner_command ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.node_config.node.central().topics.planner_command.clone() ], err }); };
+        let kf = prof.time(format!("workflow {correlation_id} Kafka preparation"));
+        let brokers: String = self.central_cfg.services.aux_kafka.address.to_string();
+        if let Err(err) = ensure_topics(vec![ &self.central_cfg.services.plr.cmd ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.central_cfg.services.plr.cmd.clone() ], err }); };
         kf.stop();
 
         // Serialize the workflow
-        let ser = prof.time(format!("workflow {} serialization", correlation_id));
+        let ser = prof.time(format!("workflow {correlation_id} serialization"));
         let swork: String = match serde_json::to_string(&workflow) {
             Ok(swork) => swork,
             Err(err)  => { return Err(PlanError::WorkflowSerializeError{ err }); },  
@@ -367,14 +367,14 @@ impl InstancePlanner {
         ser.stop();
 
         // Populate a "PlanningCommand" with that (i.e., just populate a future record with the string)
-        let remote = prof.time(format!("workflow '{}' on brane-plr", correlation_id));
-        let message: FutureRecord<String, [u8]> = FutureRecord::to(&self.node_config.node.central().topics.planner_command)
+        let remote = prof.time(format!("workflow '{correlation_id}' on brane-plr"));
+        let message: FutureRecord<String, [u8]> = FutureRecord::to(&self.central_cfg.services.plr.cmd)
             .key(&correlation_id)
             .payload(swork.as_bytes());
 
         // Send the message
         if let Err((err, _)) = self.producer.send(message, Timeout::After(Duration::from_secs(5))).await {
-            return Err(PlanError::KafkaSendError { correlation_id, topic: self.node_config.node.central().topics.planner_command.clone(), err });
+            return Err(PlanError::KafkaSendError { correlation_id, topic: self.central_cfg.services.plr.cmd.clone(), err });
         }
 
         // Now we wait until the message has been planned.

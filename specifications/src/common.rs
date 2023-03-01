@@ -453,26 +453,26 @@ impl Display for Value {
                     .map(|e| e.to_string())
                     .collect::<Vec<String>>()
                     .join(", ");
-                format!("[{}]", entries)
+                format!("[{entries}]")
             }
             Boolean(b) => b.to_string(),
             Integer(i) => i.to_string(),
-            Pointer { variable, .. } => format!("@{}", variable),
+            Pointer { variable, .. } => format!("@{variable}"),
             Real(r) => r.to_string(),
             Struct { properties, data_type } => {
                 let properties = properties
                     .iter()
-                    .map(|(n, p)| format!("{}: {}", n, p))
+                    .map(|(n, p)| format!("{n}: {p}"))
                     .collect::<Vec<String>>()
                     .join(", ");
-                format!("{} {{{}}}", data_type, properties)
+                format!("{data_type} {{{properties}}}")
             }
             Unicode(s) => s.to_string(),
             Unit => String::from("unit"),
             _ => String::from("class/function: TODO"),
         };
 
-        write!(f, "{}", value)
+        write!(f, "{value}")
     }
 }
 

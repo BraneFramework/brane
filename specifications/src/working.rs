@@ -47,8 +47,8 @@ impl Display for JobServiceError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use JobServiceError::*;
         match self {
-            EndpointError{ address, err } => write!(f, "Failed to create a new Endpoint from '{}': {}", address, err),
-            ConnectError{ address, err }  => write!(f, "Failed to connect to gRPC endpoint '{}': {}", address, err),
+            EndpointError{ address, err } => write!(f, "Failed to create a new Endpoint from '{address}': {err}"),
+            ConnectError{ address, err }  => write!(f, "Failed to connect to gRPC endpoint '{address}': {err}"),
         }
     }
 }
@@ -339,7 +339,7 @@ impl JobServiceClient {
     pub async fn preprocess(&mut self, request: impl tonic::IntoRequest<PreprocessRequest>) -> Result<Response<PreprocessReply>, Status> {
         // Assert the client is ready to get the party started
         if let Err(err) = self.client.ready().await {
-            return Err(Status::new(Code::Unknown, format!("Service was not ready: {}", err)));
+            return Err(Status::new(Code::Unknown, format!("Service was not ready: {err}")));
         }
 
         // Set the default stuff
@@ -361,7 +361,7 @@ impl JobServiceClient {
     pub async fn execute(&mut self, request: impl tonic::IntoRequest<ExecuteRequest>) -> Result<Response<Streaming<ExecuteReply>>, Status> {
         // Assert the client is ready to get the party started
         if let Err(err) = self.client.ready().await {
-            return Err(Status::new(Code::Unknown, format!("Service was not ready: {}", err)));
+            return Err(Status::new(Code::Unknown, format!("Service was not ready: {err}")));
         }
 
         // Set the default stuff
@@ -383,7 +383,7 @@ impl JobServiceClient {
     pub async fn commit(&mut self, request: impl tonic::IntoRequest<CommitRequest>) -> Result<Response<CommitReply>, Status> {
         // Assert the client is ready to get the party started
         if let Err(err) = self.client.ready().await {
-            return Err(Status::new(Code::Unknown, format!("Service was not ready: {}", err)));
+            return Err(Status::new(Code::Unknown, format!("Service was not ready: {err}")));
         }
 
         // Set the default stuff

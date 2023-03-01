@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 12:15:06
 //  Last edited:
-//    05 Jan 2023, 12:37:08
+//    01 Mar 2023, 10:58:29
 //  Auto updated?
 //    Yes
 // 
@@ -158,7 +158,7 @@ pub async fn get_data_index(endpoint: impl AsRef<str>) -> Result<DataIndex, Erro
     };
 
     // Re-interpret the map as a vector, then wrap it in an index
-    let datasets: Vec<DataInfo> = datasets.into_iter().map(|(_, d)| d).collect();
+    let datasets: Vec<DataInfo> = datasets.into_values().collect();
     match DataIndex::from_infos(datasets) {
         Ok(index) => Ok(index),
         Err(err)  => Err(Error::DataIndexError{ address: endpoint.into(), err }),  

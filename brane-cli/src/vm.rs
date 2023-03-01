@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:34:05
 //  Last edited:
-//    01 Feb 2023, 15:17:26
+//    01 Mar 2023, 11:24:14
 //  Auto updated?
 //    Yes
 // 
@@ -78,7 +78,7 @@ impl VmPlugin for OfflinePlugin {
         let mut info = info;
         info!("Calling task '{}' in an offline environment", info.name);
         debug!("Package: '{}', version {}", info.package_name, info.package_version);
-        debug!("Task input (data-wise): {}", info.input.iter().map(|(name, access)| format!("'{}' ({:?})", name, access)).collect::<Vec<String>>().join(", "));
+        debug!("Task input (data-wise): {}", info.input.iter().map(|(name, access)| format!("'{name}' ({access:?})")).collect::<Vec<String>>().join(", "));
         debug!("Task generates result? {}", if info.result.is_some() { "yes" } else { "no" });
 
         // First, we query the global state to find the result directory and required indices
@@ -91,7 +91,7 @@ impl VmPlugin for OfflinePlugin {
         // Next, we resolve the package
         let pinfo: &PackageInfo = match pindex.get(info.package_name, if info.package_version.is_latest() { None } else { Some(info.package_version) }) {
             Some(pinfo) => pinfo,
-            None        => { return Err(ExecuteError::UnknownPackage { name: info.package_name.into(), version: info.package_version.clone() }) }
+            None        => { return Err(ExecuteError::UnknownPackage { name: info.package_name.into(), version: *info.package_version }) }
         };
         get.stop();
 
@@ -130,14 +130,14 @@ impl VmPlugin for OfflinePlugin {
         debug!("Executing task '{}'...", info.name);
         let (code, stdout, stderr) = match prof.time_fut("execution", docker::run_and_wait(einfo, false)).await {
             Ok(res)  => res,
-            Err(err) => { return Err(ExecuteError::DockerError{ name: info.name.into(), image, err }); }
+            Err(err) => { return Err(ExecuteError::DockerError{ name: info.name.into(), image: Box::new(image), err }); }
         };
         debug!("Container return code: {}", code);
         debug!("Container stdout/stderr:\n\nstdout:\n{}\n\nstderr:\n{}\n", BlockFormatter::new(&stdout), BlockFormatter::new(&stderr));
 
         // If the return code is no bueno, error and show stderr
         if code != 0 {
-            return Err(ExecuteError::ExternalCallFailed{ name: info.name.into(), image, code, stdout, stderr });
+            return Err(ExecuteError::ExternalCallFailed{ name: info.name.into(), image: Box::new(image), code, stdout, stderr });
         }
 
         // Otherwise, decode the output of branelet to the value returned
@@ -162,9 +162,9 @@ impl VmPlugin for OfflinePlugin {
 
         // Simply write
         if !newline {
-            print!("{}", text);
+            print!("{text}");
         } else {
-            println!("{}", text);
+            println!("{text}");
         }
 
         // Done

@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2022, 10:14:26
 //  Last edited:
-//    01 Feb 2023, 15:18:24
+//    28 Feb 2023, 18:22:49
 //  Auto updated?
 //    Yes
 // 
@@ -28,6 +28,7 @@ use tonic::{Response, Status, Streaming};
 use brane_ast::Workflow;
 use brane_ast::locations::Location;
 use brane_ast::ast::DataName;
+use brane_cfg::spec::Config as _;
 use brane_cfg::infra::InfraFile;
 use brane_cfg::node::NodeConfig;
 use brane_exe::{Error as VmError, FullValue, RunState, Vm};
@@ -103,7 +104,7 @@ impl VmPlugin for InstancePlugin {
 
         // Prepare the request to send to the delegate node
         debug!("Sending preprocess request to job node '{}'...", delegate_address);
-        let job = prof.time(format!("on {}", delegate_address));
+        let job = prof.time(format!("on {delegate_address}"));
         let message: working_grpc::PreprocessRequest = working_grpc::PreprocessRequest {
             data : Some(name.into()),
             kind : Some(preprocess.into()),
@@ -143,7 +144,7 @@ impl VmPlugin for InstancePlugin {
     async fn execute(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>, prof: ProfileScopeHandle<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
         info!("Executing task '{}' at '{}' in a distributed environment...", info.name, info.location);
         debug!("Package: '{}' v{}", info.package_name, info.package_version);
-        debug!("Input data: {:?}", info.input.keys().map(|k| format!("{}", k)).collect::<Vec<String>>());
+        debug!("Input data: {:?}", info.input.keys().map(|k| format!("{k}")).collect::<Vec<String>>());
         debug!("Result: {:?}", info.result);
         debug!("Input arguments: {:#?}", info.args);
         debug!("Requirements: {:?}", info.requirements);
@@ -166,7 +167,8 @@ impl VmPlugin for InstancePlugin {
             // Resolve to an address and return that with the other addresses
             ( 
                 state.proxy.clone(),
-                node_config.node.central().services.api.clone(),
+                // NOTE: We grab the external address, since this address is only forwarded to the job service on the worker node
+                node_config.node.central().services.api.external_address.clone(),
                 match infra.get(info.location) {
                     Some(info) => info.delegate.clone(),
                     None       => { return Err(ExecuteError::UnknownLocationError{ loc: info.location.clone() }); },
@@ -178,7 +180,7 @@ impl VmPlugin for InstancePlugin {
 
         // Prepare the request to send to the delegate node
         debug!("Sending execute request to job node '{}'...", delegate_address);
-        let job = prof.time(format!("on {}", delegate_address));
+        let job = prof.time(format!("on {delegate_address}"));
         let message: working_grpc::ExecuteRequest = working_grpc::ExecuteRequest {
             api  : api_address.serialize().to_string(),
 
@@ -264,7 +266,7 @@ impl VmPlugin for InstancePlugin {
 
                 Err(status) => {
                     // Something went wrong
-                    result = Err(format!("Status error: {}", status));
+                    result = Err(format!("Status error: {status}"));
                     break;
                 },
             }
@@ -352,7 +354,7 @@ impl VmPlugin for InstancePlugin {
 
         // Prepare the request to send to the delegate node
         debug!("Sending commit request to job node '{}'...", delegate_address);
-        let job = prof.time(format!("on {}", delegate_address));
+        let job = prof.time(format!("on {delegate_address}"));
         let message: working_grpc::CommitRequest = working_grpc::CommitRequest {
             result_name : name.into(),
             data_name   : data_name.into(),

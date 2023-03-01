@@ -34,7 +34,7 @@ impl Display for DataTypeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use DataTypeError::*;
         match self {
-            UnknownDataType{ raw } => write!(f, "Unknown data type '{}'", raw),
+            UnknownDataType{ raw } => write!(f, "Unknown data type '{raw}'"),
         }
     }
 }
@@ -185,9 +185,9 @@ impl Display for DataType {
             String  => write!(f, "String"),
             Semver  => write!(f, "Semver"),
 
-            Array{ elem_type }    => write!(f, "Array<{}>", elem_type),
-            Function{ args, ret } => write!(f, "Func<({}){}>", args.iter().map(|t| format!("{}", t)).collect::<Vec<std::string::String>>().join(", "), if **ret != DataType::Void { format!(" -> {}", ret) } else { std::string::String::new() }),
-            Class{ name }         => write!(f, "Class<{}>", name),
+            Array{ elem_type }    => write!(f, "Array<{elem_type}>"),
+            Function{ args, ret } => write!(f, "Func<({}){}>", args.iter().map(|t| format!("{t}")).collect::<Vec<std::string::String>>().join(", "), if **ret != DataType::Void { format!(" -> {ret}") } else { std::string::String::new() }),
+            Class{ name }         => write!(f, "Class<{name}>"),
             Data                  => write!(f, "Data"),
             IntermediateResult    => write!(f, "IntermediateResult"),
         }

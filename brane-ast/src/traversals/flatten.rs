@@ -4,7 +4,7 @@
 //  Created:
 //    15 Sep 2022, 08:26:20
 //  Last edited:
-//    05 Jan 2023, 13:14:31
+//    01 Mar 2023, 10:58:00
 //  Auto updated?
 //    Yes
 // 
@@ -164,7 +164,7 @@ fn print_state(state: &TableState, indent: usize) {
     for f in &state.funcs {
         println!("{}{}{}({}) -> {} [",
             indent!(INDENT_SIZE + indent),
-            if let Some(class_name) = &f.class_name { format!("{}::", class_name) } else { String::new() },
+            if let Some(class_name) = &f.class_name { format!("{class_name}::") } else { String::new() },
             f.name,
             (0..f.signature.args.len()).map(|i| format!("{}", f.signature.args[i])).collect::<Vec<String>>().join(", "),
             f.signature.ret,
@@ -239,7 +239,7 @@ fn move_task(task: &Rc<RefCell<FunctionEntry>>, table: &mut TableState) {
             requirements : entry.requirements.clone().unwrap(),
 
             package_name    : entry.package_name.clone().unwrap(),
-            package_version : entry.package_version.clone().unwrap(),
+            package_version : entry.package_version.unwrap(),
 
             range : entry.range.clone(),
         }
@@ -307,7 +307,7 @@ fn move_class(class: &Rc<RefCell<ClassEntry>>, mtables: HashMap<String, TableSta
             methods,
 
             package_name    : entry.package_name.clone(),
-            package_version : entry.package_version.clone(),
+            package_version : entry.package_version,
 
             range : entry.range.clone(),
         }

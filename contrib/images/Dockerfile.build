@@ -6,26 +6,24 @@
 # They will be written to the './target/containers' file (as the Cargo target).
 #
 
-# Use the RUST image as base
-FROM rust:1
+# We use an old Ubuntu image that has a desired GLIBC version.
+# NOTE: Specifically, this one has GLIBC 2.27
+FROM ubuntu:18.04
 
-# Install build dependencies (that are not in the rust image already)
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
+    curl \
     cmake \
     build-essential \
     libssl-dev \
     pkg-config \
  && rm -rf /var/lib/apt/lists/*
 
-# Install protobuf
-ARG PROTOBUF_VERSION=3.21.11
-RUN curl -L https://github.com/protocolbuffers/protobuf/archive/refs/tags/v${PROTOBUF_VERSION}.tar.gz | tar -xvz \
- && cd /protobuf-${PROTOBUF_VERSION} \
- && cmake -Dprotobuf_BUILD_TESTS=off . \
- && cmake --build . -j $(nproc) \
- && mv $(readlink protoc) /usr/bin/protoc \
- && cd / \
- && rm -r /protobuf-${PROTOBUF_VERSION}
+# Install rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile default -y
+
+# Provide access to the cargo's build directory
+ENV PATH="${PATH}:/root/.cargo/bin"
 
 # Prepare the linked directory
 RUN mkdir /build

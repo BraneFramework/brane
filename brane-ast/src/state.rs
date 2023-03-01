@@ -4,7 +4,7 @@
 //  Created:
 //    16 Sep 2022, 08:22:47
 //  Last edited:
-//    09 Jan 2023, 13:31:09
+//    01 Mar 2023, 09:50:25
 //  Auto updated?
 //    Yes
 // 
@@ -406,7 +406,7 @@ impl<'a, F, T, C, V> VirtualTable<'a, F, T, C, V> {
         }
 
         // Failed to find it
-        panic!("Undeclared function '{}'", index);
+        panic!("Undeclared function '{index}'");
     }
 
     /// Retrieves the task with the given index.
@@ -428,7 +428,7 @@ impl<'a, F, T, C, V> VirtualTable<'a, F, T, C, V> {
         }
 
         // Failed to find it
-        panic!("Undeclared task '{}'", index);
+        panic!("Undeclared task '{index}'");
     }
 
     /// Retrieves the class with the given index.
@@ -450,7 +450,7 @@ impl<'a, F, T, C, V> VirtualTable<'a, F, T, C, V> {
         }
 
         // Failed to find it
-        panic!("Undeclared class '{}'", index);
+        panic!("Undeclared class '{index}'");
     }
 
     /// Retrieves the variable with the given index.
@@ -472,7 +472,7 @@ impl<'a, F, T, C, V> VirtualTable<'a, F, T, C, V> {
         }
 
         // Failed to find it
-        panic!("Undeclared variable '{}'", index);
+        panic!("Undeclared variable '{index}'");
     }
 }
 
@@ -581,7 +581,7 @@ impl TableState {
             entry.index = i;
 
             // Insert it
-            if let Err(err) = st.add_func(entry) { panic!("Failed to inject previously defined function in global symbol table: {}", err); }
+            if let Err(err) = st.add_func(entry) { panic!("Failed to inject previously defined function in global symbol table: {err}"); }
         }
 
         // Do tasks...
@@ -591,7 +591,7 @@ impl TableState {
             entry.index = i;
 
             // Insert it
-            if let Err(err) = st.add_func(entry) { panic!("Failed to inject previously defined task in global symbol table: {}", err); }
+            if let Err(err) = st.add_func(entry) { panic!("Failed to inject previously defined task in global symbol table: {err}"); }
         }
 
         // ...classes...
@@ -601,7 +601,7 @@ impl TableState {
             entry.index = i;
 
             // Insert it
-            if let Err(err) = st.add_class(entry) { panic!("Failed to inject previously defined class in global symbol table: {}", err); }
+            if let Err(err) = st.add_class(entry) { panic!("Failed to inject previously defined class in global symbol table: {err}"); }
         }
 
         // ...and, finally, variables
@@ -611,7 +611,7 @@ impl TableState {
             entry.index = i;
 
             // Insert it
-            if let Err(err) = st.add_var(entry) { panic!("Failed to inject previously defined variable in global symbol table: {}", err); }
+            if let Err(err) = st.add_var(entry) { panic!("Failed to inject previously defined variable in global symbol table: {err}"); }
         }
     }
 
@@ -762,7 +762,7 @@ impl From<&TaskState> for FunctionEntry {
             params    : vec![],
 
             package_name    : Some(value.package_name.clone()),
-            package_version : Some(value.package_version.clone()),
+            package_version : Some(value.package_version),
             class_name      : None,
 
             arg_names    : value.arg_names.clone(),
@@ -832,11 +832,11 @@ impl ClassState {
 
             // Add the properties
             for p in &self.props {
-                if let Err(err) = cst.add_var(p.into()) { panic!("Failed to insert class property into new class symbol table: {}", err); }
+                if let Err(err) = cst.add_var(p.into()) { panic!("Failed to insert class property into new class symbol table: {err}"); }
             }
             // Add the methods
             for m in &self.methods {
-                if let Err(err) = cst.add_func((&funcs[*m]).into()) { panic!("Failed to insert class method into new class symbol table: {}", err); }
+                if let Err(err) = cst.add_func((&funcs[*m]).into()) { panic!("Failed to insert class method into new class symbol table: {err}"); }
             }
         }
 
@@ -846,7 +846,7 @@ impl ClassState {
             symbol_table : c_table,
 
             package_name    : self.package_name.clone(),
-            package_version : self.package_version.clone(),
+            package_version : self.package_version,
 
             index : usize::MAX,
 

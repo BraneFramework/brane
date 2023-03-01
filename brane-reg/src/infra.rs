@@ -4,7 +4,7 @@
 //  Created:
 //    05 Jan 2023, 11:35:25
 //  Last edited:
-//    05 Jan 2023, 15:08:13
+//    01 Mar 2023, 11:01:22
 //  Auto updated?
 //    Yes
 // 
@@ -21,8 +21,9 @@ use warp::http::HeaderValue;
 use warp::hyper::Body;
 use warp::reply::Response;
 
+use brane_cfg::spec::Config as _;
 use brane_cfg::backend::BackendFile;
-use brane_cfg::node::{NodeConfig, NodeKindConfig, WorkerConfig};
+use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
 use specifications::package::Capability;
 
 use crate::spec::Context;
@@ -47,14 +48,14 @@ pub async fn get_capabilities(context: Arc<Context>) -> Result<impl Reply, Rejec
             return Err(warp::reject::reject());
         },
     };
-    let worker_config: WorkerConfig = if let NodeKindConfig::Worker(config) = node_config.node {
+    let worker_config: WorkerConfig = if let NodeSpecificConfig::Worker(config) = node_config.node {
         config
     } else {
         panic!("Got a non-worker node config for the registry service");
     };
 
     // Read the backend file
-    let backend: BackendFile = match BackendFile::from_path(&worker_config.paths.backend) {
+    let backend: BackendFile = match BackendFile::from_path(worker_config.paths.backend) {
         Ok(backend) => backend,
         Err(err)    => {
             error!("Failed to load backend file: {}", err);

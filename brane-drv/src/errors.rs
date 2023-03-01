@@ -30,8 +30,8 @@ impl Display for RemoteVmError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use RemoteVmError::*;
         match self {
-            PlanError{ err } => write!(f, "Failed to plan workflow: {}", err),
-            ExecError{ err } => write!(f, "Failed to execute workflow: {}", err),
+            PlanError{ err } => write!(f, "Failed to plan workflow: {err}"),
+            ExecError{ err } => write!(f, "Failed to execute workflow: {err}"),
         }
     }
 }

@@ -4,7 +4,7 @@
 //  Created:
 //    06 Dec 2022, 11:57:11
 //  Last edited:
-//    06 Dec 2022, 13:05:28
+//    28 Feb 2023, 18:30:01
 //  Auto updated?
 //    Yes
 // 
@@ -20,7 +20,8 @@ use std::str::FromStr;
 
 use log::{debug, info, warn};
 
-use brane_cfg::node::NodeConfig;
+use brane_cfg::spec::Config as _;
+use brane_cfg::node::{NodeConfig, NodeSpecificConfig};
 use brane_tsk::docker;
 use specifications::version::Version;
 
@@ -49,6 +50,10 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
         Ok(config) => config,
         Err(err)   => { return Err(Error::NodeConfigLoadError{ err }); },
     };
+    let packages_path: PathBuf = match node_config.node {
+        NodeSpecificConfig::Central(node) => node.paths.packages,
+        NodeSpecificConfig::Worker(node)  => node.paths.packages,
+    };
 
     // Attempt to resolve the image
     debug!("Resolving image...");
@@ -65,16 +70,16 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
         };
 
         // Start reading the packages directory
-        let entries: ReadDir = match fs::read_dir(&node_config.paths.packages) {
+        let entries: ReadDir = match fs::read_dir(&packages_path) {
             Ok(entries) => entries,
-            Err(err)    => { return Err(Error::DirReadError{ what: "packages", path: node_config.paths.packages, err }); },
+            Err(err)    => { return Err(Error::DirReadError{ what: "packages", path: packages_path, err }); },
         };
         let mut file: Option<(PathBuf, Version)> = None;
         for (i, entry) in entries.enumerate() {
             // Unwrap the entry
             let entry: DirEntry = match entry {
                 Ok(entry) => entry,
-                Err(err)  => { return Err(Error::DirEntryReadError { what: "packages", entry: i, path: node_config.paths.packages, err }); },
+                Err(err)  => { return Err(Error::DirEntryReadError { what: "packages", entry: i, path: packages_path, err }); },
             };
 
             // Attempt to analyse the filename by parsing it as a (name, version) pair
@@ -119,7 +124,7 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
         if let Some((path, _)) = file {
             image_path = path;
         } else {
-            return Err(Error::UnknownImage{ path: node_config.paths.packages, name, version });
+            return Err(Error::UnknownImage{ path: packages_path, name, version });
         }
     }
 
@@ -131,7 +136,7 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
     };
 
     // Write it
-    println!("{}", hash);
+    println!("{hash}");
 
     // Done
     Ok(())

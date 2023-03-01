@@ -63,11 +63,11 @@ pub enum EncodeDecodeError {
 impl std::fmt::Display for EncodeDecodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EncodeDecodeError::Base64DecodeError{ err } => write!(f, "Could not decode string input as Base64: {}", err),
+            EncodeDecodeError::Base64DecodeError{ err } => write!(f, "Could not decode string input as Base64: {err}"),
 
-            EncodeDecodeError::Utf8DecodeError{ err } => write!(f, "Could not decode binary input as UTF-8: {}", err),
+            EncodeDecodeError::Utf8DecodeError{ err } => write!(f, "Could not decode binary input as UTF-8: {err}"),
 
-            EncodeDecodeError::JsonDecodeError{ err } => write!(f, "Could not decode string input as JSON: {}", err),
+            EncodeDecodeError::JsonDecodeError{ err } => write!(f, "Could not decode string input as JSON: {err}"),
         }
     }
 }

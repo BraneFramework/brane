@@ -46,7 +46,7 @@ pub mod tests {
         // Setup the simple logger
         #[cfg(feature = "test_logging")]
         if let Err(err) = simplelog::TermLogger::init(log::LevelFilter::Debug, Default::default(), simplelog::TerminalMode::Mixed, simplelog::ColorChoice::Auto) {
-            eprintln!("WARNING: Failed to setup logger: {} (no logging for this session)", err);
+            eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
         }
 
         // Run the tests on all the files
@@ -106,11 +106,11 @@ pub mod tests {
                             println!("Workflow stdout:");
                             vm.flush_stdout();
                             println!();
-                            println!("Workflow returned: {:?}", value);
+                            println!("Workflow returned: {value:?}");
                             vm
                         },
                         (_, Err(err)) => {
-                            eprintln!("{}", err);
+                            eprintln!("{err}");
                             panic!("Failed to execute workflow (snippet) (see output above)");
                         },
                     };

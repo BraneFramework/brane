@@ -112,9 +112,9 @@ pub fn generate_operation_id(
         // Trim { } indicating variable placeholders.
         let trimmed = segment.trim_matches(|c| c == '{' || c == '}');
         let segment = if segment == trimmed {
-            format!("_{}", segment)
+            format!("_{segment}")
         } else {
-            format!("_by{}", trimmed)
+            format!("_by{trimmed}")
         };
 
         operation_id.push_str(&segment);
@@ -227,7 +227,7 @@ fn build_oas_function_input(
     if let Some(Some(security_scheme)) = &operation.security.as_ref().map(|s| s.first().cloned()) {
         if let Some(security_scheme) = security_scheme.keys().next() {
             let item = ReferenceOr::Reference::<SecurityScheme> {
-                reference: format!("#/components/schemas/{}", security_scheme),
+                reference: format!("#/components/schemas/{security_scheme}"),
             };
 
             let security_scheme = resolver::resolve_security_scheme(&item, components)?;
@@ -244,7 +244,7 @@ fn build_oas_function_input(
     // Convert input properties to parameters.
     let input_parameters = if input_properties.len() > 4 {
         let type_name = uppercase_first_letter(operation_id);
-        let input_data_type = format!("{}Input", type_name);
+        let input_data_type = format!("{type_name}Input");
 
         debug!("Grouping input into a single object: {}", input_data_type);
         let (specials, input_properties) = input_properties
@@ -322,7 +322,7 @@ fn build_oas_function_output(
     // Else, we use an object or unit if there is no output.
     let return_type = if !output_properties.is_empty() {
         let type_name = uppercase_first_letter(operation_id);
-        let output_data_type = format!("{}Output", type_name);
+        let output_data_type = format!("{type_name}Output");
 
         let output_type = Type {
             name: output_data_type.clone(),
@@ -498,7 +498,7 @@ fn type_schema_to_properties(
 
                     types.insert(item_type_name.clone(), item_type);
 
-                    format!("{}[]", item_type_name)
+                    format!("{item_type_name}[]")
                 }
                 _ => todo!(),
             };

@@ -49,14 +49,14 @@ impl Display for CompileError {
         use self::CompileError::*;
         match self {
             InputOpenError{ path, err }              => write!(f, "Failed to open input file '{}': {}", path.display(), err),
-            InputReadError{ name, err }              => write!(f, "Failed to read from input '{}': {}", name, err),
-            RemotePackageIndexError{ endpoint, err } => write!(f, "Failed to fetch remote package index from '{}': {}", endpoint, err),
-            RemoteDataIndexError{ endpoint, err }    => write!(f, "Failed to fetch remote data index from '{}': {}", endpoint, err),
-            LocalPackageIndexError{ err }            => write!(f, "Failed to fetch local package index: {}", err),
-            LocalDataIndexError{ err }               => write!(f, "Failed to fetch local data index: {}", err),
-            WorkflowSerializeError{ err }            => write!(f, "Failed to serialize the compiled workflow: {}", err),
+            InputReadError{ name, err }              => write!(f, "Failed to read from input '{name}': {err}"),
+            RemotePackageIndexError{ endpoint, err } => write!(f, "Failed to fetch remote package index from '{endpoint}': {err}"),
+            RemoteDataIndexError{ endpoint, err }    => write!(f, "Failed to fetch remote data index from '{endpoint}': {err}"),
+            LocalPackageIndexError{ err }            => write!(f, "Failed to fetch local package index: {err}"),
+            LocalDataIndexError{ err }               => write!(f, "Failed to fetch local data index: {err}"),
+            WorkflowSerializeError{ err }            => write!(f, "Failed to serialize the compiled workflow: {err}"),
             OutputCreateError{ path, err }           => write!(f, "Failed to create output file '{}': {}", path.display(), err),
-            OutputWriteError{ name, err }            => write!(f, "Failed to write to output '{}': {}", name, err),
+            OutputWriteError{ name, err }            => write!(f, "Failed to write to output '{name}': {err}"),
 
             CompileError{ .. } => write!(f, "Failed to compile given workflow (see output above)"),
         }

@@ -4,7 +4,7 @@
 //  Created:
 //    04 Feb 2022, 10:35:12
 //  Last edited:
-//    26 Jan 2023, 09:58:44
+//    28 Feb 2023, 18:25:59
 //  Auto updated?
 //    Yes
 // 
@@ -37,7 +37,7 @@ pub enum ApiError {
 impl Display for ApiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
-            ApiError::ScyllaConnectError{ host, err } => write!(f, "Could not connect to Scylla host '{}': {}", host, err),
+            ApiError::ScyllaConnectError{ host, err } => write!(f, "Could not connect to Scylla host '{host}': {err}"),
         }
     }
 }
@@ -76,14 +76,14 @@ impl Display for InfraError {
         use InfraError::*;
         match self {
             InfrastructureOpenError{ path, err } => write!(f, "Failed to open infrastructure file '{}': {}", path.display(), err),
-            SerializeError{ what, err }          => write!(f, "Failed to serialize {}: {}", what, err),
+            SerializeError{ what, err }          => write!(f, "Failed to serialize {what}: {err}"),
 
-            ProxyError{ err }                        => write!(f, "Failed to send request through Brane proxy service: {}", err),
-            RequestError{ address, err }             => write!(f, "Failed to send GET-request to '{}': {}", address, err),
-            RequestFailure{ address, code, message } => write!(f, "Request to '{}' failed with status code {} ({}){}", address, code, code.canonical_reason().unwrap_or("???"), if let Some(err) = message { format!(": {}", err) } else { String::new() }),
-            ResponseBodyError{ address, err }        => write!(f, "Failed to get body of response sent by '{}': {}", address, err),
-            ResponseParseError{ address, raw, err }  => write!(f, "Failed to parse '{}' as valid JSON sent by '{}': {}", raw, address, err),
-            CapabilitiesSerializeError{ err }        => write!(f, "Failed to re-serialize capabilities: {}", err),
+            ProxyError{ err }                        => write!(f, "Failed to send request through Brane proxy service: {err}"),
+            RequestError{ address, err }             => write!(f, "Failed to send GET-request to '{address}': {err}"),
+            RequestFailure{ address, code, message } => write!(f, "Request to '{}' failed with status code {} ({}){}", address, code, code.canonical_reason().unwrap_or("???"), if let Some(err) = message { format!(": {err}") } else { String::new() }),
+            ResponseBodyError{ address, err }        => write!(f, "Failed to get body of response sent by '{address}': {err}"),
+            ResponseParseError{ address, raw, err }  => write!(f, "Failed to parse '{raw}' as valid JSON sent by '{address}': {err}"),
+            CapabilitiesSerializeError{ err }        => write!(f, "Failed to re-serialize capabilities: {err}"),
 
             SecretError => write!(f, "An internal error has occurred"),
         }
@@ -129,11 +129,11 @@ impl Display for DataError {
             InfrastructureLocationsError{ path, err }      => write!(f, "Failed to get locations from infrastructure file '{}': {}", path.display(), err),
             InfrastructureMetadataError{ path, name, err } => write!(f, "Failed to get metadata of location '{}' from infrastructure file '{}': {}", name, path.display(), err),
 
-            ProxyError{ err }                  => write!(f, "Failed to prepare sending a request using the proxy service: {}", err),
-            RequestError{ address, err }       => write!(f, "Failed to send GET-request to '{}': {}", address, err),
-            ResponseBodyError{ address, err }  => write!(f, "Failed to get the response body received from '{}': {}", address, err),
-            ResponseParseError{ address, err } => write!(f, "Failed to parse response from '{}' as JSON: {}", address, err),
-            SerializeError{ what, err }        => write!(f, "Failed to serialize {}: {}", what, err),
+            ProxyError{ err }                  => write!(f, "Failed to prepare sending a request using the proxy service: {err}"),
+            RequestError{ address, err }       => write!(f, "Failed to send GET-request to '{address}': {err}"),
+            ResponseBodyError{ address, err }  => write!(f, "Failed to get the response body received from '{address}': {err}"),
+            ResponseParseError{ address, err } => write!(f, "Failed to parse response from '{address}' as JSON: {err}"),
+            SerializeError{ what, err }        => write!(f, "Failed to serialize {what}: {err}"),
 
             SecretError => write!(f, "An internal error has occurred"),
         }
@@ -183,7 +183,7 @@ pub enum PackageError {
     FileSendError{ path: PathBuf, err: warp::hyper::Error },
 
     /// Failed to load the node config.
-    NodeConfigLoadError{ err: brane_cfg::node::Error },
+    NodeConfigLoadError{ err: brane_cfg::spec::YamlError },
     /// The given node config was not for central nodes.
     NodeConfigUnexpectedKind{ path: PathBuf, got: NodeKind, expected: NodeKind },
     /// Failed to create a temporary directory.
@@ -226,29 +226,29 @@ impl Display for PackageError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use PackageError::*;
         match self {
-            FunctionsSerializeError{ name, err } => write!(f, "Failed to serialize functions in package '{}': {}", name, err),
-            TypesSerializeError{ name, err }     => write!(f, "Failed to serialize types in package '{}': {}", name, err),
-            MissingDigest{ name }                => write!(f, "Package '{}' does not have a digest specified", name),
+            FunctionsSerializeError{ name, err } => write!(f, "Failed to serialize functions in package '{name}': {err}"),
+            TypesSerializeError{ name, err }     => write!(f, "Failed to serialize types in package '{name}': {err}"),
+            MissingDigest{ name }                => write!(f, "Package '{name}' does not have a digest specified"),
 
-            PackageTypeDefineError{ err }   => write!(f, "Failed to define the 'brane.package' type in the Scylla database: {}", err),
-            PackageTableDefineError{ err }  => write!(f, "Failed to define the 'brane.packages' table in the Scylla database: {}", err),
-            PackageInsertError{ name, err } => write!(f, "Failed to insert package '{}' into the Scylla database: {}", name, err),
+            PackageTypeDefineError{ err }   => write!(f, "Failed to define the 'brane.package' type in the Scylla database: {err}"),
+            PackageTableDefineError{ err }  => write!(f, "Failed to define the 'brane.packages' table in the Scylla database: {err}"),
+            PackageInsertError{ name, err } => write!(f, "Failed to insert package '{name}' into the Scylla database: {err}"),
 
-            VersionsQueryError{ name, err }      => write!(f, "Failed to query versions for package '{}' from the Scylla database: {}", name, err),
-            VersionParseError{ raw, err }        => write!(f, "Failed to parse '{}' as a valid version string: {}", raw, err),
-            NoVersionsFound{ name }              => write!(f, "No versions found for package '{}'", name),
-            PathQueryError{ name, version, err } => write!(f, "Failed to get path of package '{}', version {}: {}", name, version, err),
-            UnknownPackage{ name, version }      => write!(f, "No package '{}' exists (or has version {})", name, version),
+            VersionsQueryError{ name, err }      => write!(f, "Failed to query versions for package '{name}' from the Scylla database: {err}"),
+            VersionParseError{ raw, err }        => write!(f, "Failed to parse '{raw}' as a valid version string: {err}"),
+            NoVersionsFound{ name }              => write!(f, "No versions found for package '{name}'"),
+            PathQueryError{ name, version, err } => write!(f, "Failed to get path of package '{name}', version {version}: {err}"),
+            UnknownPackage{ name, version }      => write!(f, "No package '{name}' exists (or has version {version})"),
             FileMetadataError{ path, err }       => write!(f, "Failed to get metadata of file '{}': {}", path.display(), err),
             FileOpenError{ path, err }           => write!(f, "Failed to open file '{}': {}", path.display(), err),
             FileReadError{ path, err }           => write!(f, "Failed to read file '{}': {}", path.display(), err),
             FileSendError{ path, err }           => write!(f, "Failed to send chunk of file '{}': {}", path.display(), err),
 
-            NodeConfigLoadError{ err }                       => write!(f, "Failed to load node config file: {}", err),
+            NodeConfigLoadError{ err }                       => write!(f, "Failed to load node config file: {err}"),
             NodeConfigUnexpectedKind{ path, got, expected }  => write!(f, "Given node config file '{}' is for a {} node, but expected a {} node", path.display(), got.variant(), expected.variant()),
-            TempDirCreateError{ err }                        => write!(f, "Failed to create temporary directory: {}", err),
+            TempDirCreateError{ err }                        => write!(f, "Failed to create temporary directory: {err}"),
             TarCreateError{ path, err }                      => write!(f, "Failed to create new tar file '{}': {}", path.display(), err),
-            BodyReadError{ err }                             => write!(f, "Failed to get next chunk in body stream: {}", err),
+            BodyReadError{ err }                             => write!(f, "Failed to get next chunk in body stream: {err}"),
             TarWriteError{ path, err }                       => write!(f, "Failed to write body chunk to tar file '{}': {}", path.display(), err),
             TarFlushError{ path, err }                       => write!(f, "Failed to flush new far file '{}': {}", path.display(), err),
             TarReopenError{ path, err }                      => write!(f, "Failed to re-open new tar file '{}': {}", path.display(), err),

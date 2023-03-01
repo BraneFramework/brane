@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    15 Feb 2023, 11:55:43
+//    01 Mar 2023, 11:21:35
 //  Auto updated?
 //    Yes
 // 
@@ -12,12 +12,15 @@
 //!   Commands that relate to managing the lifetime of the local node.
 // 
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs::File;
+use std::io::Write;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::str::FromStr as _;
 
 use bollard::Docker;
 use console::style;
@@ -26,13 +29,14 @@ use rand::Rng;
 use rand::distributions::Alphanumeric;
 use serde::{Deserialize, Serialize};
 
-use brane_cfg::node::{CentralPaths, CentralPorts, CommonPaths, NodeConfig, NodeKind, NodeKindConfig, WorkerPaths, WorkerPorts};
+use brane_cfg::spec::Config as _;
+use brane_cfg::node::{CentralPaths, CentralServices, NodeConfig, NodeKind, NodeSpecificConfig, WorkerPaths, WorkerServices};
 use brane_tsk::docker::{ensure_image, get_digest, ImageSource};
 use specifications::container::Image;
 use specifications::version::Version;
 
 pub use crate::errors::LifetimeError as Error;
-use crate::spec::{DockerClientVersion, StartSubcommand};
+use crate::spec::{StartOpts, StartDockerOpts, StartSubcommand};
 
 
 /***** HELPER STRUCTS *****/
@@ -74,6 +78,37 @@ struct ComposeOverrideFileService {
 #[inline]
 fn canonicalize(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
     let path: &Path = path.as_ref();
+    match path.canonicalize() {
+        Ok(path) => Ok(path),
+        Err(err) => Err(Error::CanonicalizeError{ path: path.into(), err }),
+    }
+}
+
+/// Makes the given path join canonical, casting the error for convenience.
+/// 
+/// Essentially, if the second path is relative, then it will join them (in the order given) and make the result canonical. Otherwise, just the second path is made canonical.
+/// 
+/// # Arguments
+/// - `lhs`: The first path to make canonical iff the second path is relative.
+/// - `rhs`: The second path to make canonical and potentially join with the first (iff it is relative).
+/// 
+/// # Returns
+/// The "join" of the paths, but canonical.
+/// 
+/// # Errors
+/// This function errors if we failed to make the path canonical (i.e., something did not exist).
+fn canonicalize_join(lhs: impl AsRef<Path>, rhs: impl AsRef<Path>) -> Result<PathBuf, Error> {
+    let lhs: &Path = lhs.as_ref();
+    let rhs: &Path = rhs.as_ref();
+
+    // Join them, if necessary
+    let path: Cow<Path> = if rhs.is_relative() {
+        Cow::Owned(lhs.join(rhs))
+    } else {
+        Cow::Borrowed(rhs)
+    };
+
+    // Canonicalize the result
     match path.canonicalize() {
         Ok(path) => Ok(path),
         Err(err) => Err(Error::CanonicalizeError{ path: path.into(), err }),
@@ -128,6 +163,72 @@ fn resolve_exe(exe: impl AsRef<str>) -> Result<(String, Vec<String>), Error> {
     shlex::split(exe.as_ref()).map(|mut args| (args.remove(0), args)).ok_or_else(|| Error::ExeParseError{ raw: exe.as_ref().into() })
 }
 
+/// Resolve the given Docker Compose file either by using the given one, or using the baked-in one.
+/// 
+/// # Arguments
+/// - `file`: The path given by the user.
+/// - `kind`: The kind of this node.
+/// - `version`: The Brane version for which we are resolving.
+/// 
+/// # Returns
+/// A new path which points to a Docker Compose file that exists for sure.
+/// 
+/// # Errors
+/// This function errors if we failed to verify the given file exists, or failed to unpack the builtin file.
+fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, mut version: Version) -> Result<PathBuf, Error> {
+    // Switch on whether it exists or not
+    match file {
+        Some(file) => {
+            // It does; only verify the file exists
+            if !file.exists() { return Err(Error::DockerComposeNotFound{ path: file }); }
+            if !file.is_file() { return Err(Error::DockerComposeNotAFile{ path: file }); }
+
+            // OK
+            debug!("Using given file '{}'", file.display());
+            Ok(file)
+        },
+
+        None => {
+            // It does not; unpack the builtins
+
+            // Verify the version matches what we have
+            if version.is_latest() { version = Version::from_str(env!("CARGO_PKG_VERSION")).unwrap(); }
+            if version != Version::from_str(env!("CARGO_PKG_VERSION")).unwrap() { return Err(Error::DockerComposeNotBakedIn { kind, version }); }
+
+            // Write the target location if it does not yet exist
+            let compose_path: PathBuf = PathBuf::from("/tmp").join(format!("docker-compose-{kind}-{version}.yml"));
+            if !compose_path.exists() {
+                debug!("Unpacking baked-in {} Docker Compose file to '{}'...", kind, compose_path.display());
+
+                // Attempt to open the target location
+                let mut handle: File = match File::create(&compose_path) {
+                    Ok(handle) => handle,
+                    Err(err)   => { return Err(Error::DockerComposeCreateError{ path: compose_path, err }); },
+                };
+
+                // Write the correct file to it
+                match kind {
+                    NodeKind::Central => {
+                        if let Err(err) = write!(handle, "{}", include_str!("../../docker-compose-central.yml")) {
+                            return Err(Error::DockerComposeWriteError{ path: compose_path, err });
+                        }
+                    },
+
+                    NodeKind::Worker => {
+                        if let Err(err) = write!(handle, "{}", include_str!("../../docker-compose-worker.yml")) {
+                            return Err(Error::DockerComposeWriteError{ path: compose_path, err });
+                        }
+                    },
+                }
+            }
+
+            // OK
+            debug!("Using baked-in file '{}'", compose_path.display());
+            Ok(compose_path)
+        },
+    }
+}
+
 /// Generate an additional, temporary `docker-compose.yml` file that adds additional hostnames and/or additional volumes.
 /// 
 /// # Arguments
@@ -147,7 +248,7 @@ fn generate_override_file(kind: NodeKind, hosts: &HashMap<String, IpAddr>, profi
     // Generate the ComposeOverrideFileService
     let svc: ComposeOverrideFileService = ComposeOverrideFileService {
         volumes     : if let Some(dir) = profile_dir { vec![ format!("{}:/logs/profile", dir.display()) ] } else { vec![] },
-        extra_hosts : hosts.iter().map(|(hostname, ip)| format!("{}:{}", hostname, ip)).collect(),
+        extra_hosts : hosts.iter().map(|(hostname, ip)| format!("{hostname}:{ip}")).collect(),
     };
 
     // Generate the ComposeOverrideFile
@@ -225,7 +326,7 @@ async fn load_images(docker: &Docker, images: HashMap<impl AsRef<str>, ImageSour
         };
 
         // Simply rely on ensure_image
-        if let Err(err) = ensure_image(docker, &image, &source).await { return Err(Error::ImageLoadError{ image, source, err }); }
+        if let Err(err) = ensure_image(docker, &image, &source).await { return Err(Error::ImageLoadError{ image: Box::new(image), source: Box::new(source), err }); }
     }
 
     // Done
@@ -254,61 +355,71 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
     // Match on the node kind
     let node_config_dir: &Path = node_config_path.parent().unwrap();
     match &node_config.node {
-        NodeKindConfig::Central(central) => {
+        NodeSpecificConfig::Central(central) => {
             // Now we do a little ugly something, but we unpack the paths and ports here so that we get compile errors if we add more later on
-            let CommonPaths{ certs, packages } = &node_config.paths;
-            let CentralPaths{ infra } = &central.paths;
-            let CentralPorts{ api, drv }       = &central.ports;
+            let CentralPaths {
+                certs, packages,
+                infra,
+            } = &central.paths;
+            let CentralServices {
+                api, drv, plr, prx,
+                aux_scylla: _, aux_kafka: _, aux_zookeeper: _,
+            } = &central.services;
 
             // Add the environment variables, which are basically just central-specific paths and ports to mount in the compose file
             res.extend([
                 // Names
-                ("PRX_NAME", OsString::from(&node_config.names.prx.as_str())),
-                ("API_NAME", OsString::from(&node_config.node.central().names.api.as_str())),
-                ("DRV_NAME", OsString::from(&node_config.node.central().names.drv.as_str())),
-                ("PLR_NAME", OsString::from(&node_config.node.central().names.plr.as_str())),
+                ("PRX_NAME", OsString::from(&prx.name.as_str())),
+                ("API_NAME", OsString::from(&api.name.as_str())),
+                ("DRV_NAME", OsString::from(&drv.name.as_str())),
+                ("PLR_NAME", OsString::from(&plr.name.as_str())),
 
                 // Paths
-                ("INFRA", canonicalize(node_config_dir.join(infra))?.as_os_str().into()),
-                ("CERTS", canonicalize(node_config_dir.join(certs))?.as_os_str().into()),
-                ("PACKAGES", canonicalize(node_config_dir.join(packages))?.as_os_str().into()),
+                ("INFRA", canonicalize_join(node_config_dir, infra)?.as_os_str().into()),
+                ("CERTS", canonicalize_join(node_config_dir, certs)?.as_os_str().into()),
+                ("PACKAGES", canonicalize_join(node_config_dir, packages)?.as_os_str().into()),
     
                 // Ports
-                ("API_PORT", OsString::from(format!("{}", api.port()))),
-                ("DRV_PORT", OsString::from(format!("{}", drv.port()))),
+                ("API_PORT", OsString::from(format!("{}", api.bind.port()))),
+                ("DRV_PORT", OsString::from(format!("{}", drv.bind.port()))),
             ]);
         },
 
-        NodeKindConfig::Worker(worker) => {
+        NodeSpecificConfig::Worker(worker) => {
             // Now we do a little ugly something, but we unpack the paths here so that we get compile errors if we add more later on
-            let CommonPaths{ certs, packages }                                           = &node_config.paths;
-            let WorkerPaths{ backend, policies, data, results, temp_data, temp_results } = &worker.paths;
-            let WorkerPorts{ reg, job }                                                  = &worker.ports;
+            let WorkerPaths {
+                certs, packages,
+                backend, policies,
+                data, results, temp_data, temp_results,
+            } = &worker.paths;
+            let WorkerServices {
+                reg, job, chk, prx,
+            } = &worker.services;
 
             // Add the environment variables, which are basically just central-specific paths to mount in the compose file
             res.extend([
                 // Also add the location ID
-                ("LOCATION_ID", OsString::from(&worker.location_id)),
+                ("LOCATION_ID", OsString::from(&worker.name)),
 
                 // Names
-                ("PRX_NAME", OsString::from(&node_config.names.prx.as_str())),
-                ("REG_NAME", OsString::from(&node_config.node.worker().names.reg.as_str())),
-                ("JOB_NAME", OsString::from(&node_config.node.worker().names.job.as_str())),
-                ("CHK_NAME", OsString::from(&node_config.node.worker().names.chk.as_str())),
+                ("PRX_NAME", OsString::from(&prx.name.as_str())),
+                ("REG_NAME", OsString::from(&reg.name.as_str())),
+                ("JOB_NAME", OsString::from(&job.name.as_str())),
+                ("CHK_NAME", OsString::from(&chk.name.as_str())),
 
                 // Paths
-                ("BACKEND", canonicalize(node_config_dir.join(backend))?.as_os_str().into()),
-                ("POLICIES", canonicalize(node_config_dir.join(policies))?.as_os_str().into()),
-                ("CERTS", canonicalize(node_config_dir.join(certs))?.as_os_str().into()),
-                ("PACKAGES", canonicalize(node_config_dir.join(packages))?.as_os_str().into()),
-                ("DATA", canonicalize(node_config_dir.join(data))?.as_os_str().into()),
-                ("RESULTS", canonicalize(node_config_dir.join(results))?.as_os_str().into()),
-                ("TEMP_DATA", canonicalize(node_config_dir.join(temp_data))?.as_os_str().into()),
-                ("TEMP_RESULTS", canonicalize(node_config_dir.join(temp_results))?.as_os_str().into()),
+                ("BACKEND", canonicalize_join(node_config_dir, backend)?.as_os_str().into()),
+                ("POLICIES", canonicalize_join(node_config_dir, policies)?.as_os_str().into()),
+                ("CERTS", canonicalize_join(node_config_dir, certs)?.as_os_str().into()),
+                ("PACKAGES", canonicalize_join(node_config_dir, packages)?.as_os_str().into()),
+                ("DATA", canonicalize_join(node_config_dir, data)?.as_os_str().into()),
+                ("RESULTS", canonicalize_join(node_config_dir, results)?.as_os_str().into()),
+                ("TEMP_DATA", canonicalize_join(node_config_dir, temp_data)?.as_os_str().into()),
+                ("TEMP_RESULTS", canonicalize_join(node_config_dir, temp_results)?.as_os_str().into()),
 
                 // Ports
-                ("REG_PORT", OsString::from(format!("{}", reg.port()))),
-                ("JOB_PORT", OsString::from(format!("{}", job.port()))),
+                ("REG_PORT", OsString::from(format!("{}", reg.bind.port()))),
+                ("JOB_PORT", OsString::from(format!("{}", job.bind.port()))),
             ]);
         },
     }
@@ -374,12 +485,9 @@ fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl
 /// # Arguments
 /// - `exe`: The `docker-compose` executable to run.
 /// - `file`: The `docker-compose.yml` file to launch.
-/// - `docker_socket`: The Docker socket path to connect through.
-/// - `docker_version`: The Docker client API version to use.
-/// - `version`: The Brane version to start.
 /// - `node_config_path`: The path to the node config file to potentially override.
-/// - `mode`: The mode ('release' or 'debug', typically) to resolve certain image sources with.
-/// - `profile`: Whether the profile folder should be mounted and, if so, where.
+/// - `docker_opts`: Configuration for connecting to the local Docker daemon. See `StartDockerOpts` for more information.
+/// - `opts`: Miscellaneous configuration for starting the images. See `StartOpts` for more information.
 /// - `command`: The `StartSubcommand` that carries additional information, including which of the node types to launch.
 /// 
 /// # Returns
@@ -387,11 +495,10 @@ fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl
 /// 
 /// # Errors
 /// This function errors if we failed to run the `docker-compose` command or if we failed to assert that the given command matches the node kind of the `node.yml` file on disk.
-pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, profile_dir: Option<PathBuf>, command: StartSubcommand) -> Result<(), Error> {
+pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl Into<PathBuf>, docker_opts: StartDockerOpts, opts: StartOpts, command: StartSubcommand) -> Result<(), Error> {
     let exe              : &str    = exe.as_ref();
-    let file             : PathBuf = file.into();
     let node_config_path : PathBuf = node_config_path.into();
-    info!("Starting node from Docker compose file '{}', defined in '{}'", file.display(), node_config_path.display());
+    info!("Starting node from Docker compose file '{}', defined in '{}'", file.as_ref().map(|f| f.display().to_string()).unwrap_or_else(|| "<baked-in>".into()), node_config_path.display());
 
     // Start by loading the node config file
     debug!("Loading node config file '{}'...", node_config_path.display());
@@ -400,6 +507,10 @@ pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket
         Err(err)   => { return Err(Error::NodeConfigLoadError{ err }); },
     };
 
+    // Resolve the Docker Compose file
+    debug!("Resolving Docker Compose file...");
+    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), opts.version)?;
+
     // Match on the command
     match command {
         StartSubcommand::Central{ aux_scylla, aux_kafka, aux_zookeeper, aux_xenon, brane_prx, brane_api, brane_drv, brane_plr } => {
@@ -407,30 +518,32 @@ pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket
             if node_config.node.kind() != NodeKind::Central { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Central, expected: node_config.node.kind() }); }
 
             // Connect to the Docker client
-            let docker: Docker = match Docker::connect_with_unix(&docker_socket.to_string_lossy(), 120, &docker_version.0) {
+            let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
                 Ok(docker) => docker,
-                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_socket, version: docker_version.0, err }); },
+                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hosts, profile_dir)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir)?;
 
             // Map the images & load them
-            let images: HashMap<&'static str, ImageSource> = HashMap::from([
-                ("aux-scylla", aux_scylla),
-                ("aux-kafka", aux_kafka),
-                ("aux-zookeeper", aux_zookeeper),
-                ("aux-xenon", aux_xenon),
+            if !opts.skip_import {
+                let images: HashMap<&'static str, ImageSource> = HashMap::from([
+                    ("aux-scylla", aux_scylla),
+                    ("aux-kafka", aux_kafka),
+                    ("aux-zookeeper", aux_zookeeper),
+                    ("aux-xenon", aux_xenon),
 
-                ("brane-prx", resolve_mode(brane_prx, &mode)),
-                ("brane-api", resolve_mode(brane_api, &mode)),
-                ("brane-drv", resolve_mode(brane_drv, &mode)),
-                ("brane-plr", resolve_mode(brane_plr, &mode)),
-            ]);
-            load_images(&docker, images, &version).await?;
+                    ("brane-prx", resolve_mode(brane_prx, &opts.mode)),
+                    ("brane-api", resolve_mode(brane_api, &opts.mode)),
+                    ("brane-drv", resolve_mode(brane_drv, &opts.mode)),
+                    ("brane-plr", resolve_mode(brane_plr, &opts.mode)),
+                ]);
+                load_images(&docker, images, &opts.version).await?;
+            }
 
             // Construct the environment variables
-            let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
+            let envs: HashMap<&str, OsString> = construct_envs(&opts.version, &node_config_path, &node_config)?;
 
             // Launch the docker-compose command
             run_compose(resolve_exe(exe)?, resolve_node(file, "central"), "brane-central", hostfile, envs)?;
@@ -441,27 +554,29 @@ pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket
             if node_config.node.kind() != NodeKind::Worker  { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Worker, expected: node_config.node.kind() }); }
 
             // Connect to the Docker client
-            let docker: Docker = match Docker::connect_with_unix(&docker_socket.to_string_lossy(), 120, &docker_version.0) {
+            let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
                 Ok(docker) => docker,
-                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_socket, version: docker_version.0, err }); },
+                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hosts, profile_dir)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir)?;
 
             // Map the images & load them
-            let images: HashMap<&'static str, ImageSource> = HashMap::from([
-                ("brane-prx", resolve_mode(brane_prx, &mode)),
-                ("brane-reg", resolve_mode(brane_reg, &mode)),
-                ("brane-job", resolve_mode(brane_job, &mode)),
-            ]);
-            load_images(&docker, images, &version).await?;
+            if !opts.skip_import {
+                let images: HashMap<&'static str, ImageSource> = HashMap::from([
+                    ("brane-prx", resolve_mode(brane_prx, &opts.mode)),
+                    ("brane-reg", resolve_mode(brane_reg, &opts.mode)),
+                    ("brane-job", resolve_mode(brane_job, &opts.mode)),
+                ]);
+                load_images(&docker, images, &opts.version).await?;
+            }
 
             // Construct the environment variables
-            let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
+            let envs: HashMap<&str, OsString> = construct_envs(&opts.version, &node_config_path, &node_config)?;
 
             // Launch the docker-compose command
-            run_compose(resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().location_id), hostfile, envs)?;
+            run_compose(resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().name), hostfile, envs)?;
         },
     }
 
@@ -486,11 +601,10 @@ pub async fn start(exe: impl AsRef<str>, file: impl Into<PathBuf>, docker_socket
 /// 
 /// # Errors
 /// This function errors if we failed to run docker-compose.
-pub fn stop(exe: impl AsRef<str>, file: impl Into<PathBuf>, node_config_path: impl Into<PathBuf>) -> Result<(), Error> {
+pub fn stop(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl Into<PathBuf>) -> Result<(), Error> {
     let exe              : &str    = exe.as_ref();
-    let file             : PathBuf = file.into();
     let node_config_path : PathBuf = node_config_path.into();
-    info!("Stopping node from Docker compose file '{}', defined in '{}'", file.display(), node_config_path.display());
+    info!("Stopping node from Docker compose file '{}', defined in '{}'", file.as_ref().map(|f| f.display().to_string()).unwrap_or_else(|| "<baked-in>".into()), node_config_path.display());
 
     // Start by loading the node config file
     debug!("Loading node config file '{}'...", node_config_path.display());
@@ -499,12 +613,16 @@ pub fn stop(exe: impl AsRef<str>, file: impl Into<PathBuf>, node_config_path: im
         Err(err)   => { return Err(Error::NodeConfigLoadError{ err }); },
     };
 
+    // Resolve the Docker Compose file
+    debug!("Resolving Docker Compose file...");
+    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), Version::from_str(env!("CARGO_PKG_VERSION")).unwrap())?;
+
     // Construct the environment variables
     let envs: HashMap<&str, OsString> = construct_envs(&Version::latest(), &node_config_path, &node_config)?;
 
     // Resolve the filename and deduce the project name
     let file  : PathBuf = resolve_node(file, if node_config.node.kind() == NodeKind::Central { "central" } else { "worker" });
-    let pname : String  = format!("brane-{}", match &node_config.node { NodeKindConfig::Central(_) => "central".into(), NodeKindConfig::Worker(node) => format!("worker-{}", node.location_id) });
+    let pname : String  = format!("brane-{}", match &node_config.node { NodeSpecificConfig::Central(_) => "central".into(), NodeSpecificConfig::Worker(node) => format!("worker-{}", node.name) });
 
     // Now launch docker-compose
     let exe: (String, Vec<String>) = resolve_exe(exe)?;

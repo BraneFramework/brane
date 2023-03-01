@@ -38,10 +38,10 @@ impl Display for ArchError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ArchError::*;
         match self {
-            UnameLaunchError{ command, err } => write!(f, "Could not launch '{:?}': {}", command, err),
+            UnameLaunchError{ command, err } => write!(f, "Could not launch '{command:?}': {err}"),
             UnameError{ command, status }    => write!(f, "Command '{:?}' returned non-zero exit code {}", command, status.code().unwrap_or(-1)),
 
-            UnknownArchitecture{ raw } => write!(f, "Unknown architecture '{}'", raw),
+            UnknownArchitecture{ raw } => write!(f, "Unknown architecture '{raw}'"),
         }
     }
 }

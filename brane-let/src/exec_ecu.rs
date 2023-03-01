@@ -195,10 +195,10 @@ fn initialize(
     command.stderr(Stdio::piped());
     let result = match command.output() {
         Ok(result) => result,
-        Err(err)   => { return Err(LetError::WorkdirInitLaunchError{ command: format!("{:?}", command), err }); }
+        Err(err)   => { return Err(LetError::WorkdirInitLaunchError{ command: format!("{command:?}"), err }); }
     };
     if !result.status.success() {
-        return Err(LetError::WorkdirInitError{ command: format!("{:?}", command), code: result.status.code().unwrap_or(-1), stdout: String::from_utf8_lossy(&result.stdout).to_string(), stderr: String::from_utf8_lossy(&result.stderr).to_string() });
+        return Err(LetError::WorkdirInitError{ command: format!("{command:?}"), code: result.status.code().unwrap_or(-1), stdout: String::from_utf8_lossy(&result.stdout).to_string(), stderr: String::from_utf8_lossy(&result.stderr).to_string() });
     }
 
     // Initialization complete!
@@ -262,7 +262,7 @@ fn start(
     exec_command.stderr(Stdio::piped());
     let process = match exec_command.spawn() {
         Ok(process) => process,
-        Err(err)    => { return Err(LetError::PackageLaunchError{ command: format!("{:?}", exec_command), err }); }
+        Err(err)    => { return Err(LetError::PackageLaunchError{ command: format!("{exec_command:?}"), err }); }
     };
 
     // Done, return the process!!

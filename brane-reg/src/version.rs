@@ -35,7 +35,7 @@ pub async fn get() -> Result<impl Reply, Rejection> {
 
     // Parse Cargo's version number
     let version = env!("CARGO_PKG_VERSION");
-    let version = format!("v{}", version);
+    let version = format!("v{version}");
     let version_len = version.len();
 
     // Construct a response with the body and the content-length header

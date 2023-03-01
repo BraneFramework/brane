@@ -112,8 +112,8 @@ impl Display for AstWarning {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use AstWarning::*;
         match self {
-            TypeWarning(warn)    => write!(f, "{}", warn),
-            CompileWarning(warn) => write!(f, "{}", warn),
+            TypeWarning(warn)    => write!(f, "{warn}"),
+            CompileWarning(warn) => write!(f, "{warn}"),
         }
     }
 }
@@ -161,7 +161,7 @@ impl Display for TypeWarning {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use TypeWarning::*;
         match self {
-            UnusedMergeStrategy{ merge, .. } => write!(f, "Merge strategy '{:?}' specified but not used; did you forget 'let <var> := parallel ...'?", merge),
+            UnusedMergeStrategy{ merge, .. } => write!(f, "Merge strategy '{merge:?}' specified but not used; did you forget 'let <var> := parallel ...'?"),
 
             ReturningIntermediateResult{ .. } => write!(f, "Returning an {} will not let you see the result; consider committing using the builtin `commit_result()` function", BuiltinClasses::IntermediateResult.name()),
         }

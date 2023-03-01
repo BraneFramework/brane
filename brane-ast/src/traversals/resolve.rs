@@ -4,7 +4,7 @@
 //  Created:
 //    18 Aug 2022, 15:24:54
 //  Last edited:
-//    05 Jan 2023, 13:13:47
+//    01 Mar 2023, 10:57:51
 //  Auto updated?
 //    Yes
 // 
@@ -246,7 +246,7 @@ fn pass_stmt(state: &CompileState, package_index: &PackageIndex, data_index: &Da
                 let ret_type: DataType = DataType::from(&f.return_type);
 
                 // Wrap it in a function entry and add it to the list
-                match st.add_func(FunctionEntry::from_import(name, FunctionSignature::new(arg_types, ret_type), &info.name, info.version.clone(), arg_names, f.requirements.clone().unwrap_or_default(), TextRange::none())) {
+                match st.add_func(FunctionEntry::from_import(name, FunctionSignature::new(arg_types, ret_type), &info.name, info.version, arg_names, f.requirements.clone().unwrap_or_default(), TextRange::none())) {
                     Ok(entry) => { funcs.push(entry); },
                     Err(err)  => {
                         errors.push(Error::FunctionImportError{ package_name: info.name.clone(), name: name.into(), err, range: range.clone() });
@@ -278,7 +278,7 @@ fn pass_stmt(state: &CompileState, package_index: &PackageIndex, data_index: &Da
                 };
 
                 // Insert it (plus an empty method map) as a ClassEntry
-                match st.add_class(ClassEntry::from_import(ClassSignature { name: name.clone() }, c_symbol_table, &info.name, info.version.clone(), TextRange::none())) {
+                match st.add_class(ClassEntry::from_import(ClassSignature { name: name.clone() }, c_symbol_table, &info.name, info.version, TextRange::none())) {
                     Ok(entry) => { classes.push(entry); },
                     Err(err)  => {
                         errors.push(Error::ClassImportError{ package_name: info.name.clone(), name: name.into(), err, range: range.clone() });

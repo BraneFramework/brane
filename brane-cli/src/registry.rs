@@ -217,7 +217,7 @@ pub async fn pull(
                 name: package.name.clone(),
                 owners: package.owners.clone(),
                 types,
-                version : version.clone(),
+                version,
             };
 
             // Create the directory
@@ -289,10 +289,10 @@ pub async fn push(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
 
             // Sort the versions and return the last one
             versions.sort();
-            versions[versions.len() - 1].clone()
+            versions[versions.len() - 1]
         } else {
             // Simply use the version given
-            version.clone()
+            version
         };
 
         // Construct the full package directory with version
@@ -370,8 +370,8 @@ pub async fn push(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
             );
         } else {
             match response.text().await {
-                Ok(text) => { println!("\nFailed to push package: {}", text); }
-                Err(err) => { println!("\nFailed to push package (and failed to retrieve response text: {})", err); }
+                Ok(text) => { println!("\nFailed to push package: {text}"); }
+                Err(err) => { println!("\nFailed to push package (and failed to retrieve response text: {err})"); }
             };
         }
     }
@@ -458,7 +458,7 @@ pub async fn unpublish(
     // Ask for permission, if --force is not provided
     if !force {
         println!("Do you want to remove the following version(s)?");
-        println!("- {}", version);
+        println!("- {version}");
 
         // Abort, if not approved
         if !Confirm::new().interact()? {

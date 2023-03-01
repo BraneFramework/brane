@@ -37,7 +37,7 @@ pub fn build_oas_function(
     operation_id: &str,
     file: &str,
 ) -> Result<FunctionAndTypes> {
-    let oas = parse_oas_file(format!("tests/resources/{}", file))?;
+    let oas = parse_oas_file(format!("tests/resources/{file}"))?;
     let path_item = resolver::resolve_path_item(oas.paths.get(path).unwrap())?;
     let server_known = !oas.servers.is_empty() || !path_item.servers.is_empty();
     let (functions, types) = build::build_oas_function(

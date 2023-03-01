@@ -19,23 +19,13 @@ RUN apt-get update && apt-get install -y \
     curl \
  && rm -rf /var/lib/apt/lists/*
 
-# Install the latest protobuf
-ARG PROTOBUF_VERSION=3.21.11
-RUN curl -L https://github.com/protocolbuffers/protobuf/archive/refs/tags/v${PROTOBUF_VERSION}.tar.gz | tar -xvz \
- && cd /protobuf-${PROTOBUF_VERSION} \
- && cmake -Dprotobuf_BUILD_TESTS=off . \
- && cmake --build . -j $(nproc) \
- && mv $(readlink protoc) /protoc \
- && cd / \
- && rm -r /protobuf-${PROTOBUF_VERSION}
-
 # Copy over relevant crates & other files
 RUN mkdir /build
 COPY . /build
 
 # Build optimized binaries
 WORKDIR /build
-RUN PROTOC="/protoc" cargo build \
+RUN cargo build \
         --release \
         --package brane-api \
         --package brane-drv \

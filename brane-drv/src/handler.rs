@@ -182,7 +182,7 @@ impl DriverService for DriverHandler {
         let sessions: Arc<DashMap<AppId, InstanceVm>> = self.sessions.clone();
         let vm: InstanceVm = match sessions.get(&app_id) {
             Some(vm) => vm.clone(),
-            None     => { fatal_err!(tx, rx, Status::internal(format!("No session with ID '{}' found", app_id))); }
+            None     => { fatal_err!(tx, rx, Status::internal(format!("No session with ID '{app_id}' found"))); }
         };
 
         // We're gonna run the rest asynchronous, to allow the client to earlier receive callbacks
