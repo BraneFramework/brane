@@ -1,3 +1,17 @@
+//  PACKAGE.rs
+//    by Lut99
+// 
+//  Created:
+//    01 Mar 2023, 09:45:11
+//  Last edited:
+//    01 Mar 2023, 09:45:26
+//  Auto updated?
+//    Yes
+// 
+//  Description:
+//!   Defines the `package.yml` file and related structs.
+// 
+
 use std::fs::{self, File};
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -485,7 +499,7 @@ impl From<&ContainerInfo> for PackageInfo {
         // Put it and other clones in the new instance
         PackageInfo::new(
             container.name.clone(),
-            container.version.clone(),
+            container.version,
             container.kind,
             match container.owners.as_ref() {
                 Some(owners) => owners.clone(),
@@ -533,7 +547,7 @@ impl PackageIndex {
         for (key, package) in packages.iter() {
             // Check if the package name has already been added
             if !latest.contains_key(&package.name) {
-                latest.insert(package.name.clone(), (package.version.clone(), key.clone()));
+                latest.insert(package.name.clone(), (package.version, key.clone()));
                 continue;
             }
 
@@ -541,7 +555,7 @@ impl PackageIndex {
             let latest_package: &mut (Version, String) = latest.get_mut(&package.name).unwrap();
             if package.version >= latest_package.0 {
                 // It is; update the version to point to the latest version of this package
-                latest_package.0 = package.version.clone();
+                latest_package.0 = package.version;
                 latest_package.1 = key.clone();
             }
         }

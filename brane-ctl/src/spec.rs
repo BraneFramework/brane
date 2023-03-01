@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    28 Feb 2023, 19:12:18
+//    01 Mar 2023, 11:20:24
 //  Auto updated?
 //    Yes
 // 
@@ -23,6 +23,7 @@ use enum_debug::EnumDebug;
 
 use brane_tsk::docker::{ClientVersion, ImageSource};
 use specifications::address::Address;
+use specifications::version::Version;
 
 use crate::errors::{ArchParseError, DockerClientVersionParseError, HostnamePairParseError, LocationPairParseError};
 
@@ -144,7 +145,6 @@ impl Display for HostnamePair {
         write!(f, "{} -> {}", self.0, self.1)
     }
 }
-
 impl FromStr for HostnamePair {
     type Err = HostnamePairParseError;
 
@@ -183,13 +183,11 @@ impl From<&mut HostnamePair> for HostnamePair {
 /// Defines a `<location>=<something>` pair that is conveniently parseable.
 #[derive(Clone, Debug)]
 pub struct LocationPair<const C: char, T>(pub String, pub T);
-
 impl<const C: char, T: Display> Display for LocationPair<C, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         write!(f, "{}: {}", self.0, self.1)
     }
 }
-
 impl<const C: char, T: FromStr> FromStr for LocationPair<C, T> {
     type Err = LocationPairParseError<T::Err>;
 
@@ -217,6 +215,30 @@ impl<const C: char, T: FromStr> FromStr for LocationPair<C, T> {
 
 
 /***** LIBRARY *****/
+/// Defines a collection of Docker options to pass to the `start`-subcommand handler.
+#[derive(Clone, Debug)]
+pub struct StartDockerOpts {
+    /// The location of the Docker socket with which to connect.
+    pub socket  : PathBuf,
+    /// The client version with which to connect.
+    pub version : DockerClientVersion, 
+}
+
+/// Defines a collection of options to pass to the `start`-subcommand handler.
+#[derive(Clone, Debug)]
+pub struct StartOpts {
+    /// The Brane version to start.
+    pub version     : Version,
+    /// The 'release mode', which is used to easily switch between using `target/release` and `target/debug`.
+    pub mode        : String,
+    /// Do not import any images if given, but instead assume they are already loaded.
+    pub skip_import : bool,
+    /// If given, mounts the given profile directory to examine profiling results conveniently.
+    pub profile_dir : Option<PathBuf>
+}
+
+
+
 /// A bit awkward here, but defines the subcommand for downloading service images from the repo.
 #[derive(Debug, EnumDebug, Subcommand)]
 pub enum DownloadServicesSubcommand {

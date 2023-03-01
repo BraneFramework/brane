@@ -4,7 +4,7 @@
 //  Created:
 //    23 Mar 2022, 15:15:12
 //  Last edited:
-//    27 Feb 2023, 13:45:34
+//    01 Mar 2023, 09:46:03
 //  Auto updated?
 //    Yes
 // 
@@ -368,7 +368,7 @@ impl Version {
     /// Nothing on success (except that this version now is equal to the latest version in the bunch), or a VersionError otherwise.
     pub fn resolve_latest<I: IntoIterator<Item=Self>>(&mut self, iter: I) -> Result<(), ResolveError> {
         // Crash if we're already resolved
-        if !self.is_latest() { return Err(ResolveError::AlreadyResolved{ version: self.clone() }); }
+        if !self.is_latest() { return Err(ResolveError::AlreadyResolved{ version: *self }); }
 
         // Go through the iterator
         let mut last_version: Option<Version> = None;
@@ -380,7 +380,7 @@ impl Version {
             if let Some(lversion) = &last_version {
                 // Update if this version is newer
                 if &version > lversion {
-                    last_version = Some(version.clone());
+                    last_version = Some(version);
                 }
             } else {
                 // Simply set, as this is the first one

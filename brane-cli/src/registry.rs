@@ -217,7 +217,7 @@ pub async fn pull(
                 name: package.name.clone(),
                 owners: package.owners.clone(),
                 types,
-                version : version.clone(),
+                version,
             };
 
             // Create the directory
@@ -289,10 +289,10 @@ pub async fn push(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
 
             // Sort the versions and return the last one
             versions.sort();
-            versions[versions.len() - 1].clone()
+            versions[versions.len() - 1]
         } else {
             // Simply use the version given
-            version.clone()
+            version
         };
 
         // Construct the full package directory with version

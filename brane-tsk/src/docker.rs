@@ -4,7 +4,7 @@
 //  Created:
 //    19 Sep 2022, 14:57:17
 //  Last edited:
-//    23 Feb 2023, 14:24:44
+//    01 Mar 2023, 10:58:14
 //  Auto updated?
 //    Yes
 // 
@@ -428,14 +428,14 @@ async fn create_and_start_container(docker: &Docker, info: &ExecuteInfo) -> Resu
 
     // Run it with that config
     debug!("Launching container with name '{}' (image: {})...", info.name, info.image.name());
-    if let Err(reason) = docker.create_container(Some(create_options), create_config).await { return Err(Error::CreateContainerError{ name: info.name.clone(), image: info.image.clone(), err: reason }); }
+    if let Err(reason) = docker.create_container(Some(create_options), create_config).await { return Err(Error::CreateContainerError{ name: info.name.clone(), image: Box::new(info.image.clone()), err: reason }); }
     debug!(" > Container created");
     match docker.start_container(&container_name, None::<StartContainerOptions<String>>).await {
         Ok(_)       => {
             debug!(" > Container '{}' started", container_name);
             Ok(container_name)
         },
-        Err(reason) => Err(Error::StartError{ name: info.name.clone(), image: info.image.clone(), err: reason })
+        Err(reason) => Err(Error::StartError{ name: info.name.clone(), image: Box::new(info.image.clone()), err: reason })
     }
 }
 
@@ -583,7 +583,7 @@ async fn import_image(docker: &Docker, image: impl Into<Image>, source: impl AsR
     let options = Some(TagImageOptions{ repo: image.name.clone(), tag: image.version.clone().unwrap() });
     match docker.tag_image(image.digest.as_ref().unwrap(), options).await {
         Ok(_)    => Ok(()),
-        Err(err) => Err(Error::ImageTagError{ image, source: source.to_string_lossy().to_string(), err }),
+        Err(err) => Err(Error::ImageTagError{ image: Box::new(image), source: source.to_string_lossy().to_string(), err }),
     }
 }
 
@@ -621,7 +621,7 @@ async fn pull_image(docker: &Docker, image: impl Into<Image>, source: impl Into<
     // Now tag it
     match docker.tag_image(&source, options).await {
         Ok(_)    => Ok(()),
-        Err(err) => Err(Error::ImageTagError{ image, source, err }),
+        Err(err) => Err(Error::ImageTagError{ image: Box::new(image), source, err }),
     }
 }
 
@@ -850,7 +850,7 @@ pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl
             debug!("Image '{}' doesn't exist in Docker daemon.", image.docker());
         },
         Err(err) => {
-            return Err(Error::ImageInspectError{ image, err });
+            return Err(Error::ImageInspectError{ image: Box::new(image), err });
         },
     }
 
@@ -904,7 +904,7 @@ pub async fn save_image(docker: &Docker, image: impl Into<Image>, target: impl A
         debug!("Next chunk: {} bytes", chunk.len());
 
         // Write it to the file
-        if let Err(err) = handle.write(&*chunk).await { return Err(Error::ImageFileWriteError{ path: target.into(), err }); }
+        if let Err(err) = handle.write(&chunk).await { return Err(Error::ImageFileWriteError{ path: target.into(), err }); }
         debug!("Write OK");
         total += chunk.len();
     }
@@ -1069,6 +1069,6 @@ pub async fn remove_image(image: &Image) -> Result<(), Error> {
     let info = info.unwrap();
     match docker.remove_image(info.id.as_ref().unwrap(), remove_options, None).await {
         Ok(_)       => Ok(()),
-        Err(reason) => Err(Error::ImageRemoveError{ image: image.clone(), id: info.id.clone().unwrap(), err: reason }),
+        Err(reason) => Err(Error::ImageRemoveError{ image: Box::new(image.clone()), id: info.id.clone().unwrap(), err: reason }),
     }
 }

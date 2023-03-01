@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    30 Jan 2023, 13:31:40
+//    01 Mar 2023, 11:14:27
 //  Auto updated?
 //    Yes
 // 
@@ -341,7 +341,7 @@ pub async fn initialize_instance_vm(api_endpoint: impl AsRef<str>, drv_endpoint:
         debug!("Using new session '{}'", raw);
         match AppId::from_str(&raw) {
             Ok(session) => session,
-            Err(err)    => { return Err(Error::AppIdError{ address: drv_endpoint.into(), raw, err }); },
+            Err(err)    => { return Err(Error::AppIdError{ address: drv_endpoint.into(), raw, err: Box::new(err) }); },
         }
     };
 

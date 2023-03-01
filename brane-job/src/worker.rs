@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2022, 11:21:14
 //  Last edited:
-//    28 Feb 2023, 16:33:05
+//    01 Mar 2023, 11:01:02
 //  Auto updated?
 //    Yes
 // 
@@ -798,6 +798,7 @@ async fn execute_task_local(worker_cfg: &WorkerConfig, dinfo: DockerInfo, tx: &S
 /// 
 /// # Errors
 /// This fnction may error for many many reasons, but chief among those are unavailable backends or a crashing task.
+#[allow(clippy::too_many_arguments)]
 async fn execute_task(worker_cfg: &WorkerConfig, proxy: Arc<ProxyClient>, tx: Sender<Result<ExecuteReply, Status>>, workflow: Workflow, cinfo: ControlNodeInfo, tinfo: TaskInfo, keep_container: bool, prof: ProfileScopeHandle<'_>) -> Result<(), ExecuteError> {
     let mut tinfo = tinfo;
 
@@ -821,13 +822,13 @@ async fn execute_task(worker_cfg: &WorkerConfig, proxy: Arc<ProxyClient>, tx: Se
     // Get the info
     let info: &PackageInfo = match index.get(&tinfo.package_name, Some(&tinfo.package_version)) {
         Some(info) => info,
-        None       => { return err!(tx, ExecuteError::UnknownPackage{ name: tinfo.package_name.clone(), version: tinfo.package_version.clone() }); },
+        None       => { return err!(tx, ExecuteError::UnknownPackage{ name: tinfo.package_name.clone(), version: tinfo.package_version }); },
     };
     idx.stop();
 
     // Deduce the image name from that
     tinfo.kind  = Some(info.kind);
-    tinfo.image = Some(Image::new(&tinfo.package_name, Some(tinfo.package_version.clone()), info.digest.clone()));
+    tinfo.image = Some(Image::new(&tinfo.package_name, Some(tinfo.package_version), info.digest.clone()));
 
     // Now load the credentials file to get things going
     let disk = prof.time("File loading");
@@ -1297,7 +1298,7 @@ impl JobService for WorkerServer {
         let tinfo : TaskInfo        = TaskInfo::new(
             task.function.name.clone(),
             task.package.clone(),
-            task.version.clone(),
+            task.version,
 
             input,
             request.result,

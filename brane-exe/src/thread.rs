@@ -4,7 +4,7 @@
 //  Created:
 //    09 Sep 2022, 13:23:41
 //  Last edited:
-//    01 Feb 2023, 15:18:24
+//    01 Mar 2023, 09:52:13
 //  Auto updated?
 //    Yes
 // 
@@ -177,7 +177,7 @@ async fn preprocess_value<'p: 'async_recursion, P: VmPlugin>(global: &Arc<RwLock
 
         // Also handle any nested stuff
         FullValue::Array(values)      => {
-            for (i, v) in values.into_iter().enumerate() {
+            for (i, v) in values.iter().enumerate() {
                 prof.nest_fut(format!("[{}]", i), |scope| preprocess_value::<P>(global, local, pc, task, at, v, input, data, scope)).await?;
             }
             return Ok(());

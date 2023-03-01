@@ -4,7 +4,7 @@
 //  Created:
 //    26 Aug 2022, 15:53:28
 //  Last edited:
-//    06 Jan 2023, 17:24:06
+//    01 Mar 2023, 09:43:43
 //  Auto updated?
 //    Yes
 // 
@@ -393,10 +393,10 @@ impl DataIndex {
 
 impl IntoIterator for DataIndex {
     type Item     = DataInfo;
-    type IntoIter = std::iter::Map<std::collections::hash_map::IntoIter<String, DataInfo>, fn ((String, DataInfo)) -> DataInfo>;
+    type IntoIter = std::collections::hash_map::IntoValues<String, DataInfo>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.index.into_iter().map(|(_, d)| d)
+        self.index.into_values()
     }
 }
 impl<'a> IntoIterator for &'a DataIndex {

@@ -4,7 +4,7 @@
 //  Created:
 //    20 Feb 2023, 14:59:16
 //  Last edited:
-//    23 Feb 2023, 13:46:35
+//    01 Mar 2023, 11:26:21
 //  Auto updated?
 //    Yes
 // 
@@ -73,7 +73,7 @@ async fn download_brane_services(address: impl AsRef<str>, path: impl AsRef<Path
         // SAFETY: This is OK because for our committed version, the destructor of `TempDir` only destroys the directory itself using a normal `std::fs::remove_dir_all()` call, and so nothing will explode if that does not happen.
         // (see https://docs.rs/tempfile/3.3.0/src/tempfile/dir.rs.html#403-407)
         std::mem::forget(temp);
-        return Err(Error::DownloadError { address: address.into(), path: tar_path, err });
+        return Err(Error::DownloadError { address: address.into(), path: tar_path, err: Box::new(err) });
     }
 
     // Extract the folder to the same temporary directory
@@ -84,7 +84,7 @@ async fn download_brane_services(address: impl AsRef<str>, path: impl AsRef<Path
         // SAFETY: This is OK because for our committed version, the destructor of `TempDir` only destroys the directory itself using a normal `std::fs::remove_dir_all()` call, and so nothing will explode if that does not happen.
         // (see https://docs.rs/tempfile/3.3.0/src/tempfile/dir.rs.html#403-407)
         std::mem::forget(temp);
-        return Err(Error::UnarchiveError{ tar: tar_path, target: dir_path, err });
+        return Err(Error::UnarchiveError{ tar: tar_path, target: dir_path, err: Box::new(err) });
     }
     // Be sure to do the folder inside the archive
     let dir_path: PathBuf = dir_path.join(tar_name);
@@ -142,7 +142,7 @@ async fn download_brane_services(address: impl AsRef<str>, path: impl AsRef<Path
                 // SAFETY: This is OK because for our committed version, the destructor of `TempDir` only destroys the directory itself using a normal `std::fs::remove_dir_all()` call, and so nothing will explode if that does not happen.
                 // (see https://docs.rs/tempfile/3.3.0/src/tempfile/dir.rs.html#403-407)
                 std::mem::forget(temp);
-                return Err(Error::MoveError{ source: entry_path, target: out_path, err });
+                return Err(Error::MoveError{ source: entry_path, target: out_path, err: Box::new(err) });
             }
         }
 

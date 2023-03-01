@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    28 Feb 2023, 18:43:38
+//    01 Mar 2023, 11:21:35
 //  Auto updated?
 //    Yes
 // 
@@ -36,7 +36,7 @@ use specifications::container::Image;
 use specifications::version::Version;
 
 pub use crate::errors::LifetimeError as Error;
-use crate::spec::{DockerClientVersion, StartSubcommand};
+use crate::spec::{StartOpts, StartDockerOpts, StartSubcommand};
 
 
 /***** HELPER STRUCTS *****/
@@ -326,7 +326,7 @@ async fn load_images(docker: &Docker, images: HashMap<impl AsRef<str>, ImageSour
         };
 
         // Simply rely on ensure_image
-        if let Err(err) = ensure_image(docker, &image, &source).await { return Err(Error::ImageLoadError{ image, source, err }); }
+        if let Err(err) = ensure_image(docker, &image, &source).await { return Err(Error::ImageLoadError{ image: Box::new(image), source: Box::new(source), err }); }
     }
 
     // Done
@@ -485,13 +485,9 @@ fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl
 /// # Arguments
 /// - `exe`: The `docker-compose` executable to run.
 /// - `file`: The `docker-compose.yml` file to launch.
-/// - `docker_socket`: The Docker socket path to connect through.
-/// - `docker_version`: The Docker client API version to use.
-/// - `version`: The Brane version to start.
 /// - `node_config_path`: The path to the node config file to potentially override.
-/// - `mode`: The mode ('release' or 'debug', typically) to resolve certain image sources with.
-/// - `skip_import`: If true, then this command will not import any images.
-/// - `profile`: Whether the profile folder should be mounted and, if so, where.
+/// - `docker_opts`: Configuration for connecting to the local Docker daemon. See `StartDockerOpts` for more information.
+/// - `opts`: Miscellaneous configuration for starting the images. See `StartOpts` for more information.
 /// - `command`: The `StartSubcommand` that carries additional information, including which of the node types to launch.
 /// 
 /// # Returns
@@ -499,7 +495,7 @@ fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl
 /// 
 /// # Errors
 /// This function errors if we failed to run the `docker-compose` command or if we failed to assert that the given command matches the node kind of the `node.yml` file on disk.
-pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, docker_socket: PathBuf, docker_version: DockerClientVersion, version: Version, node_config_path: impl Into<PathBuf>, mode: String, skip_import: bool, profile_dir: Option<PathBuf>, command: StartSubcommand) -> Result<(), Error> {
+pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl Into<PathBuf>, docker_opts: StartDockerOpts, opts: StartOpts, command: StartSubcommand) -> Result<(), Error> {
     let exe              : &str    = exe.as_ref();
     let node_config_path : PathBuf = node_config_path.into();
     info!("Starting node from Docker compose file '{}', defined in '{}'", file.as_ref().map(|f| f.display().to_string()).unwrap_or_else(|| "<baked-in>".into()), node_config_path.display());
@@ -513,7 +509,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, docker_socket: P
 
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
-    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), version)?;
+    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), opts.version)?;
 
     // Match on the command
     match command {
@@ -522,32 +518,32 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, docker_socket: P
             if node_config.node.kind() != NodeKind::Central { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Central, expected: node_config.node.kind() }); }
 
             // Connect to the Docker client
-            let docker: Docker = match Docker::connect_with_unix(&docker_socket.to_string_lossy(), 120, &docker_version.0) {
+            let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
                 Ok(docker) => docker,
-                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_socket, version: docker_version.0, err }); },
+                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, profile_dir)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir)?;
 
             // Map the images & load them
-            if !skip_import {
+            if !opts.skip_import {
                 let images: HashMap<&'static str, ImageSource> = HashMap::from([
                     ("aux-scylla", aux_scylla),
                     ("aux-kafka", aux_kafka),
                     ("aux-zookeeper", aux_zookeeper),
                     ("aux-xenon", aux_xenon),
 
-                    ("brane-prx", resolve_mode(brane_prx, &mode)),
-                    ("brane-api", resolve_mode(brane_api, &mode)),
-                    ("brane-drv", resolve_mode(brane_drv, &mode)),
-                    ("brane-plr", resolve_mode(brane_plr, &mode)),
+                    ("brane-prx", resolve_mode(brane_prx, &opts.mode)),
+                    ("brane-api", resolve_mode(brane_api, &opts.mode)),
+                    ("brane-drv", resolve_mode(brane_drv, &opts.mode)),
+                    ("brane-plr", resolve_mode(brane_plr, &opts.mode)),
                 ]);
-                load_images(&docker, images, &version).await?;
+                load_images(&docker, images, &opts.version).await?;
             }
 
             // Construct the environment variables
-            let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
+            let envs: HashMap<&str, OsString> = construct_envs(&opts.version, &node_config_path, &node_config)?;
 
             // Launch the docker-compose command
             run_compose(resolve_exe(exe)?, resolve_node(file, "central"), "brane-central", hostfile, envs)?;
@@ -558,26 +554,26 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, docker_socket: P
             if node_config.node.kind() != NodeKind::Worker  { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Worker, expected: node_config.node.kind() }); }
 
             // Connect to the Docker client
-            let docker: Docker = match Docker::connect_with_unix(&docker_socket.to_string_lossy(), 120, &docker_version.0) {
+            let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
                 Ok(docker) => docker,
-                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_socket, version: docker_version.0, err }); },
+                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, profile_dir)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir)?;
 
             // Map the images & load them
-            if !skip_import {
+            if !opts.skip_import {
                 let images: HashMap<&'static str, ImageSource> = HashMap::from([
-                    ("brane-prx", resolve_mode(brane_prx, &mode)),
-                    ("brane-reg", resolve_mode(brane_reg, &mode)),
-                    ("brane-job", resolve_mode(brane_job, &mode)),
+                    ("brane-prx", resolve_mode(brane_prx, &opts.mode)),
+                    ("brane-reg", resolve_mode(brane_reg, &opts.mode)),
+                    ("brane-job", resolve_mode(brane_job, &opts.mode)),
                 ]);
-                load_images(&docker, images, &version).await?;
+                load_images(&docker, images, &opts.version).await?;
             }
 
             // Construct the environment variables
-            let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
+            let envs: HashMap<&str, OsString> = construct_envs(&opts.version, &node_config_path, &node_config)?;
 
             // Launch the docker-compose command
             run_compose(resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().name), hostfile, envs)?;

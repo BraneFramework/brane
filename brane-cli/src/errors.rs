@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    30 Jan 2023, 13:53:06
+//    01 Mar 2023, 11:14:19
 //  Auto updated?
 //    Yes
 // 
@@ -687,6 +687,8 @@ impl Error for InstanceError {}
 
 
 /// Lists the errors that can occur when trying to do stuff with packages
+/// 
+/// Note: `Image` is boxed to avoid the error enum growing too large (see `clippy::reslt_large_err`).
 #[derive(Debug)]
 pub enum PackageError {
     /// Something went wrong while calling utilities
@@ -711,7 +713,7 @@ pub enum PackageError {
     /// The given PackageInfo has no digest set
     PackageInfoNoDigest{ path: PathBuf },
     /// Could not remove the given image from the Docker daemon
-    DockerRemoveError{ image: Image, err: brane_tsk::errors::DockerError },
+    DockerRemoveError{ image: Box<Image>, err: brane_tsk::errors::DockerError },
 }
 impl std::fmt::Display for PackageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -903,7 +905,9 @@ pub enum RunError {
     /// Could not connect to the given address
     ClientConnectError{ address: String, err: specifications::driving::Error },
     /// Failed to parse the AppId send by the remote driver.
-    AppIdError{ address: String, raw: String, err: brane_tsk::errors::IdError },
+    /// 
+    /// Note: `err` is boxed to avoid this error enum growing too large.
+    AppIdError{ address: String, raw: String, err: Box<brane_tsk::errors::IdError> },
     /// Could not create a new session on the given address
     SessionCreateError{ address: String, err: tonic::Status },
 

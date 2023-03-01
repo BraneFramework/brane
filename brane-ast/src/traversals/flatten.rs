@@ -4,7 +4,7 @@
 //  Created:
 //    15 Sep 2022, 08:26:20
 //  Last edited:
-//    05 Jan 2023, 13:14:31
+//    01 Mar 2023, 10:58:00
 //  Auto updated?
 //    Yes
 // 
@@ -239,7 +239,7 @@ fn move_task(task: &Rc<RefCell<FunctionEntry>>, table: &mut TableState) {
             requirements : entry.requirements.clone().unwrap(),
 
             package_name    : entry.package_name.clone().unwrap(),
-            package_version : entry.package_version.clone().unwrap(),
+            package_version : entry.package_version.unwrap(),
 
             range : entry.range.clone(),
         }
@@ -307,7 +307,7 @@ fn move_class(class: &Rc<RefCell<ClassEntry>>, mtables: HashMap<String, TableSta
             methods,
 
             package_name    : entry.package_name.clone(),
-            package_version : entry.package_version.clone(),
+            package_version : entry.package_version,
 
             range : entry.range.clone(),
         }

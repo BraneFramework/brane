@@ -4,7 +4,7 @@
 //  Created:
 //    05 Jan 2023, 11:35:25
 //  Last edited:
-//    28 Feb 2023, 15:48:03
+//    01 Mar 2023, 11:01:22
 //  Auto updated?
 //    Yes
 // 
@@ -55,7 +55,7 @@ pub async fn get_capabilities(context: Arc<Context>) -> Result<impl Reply, Rejec
     };
 
     // Read the backend file
-    let backend: BackendFile = match BackendFile::from_path(&worker_config.paths.backend) {
+    let backend: BackendFile = match BackendFile::from_path(worker_config.paths.backend) {
         Ok(backend) => backend,
         Err(err)    => {
             error!("Failed to load backend file: {}", err);

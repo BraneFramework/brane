@@ -372,7 +372,7 @@ pub async fn remove(
             // Remove that image from the Docker daemon
             let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
             if let Err(err) = docker::remove_image(&image).await {
-                return Err(PackageError::DockerRemoveError{ image, err });
+                return Err(PackageError::DockerRemoveError{ image: Box::new(image), err });
             }
 
             // Also remove the package files
@@ -467,7 +467,7 @@ pub async fn remove(
             // Remove that image from the Docker daemon
             let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
             if let Err(err) = docker::remove_image(&image).await {
-                return Err(PackageError::DockerRemoveError{ image, err });
+                return Err(PackageError::DockerRemoveError{ image: Box::new(image), err });
             }
         }
 

@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:27:26
 //  Last edited:
-//    28 Feb 2023, 18:23:02
+//    01 Mar 2023, 10:56:51
 //  Auto updated?
 //    Yes
 // 
@@ -44,7 +44,6 @@ pub enum TaskError {
     /// Something went wrong while executing.
     ExecError{ err: brane_exe::errors::VmError },
 }
-
 impl Display for TaskError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use TaskError::*;
@@ -54,7 +53,6 @@ impl Display for TaskError {
         }
     }
 }
-
 impl Error for TaskError {}
 
 
@@ -118,7 +116,6 @@ pub enum PlanError {
     /// Failed to serialize the internal workflow.
     WorkflowSerializeError{ err: serde_json::Error },
 }
-
 impl Display for PlanError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use PlanError::*;
@@ -154,7 +151,6 @@ impl Display for PlanError {
         }
     }
 }
-
 impl Error for PlanError {}
 
 
@@ -229,7 +225,6 @@ pub enum PreprocessError {
     /// Failed to serialize the preprocessrequest.
     AccessKindSerializeError{ err: serde_json::Error },
 }
-
 impl Display for PreprocessError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use self::PreprocessError::*;
@@ -270,12 +265,13 @@ impl Display for PreprocessError {
         }
     }
 }
-
 impl Error for PreprocessError {}
 
 
 
 /// Defines common errors that occur when trying to execute tasks.
+/// 
+/// Note: we've boxed `Image` to reduce the size of the error (and avoid running into `clippy::result_large_err`).
 #[derive(Debug)]
 pub enum ExecuteError {
     // General errors
@@ -286,7 +282,7 @@ pub enum ExecuteError {
     /// Failed to serialize task's input arguments
     ArgsEncodeError{ err: serde_json::Error },
     /// The external call failed with a nonzero exit code and some stdout/stderr
-    ExternalCallFailed{ name: String, image: Image, code: i32, stdout: String, stderr: String },
+    ExternalCallFailed{ name: String, image: Box<Image>, code: i32, stdout: String, stderr: String },
     /// Failed to decode the branelet output from base64 to raw bytes
     Base64DecodeError{ raw: String, err: base64::DecodeError },
     /// Failed to decode the branelet output from raw bytes to an UTF-8 string
@@ -304,7 +300,7 @@ pub enum ExecuteError {
     /// Could not create the new result directory
     ResultDirCreateError{ path: PathBuf, err: std::io::Error },
     /// Failed to run the task as a local Docker container
-    DockerError{ name: String, image: Image, err: DockerError },
+    DockerError{ name: String, image: Box<Image>, err: DockerError },
 
     // Instance-only (client side)
     /// The given job status was missing a string while we expected one
@@ -369,7 +365,6 @@ pub enum ExecuteError {
     /// Failed to load the backend file.
     BackendFileError{ path: PathBuf, err: brane_cfg::backend::Error },
 }
-
 impl Display for ExecuteError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use self::ExecuteError::*;
@@ -422,7 +417,6 @@ impl Display for ExecuteError {
         }
     }
 }
-
 impl Error for ExecuteError {}
 
 
@@ -435,7 +429,6 @@ pub enum AuthorizeError {
     /// No policy rule defined for the given container.
     NoContainerPolicy{ hash: String },
 }
-
 impl Display for AuthorizeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use AuthorizeError::*;
@@ -445,7 +438,6 @@ impl Display for AuthorizeError {
         }
     }
 }
-
 impl Error for AuthorizeError {}
 
 
@@ -456,7 +448,6 @@ pub enum StdoutError {
     /// Failed to write to the gRPC channel to feedback stdout back to the client.
     TxWriteError{ err: tokio::sync::mpsc::error::SendError<Result<ExecuteReply, Status>> },
 }
-
 impl Display for StdoutError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use StdoutError::*;
@@ -465,7 +456,6 @@ impl Display for StdoutError {
         }
     }
 }
-
 impl Error for StdoutError {}
 
 
@@ -519,7 +509,6 @@ pub enum CommitError {
     /// A given path is neither a file nor a directory.
     PathNotFileNotDir{ path: PathBuf },
 }
-
 impl Display for CommitError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use self::CommitError::*;
@@ -549,7 +538,6 @@ impl Display for CommitError {
         }
     }
 }
-
 impl Error for CommitError {}
 
 
@@ -560,7 +548,6 @@ pub enum IdError {
     /// Failed to parse the AppId from a string.
     ParseError{ what: &'static str, raw: String, err: uuid::Error },
 }
-
 impl Display for IdError {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -570,12 +557,13 @@ impl Display for IdError {
         }
     }
 }
-
 impl Error for IdError {}
 
 
 
 /// Collects errors that relate to Docker.
+/// 
+/// Note: we've boxed `Image` to reduce the size of the error (and avoid running into `clippy::result_large_err`).
 #[derive(Debug)]
 pub enum DockerError {
     /// We failed to connect to the local Docker daemon.
@@ -592,9 +580,9 @@ pub enum DockerError {
     ContainerNoNetwork{ name: String },
 
     /// Could not create and/or start the given container.
-    CreateContainerError{ name: String, image: Image, err: bollard::errors::Error },
+    CreateContainerError{ name: String, image: Box<Image>, err: bollard::errors::Error },
     /// Fialed to start the given container.
-    StartError{ name: String, image: Image, err: bollard::errors::Error },
+    StartError{ name: String, image: Box<Image>, err: bollard::errors::Error },
 
     /// An executing container had no execution state (it wasn't started?)
     ContainerNoState{ name: String },
@@ -620,12 +608,12 @@ pub enum DockerError {
     /// Failed to pull the given image file.
     ImagePullError{ source: String, err: bollard::errors::Error },
     /// Failed to appropriately tag the pulled image.
-    ImageTagError{ image: Image, source: String, err: bollard::errors::Error },
+    ImageTagError{ image: Box<Image>, source: String, err: bollard::errors::Error },
 
     /// Failed to inspect a certain image.
-    ImageInspectError{ image: Image, err: bollard::errors::Error },
+    ImageInspectError{ image: Box<Image>, err: bollard::errors::Error },
     /// Failed to remove a certain image.
-    ImageRemoveError{ image: Image, id: String, err: bollard::errors::Error },
+    ImageRemoveError{ image: Box<Image>, id: String, err: bollard::errors::Error },
 
     /// Could not open the given image.tar.
     ImageTarOpenError{ path: PathBuf, err: std::io::Error },
@@ -648,7 +636,6 @@ pub enum DockerError {
     /// Could not find the manifest.json file in the given image.tar.
     ImageTarNoManifest{ path: PathBuf },
 }
-
 impl Display for DockerError {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -696,7 +683,6 @@ impl Display for DockerError {
         }
     }
 }
-
 impl Error for DockerError {}
 
 
@@ -729,7 +715,6 @@ pub enum LocalError {
     /// Failed to create a new DataIndex from the infos locally read.
     DataIndexError{ err: specifications::data::DataIndexError },
 }
-
 impl Display for LocalError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use LocalError::*;
@@ -750,7 +735,6 @@ impl Display for LocalError {
         }
     }
 }
-
 impl Error for LocalError {}
 
 
@@ -777,7 +761,6 @@ pub enum ApiError {
     /// Failed to create a data index from the given infos.
     DataIndexError{ address: String, err: specifications::data::DataIndexError },
 }
-
 impl Display for ApiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ApiError::*;
@@ -795,5 +778,4 @@ impl Display for ApiError {
         }
     }
 }
-
 impl Error for ApiError {}

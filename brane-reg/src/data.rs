@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:40:40
 //  Last edited:
-//    28 Feb 2023, 15:47:43
+//    01 Mar 2023, 09:49:47
 //  Auto updated?
 //    Yes
 // 
@@ -210,7 +210,7 @@ pub async fn list(context: Arc<Context>) -> Result<impl Reply, Rejection> {
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
     // Start profiling (F first function, but now we can use the location)
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info"), format!("brane-reg_{}_info", node_config.node.worker().name));
+    let report = ProfileReport::auto_reporting_file("brane-reg /data/info", format!("brane-reg_{}_info", node_config.node.worker().name));
     let _guard = report.time("Total");
 
     // Load the store

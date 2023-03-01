@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    28 Feb 2023, 19:15:23
+//    01 Mar 2023, 11:27:09
 //  Auto updated?
 //    Yes
 // 
@@ -305,7 +305,9 @@ fn generate_config(what: impl Display, config: impl Serialize, path: impl AsRef<
 
     // Assert the download directory exists
     let dir: Option<&Path> = path.parent();
-    if dir.is_some() && !dir.unwrap().exists() { return Err(Error::DirNotFound{ path: dir.unwrap().into() }); }
+    if let Some(dir) = dir {
+        if !dir.exists() { return Err(Error::DirNotFound{ path: dir.into() }); }
+    }
 
     // Open the local file
     debug!("Opening output file '{}'...", path.display());
@@ -378,10 +380,10 @@ fn generate_ca_cert(cfssl: impl AsRef<Path>, cfssljson: impl AsRef<Path>, ca_csr
 /// 
 /// # Errors
 /// This function may error if we failed to call the command or the command itself fails.
-fn generate_client_server_cert(profile: impl AsRef<str>, cfssl: impl AsRef<Path>, cfssljson: impl AsRef<Path>, ca_cert: impl AsRef<Path>, ca_key: impl AsRef<Path>, ca_config: impl AsRef<Path>, csr_file: impl AsRef<Path>, path: impl AsRef<Path>) -> Result<(), Error> {
+fn generate_client_server_cert(profile: impl AsRef<str>, exes: CfsslExecutables<impl AsRef<Path>, impl AsRef<Path>>, ca_cert: impl AsRef<Path>, ca_key: impl AsRef<Path>, ca_config: impl AsRef<Path>, csr_file: impl AsRef<Path>, path: impl AsRef<Path>) -> Result<(), Error> {
     let profile   : &str  = profile.as_ref();
-    let cfssl     : &Path = cfssl.as_ref();
-    let cfssljson : &Path = cfssljson.as_ref();
+    let cfssl     : &Path = exes.cfssl.as_ref();
+    let cfssljson : &Path = exes.cfssljson.as_ref();
     let ca_cert   : &Path = ca_cert.as_ref();
     let ca_key    : &Path = ca_key.as_ref();
     let ca_config : &Path = ca_config.as_ref();
@@ -411,6 +413,17 @@ fn generate_client_server_cert(profile: impl AsRef<str>, cfssl: impl AsRef<Path>
 
 
 /***** HELPER STRUCTS *****/
+/// Combines information about the cfssl executables.
+#[derive(Clone, Debug)]
+struct CfsslExecutables<P1, P2> {
+    /// The main executable
+    cfssl     : P1,
+    /// The executable that takes the JSON output of the first and generates a .pem certificate out of it
+    cfssljson : P2,
+}
+
+
+
 /// Defines the JSON format for the `ca-config.json` file we use to configure `cfssl` in general.
 #[derive(Clone, Debug, Serialize)]
 struct CfsslCaConfig {
@@ -736,11 +749,11 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
 
     // Make sure the target directory exists
     if !path.exists() {
-        if !fix_dirs { return Err(Error::DirNotFound { path: path.into() }); }
+        if !fix_dirs { return Err(Error::DirNotFound { path }); }
         debug!("Creating missing '{}' directory (fix_dirs == true)...", path.display());
-        if let Err(err) = fs::create_dir_all(&path) { return Err(Error::DirCreateError { path: path.into(), err }); }
+        if let Err(err) = fs::create_dir_all(&path) { return Err(Error::DirCreateError { path, err }); }
     } else if !path.is_dir() {
-        return Err(Error::DirNotADir { path: path.into() });
+        return Err(Error::DirNotADir { path });
     }
 
     // Make sure the cfssl binary is there
@@ -759,11 +772,11 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
             DownloadSecurity::checksum(&CHECKSUM_CFSSL),
             Some(Style::new().green().bold()),
         ).await {
-            return Err(Error::DownloadError{ source: addr.into(), target: cfssl_path, err });
+            return Err(Error::DownloadError{ source: addr.into(), target: cfssl_path, err: Box::new(err) });
         }
 
         // Make the file executable
-        if let Err(err) = set_executable(&cfssl_path) { return Err(Error::ExecutableError { err }); }
+        if let Err(err) = set_executable(&cfssl_path) { return Err(Error::ExecutableError { err: Box::new(err) }); }
     }
 
     // Make sure the cfssljson binary is there
@@ -782,11 +795,11 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
             DownloadSecurity::checksum(&CHECKSUM_CFSSLJSON),
             Some(Style::new().green().bold()),
         ).await {
-            return Err(Error::DownloadError{ source: addr.into(), target: cfssl_path, err });
+            return Err(Error::DownloadError{ source: addr.into(), target: cfssl_path, err: Box::new(err) });
         }
 
         // Make the file executable
-        if let Err(err) = set_executable(&cfssljson_path) { return Err(Error::ExecutableError { err }); }
+        if let Err(err) = set_executable(&cfssljson_path) { return Err(Error::ExecutableError { err: Box::new(err) }); }
     }
 
     // Now make sure the generic config JSON is there
@@ -814,7 +827,7 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
     }
 
     // Generate a random ID to avoid* conflicting* repeated files
-    let id: String = rand::thread_rng().sample_iter(Alphanumeric).map(|c| char::from(c)).take(3).collect::<String>();
+    let id: String = rand::thread_rng().sample_iter(Alphanumeric).map(char::from).take(3).collect::<String>();
 
 
 
@@ -841,7 +854,7 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
 
             // Now call the `cfssl` binary twice to generate the certificates
             generate_ca_cert(&cfssl_path, &cfssljson_path, ca_csr_path, path.join("ca"))?;
-            generate_client_server_cert("server", &cfssl_path, &cfssljson_path, path.join("ca.pem"), path.join("ca-key.pem"), ca_config_path, server_csr_path, path.join("server"))?;
+            generate_client_server_cert("server", CfsslExecutables{ cfssl: &cfssl_path, cfssljson: &cfssljson_path }, path.join("ca.pem"), path.join("ca-key.pem"), ca_config_path, server_csr_path, path.join("server"))?;
         },
 
         GenerateCertsSubcommand::Client { location_id, hostname, ca_cert, ca_key } => {
@@ -864,7 +877,7 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
             // Generate the key file(s) in a temporary directory
             let certs_dir : PathBuf = temp_dir.join(format!("certs-{}", id));
             if let Err(err) = fs::create_dir_all(&certs_dir) { return Err(Error::DirCreateError{ path: certs_dir, err }); }
-            generate_client_server_cert("client", &cfssl_path, &cfssljson_path, ca_cert, ca_key, ca_config_path, client_csr_path, certs_dir.join("client"))?;
+            generate_client_server_cert("client", CfsslExecutables{ cfssl: &cfssl_path, cfssljson: &cfssljson_path }, ca_cert, ca_key, ca_config_path, client_csr_path, certs_dir.join("client"))?;
 
             // Create the output ID file
             let id_path: PathBuf = path.join("client-id.pem");

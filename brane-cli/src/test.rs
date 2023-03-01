@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 16:23:37
 //  Last edited:
-//    17 Jan 2023, 15:38:01
+//    01 Mar 2023, 11:23:04
 //  Auto updated?
 //    Yes
 // 
@@ -77,7 +77,7 @@ fn prompt_for_input(name: impl AsRef<str>, version: &Version, functions: &Map<Fu
             // We don't care for methods anyway
             methods : vec![],
         }) {
-            return Err(TestError::PackageDefinesBuiltin{ name: name.as_ref().into(), version: version.clone(), duplicate: old.name });
+            return Err(TestError::PackageDefinesBuiltin{ name: name.as_ref().into(), version: *version, duplicate: old.name });
         }
     }
 
@@ -405,7 +405,7 @@ pub async fn test_generic(info: PackageInfo, show_result: Option<PathBuf>) -> Re
     let (function, mut args) = prompt_for_input(&info.name, &info.version, &info.functions, info.types.iter().map(|(n, t)| (n.clone(), ClassDef {
         name    : t.name.clone(),
         package : Some(info.name.clone()),
-        version : Some(info.version.clone()),
+        version : Some(info.version),
 
         props   : t.properties.iter().map(|p| VarDef {
             name      : p.name.clone(),

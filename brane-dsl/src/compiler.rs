@@ -4,7 +4,7 @@
 //  Created:
 //    18 Aug 2022, 09:51:07
 //  Last edited:
-//    14 Nov 2022, 10:21:22
+//    01 Mar 2023, 09:48:45
 //  Auto updated?
 //    Yes
 // 
@@ -46,7 +46,7 @@ pub mod tests {
             let pindex: PackageIndex = create_package_index();
 
             // Create a compiler and compile it;
-            let res: Program = match parse(&code, &pindex, &ParserOptions::bscript()) {
+            let res: Program = match parse(code, &pindex, &ParserOptions::bscript()) {
                 Ok(res)  => res,
                 Err(err) => { panic!("Failed to parse BraneScript file '{}': {}", path.display(), err); }
             };
@@ -70,7 +70,7 @@ pub mod tests {
             let pindex: PackageIndex = create_package_index();
 
             // Create a compiler and compile it;
-            let res: Program = match parse(&code, &pindex, &ParserOptions::bakery()) {
+            let res: Program = match parse(code, &pindex, &ParserOptions::bakery()) {
                 Ok(res)  => res,
                 Err(err) => { panic!("Failed to parse Bakery file '{}': {}", path.display(), err); }
             };

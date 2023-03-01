@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    27 Feb 2023, 15:28:24
+//    01 Mar 2023, 11:22:23
 //  Auto updated?
 //    Yes
 // 
@@ -24,7 +24,7 @@ use specifications::address::Address;
 use specifications::package::Capability;
 use specifications::version::Version;
 
-use brane_ctl::spec::{API_DEFAULT_VERSION, Arch, DockerClientVersion, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair, StartSubcommand};
+use brane_ctl::spec::{API_DEFAULT_VERSION, Arch, DockerClientVersion, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair, StartDockerOpts, StartOpts, StartSubcommand};
 use brane_ctl::{download, generate, lifetime, packages};
 
 
@@ -358,7 +358,7 @@ async fn main() {
         },
 
         CtlSubcommand::Start{ exe, file, docker_socket, docker_version, version, mode, skip_import, profile_dir, kind, } => {
-            if let Err(err) = lifetime::start(exe, file, docker_socket, docker_version, version, args.node_config, mode, skip_import, profile_dir, *kind).await { error!("{}", err); std::process::exit(1); }
+            if let Err(err) = lifetime::start(exe, file, args.node_config, StartDockerOpts{ socket: docker_socket, version: docker_version }, StartOpts{ version, mode, skip_import, profile_dir }, *kind).await { error!("{}", err); std::process::exit(1); }
         },
         CtlSubcommand::Stop{ exe, file } => {
             if let Err(err) = lifetime::stop(exe, file, args.node_config) { error!("{}", err); std::process::exit(1); }

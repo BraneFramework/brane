@@ -4,7 +4,7 @@
 //  Created:
 //    21 Feb 2022, 14:43:30
 //  Last edited:
-//    30 Jan 2023, 13:12:46
+//    01 Mar 2023, 11:23:55
 //  Auto updated?
 //    Yes
 // 
@@ -509,14 +509,14 @@ pub fn get_package_dir(name: &str, version: Option<&Version>) -> Result<PathBuf,
 
         // Sort the versions and return the last one
         versions.sort();
-        versions[versions.len() - 1].clone()
+        versions[versions.len() - 1]
     } else {
         // Simply use the given version
-        version.clone()
+        *version
     };
 
     // Return the path with the version appended to it
-    Ok(package_dir.join(&version.to_string()))
+    Ok(package_dir.join(version.to_string()))
 }
 
 /// Makes sure that the package directory for the given name/version pair exists, then returns the path to it.  
@@ -545,9 +545,9 @@ pub fn ensure_package_dir(name: &str, version: Option<&Version>, create: bool) -
                     ensure_packages_dir(create)?;
 
                     // Now create the directory
-                    if let Err(err) = fs::create_dir_all(&package_dir) { return Err(UtilError::VersionDirCreateError{ package: name.to_string(), version: version.clone(), path: package_dir, err }); }
+                    if let Err(err) = fs::create_dir_all(&package_dir) { return Err(UtilError::VersionDirCreateError{ package: name.to_string(), version: *version, path: package_dir, err }); }
                 } else {
-                    return Err(UtilError::VersionDirNotFound{ package: name.to_string(), version: version.clone(), path: package_dir });
+                    return Err(UtilError::VersionDirNotFound{ package: name.to_string(), version: *version, path: package_dir });
                 }
             },
 

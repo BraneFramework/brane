@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    28 Feb 2023, 19:08:04
+//    01 Mar 2023, 11:26:55
 //  Auto updated?
 //    Yes
 // 
@@ -30,6 +30,8 @@ use specifications::version::Version;
 
 /***** LIBRARY *****/
 /// Errors that relate to downloading stuff (the subcommand, specifically).
+/// 
+/// Note: we box `brane_shr::fs::Error` to avoid the error enum growing too large (see `clippy::result_large_err`).
 #[derive(Debug)]
 pub enum DownloadError {
     /// The given directory does not exist.
@@ -42,15 +44,15 @@ pub enum DownloadError {
     /// Failed to create a temporary directory.
     TempDirError{ err: std::io::Error },
     /// Failed to run the actual download command.
-    DownloadError{ address: String, path: PathBuf, err: brane_shr::fs::Error },
+    DownloadError{ address: String, path: PathBuf, err: Box<brane_shr::fs::Error> },
     /// Failed to extract the given archive.
-    UnarchiveError{ tar: PathBuf, target: PathBuf, err: brane_shr::fs::Error },
+    UnarchiveError{ tar: PathBuf, target: PathBuf, err: Box<brane_shr::fs::Error> },
     /// Failed to read all entries in a directory.
     ReadDirError{ path: PathBuf, err: std::io::Error },
     /// Failed to read a certain entry in a directory.
     ReadEntryError{ path: PathBuf, entry: usize, err: std::io::Error },
     /// Failed to move something.
-    MoveError{ source: PathBuf, target: PathBuf, err: brane_shr::fs::Error },
+    MoveError{ source: PathBuf, target: PathBuf, err: Box<brane_shr::fs::Error> },
 
     /// Failed to connect to local Docker client.
     DockerConnectError{ err: brane_tsk::docker::Error },
@@ -85,6 +87,8 @@ impl Error for DownloadError {}
 
 
 /// Errors that relate to generating files.
+/// 
+/// Note: we box `brane_shr::fs::Error` to avoid the error enum growing too large (see `clippy::result_large_err`).
 #[derive(Debug)]
 pub enum GenerateError {
     /// Directory not found.
@@ -102,9 +106,9 @@ pub enum GenerateError {
     /// Failed to write to the output file.
     FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to download a file.
-    DownloadError{ source: String, target: PathBuf, err: brane_shr::fs::Error },
+    DownloadError{ source: String, target: PathBuf, err: Box<brane_shr::fs::Error> },
     /// Failed to set a file to executable.
-    ExecutableError{ err: brane_shr::fs::Error },
+    ExecutableError{ err: Box<brane_shr::fs::Error> },
 
     /// Failed to get a file handle's metadata.
     FileMetadataError{ what: &'static str, path: PathBuf, err: std::io::Error },
@@ -195,6 +199,8 @@ impl Error for GenerateError {}
 
 
 /// Errors that relate to managing the lifetime of the node.
+/// 
+/// Note: we've boxed `Image` and `ImageSource` to reduce the size of the error (and avoid running into `clippy::result_large_err`).
 #[derive(Debug)]
 pub enum LifetimeError {
     /// Failed to canonicalize the given path.
@@ -221,7 +227,7 @@ pub enum LifetimeError {
     /// Failed to get the digest of the given image file.
     ImageDigestError{ path: PathBuf, err: brane_tsk::docker::Error },
     /// Failed to load/import the given image.
-    ImageLoadError{ image: Image, source: ImageSource, err: brane_tsk::docker::Error },
+    ImageLoadError{ image: Box<Image>, source: Box<ImageSource>, err: brane_tsk::docker::Error },
 
     /// Failed to load the given node config file.
     NodeConfigLoadError{ err: brane_cfg::spec::YamlError },

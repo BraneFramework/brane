@@ -4,7 +4,7 @@
 //  Created:
 //    16 Sep 2022, 08:22:47
 //  Last edited:
-//    09 Jan 2023, 13:31:09
+//    01 Mar 2023, 09:50:25
 //  Auto updated?
 //    Yes
 // 
@@ -762,7 +762,7 @@ impl From<&TaskState> for FunctionEntry {
             params    : vec![],
 
             package_name    : Some(value.package_name.clone()),
-            package_version : Some(value.package_version.clone()),
+            package_version : Some(value.package_version),
             class_name      : None,
 
             arg_names    : value.arg_names.clone(),
@@ -846,7 +846,7 @@ impl ClassState {
             symbol_table : c_table,
 
             package_name    : self.package_name.clone(),
-            package_version : self.package_version.clone(),
+            package_version : self.package_version,
 
             index : usize::MAX,
 

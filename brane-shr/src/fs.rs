@@ -4,7 +4,7 @@
 //  Created:
 //    09 Nov 2022, 11:12:06
 //  Last edited:
-//    22 Feb 2023, 14:35:59
+//    01 Mar 2023, 09:48:04
 //  Auto updated?
 //    Yes
 // 
@@ -164,7 +164,7 @@ pub mod tests {
             } else if path == &target_path2 {
                 // Load it as bytes
                 let mut contents: Vec<u8> = Vec::new();
-                if let Err(err) = handle.read(&mut contents) {
+                if let Err(err) = handle.read_to_end(&mut contents) {
                     panic!("Failed to read file '{}': {}", path.display(), err);
                 };
 
@@ -381,7 +381,7 @@ pub struct PermissionSet {
 impl PermissionSet {
     /// Returns a binary representation of the internal permissions.
     #[inline]
-    fn octets(&self) -> u32 { 0x00000000 | ((self.user.0 as u32) << 6) | ((self.group.0 as u32) << 3) | (self.other.0 as u32) }
+    fn octets(&self) -> u32 { ((self.user.0 as u32) << 6) | ((self.group.0 as u32) << 3) | (self.other.0 as u32) }
 }
 
 
@@ -571,9 +571,9 @@ pub async fn move_path_async(source: impl AsRef<Path>, target: impl AsRef<Path>)
 
     // Then remove the old one
     if source.is_file() {
-        if let Err(err) = tfs::remove_file(source).await { return Err(Error::FileRemoveError{ path: source.into(), err }); }
+        tfs::remove_file(source).await.map_err(|err| Error::FileRemoveError{ path: source.into(), err })?;
     } else {
-        if let Err(err) = tfs::remove_dir_all(source).await { return Err(Error::DirRemoveError{ path: source.into(), err }); }
+        tfs::remove_dir_all(source).await.map_err(|err| Error::DirRemoveError{ path: source.into(), err })?;
     }
 
     // And we're done!
@@ -673,7 +673,7 @@ pub async fn copy_dir_recursively_async(source: impl AsRef<Path>, target: impl A
 /// 
 /// # Errors
 /// This function may error if we failed to download the file or write it (which may happen if the parent directory of `local` does not exist, among other things).
-pub async fn download_file_async<'c>(source: impl AsRef<str>, target: impl AsRef<Path>, security: DownloadSecurity<'c>, verbose: Option<Style>) -> Result<(), Error> {
+pub async fn download_file_async(source: impl AsRef<str>, target: impl AsRef<Path>, security: DownloadSecurity<'_>, verbose: Option<Style>) -> Result<(), Error> {
     let source   : &str  = source.as_ref();
     let target   : &Path = target.as_ref();
     debug!("Downloading '{}' to '{}' (Security: {})...", source, target.display(), security);
@@ -757,7 +757,7 @@ pub async fn download_file_async<'c>(source: impl AsRef<str>, target: impl AsRef
         };
 
         // Write it to the file
-        if let Err(err) = handle.write(&*next).await { return Err(Error::FileWriteError{ what: "downloaded", path: target.into(), err }); }
+        if let Err(err) = handle.write(&next).await { return Err(Error::FileWriteError{ what: "downloaded", path: target.into(), err }); }
 
         // If desired, update the hash
         if let Some(hasher) = &mut hasher {

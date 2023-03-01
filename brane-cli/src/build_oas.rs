@@ -156,7 +156,7 @@ async fn build(
 
             // Write it to package directory
             let package_path = package_dir.join("package.yml");
-            if let Err(err) = package_info.to_path(&package_path) {
+            if let Err(err) = package_info.to_path(package_path) {
                 return Err(BuildError::PackageFileCreateError{ err });
             }
 
