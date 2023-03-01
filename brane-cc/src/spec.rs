@@ -49,7 +49,7 @@ impl<'a> Display for IndexLocationSerializer<'a> {
         use IndexLocation::*;
         match self.loc {
             Local(path)  => write!(f, "{}{}{}", LOCAL_PREFIX, path.display(), LOCAL_POSTFIX),
-            Remote(addr) => write!(f, "{}{}{}", REMOTE_PREFIX, addr, REMOTE_POSTFIX),
+            Remote(addr) => write!(f, "{REMOTE_PREFIX}{addr}{REMOTE_POSTFIX}"),
         }
     }
 }
@@ -124,7 +124,7 @@ impl Display for IndexLocation {
         use IndexLocation::*;
         match self {
             Local(path)  => write!(f, "{}", path.display()),
-            Remote(addr) => write!(f, "{}", addr),
+            Remote(addr) => write!(f, "{addr}"),
         }
     }
 }

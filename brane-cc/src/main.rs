@@ -244,7 +244,7 @@ pub async fn compile_iter(state: &mut CompileState, source: &mut String, lang: L
 
     // Write it and update the source
     debug!("Writing to '{}'...", oname);
-    if let Err(err) = writeln!(output, "{}", sworkflow) {
+    if let Err(err) = writeln!(output, "{sworkflow}") {
         return Err(CompileError::OutputWriteError { name: oname.into(), err });
     }
     if let Err(err) = writeln!(output, "---END---") {

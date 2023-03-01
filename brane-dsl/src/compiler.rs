@@ -52,7 +52,7 @@ pub mod tests {
             };
 
             // Print it for good measure
-            println!("{:#?}", res);
+            println!("{res:#?}");
             println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
         });
     }
@@ -76,7 +76,7 @@ pub mod tests {
             };
 
             // Print it for good measure
-            println!("{:#?}", res);
+            println!("{res:#?}");
             println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
         });
     }
@@ -159,7 +159,7 @@ pub fn parse<S: AsRef<str>>(source: S, pindex: &PackageIndex, options: &ParserOp
     let (remain, tokens): (Span, Vec<Token>) = match scanner::scan_tokens(Span::from(source)) {
         Ok(res)                                             => res,
         Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => { return Err(Error::ScanError{ err: errors::convert_scanner_error(Span::from(source), e) }); },
-        Err(err)                                            => { return Err(Error::ScannerError{ err: format!("{}", err) }); },
+        Err(err)                                            => { return Err(Error::ScannerError{ err: format!("{err}") }); },
     };
     if remain.input_len() > 0 && !remain.fragment().to_string().trim().is_empty() { return Err(Error::LeftoverSourceError); }
 
@@ -174,7 +174,7 @@ pub fn parse<S: AsRef<str>>(source: S, pindex: &PackageIndex, options: &ParserOp
                 if e.errors[0].1 == VerboseErrorKind::Nom(nom::error::ErrorKind::Eof) { return Err(Error::Eof { lang: Language::BraneScript, err: errors::convert_parser_error(tks, e) }); }
                 return Err(Error::ParseError{ lang: Language::BraneScript, err: errors::convert_parser_error(tks, e) });
             },
-            Err(err) => { return Err(Error::ParserError { lang: Language::BraneScript, err: format!("{}", err) }); },
+            Err(err) => { return Err(Error::ParserError { lang: Language::BraneScript, err: format!("{err}") }); },
         },
 
         Language::Bakery => match bakery::parse_ast(tks, pindex.clone()) {
@@ -185,7 +185,7 @@ pub fn parse<S: AsRef<str>>(source: S, pindex: &PackageIndex, options: &ParserOp
                 if e.errors[0].1 == VerboseErrorKind::Nom(nom::error::ErrorKind::Eof) { return Err(Error::Eof { lang: Language::BraneScript, err: errors::convert_parser_error(tks, e) }); }
                 return Err(Error::ParseError{ lang: Language::Bakery, err: errors::convert_parser_error(tks, e) });
             },
-            Err(err) => { return Err(Error::ParserError{ lang: Language::Bakery, err: format!("{}", err) }); },
+            Err(err) => { return Err(Error::ParserError{ lang: Language::Bakery, err: format!("{err}") }); },
         },
     };
     if remain.input_len() > 0 { return Err(Error::LeftoverTokensError{ lang: options.lang }); }

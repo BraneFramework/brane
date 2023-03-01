@@ -241,7 +241,7 @@ async fn complete(
     // Match the status
     match result {
         Ok(stdout) => Ok(PackageReturnState::Finished{ stdout }),
-        Err(err)   => Ok(PackageReturnState::Failed{ code: -1, stdout: String::new(), stderr: format!("Could not perform external OpenAPI call: {}", err) }),
+        Err(err)   => Ok(PackageReturnState::Failed{ code: -1, stdout: String::new(), stderr: format!("Could not perform external OpenAPI call: {err}") }),
     }
 }
 

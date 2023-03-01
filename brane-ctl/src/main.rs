@@ -300,7 +300,7 @@ async fn main() {
 
     // Initialize the logger
     if let Err(err) = HumanLogger::terminal(if args.trace { DebugMode::Full } else if args.debug { DebugMode::Debug } else { DebugMode::Friendly }).init() {
-        eprintln!("WARNING: Failed to setup logger: {} (no logging for this session)", err);
+        eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
     }
 
     // Setup the friendlier version of panic

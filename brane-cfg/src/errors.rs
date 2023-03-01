@@ -47,8 +47,8 @@ impl Display for CertsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use CertsError::*;
         match self {
-            ClientCertParseError{ err } => write!(f, "Failed to parse given client certificate file: {}", err),
-            ClientCertNoCN{ subject }   => write!(f, "Certificate subject field '{}' does not specify a CN", subject),
+            ClientCertParseError{ err } => write!(f, "Failed to parse given client certificate file: {err}"),
+            ClientCertNoCN{ subject }   => write!(f, "Certificate subject field '{subject}' does not specify a CN"),
 
             FileOpenError{ what, path, err } => write!(f, "Failed to open {} file '{}': {}", what, path.display(), err),
             FileReadError{ what, path, err } => write!(f, "Failed to read {} file '{}': {}", what, path.display(), err),
@@ -86,8 +86,8 @@ impl Display for InfraFileError {
             FileOpenError{ path, err }  => write!(f, "Failed to open infrastructure file '{}': {}", path.display(), err),
             FileParseError{ path, err } => write!(f, "Failed to parse infrastructure file '{}' as YAML: {}", path.display(), err),
 
-            WriterWriteError{ err }     => write!(f, "Failed to write to given writer: {}", err),
-            ConfigSerializeError{ err } => write!(f, "Failed to serialize infrastructure file to YAML: {}", err),
+            WriterWriteError{ err }     => write!(f, "Failed to write to given writer: {err}"),
+            ConfigSerializeError{ err } => write!(f, "Failed to serialize infrastructure file to YAML: {err}"),
         }
     }
 }
@@ -115,8 +115,8 @@ impl Display for CredsFileError {
             FileOpenError{ path, err }  => write!(f, "Failed to open credentials file '{}': {}", path.display(), err),
             FileParseError{ path, err } => write!(f, "Failed to parse credentials file '{}' as YAML: {}", path.display(), err),
 
-            WriterWriteError{ err }     => write!(f, "Failed to write to given writer: {}", err),
-            ConfigSerializeError{ err } => write!(f, "Failed to serialize credentials file to YAML: {}", err),
+            WriterWriteError{ err }     => write!(f, "Failed to write to given writer: {err}"),
+            ConfigSerializeError{ err } => write!(f, "Failed to serialize credentials file to YAML: {err}"),
         }
     }
 }
@@ -154,9 +154,9 @@ impl Display for NodeConfigError {
 
             FileCreateError{ path, err } => write!(f, "Failed to create the node config file '{}': {}", path.display(), err),
             FileWriteError{ path, err }  => write!(f, "Failed to write to the ndoe config file '{}': {}", path.display(), err),
-            ConfigSerializeError{ err }  => write!(f, "Failed to serialize node config to YAML: {}", err),
+            ConfigSerializeError{ err }  => write!(f, "Failed to serialize node config to YAML: {err}"),
 
-            WriterWriteError{ err } => write!(f, "Failed to write to given writer: {}", err),
+            WriterWriteError{ err } => write!(f, "Failed to write to given writer: {err}"),
         }
     }
 }
@@ -172,7 +172,7 @@ impl Display for ProxyProtocolParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ProxyProtocolParseError::*;
         match self {
-            UnknownProtocol{ raw } => write!(f, "Unknown proxy protocol '{}'", raw),
+            UnknownProtocol{ raw } => write!(f, "Unknown proxy protocol '{raw}'"),
         }
     }
 }
@@ -188,7 +188,7 @@ impl Display for NodeKindParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use NodeKindParseError::*;
         match self {
-            UnknownNodeKind{ raw } => write!(f, "Unknown node kind '{}'", raw),
+            UnknownNodeKind{ raw } => write!(f, "Unknown node kind '{raw}'"),
         }
     }
 }
@@ -216,8 +216,8 @@ impl Display for PolicyFileError {
             FileReadError{ path, err }  => write!(f, "Failed to read file '{}': {}", path.display(), err),
             FileParseError{ path, err } => write!(f, "Failed to parse file '{}' as YAML: {}", path.display(), err),
 
-            WriterWriteError{ err }     => write!(f, "Failed to write to given writer: {}", err),
-            ConfigSerializeError{ err } => write!(f, "Failed to serialize infrastructure file to YAML: {}", err),
+            WriterWriteError{ err }     => write!(f, "Failed to write to given writer: {err}"),
+            ConfigSerializeError{ err } => write!(f, "Failed to serialize infrastructure file to YAML: {err}"),
         }
     }
 }
@@ -254,12 +254,12 @@ impl<E: Error> Display for ConfigError<E> {
             OutputCreateError{ path, err } => write!(f, "Failed to create output file '{}': {}", path.display(), err),
             InputOpenError{ path, err }    => write!(f, "Faield to open input file '{}': {}", path.display(), err),
 
-            StringSerializeError{ err }     => write!(f, "Failed to serialize to string: {}", err),
-            WriterSerializeError{ err }     => write!(f, "Failed to serialize to a writer: {}", err),
+            StringSerializeError{ err }     => write!(f, "Failed to serialize to string: {err}"),
+            WriterSerializeError{ err }     => write!(f, "Failed to serialize to a writer: {err}"),
             FileSerializeError{ path, err } => write!(f, "Failed to serialize to output file '{}': {}", path.display(), err),
 
-            StringDeserializeError{ err }     => write!(f, "Failed to deserialize from string: {}", err),
-            ReaderDeserializeError{ err }     => write!(f, "Failed to deserialize from a reader: {}", err),
+            StringDeserializeError{ err }     => write!(f, "Failed to deserialize from string: {err}"),
+            ReaderDeserializeError{ err }     => write!(f, "Failed to deserialize from a reader: {err}"),
             FileDeserializeError{ path, err } => write!(f, "Failed to deserialize from input file '{}': {}", path.display(), err),
         }
     }

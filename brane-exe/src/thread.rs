@@ -60,7 +60,7 @@ mod tests {
         // Setup the simple logger
         #[cfg(feature = "test_logging")]
         if let Err(err) = simplelog::TermLogger::init(log::LevelFilter::Debug, Default::default(), simplelog::TerminalMode::Mixed, simplelog::ColorChoice::Auto) {
-            eprintln!("WARNING: Failed to setup logger: {} (no logging for this session)", err);
+            eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
         }
 
         // Run the tests on all the files
@@ -114,7 +114,7 @@ mod tests {
                         println!("Workflow stdout:");
                         print!("{}", text.lock().unwrap());
                         println!();
-                        println!("Workflow returned: {:?}", value);
+                        println!("Workflow returned: {value:?}");
                     },
                     Err(err)  => {
                         err.prettyprint();
@@ -178,13 +178,13 @@ async fn preprocess_value<'p: 'async_recursion, P: VmPlugin>(global: &Arc<RwLock
         // Also handle any nested stuff
         FullValue::Array(values)      => {
             for (i, v) in values.iter().enumerate() {
-                prof.nest_fut(format!("[{}]", i), |scope| preprocess_value::<P>(global, local, pc, task, at, v, input, data, scope)).await?;
+                prof.nest_fut(format!("[{i}]"), |scope| preprocess_value::<P>(global, local, pc, task, at, v, input, data, scope)).await?;
             }
             return Ok(());
         },
         FullValue::Instance(name, props) => {
             for (n, v) in props {
-                prof.nest_fut(format!("{}.{}", name, n), |scope| preprocess_value::<P>(global, local, pc, task, at, v, input, data, scope)).await?;
+                prof.nest_fut(format!("{name}.{n}"), |scope| preprocess_value::<P>(global, local, pc, task, at, v, input, data, scope)).await?;
             }
             return Ok(());
         },
@@ -782,13 +782,13 @@ fn exec_instr(edge: usize, idx: usize, instr: &EdgeInstr, stack: &mut Stack, fst
             // Pop the instance value
             let value: Value = match stack.pop() {
                 Some(value) => value,
-                None        => { return Err(Error::EmptyStackError { edge, instr: Some(idx), expected: DataType::Class{ name: format!("withField={}", field) } }); }
+                None        => { return Err(Error::EmptyStackError { edge, instr: Some(idx), expected: DataType::Class{ name: format!("withField={field}") } }); }
             };
             // as an instance
             let value_type: DataType = value.data_type(fstack.table());
             let (mut values, def): (HashMap<std::string::String, Value>, usize) = match value.try_as_instance() {
                 Some(value) => value,
-                None        => { return Err(Error::StackTypeError { edge, instr: Some(idx), got: value_type, expected: DataType::Class{ name: format!("withField={}", field) } }) }
+                None        => { return Err(Error::StackTypeError { edge, instr: Some(idx), got: value_type, expected: DataType::Class{ name: format!("withField={field}") } }) }
             };
 
             // Attempt to find the value with the correct field
@@ -1116,7 +1116,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         let mut handles: HashMap<DataName, JoinHandle<Result<AccessKind, P::PreprocessError>>> = HashMap::new();
                         for (i, value) in args.values().enumerate() {
                             // Preprocess the given value
-                            if let Err(err) = prepr.nest_fut(format!("argument {}", i), |scope| preprocess_value::<P>(&self.global, &self.local, pc, task, at, value, input, &mut handles, scope)).await { return EdgeResult::Err(err); }
+                            if let Err(err) = prepr.nest_fut(format!("argument {i}"), |scope| preprocess_value::<P>(&self.global, &self.local, pc, task, at, value, input, &mut handles, scope)).await { return EdgeResult::Err(err); }
                         }
                         // Join the handles
                         let mut data: HashMap<DataName, AccessKind> = HashMap::with_capacity(handles.len());
@@ -1191,7 +1191,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                 let mut instr_pc: usize = 0;
                 while instr_pc < instrs.len() {
                     // It looks a bit funky, but we simply add the relative offset after every constrution to the edge-local program counter
-                    instr_pc = (instr_pc as i64 + match prof.time_func(format!("instruction {}", instr_pc), || exec_instr(pc.1, instr_pc, &instrs[instr_pc], &mut self.stack, &mut self.fstack)) {
+                    instr_pc = (instr_pc as i64 + match prof.time_func(format!("instruction {instr_pc}"), || exec_instr(pc.1, instr_pc, &instrs[instr_pc], &mut self.stack, &mut self.fstack)) {
                         Ok(next) => next,
                         Err(err) => { return EdgeResult::Err(err); },
                     }) as usize;
@@ -1238,7 +1238,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                     let prof = prof.clone();
 
                     // Schedule its running on the runtime (`spawn`)
-                    self.threads.push((i, spawn(async move { prof.nest_fut(format!("branch {}", i), |scope| thread.run::<P>(scope.into())).await })));
+                    self.threads.push((i, spawn(async move { prof.nest_fut(format!("branch {i}"), |scope| thread.run::<P>(scope.into())).await })));
                 }
 
                 // Mark those threads to wait for, and then move to the join
@@ -1263,20 +1263,20 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                 let _merge = prof.time("Result merging");
                 let result: Option<Value> = match merge {
                     MergeStrategy::First | MergeStrategy::FirstBlocking => {
-                        if results.is_empty() { panic!("Joining with merge strategy '{:?}' after no threads have been run; this should never happen!", merge); }
+                        if results.is_empty() { panic!("Joining with merge strategy '{merge:?}' after no threads have been run; this should never happen!"); }
 
                         // It's a bit hard to do this unblocking right now, but from the user the effect will be the same.
                         Some(results.swap_remove(0).1)
                     },
                     MergeStrategy::Last => {
-                        if results.is_empty() { panic!("Joining with merge strategy '{:?}' after no threads have been run; this should never happen!", merge); }
+                        if results.is_empty() { panic!("Joining with merge strategy '{merge:?}' after no threads have been run; this should never happen!"); }
 
                         // It's a bit hard to do this unblocking right now, but from the user the effect will be the same.
                         Some(results.swap_remove(results.len() - 1).1)
                     },
 
                     MergeStrategy::Sum => {
-                        if results.is_empty() { panic!("Joining with merge strategy '{:?}' after no threads have been run; this should never happen!", merge); }
+                        if results.is_empty() { panic!("Joining with merge strategy '{merge:?}' after no threads have been run; this should never happen!"); }
 
                         // Prepare the sum result
                         let result_type : DataType = results[0].1.data_type(self.fstack.table());
@@ -1314,7 +1314,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         Some(result)
                     },
                     MergeStrategy::Product => {
-                        if results.is_empty() { panic!("Joining with merge strategy '{:?}' after no threads have been run; this should never happen!", merge); }
+                        if results.is_empty() { panic!("Joining with merge strategy '{merge:?}' after no threads have been run; this should never happen!"); }
 
                         // Prepare the sum result
                         let result_type : DataType = results[0].1.data_type(self.fstack.table());
@@ -1353,7 +1353,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                     },
 
                     MergeStrategy::Max => {
-                        if results.is_empty() { panic!("Joining with merge strategy '{:?}' after no threads have been run; this should never happen!", merge); }
+                        if results.is_empty() { panic!("Joining with merge strategy '{merge:?}' after no threads have been run; this should never happen!"); }
 
                         // Prepare the sum result
                         let result_type : DataType = results[0].1.data_type(self.fstack.table());
@@ -1391,7 +1391,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         Some(result)
                     },
                     MergeStrategy::Min => {
-                        if results.is_empty() { panic!("Joining with merge strategy '{:?}' after no threads have been run; this should never happen!", merge); }
+                        if results.is_empty() { panic!("Joining with merge strategy '{merge:?}' after no threads have been run; this should never happen!"); }
 
                         // Prepare the sum result
                         let result_type : DataType = results[0].1.data_type(self.fstack.table());
@@ -1430,7 +1430,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                     },
 
                     MergeStrategy::All => {
-                        if results.is_empty() { panic!("Joining with merge strategy '{:?}' after no threads have been run; this should never happen!", merge); }
+                        if results.is_empty() { panic!("Joining with merge strategy '{merge:?}' after no threads have been run; this should never happen!"); }
 
                         // Collect them all in an Array of (the same!) values
                         let mut elems     : Vec<Value>       = Vec::with_capacity(results.len());

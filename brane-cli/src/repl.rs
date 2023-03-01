@@ -275,10 +275,10 @@ async fn remote_repl(rl: &mut Editor<ReplHelper>, api_endpoint: impl AsRef<str>,
     let mut count: u32 = 1;
     loop {
         // Prepare the prompt with the current iteration number
-        let p = format!("{}> ", count);
+        let p = format!("{count}> ");
 
         // Write the prompt in a coloured way
-        rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{}\x1b[0m", p);
+        rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{p}\x1b[0m");
 
         // Find a line to read
         match rl.readline(&p) {
@@ -344,10 +344,10 @@ async fn local_repl(rl: &mut Editor<ReplHelper>, options: ParserOptions) -> Resu
     let mut count: u32 = 1;
     loop {
         // Prepare the prompt with the current iteration number
-        let p = format!("{}> ", count);
+        let p = format!("{count}> ");
 
         // Write the prompt in a coloured way
-        rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{}\x1b[0m", p);
+        rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{p}\x1b[0m");
 
         // Find a line to read
         match rl.readline(&p) {

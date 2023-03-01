@@ -412,7 +412,7 @@ where
         .collect();
 
     // Attempt to open a new file
-    let tar_path: PathBuf = tempdir_path.join(format!("{}.tar.gz", id));
+    let tar_path: PathBuf = tempdir_path.join(format!("{id}.tar.gz"));
     let mut handle = match tfs::File::create(&tar_path).await {
         Ok(handle) => handle,
         Err(err)   => { fail!(Error::TarCreateError{ path: tar_path, err }); }  
@@ -442,7 +442,7 @@ where
     // Re-open the file
     debug!("Extracting submitted archive file...");
     let info_path  : PathBuf = tempdir_path.join("package.yml");
-    let image_path : PathBuf = central.paths.packages.join(format!("{}.tar", id));
+    let image_path : PathBuf = central.paths.packages.join(format!("{id}.tar"));
     {
         let handle: tfs::File = match tfs::File::open(&tar_path).await {
             Ok(handle) => handle,

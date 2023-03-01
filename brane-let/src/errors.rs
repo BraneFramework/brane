@@ -122,54 +122,54 @@ impl Display for LetError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use LetError::*;
         match self {
-            JuiceFSLaunchError{ command, err }            => write!(f, "Could not run JuiceFS command '{}': {}", command, err),
+            JuiceFSLaunchError{ command, err }            => write!(f, "Could not run JuiceFS command '{command}': {err}"),
             JuiceFSError{ command, code, stdout, stderr } => write!(f, "JuiceFS command '{}' returned exit code {}:\n\nstdout:\n{}\n{}\n{}\n\nstderr:\n{}\n{}\n{}\n\n", command, code, (0..80).map(|_| '-').collect::<String>(), stdout, (0..80).map(|_| '-').collect::<String>(), (0..80).map(|_| '-').collect::<String>(), stderr,(0..80).map(|_| '-').collect::<String>()),
 
-            RedirectorError{ address, err }      => write!(f, "Could not start redirector to '{}' in the background: {}", address, err),
+            RedirectorError{ address, err }      => write!(f, "Could not start redirector to '{address}' in the background: {err}"),
             // CallbackConnectError{ address, err } => write!(f, "Could not connect to remote callback node at '{}': {}", address, err),
 
-            ArgumentsBase64Error{ err } => write!(f, "Could not decode input arguments as Base64: {}", err),
-            ArgumentsUTF8Error{ err }   => write!(f, "Could not decode input arguments as UTF-8: {}", err),
-            ArgumentsJSONError{ err }   => write!(f, "Could not parse input arguments as JSON: {}", err),
+            ArgumentsBase64Error{ err } => write!(f, "Could not decode input arguments as Base64: {err}"),
+            ArgumentsUTF8Error{ err }   => write!(f, "Could not decode input arguments as UTF-8: {err}"),
+            ArgumentsJSONError{ err }   => write!(f, "Could not parse input arguments as JSON: {err}"),
 
             LocalContainerInfoError{ path, err }                              => write!(f, "Could not load local container information file '{}': {}", path.display(), err),
-            PackageInfoError{ err }                                           => write!(f, "Could not parse package information file from Open-API document: {}", err),
+            PackageInfoError{ err }                                           => write!(f, "Could not parse package information file from Open-API document: {err}"),
             MissingFunctionsProperty{ path }                                  => write!(f, "Missing property 'functions' in package information file '{}'", path.display()),
             UnknownFunction{ function, package, kind }                        => write!(f, "Unknown function '{}' in package '{}' ({})", function, package, kind.pretty()),
             MissingInputArgument{ function, package, kind, name }             => write!(f, "Parameter '{}' not specified for function '{}' in package '{}' ({})", name, function, package, kind.pretty()),
             IncompatibleTypes{ function, package, kind, name, expected, got } => write!(f, "Type check failed for parameter '{}' of function '{}' in package '{}' ({}): expected {}, got {}", name, function, package, kind.pretty(), expected, got),
-            WorkdirInitLaunchError{ command, err }                            => write!(f, "Could not run init.sh ('{}'): {}", command, err),
+            WorkdirInitLaunchError{ command, err }                            => write!(f, "Could not run init.sh ('{command}'): {err}"),
             WorkdirInitError{ command, code, stdout, stderr }                 => write!(f, "init.sh ('{}') returned exit code {}:\n\nstdout:\n{}\n{}\n{}\n\nstderr:\n{}\n{}\n{}\n\n", command, code, (0..80).map(|_| '-').collect::<String>(), stdout, (0..80).map(|_| '-').collect::<String>(), (0..80).map(|_| '-').collect::<String>(), stderr,(0..80).map(|_| '-').collect::<String>()),
 
             EntrypointPathError{ path, err }                 => write!(f, "Could not canonicalize path '{}': {}", path.display(), err),
-            DuplicateArgument{ name }                        => write!(f, "Encountered duplicate function argument '{}'; make sure your names don't conflict in case-insensitive scenarios either", name),
-            DuplicateArrayArgument{ array, elem, name }      => write!(f, "Element {} of array '{}' has the same name as environment variable '{}'; remember that arrays generate new arguments for each element", elem, array, name),
-            DuplicateStructArgument{ sname, field, name }    => write!(f, "Field '{}' of struct '{}' has the same name as environment variable '{}'; remember that structs generate new arguments for each field", field, sname, name),
-            UnsupportedType{ argument, elem_type }           => write!(f, "Argument '{}' has type '{}'; this type is not (yet) supported, please use other types", argument, elem_type),
-            UnsupportedNestedArray{ elem }                   => write!(f, "Element {} of array is an array; nested arrays are not (yet) supported, please use flat arrays only", elem),
-            UnsupportedArrayElement{ elem, elem_type }       => write!(f, "Element {} of array has type '{}'; this type is not (yet) supported in arrays, please use other types", elem, elem_type),
-            UnsupportedStructArray{ name, field }            => write!(f, "Field '{}' of struct '{}' is an array; nested arrays in structs are not (yet) supported, please pass arrays separately as flat arrays", field, name),
-            UnsupportedNestedStruct{ name, field }           => write!(f, "Field '{}' of struct '{}' is a non-File, non-Directory struct; nested structs are not (yet) supported, please pass structs separately", field, name),
-            UnsupportedStructField{ name, field, elem_type } => write!(f, "Field '{}' of struct '{}' has type '{}'; this type is not (yet) supported in structs, please use other types", field, name, elem_type),
-            IllegalNestedURL{ name, field }                  => write!(f, "Field '{}' of struct '{}' is a Directory or a File struct, but misses the 'URL' field", field, name),
-            PackageLaunchError{ command, err }               => write!(f, "Could not run nested package call '{}': {}", command, err),
+            DuplicateArgument{ name }                        => write!(f, "Encountered duplicate function argument '{name}'; make sure your names don't conflict in case-insensitive scenarios either"),
+            DuplicateArrayArgument{ array, elem, name }      => write!(f, "Element {elem} of array '{array}' has the same name as environment variable '{name}'; remember that arrays generate new arguments for each element"),
+            DuplicateStructArgument{ sname, field, name }    => write!(f, "Field '{field}' of struct '{sname}' has the same name as environment variable '{name}'; remember that structs generate new arguments for each field"),
+            UnsupportedType{ argument, elem_type }           => write!(f, "Argument '{argument}' has type '{elem_type}'; this type is not (yet) supported, please use other types"),
+            UnsupportedNestedArray{ elem }                   => write!(f, "Element {elem} of array is an array; nested arrays are not (yet) supported, please use flat arrays only"),
+            UnsupportedArrayElement{ elem, elem_type }       => write!(f, "Element {elem} of array has type '{elem_type}'; this type is not (yet) supported in arrays, please use other types"),
+            UnsupportedStructArray{ name, field }            => write!(f, "Field '{field}' of struct '{name}' is an array; nested arrays in structs are not (yet) supported, please pass arrays separately as flat arrays"),
+            UnsupportedNestedStruct{ name, field }           => write!(f, "Field '{field}' of struct '{name}' is a non-File, non-Directory struct; nested structs are not (yet) supported, please pass structs separately"),
+            UnsupportedStructField{ name, field, elem_type } => write!(f, "Field '{field}' of struct '{name}' has type '{elem_type}'; this type is not (yet) supported in structs, please use other types"),
+            IllegalNestedURL{ name, field }                  => write!(f, "Field '{field}' of struct '{name}' is a Directory or a File struct, but misses the 'URL' field"),
+            PackageLaunchError{ command, err }               => write!(f, "Could not run nested package call '{command}': {err}"),
 
             IllegalOasDocument{ path, err } => write!(f, "Could not parse OpenAPI specification '{}': {}", path.display(), err),
 
             ClosedStdout           => write!(f, "Could not open subprocess stdout"),
             ClosedStderr           => write!(f, "Could not open subprocess stdout"),
-            StdoutReadError{ err } => write!(f, "Could not read from stdout: {}", err),
-            StderrReadError{ err } => write!(f, "Could not read from stderr: {}", err),
-            PackageRunError{ err } => write!(f, "Could not get package run status: {}", err),
+            StdoutReadError{ err } => write!(f, "Could not read from stdout: {err}"),
+            StderrReadError{ err } => write!(f, "Could not read from stderr: {err}"),
+            PackageRunError{ err } => write!(f, "Could not get package run status: {err}"),
 
             DecodeError{ stdout, err }      => write!(f, "Could not parse package stdout: {}\n\nstdout:\n{}\n{}\n{}\n\n", err, (0..80).map(|_| '-').collect::<String>(), stdout, (0..80).map(|_| '-').collect::<String>()),
             OasDecodeError{ stdout, err }   => write!(f, "Could not parse package stdout: {}\n\nstdout:\n{}\n{}\n{}\n\n", err, (0..80).map(|_| '-').collect::<String>(), stdout, (0..80).map(|_| '-').collect::<String>()),
-            UnsupportedMultipleOutputs{ n } => write!(f, "Function return {} outputs; this is not (yet) supported, please return only one", n),
+            UnsupportedMultipleOutputs{ n } => write!(f, "Function return {n} outputs; this is not (yet) supported, please return only one"),
 
-            SerializeError{ argument, data_type, err }  => write!(f, "Failed to serialize argument '{}' ({}) to JSON: {}", argument, data_type, err),
-            ArraySerializeError{ argument, err }        => write!(f, "Failed to serialize Array in argument '{}' to JSON: {}", argument, err),
-            ClassSerializeError{ argument, class, err } => write!(f, "Failed to serialize Class '{}' in argument '{}' to JSON: {}", class, argument, err),
-            ResultJSONError{ value, err }               => write!(f, "Could not serialize value '{}' to JSON: {}", value, err),
+            SerializeError{ argument, data_type, err }  => write!(f, "Failed to serialize argument '{argument}' ({data_type}) to JSON: {err}"),
+            ArraySerializeError{ argument, err }        => write!(f, "Failed to serialize Array in argument '{argument}' to JSON: {err}"),
+            ClassSerializeError{ argument, class, err } => write!(f, "Failed to serialize Class '{class}' in argument '{argument}' to JSON: {err}"),
+            ResultJSONError{ value, err }               => write!(f, "Could not serialize value '{value}' to JSON: {err}"),
         }
     }
 }
@@ -202,15 +202,15 @@ pub enum DecodeError {
 impl Display for DecodeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
-            DecodeError::InvalidYAML{ err } => write!(f, "Invalid YAML: {}", err),
-            DecodeError::InvalidJSON{ err } => write!(f, "Invalid JSON: {}", err),
+            DecodeError::InvalidYAML{ err } => write!(f, "Invalid YAML: {err}"),
+            DecodeError::InvalidJSON{ err } => write!(f, "Invalid JSON: {err}"),
 
             DecodeError::NotAHash                                  => write!(f, "Top-level YAML is not a valid hash"),
-            DecodeError::MissingOutputArgument{ name }             => write!(f, "Missing output argument '{}' in function output", name),
-            DecodeError::OutputTypeMismatch{ name, expected, got } => write!(f, "Function output '{}' has type '{}', but expected type '{}'", name, got, expected),
-            DecodeError::UnknownClassType{ name, class_name }      => write!(f, "Function output '{}' has object type '{}', but that object type is undefined", name, class_name),
+            DecodeError::MissingOutputArgument{ name }             => write!(f, "Missing output argument '{name}' in function output"),
+            DecodeError::OutputTypeMismatch{ name, expected, got } => write!(f, "Function output '{name}' has type '{got}', but expected type '{expected}'"),
+            DecodeError::UnknownClassType{ name, class_name }      => write!(f, "Function output '{name}' has object type '{class_name}', but that object type is undefined"),
 
-            DecodeError::MissingStructProperty{ name, class_name, property_name } => write!(f, "Function output '{}' has object type '{}', but is missing property '{}'", name, class_name, property_name),
+            DecodeError::MissingStructProperty{ name, class_name, property_name } => write!(f, "Function output '{name}' has object type '{class_name}', but is missing property '{property_name}'"),
         }
     }
 }

@@ -136,7 +136,7 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
     };
 
     // Write it
-    println!("{}", hash);
+    println!("{hash}");
 
     // Done
     Ok(())

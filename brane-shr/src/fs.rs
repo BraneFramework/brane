@@ -108,11 +108,11 @@ pub mod tests {
 
             // Write the thing to write
             if let Err(err) = if path == &source_path1 {
-                write!(handle, "{}", file1)
+                write!(handle, "{file1}")
             } else if path == &source_path2 {
                 handle.write_all(&file2)
             } else if path == &source_path3 {
-                write!(handle, "{}", file3)
+                write!(handle, "{file3}")
             } else {
                 unreachable!();
             } {
@@ -317,12 +317,12 @@ impl Display for Error {
             DirEntryReadError{ what, path, entry, err } => write!(f, "Failed to read entry {} from {} directory '{}': {}", entry, what, path.display(), err),
             DirRemoveError{ path, err }                 => write!(f, "Failed to remove director '{}': {}", path.display(), err),
 
-            NotHttpsError{ address }             => write!(f, "Security policy requires HTTPS is enabled, but '{}' does not enable it (or we cannot parse the URL)", address),
-            RequestError{ address, err }         => write!(f, "Failed to send GET-request to '{}': {}", address, err),
-            RequestFailure{ address, code, err } => write!(f, "GET-request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
-            DownloadError{ address, err }        => write!(f, "Failed to download file '{}': {}", address, err),
+            NotHttpsError{ address }             => write!(f, "Security policy requires HTTPS is enabled, but '{address}' does not enable it (or we cannot parse the URL)"),
+            RequestError{ address, err }         => write!(f, "Failed to send GET-request to '{address}': {err}"),
+            RequestFailure{ address, code, err } => write!(f, "GET-request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {err}") } else { String::new() }),
+            DownloadError{ address, err }        => write!(f, "Failed to download file '{address}': {err}"),
 
-            EncoderFlushError{ err } => write!(f, "Failed to flush GzipEncoder: {}", err),
+            EncoderFlushError{ err } => write!(f, "Failed to flush GzipEncoder: {err}"),
 
             TarAppendError{ source, tarball, err }         => write!(f, "Failed to append '{}' to tarball '{}': {}", source.display(), tarball.display(), err),
             TarFinishError{ path, err }                    => write!(f, "Failed to finish writing tarball '{}': {}", path.display(), err),

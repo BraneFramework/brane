@@ -25,15 +25,15 @@ pub fn parse_oas_file<P: Into<PathBuf>>(oas_file: P) -> Result<OpenAPI> {
     let extension = oas_file.extension().unwrap_or_default();
     let extension = extension.to_string_lossy().to_ascii_lowercase();
 
-    let oas_file = File::open(&oas_file).with_context(|| format!("Failed to open OAS file: {:?}", oas_file))?;
+    let oas_file = File::open(&oas_file).with_context(|| format!("Failed to open OAS file: {oas_file:?}"))?;
 
     let oas_reader = BufReader::new(&oas_file);
     match extension.as_str() {
         "yaml" | "yml" => {
-            serde_yaml::from_reader(oas_reader).with_context(|| format!("Failed to parse file as OAS: {:?}", oas_file))
+            serde_yaml::from_reader(oas_reader).with_context(|| format!("Failed to parse file as OAS: {oas_file:?}"))
         }
         "json" => {
-            serde_json::from_reader(oas_reader).with_context(|| format!("Failed to parse file as OAS: {:?}", oas_file))
+            serde_json::from_reader(oas_reader).with_context(|| format!("Failed to parse file as OAS: {oas_file:?}"))
         }
         _ => bail!("Couldn't determine if OAS file is in JSON or YAML format. Please check the file extension."),
     }

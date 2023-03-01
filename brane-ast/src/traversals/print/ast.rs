@@ -73,7 +73,7 @@ fn pass_table(writer: &mut impl Write, table: &SymTable, indent: usize) -> std::
     for f in &table.funcs {
         write!(writer, "{}Function {}({}){}", indent!(indent),
             &f.name,
-            f.args.iter().map(|a| format!("{}", a)).collect::<Vec<String>>().join(", "),
+            f.args.iter().map(|a| format!("{a}")).collect::<Vec<String>>().join(", "),
             if f.ret != DataType::Void { format!(" -> {}", f.ret) } else { String::new() },
         )?;
 
@@ -105,7 +105,7 @@ fn pass_table(writer: &mut impl Write, table: &SymTable, indent: usize) -> std::
 
     // Finally print the class definitions
     for c in &table.classes {
-        writeln!(writer, "{}Class {}{} {{", indent!(indent), if let Some(package) = &c.package { format!("{}::", package) } else { String::new() }, &c.name)?;
+        writeln!(writer, "{}Class {}{} {{", indent!(indent), if let Some(package) = &c.package { format!("{package}::") } else { String::new() }, &c.name)?;
         // Print all properties
         for p in &c.props {
             writeln!(writer, "{}property {}: {};", indent!(INDENT_SIZE + indent), &p.name, p.data_type)?;
@@ -115,7 +115,7 @@ fn pass_table(writer: &mut impl Write, table: &SymTable, indent: usize) -> std::
             let m: &FunctionDef = &table.funcs[*m];
             writeln!(writer, "{}method &{}({}){};", indent!(INDENT_SIZE + indent),
                 &m.name,
-                m.args.iter().map(|a| format!("{}", a)).collect::<Vec<String>>().join(", "),
+                m.args.iter().map(|a| format!("{a}")).collect::<Vec<String>>().join(", "),
                 if m.ret != DataType::Void { format!(" -> {}", m.ret) } else { String::new() },
             )?;
         }
@@ -171,10 +171,10 @@ fn pass_edges(writer: &mut impl Write, index: usize, edges: &[Edge], table: &Vir
                         TaskDef::Transfer     => "__builtin::transfer".into(),
                     },
                     if locs.is_restrictive() { format!(" <limited to: {}>", locs.restricted().join(",")) } else { String::new() },
-                    if let Some(at) = at { format!(" @{}", at) } else { String::new() },
+                    if let Some(at) = at { format!(" @{at}") } else { String::new() },
                     if !input.is_empty() || result.is_some() { format!(" [{} -> {}]",
-                        if !input.is_empty() { input.iter().map(|(name, avail)| format!("'{}'{}", name, if let Some(avail) = avail { format!(" ({:?})", avail) } else { String::new() })).collect::<Vec<String>>().join(", ").to_string() } else { "''".into() },
-                        if let Some(name) = result { format!("'{}'", name) } else { "''".into() },
+                        if !input.is_empty() { input.iter().map(|(name, avail)| format!("'{}'{}", name, if let Some(avail) = avail { format!(" ({avail:?})") } else { String::new() })).collect::<Vec<String>>().join(", ").to_string() } else { "''".into() },
+                        if let Some(name) = result { format!("'{name}'") } else { "''".into() },
                     ) } else { String::new() },
                 )?;
 
@@ -322,15 +322,15 @@ fn pass_edge_instr(writer: &mut impl Write, instr: &EdgeInstr, table: &VirtualSy
     // Match the instruction
     use EdgeInstr::*;
     match instr {
-        Cast{ res_type } => { write!(writer, "{} {}", instr, res_type)?; },
+        Cast{ res_type } => { write!(writer, "{instr} {res_type}")?; },
 
-        Branch{ next }    => { write!(writer, "{} {}", instr, next)?; },
-        BranchNot{ next } => { write!(writer, "{} {}", instr, next)?; },
+        Branch{ next }    => { write!(writer, "{instr} {next}")?; },
+        BranchNot{ next } => { write!(writer, "{instr} {next}")?; },
 
-        Proj{ field } => { write!(writer, "{} {}", instr, field)?; },
+        Proj{ field } => { write!(writer, "{instr} {field}")?; },
 
-        Array{ length, res_type } => { write!(writer, "{} {},{}", instr, res_type, length)?; },
-        ArrayIndex{ res_type }    => { write!(writer, "{} {}", instr, res_type)?; },
+        Array{ length, res_type } => { write!(writer, "{instr} {res_type},{length}")?; },
+        ArrayIndex{ res_type }    => { write!(writer, "{instr} {res_type}")?; },
         Instance{ def }           => { write!(writer, "{} {}", instr, table.class(*def).name)?; },
 
         VarDec{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
@@ -338,14 +338,14 @@ fn pass_edge_instr(writer: &mut impl Write, instr: &EdgeInstr, table: &VirtualSy
         VarGet{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
         VarSet{ def }   => { write!(writer, "{} {}", instr, table.var(*def).name)?; },
 
-        Boolean{ value } => { write!(writer, "{} {}", instr, value)?; },
-        Integer{ value } => { write!(writer, "{} {}", instr, value)?; },
-        Real{ value }    => { write!(writer, "{} {}", instr, value)?; },
+        Boolean{ value } => { write!(writer, "{instr} {value}")?; },
+        Integer{ value } => { write!(writer, "{instr} {value}")?; },
+        Real{ value }    => { write!(writer, "{instr} {value}")?; },
         String{ value }  => { write!(writer, "{} \"{}\"", instr, value.replace('\\', "\\\\").replace('\n', "\\n").replace('\t', "\\t").replace('\r', "\\r").replace('\"', "\\\""))?; },
         Function{ def }  => { write!(writer, "{} {}", instr, table.func(*def).name)?; },
 
         // Any other instruction is just printing it without any value
-        instr => { write!(writer, "{}", instr)?; }
+        instr => { write!(writer, "{instr}")?; }
     }
 
     // Done

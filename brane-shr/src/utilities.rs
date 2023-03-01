@@ -287,7 +287,7 @@ where
                         exec(entry.path(), code).await;
                         counter += 1;
                     } else if entry.path().extension().is_some() && entry.path().extension().unwrap() != "yml" && entry.path().extension().unwrap() != "yaml" {
-                        println!("Ignoring entry '{}' in '{}' (does not have extensions {})", entry.path().display(), path.display(), exts.iter().map(|e| format!("'.{}'", e)).collect::<Vec<String>>().join(", "));
+                        println!("Ignoring entry '{}' in '{}' (does not have extensions {})", entry.path().display(), path.display(), exts.iter().map(|e| format!("'.{e}'")).collect::<Vec<String>>().join(", "));
                     }
                 } else {
                     println!("Ignoring entry '{}' in '{}' (cannot extract extension)", entry.path().display(), path.display());
@@ -313,7 +313,7 @@ where
     if counter == 0 {
         println!("No files to run.");
     } else {
-        println!("Tested {} files in total", counter);
+        println!("Tested {counter} files in total");
     }
 }
 

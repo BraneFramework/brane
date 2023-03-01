@@ -191,11 +191,11 @@ pub fn build_docker_image<P: AsRef<Path>>(
     command.arg("buildx");
     let buildx = match command.output() {
         Ok(buildx) => buildx,
-        Err(err)   => { return Err(BuildError::BuildKitLaunchError{ command: format!("{:?}", command), err }); }
+        Err(err)   => { return Err(BuildError::BuildKitLaunchError{ command: format!("{command:?}"), err }); }
     };
     // Check if it was successfull
     if !buildx.status.success() {
-        return Err(BuildError::BuildKitError{ command: format!("{:?}", command), code: buildx.status.code().unwrap_or(-1), stdout: String::from_utf8_lossy(&buildx.stdout).to_string(), stderr: String::from_utf8_lossy(&buildx.stdout).to_string() });
+        return Err(BuildError::BuildKitError{ command: format!("{command:?}"), code: buildx.status.code().unwrap_or(-1), stdout: String::from_utf8_lossy(&buildx.stdout).to_string(), stderr: String::from_utf8_lossy(&buildx.stdout).to_string() });
     }
 
     // Next, launch the command to actually build the image
@@ -209,18 +209,18 @@ pub fn build_docker_image<P: AsRef<Path>>(
     command.arg("--platform");
     command.arg(format!("linux/{}", arch.to_docker()));
     command.arg("--build-arg");
-    command.arg(format!("BRANELET_ARCH={}", arch));
+    command.arg(format!("BRANELET_ARCH={arch}"));
     command.arg("--build-arg");
     command.arg(format!("JUICEFS_ARCH={}", arch.to_juicefs()));
     command.arg(".");
     command.current_dir(package_dir);
     let output = match command.status() {
         Ok(output) => output,
-        Err(err)   => { return Err(BuildError::ImageBuildLaunchError{ command: format!("{:?}", command), err }); }
+        Err(err)   => { return Err(BuildError::ImageBuildLaunchError{ command: format!("{command:?}"), err }); }
     };
     // Check if it was successfull
     if !output.success() {
-        return Err(BuildError::ImageBuildError{ command: format!("{:?}", command), code: output.code().unwrap_or(-1) });
+        return Err(BuildError::ImageBuildError{ command: format!("{command:?}"), code: output.code().unwrap_or(-1) });
     }
 
     // Done! :D

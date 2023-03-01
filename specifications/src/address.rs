@@ -41,8 +41,8 @@ impl Display for AddressParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use AddressParseError::*;
         match self {
-            MissingColon{ raw }           => write!(f, "Missing address/port separator ':' in '{}' (did you forget to define a port?)", raw),
-            IllegalPortNumber{ raw, err } => write!(f, "Illegal port number '{}': {}", raw, err),
+            MissingColon{ raw }           => write!(f, "Missing address/port separator ':' in '{raw}' (did you forget to define a port?)"),
+            IllegalPortNumber{ raw, err } => write!(f, "Illegal port number '{raw}': {err}"),
         }
     }
 }
@@ -149,8 +149,8 @@ impl Address {
     pub fn domain(&self) -> Cow<'_, str> {
         use Address::*;
         match self {
-            Ipv4(addr, _)     => format!("{}", addr).into(),
-            Ipv6(addr, _)     => format!("{}", addr).into(),
+            Ipv4(addr, _)     => format!("{addr}").into(),
+            Ipv6(addr, _)     => format!("{addr}").into(),
             Hostname(addr, _) => addr.into(),
         }
     }
@@ -224,9 +224,9 @@ impl Display for Address {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Address::*;
         match self {
-            Ipv4(addr, port)     => write!(f, "{}:{}", addr, port),
-            Ipv6(addr, port)     => write!(f, "{}:{}", addr, port),
-            Hostname(addr, port) => write!(f, "{}:{}", addr, port),
+            Ipv4(addr, port)     => write!(f, "{addr}:{port}"),
+            Ipv6(addr, port)     => write!(f, "{addr}:{port}"),
+            Hostname(addr, port) => write!(f, "{addr}:{port}"),
         }
     }
 }

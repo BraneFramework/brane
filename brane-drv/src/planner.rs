@@ -92,7 +92,7 @@ impl Future for WaitUntilPlanned {
                     debug!("Planning of workflow '{}' started{}",
                         self.correlation_id,
                         if let Some(name) = name {
-                            format!(" by planner '{}'", name)
+                            format!(" by planner '{name}'")
                         } else {
                             String::new()
                         }
@@ -283,7 +283,7 @@ impl InstancePlanner {
                             // Match on the kind, inserting the proper states
                             match PlanningStatusKind::from_i32(msg.kind) {
                                 Some(PlanningStatusKind::Started) => {
-                                    debug!("Status update: Workflow '{}' is now being planned{}", msg.id, if let Some(name) = &msg.result { format!(" by planner '{}'", name) } else { String::new() });
+                                    debug!("Status update: Workflow '{}' is now being planned{}", msg.id, if let Some(name) = &msg.result { format!(" by planner '{name}'") } else { String::new() });
                                     owned_updates.insert(msg.id, PlanningStatus::Started(msg.result));
                                 },
         
@@ -300,7 +300,7 @@ impl InstancePlanner {
                                     owned_updates.insert(msg.id, PlanningStatus::Success(plan));
                                 },
                                 Some(PlanningStatusKind::Failed) => {
-                                    debug!("Status update: Workflow '{}' failed to been planned{}", msg.id, if let Some(reason) = &msg.result { format!(": {}", reason) } else { String::new() });
+                                    debug!("Status update: Workflow '{}' failed to been planned{}", msg.id, if let Some(reason) = &msg.result { format!(": {reason}") } else { String::new() });
                                     owned_updates.insert(msg.id, PlanningStatus::Failed(msg.result));
                                 },
                                 Some(PlanningStatusKind::Error) => {
@@ -353,13 +353,13 @@ impl InstancePlanner {
         let correlation_id: String = format!("{}", TaskId::generate());
 
         // Ensure that the to-be-send-on topic exists
-        let kf = prof.time(format!("workflow {} Kafka preparation", correlation_id));
+        let kf = prof.time(format!("workflow {correlation_id} Kafka preparation"));
         let brokers: String = self.central_cfg.services.aux_kafka.address.to_string();
         if let Err(err) = ensure_topics(vec![ &self.central_cfg.services.plr.cmd ], &brokers).await { return Err(PlanError::KafkaTopicError { brokers, topics: vec![ self.central_cfg.services.plr.cmd.clone() ], err }); };
         kf.stop();
 
         // Serialize the workflow
-        let ser = prof.time(format!("workflow {} serialization", correlation_id));
+        let ser = prof.time(format!("workflow {correlation_id} serialization"));
         let swork: String = match serde_json::to_string(&workflow) {
             Ok(swork) => swork,
             Err(err)  => { return Err(PlanError::WorkflowSerializeError{ err }); },  
@@ -367,7 +367,7 @@ impl InstancePlanner {
         ser.stop();
 
         // Populate a "PlanningCommand" with that (i.e., just populate a future record with the string)
-        let remote = prof.time(format!("workflow '{}' on brane-plr", correlation_id));
+        let remote = prof.time(format!("workflow '{correlation_id}' on brane-plr"));
         let message: FutureRecord<String, [u8]> = FutureRecord::to(&self.central_cfg.services.plr.cmd)
             .key(&correlation_id)
             .payload(swork.as_bytes());

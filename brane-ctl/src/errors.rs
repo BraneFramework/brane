@@ -69,15 +69,15 @@ impl Display for DownloadError {
             DirNotADir{ what, path }          => write!(f, "{} directory '{}' exists but is not a directory", what.capitalize(), path.display()),
             DirCreateError{ what, path, err } => write!(f, "Failed to create {} directory '{}': {}", what, path.display(), err),
 
-            TempDirError{ err }                 => write!(f, "Failed to create a temporary directory: {}", err),
+            TempDirError{ err }                 => write!(f, "Failed to create a temporary directory: {err}"),
             DownloadError{ address, path, err } => write!(f, "Failed to download '{}' to '{}': {}", address, path.display(), err),
             UnarchiveError{ tar, target, err }  => write!(f, "Failed to unpack '{}' to '{}': {}", tar.display(), target.display(), err),
             ReadDirError{ path, err }           => write!(f, "Failed to read directory '{}': {}", path.display(), err),
             ReadEntryError{ path, entry, err }  => write!(f, "Failed to read entry {} in directory '{}': {}", entry, path.display(), err),
             MoveError{ source, target, err }    => write!(f, "Failed to move '{}' to '{}': {}", source.display(), target.display(), err),
 
-            DockerConnectError{ err }        => write!(f, "Failed to connect to local Docker daemon: {}", err),
-            PullError{ name, image, err }    => write!(f, "Failed to pull '{}' as '{}': {}", image, name, err),
+            DockerConnectError{ err }        => write!(f, "Failed to connect to local Docker daemon: {err}"),
+            PullError{ name, image, err }    => write!(f, "Failed to pull '{image}' as '{name}': {err}"),
             SaveError{ name, path, err, .. } => write!(f, "Failed to save image '{}' to '{}': {}", name, path.display(), err),
         }
     }
@@ -166,14 +166,14 @@ impl Display for GenerateError {
             FileNotAFile{ path }                 => write!(f, "File '{}' exists but not as a file", path.display()),
             FileWriteError{ what, path, err }    => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
             DownloadError{ source, target, err } => write!(f, "Failed to download '{}' to '{}': {}", source, target.display(), err),
-            ExecutableError{ err }               => write!(f, "Failed to make file executable: {}", err),
+            ExecutableError{ err }               => write!(f, "Failed to make file executable: {err}"),
 
             FileMetadataError{ what, path, err }    => write!(f, "Failed to get metadata of {} file '{}': {}", what, path.display(), err),
             FilePermissionsError{ what, path, err } => write!(f, "Failed to set permissions of {} file '{}': {}", what, path.display(), err),
             FileChecksumError{ path, .. }           => write!(f, "File '{}' had unexpected checksum (might indicate the download is no longer valid)", path.display()),
-            ConfigSerializeError{ err }             => write!(f, "Failed to serialize config: {}", err),
-            SpawnError{ cmd, err }                  => write!(f, "Failed to run command '{:?}': {}", cmd, err),
-            SpawnFailure{ cmd, status, err }        => write!(f, "Command '{:?}' failed{}\n\nstderr:\n{}\n\n", cmd, if let Some(code) = status.code() { format!(" with exit code {}", code) } else { String::new() }, err),
+            ConfigSerializeError{ err }             => write!(f, "Failed to serialize config: {err}"),
+            SpawnError{ cmd, err }                  => write!(f, "Failed to run command '{cmd:?}': {err}"),
+            SpawnFailure{ cmd, status, err }        => write!(f, "Command '{:?}' failed{}\n\nstderr:\n{}\n\n", cmd, if let Some(code) = status.code() { format!(" with exit code {code}") } else { String::new() }, err),
             CaCertNotFound{ path }                  => write!(f, "Certificate authority's certificate '{}' not found", path.display()),
             CaCertNotAFile{ path }                  => write!(f, "Certificate authority's certificate '{}' exists but is not a file", path.display()),
             CaKeyNotFound{ path }                   => write!(f, "Certificate authority's private key '{}' not found", path.display()),
@@ -183,14 +183,14 @@ impl Display for GenerateError {
 
             FileCreateError{ what, path, err }      => write!(f, "Failed to create new {} file '{}': {}", what, path.display(), err),
             FileHeaderWriteError{ what, path, err } => write!(f, "Failed to write header to {} file '{}': {}", what, path.display(), err),
-            NodeWriteError{ err, .. }               => write!(f, "Failed to write body to node.yml file: {}", err),
+            NodeWriteError{ err, .. }               => write!(f, "Failed to write body to node.yml file: {err}"),
 
-            UnknownLocation{ loc }     => write!(f, "Unknown location '{}' (did you forget to specify it in the LOCATIONS argument?)", loc),
-            InfraWriteError{ err, .. } => write!(f, "Failed to write body to infra.yml file: {}", err),
+            UnknownLocation{ loc }     => write!(f, "Unknown location '{loc}' (did you forget to specify it in the LOCATIONS argument?)"),
+            InfraWriteError{ err, .. } => write!(f, "Failed to write body to infra.yml file: {err}"),
 
-            BackendWriteError{ err, .. } => write!(f, "Failed to write body to backend.yml file: {}", err),
+            BackendWriteError{ err, .. } => write!(f, "Failed to write body to backend.yml file: {err}"),
 
-            PolicyWriteError{ err, .. } => write!(f, "Failed to write body to policies.yml file: {}", err),
+            PolicyWriteError{ err, .. } => write!(f, "Failed to write body to policies.yml file: {err}"),
         }
     }
 }
@@ -246,11 +246,11 @@ impl Display for LifetimeError {
         use LifetimeError::*;
         match self {
             CanonicalizeError{ path, err } => write!(f, "Failed to canonicalize path '{}': {}", path.display(), err),
-            ExeParseError{ raw }           => write!(f, "Failed to parse '{}' as a valid string of bash-arguments", raw),
+            ExeParseError{ raw }           => write!(f, "Failed to parse '{raw}' as a valid string of bash-arguments"),
 
             DockerComposeNotFound{ path }            => write!(f, "Docker Compose file '{}' not found", path.display()),
             DockerComposeNotAFile{ path }            => write!(f, "Docker Compose file '{}' exists but is not a file", path.display()),
-            DockerComposeNotBakedIn{ kind, version } => write!(f, "No baked-in {} Docker Compose for Brane version v{} exists (give it yourself using '--file')", kind, version),
+            DockerComposeNotBakedIn{ kind, version } => write!(f, "No baked-in {kind} Docker Compose for Brane version v{version} exists (give it yourself using '--file')"),
             DockerComposeCreateError{ path, err }    => write!(f, "Failed to create Docker Compose file '{}': {}", path.display(), err),
             DockerComposeWriteError{ path, err }     => write!(f, "Failed to write to Docker Compose file '{}': {}", path.display(), err),
 
@@ -260,12 +260,12 @@ impl Display for LifetimeError {
             ImageDigestError{ path, err }        => write!(f, "Failed to get digest of image {}: {}", style(path.display()).bold(), err),
             ImageLoadError{ image, source, err } => write!(f, "Failed to load image {} from '{}': {}", style(image).bold(), style(source).bold(), err),
 
-            NodeConfigLoadError{ err }                 => write!(f, "Failed to load node.yml file: {}", err),
+            NodeConfigLoadError{ err }                 => write!(f, "Failed to load node.yml file: {err}"),
             DockerConnectError{ socket, version, err } => write!(f, "Failed to connect to local Docker socket '{}' using API version {}: {}", socket.display(), version, err),
             UnmatchedNodeKind{ got, expected }         => write!(f, "Got command to start {} node, but 'node.yml' defined a {} node", got.variant(), expected.variant()),
 
-            JobLaunchError{ command, err } => write!(f, "Failed to launch command '{:?}': {}", command, err),
-            JobFailure{ command, status }  => write!(f, "Command '{}' failed with exit code {} (see output above)", style(format!("{:?}", command)).bold(), style(status.code().map(|c| c.to_string()).unwrap_or_else(|| "non-zero".into())).bold()),
+            JobLaunchError{ command, err } => write!(f, "Failed to launch command '{command:?}': {err}"),
+            JobFailure{ command, status }  => write!(f, "Command '{}' failed with exit code {} (see output above)", style(format!("{command:?}")).bold(), style(status.code().map(|c| c.to_string()).unwrap_or_else(|| "non-zero".into())).bold()),
         }
     }
 }
@@ -295,13 +295,13 @@ impl Display for PackagesError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use PackagesError::*;
         match self {
-            NodeConfigLoadError{ err }                  => write!(f, "Failed to load node.yml file: {}", err),
+            NodeConfigLoadError{ err }                  => write!(f, "Failed to load node.yml file: {err}"),
             FileNotAFile{ path }                        => write!(f, "Given image path '{}' exists but is not a file", path.display()),
-            IllegalNameVersionPair{ raw, err }          => write!(f, "Failed to parse given image name[:version] pair '{}': {}", raw, err),
+            IllegalNameVersionPair{ raw, err }          => write!(f, "Failed to parse given image name[:version] pair '{raw}': {err}"),
             DirReadError{ what, path, err }             => write!(f, "Failed to read {} directory '{}': {}", what, path.display(), err),
             DirEntryReadError{ what, entry, path, err } => write!(f, "Failed to read entry {} in {} directory '{}': {}", entry, what, path.display(), err),
             UnknownImage{ path, name, version }         => write!(f, "No image for package '{}', version {} found in '{}'", name, version, path.display()),
-            HashError{ err }                            => write!(f, "Failed to hash image: {}", err),
+            HashError{ err }                            => write!(f, "Failed to hash image: {err}"),
         }
     }
 }
@@ -323,9 +323,9 @@ impl Display for DockerClientVersionParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use DockerClientVersionParseError::*;
         match self {
-            MissingDot{ raw }              => write!(f, "Missing '.' in Docket client version number '{}'", raw),
-            IllegalMajorNumber{ raw, err } => write!(f, "'{}' is not a valid Docket client version major number: {}", raw, err),
-            IllegalMinorNumber{ raw, err } => write!(f, "'{}' is not a valid Docket client version minor number: {}", raw, err),
+            MissingDot{ raw }              => write!(f, "Missing '.' in Docket client version number '{raw}'"),
+            IllegalMajorNumber{ raw, err } => write!(f, "'{raw}' is not a valid Docket client version major number: {err}"),
+            IllegalMinorNumber{ raw, err } => write!(f, "'{raw}' is not a valid Docket client version minor number: {err}"),
         }
     }
 }
@@ -345,8 +345,8 @@ impl Display for HostnamePairParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use HostnamePairParseError::*;
         match self {
-            MissingColon{ raw }       => write!(f, "Missing ':' in hostname/IP pair '{}'", raw),
-            IllegalIpAddr{ raw, err } => write!(f, "Failed to parse '{}' as a valid IP address: {}", raw, err),
+            MissingColon{ raw }       => write!(f, "Missing ':' in hostname/IP pair '{raw}'"),
+            IllegalIpAddr{ raw, err } => write!(f, "Failed to parse '{raw}' as a valid IP address: {err}"),
         }
     }
 }
@@ -366,8 +366,8 @@ impl<E: Display> Display for LocationPairParseError<E> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use LocationPairParseError::*;
         match self {
-            MissingSeparator{ separator, raw } => write!(f, "Missing '{}' in location pair '{}'", separator, raw),
-            IllegalSomething{ what, raw, err } => write!(f, "Failed to parse '{}' as a {}: {}", raw, what, err),
+            MissingSeparator{ separator, raw } => write!(f, "Missing '{separator}' in location pair '{raw}'"),
+            IllegalSomething{ what, raw, err } => write!(f, "Failed to parse '{raw}' as a {what}: {err}"),
         }
     }
 }
@@ -390,9 +390,9 @@ impl Display for ArchParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ArchParseError::*;
         match self {
-            SpawnError{ command, err }           => write!(f, "Failed to run '{:?}': {}", command, err),
+            SpawnError{ command, err }           => write!(f, "Failed to run '{command:?}': {err}"),
             SpawnFailure{ command, status, err } => write!(f, "Command '{:?}' failed with exit code {}\n\nstderr:\n{}\n\n", command, status.code().unwrap_or(-1), err),
-            UnknownArch{ raw }                   => write!(f, "Unknown architecture '{}'", raw),
+            UnknownArch{ raw }                   => write!(f, "Unknown architecture '{raw}'"),
         }
     }
 }

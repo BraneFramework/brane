@@ -199,7 +199,7 @@ pub enum ResolveError {
 impl Display for ResolveError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
-            ResolveError::AlreadyResolved{ version } => write!(f, "Cannot resolve already resolved version '{}'", version),
+            ResolveError::AlreadyResolved{ version } => write!(f, "Cannot resolve already resolved version '{version}'"),
             ResolveError::NotResolved                => write!(f, "Cannot resolve version with unresolved versions"),
             ResolveError::NoVersions                 => write!(f, "Cannot resolve version without any versions given"),
         }
@@ -233,12 +233,12 @@ impl Display for ParseError {
         use ParseError::*;
         match self {
             AccidentalLatest => write!(f, "A version with all numbers to {} (64-bit, unsigned integer max) cannot be created; use 'latest' instead", u64::MAX),
-            MajorParseError{ raw, err } => write!(f, "Could not parse major version number '{}': {}", raw, err),
-            MinorParseError{ raw, err } => write!(f, "Could not parse minor version number '{}': {}", raw, err),
-            PatchParseError{ raw, err } => write!(f, "Could not parse patch version number '{}': {}", raw, err),
+            MajorParseError{ raw, err } => write!(f, "Could not parse major version number '{raw}': {err}"),
+            MinorParseError{ raw, err } => write!(f, "Could not parse minor version number '{raw}': {err}"),
+            PatchParseError{ raw, err } => write!(f, "Could not parse patch version number '{raw}': {err}"),
 
-            TooManyColons{ raw, got }               => write!(f, "Given 'NAME[:VERSION]' pair '{}' has too many colons (got {}, expected at most 1)", raw, got),
-            IllegalVersion{ raw, raw_version, err } => write!(f, "Could not parse version '{}' in '{}': {}", raw_version, raw, err),
+            TooManyColons{ raw, got }               => write!(f, "Given 'NAME[:VERSION]' pair '{raw}' has too many colons (got {got}, expected at most 1)"),
+            IllegalVersion{ raw, raw_version, err } => write!(f, "Could not parse version '{raw_version}' in '{raw}': {err}"),
         }
     }
 }
@@ -265,7 +265,7 @@ impl<'de> Visitor<'de> for VersionVisitor {
         E: de::Error,
     {
         // Parse the value with the Version parser
-        Version::from_str(value).map_err(|err| E::custom(format!("{}", err)))
+        Version::from_str(value).map_err(|err| E::custom(format!("{err}")))
     }
 }
 
@@ -591,14 +591,14 @@ impl From<&semver::Version> for Version {
 impl From<Version> for String {
     #[inline]
     fn from(value: Version) -> Self {
-        format!("{}", value)
+        format!("{value}")
     }
 }
 
 impl From<&Version> for String {
     #[inline]
     fn from(value: &Version) -> Self {
-        format!("{}", value)
+        format!("{value}")
     }
 }
 

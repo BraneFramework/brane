@@ -167,7 +167,7 @@ fn pass_symbol_table(writer: &mut impl Write, symbol_table: &Rc<RefCell<SymbolTa
         writeln!(writer, "{}{}func {}{}{}",
             indent!(indent),
             if f.index != usize::MAX { format!("{}) ", f.index) } else { String::new() },
-            if let Some(pkg) = &f.package_name { format!("{}::", pkg) } else { String::new() },
+            if let Some(pkg) = &f.package_name { format!("{pkg}::") } else { String::new() },
             name,
             f.signature
         )?;
@@ -180,7 +180,7 @@ fn pass_symbol_table(writer: &mut impl Write, symbol_table: &Rc<RefCell<SymbolTa
         writeln!(writer, "{}{}class {}{} {{",
             indent!(indent),
             if c.index != usize::MAX { format!("{}) ", c.index) } else { String::new() },
-            if let Some(pkg) = &c.package_name { format!("{}::", pkg) } else { String::new() },
+            if let Some(pkg) = &c.package_name { format!("{pkg}::") } else { String::new() },
             c.signature
         )?;
         // Print the associated symbol table

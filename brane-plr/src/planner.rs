@@ -169,7 +169,7 @@ async fn plan_edges(table: &mut SymTable, edges: &mut [Edge], api_addr: &Address
                 let location: &str = &locs.restricted()[0];
 
                 // Fetch the list of capabilities supported by the planned location
-                let address: String = format!("{}/infra/capabilities/{}", api_addr, location);
+                let address: String = format!("{api_addr}/infra/capabilities/{location}");
                 let res: Response = match reqwest::get(&address).await {
                     Ok(req)  => req,
                     Err(err) => { return Err(PlanError::RequestError{ address, err }); },
@@ -212,7 +212,7 @@ async fn plan_edges(table: &mut SymTable, edges: &mut [Edge], api_addr: &Address
 
                                     // Get the registry of that location
                                     let registry : &Address = &infra.get(location).unwrap_or_else(|| panic!("DataIndex advertises location '{}', but that location is unknown", location)).registry;
-                                    let address  : String  = format!("{}/data/download/{}", registry, name);
+                                    let address  : String  = format!("{registry}/data/download/{name}");
                                     debug!("Input dataset '{}' will be transferred in from '{}'", name, address);
 
                                     // That's the location where to pull the dataset from
@@ -235,7 +235,7 @@ async fn plan_edges(table: &mut SymTable, edges: &mut [Edge], api_addr: &Address
                                     let registry: &Address = &infra.get(loc).unwrap_or_else(|| panic!("IntermediateResult advertises location '{}', but that location is unknown", loc)).registry;
 
                                     // Compute the registry access method
-                                    let address: String = format!("{}/results/download/{}", registry, name);
+                                    let address: String = format!("{registry}/results/download/{name}");
                                     debug!("Input intermediate result '{}' will be transferred in from '{}'", name, address);
 
                                     // That's the location where to pull the dataset from
@@ -393,7 +393,7 @@ fn plan_deferred(table: &SymTable, edges: &mut [Edge], infra: &InfraFile, pc: us
                                 let registry: &Address = &infra.get(loc).unwrap_or_else(|| panic!("IntermediateResult advertises location '{}', but that location is unknown", loc)).registry;
 
                                 // Compute the registry access method
-                                let address: String = format!("{}/results/download/{}", registry, name);
+                                let address: String = format!("{registry}/results/download/{name}");
                                 debug!("Input intermediate result '{}' will be transferred in from '{}'", name, address);
 
                                 // That's the location where to pull the dataset from
@@ -562,7 +562,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
             // Get the key
             let id: String = String::from_utf8_lossy(owned_message.key().unwrap_or(&[])).to_string();
             info!("Received new plan request with ID '{}'", id);
-            let report = ProfileReport::auto_reporting_file(format!("brane-plr workflow {}", id), format!("brane-plr_workflow-{}", id));
+            let report = ProfileReport::auto_reporting_file(format!("brane-plr workflow {id}"), format!("brane-plr_workflow-{id}"));
             let _total = report.time("Total");
 
             // Fetch the most recent NodeConfig
@@ -641,7 +641,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
                         debug!("Planning main edges...");
                         if let Err(err) = alg.time_fut("<<<main>>>", plan_edges(&mut table, &mut edges, &central.services.api.address, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
                             error!("Failed to plan main edges for workflow with correlation ID '{}': {}", id, err);
-                            if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
+                            if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Error(format!("{err}"))).await { error!("Failed to update client that planning has failed: {}", err); }
                             return Ok(());
                         };
 
@@ -662,7 +662,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
                             debug!("Planning '{}' edges...", table.funcs[*idx].name);
                             if let Err(err) = alg.time_fut(workflow.table.funcs[*idx].name.to_string(), plan_edges(&mut table, edges, &central.services.api.address, &dindex, &infra, 0, None, false, &mut HashSet::new())).await {
                                 error!("Failed to plan function '{}' edges for workflow with correlation ID '{}': {}", table.funcs[*idx].name, id, err);
-                                if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
+                                if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Error(format!("{err}"))).await { error!("Failed to update client that planning has failed: {}", err); }
                                 return Ok(());
                             }
                         }
@@ -684,7 +684,7 @@ pub async fn planner_server(node_config_path: impl Into<PathBuf>, central_config
                     Ok(splan) => splan,
                     Err(err)  => {
                         error!("Failed to serialize plan: {}", err);
-                        if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Error(format!("{}", err))).await { error!("Failed to update client that planning has failed: {}", err); }
+                        if let Err(err) = send_update(producer.clone(), &central.services.plr.res, &id, PlanningStatus::Error(format!("{err}"))).await { error!("Failed to update client that planning has failed: {}", err); }
                         return Ok(());
                     },
                 };

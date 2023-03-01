@@ -189,7 +189,7 @@ where
             }
 
             // Print the thing
-            write!(f, "{}", item)?;
+            write!(f, "{item}")?;
         }
 
         // Done

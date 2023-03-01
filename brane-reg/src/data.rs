@@ -271,7 +271,7 @@ pub async fn get(name: String, context: Arc<Context>) -> Result<impl Reply, Reje
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
     // Start profiling (F first function, but now we can use the location)
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info/{}", name), format!("brane-reg_{}_info-{}", node_config.node.worker().name, name));
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/info/{name}"), format!("brane-reg_{}_info-{}", node_config.node.worker().name, name));
     let _guard = report.time("Total");
 
     // Load the store
@@ -342,7 +342,7 @@ pub async fn download_data(cert: Option<Certificate>, name: String, context: Arc
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
     // Start profiling (F first function, but now we can use the location)
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/download/{}", name), format!("brane-reg_{}_download-{}", node_config.node.worker().name, name));
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /data/download/{name}"), format!("brane-reg_{}_download-{}", node_config.node.worker().name, name));
 
     // Load the store
     debug!("Loading data ('{}') and results ('{}')...", node_config.node.worker().paths.data.display(), node_config.node.worker().paths.results.display());
@@ -497,7 +497,7 @@ pub async fn download_result(cert: Option<Certificate>, name: String, context: A
     if !node_config.node.is_worker() { error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display()); return Err(warp::reject::reject()); }
 
     // Start profiling (F first function, but now we can use the location)
-    let report = ProfileReport::auto_reporting_file(format!("brane-reg /results/download/{}", name), format!("brane-reg_{}_download-{}", node_config.node.worker().name, name));
+    let report = ProfileReport::auto_reporting_file(format!("brane-reg /results/download/{name}"), format!("brane-reg_{}_download-{}", node_config.node.worker().name, name));
 
     // Load the store
     debug!("Loading data ('{}') and results ('{}')...", node_config.node.worker().paths.data.display(), node_config.node.worker().paths.results.display());

@@ -81,7 +81,7 @@ pub async fn execute(
                 let name = &parameter_data.name;
                 let value = arguments.get(name).expect("Missing argument.");
                 /* TIM */
-                operation_url = operation_url.replace(&format!("%7B{}%7D", name), &value.to_string());
+                operation_url = operation_url.replace(&format!("%7B{name}%7D"), &value.to_string());
                 /*******/
             }
             OParameter::Query { parameter_data, .. } => {
@@ -97,7 +97,7 @@ pub async fn execute(
     if let Some(Some(security_scheme)) = &operation.security.map(|s| s.first().cloned()) {
         if let Some(security_scheme) = security_scheme.keys().next() {
             let item = ReferenceOr::Reference::<SecurityScheme> {
-                reference: format!("#/components/schemas/{}", security_scheme),
+                reference: format!("#/components/schemas/{security_scheme}"),
             };
 
             let security_scheme = resolver::resolve_security_scheme(&item, &components)?;
@@ -124,7 +124,7 @@ pub async fn execute(
                     }
 
                     let value = arguments.get("token").expect("Missing `token` argument.");
-                    headers.push((String::from("Authorization"), format!("Bearer {}", value)));
+                    headers.push((String::from("Authorization"), format!("Bearer {value}")));
                 }
                 _ => todo!(),
             }

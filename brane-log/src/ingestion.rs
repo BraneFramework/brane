@@ -168,7 +168,7 @@ async fn process_message(
     }
 
     // Prepare for insertion.
-    let kind = format!("{:?}", kind).to_lowercase();
+    let kind = format!("{kind:?}").to_lowercase();
     let information_str = serde_json::to_string(&information)?;
 
     // Insert event
@@ -191,7 +191,7 @@ async fn process_message(
     session
         .execute(&query, values)
         .await
-        .with_context(|| format!("Failed to insert event: {:?}", event))?;
+        .with_context(|| format!("Failed to insert event: {event:?}"))?;
 
     let timestamp = OffsetDateTime::from_unix_timestamp(event.timestamp)?.format(&Rfc3339)?;
     let event = schema::Event {

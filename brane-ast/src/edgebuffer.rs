@@ -241,7 +241,7 @@ impl EdgeBufferNode {
             Edge::Linear{ .. } |
             Edge::Join{ .. }   |
             Edge::Call{ .. }   => {},
-            edge               => { panic!("Attempted to connect an edge of type '{:?}' linearly", edge); },
+            edge               => { panic!("Attempted to connect an edge of type '{edge:?}' linearly"); },
         }
     }
 
@@ -259,7 +259,7 @@ impl EdgeBufferNode {
     fn assert_branch(edge: &Edge) {
         match edge {
             Edge::Branch{ .. } => {},
-            edge               => { panic!("Attempted to connect an edge of type '{:?}' branching", edge); },
+            edge               => { panic!("Attempted to connect an edge of type '{edge:?}' branching"); },
         }
     }
 
@@ -277,7 +277,7 @@ impl EdgeBufferNode {
     fn assert_parallel(edge: &Edge) {
         match edge {
             Edge::Parallel{ .. } => {},
-            edge                 => { panic!("Attempted to connect an edge of type '{:?}' parallel", edge); },
+            edge                 => { panic!("Attempted to connect an edge of type '{edge:?}' parallel"); },
         }
     }
 
@@ -295,7 +295,7 @@ impl EdgeBufferNode {
     fn assert_loop(edge: &Edge) {
         match edge {
             Edge::Loop{ .. } => {},
-            edge             => { panic!("Attempted to connect an edge of type '{:?}' as a loop", edge); },
+            edge             => { panic!("Attempted to connect an edge of type '{edge:?}' as a loop"); },
         }
     }
 
@@ -314,7 +314,7 @@ impl EdgeBufferNode {
         match edge {
             Edge::Stop{ .. }   |
             Edge::Return{ .. } => {},
-            edge               => { panic!("Attempted to mark an edge of type '{:?}' as a stop node", edge); },
+            edge               => { panic!("Attempted to mark an edge of type '{edge:?}' as a stop node"); },
         }
     }
 

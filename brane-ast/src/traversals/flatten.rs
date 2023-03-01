@@ -164,7 +164,7 @@ fn print_state(state: &TableState, indent: usize) {
     for f in &state.funcs {
         println!("{}{}{}({}) -> {} [",
             indent!(INDENT_SIZE + indent),
-            if let Some(class_name) = &f.class_name { format!("{}::", class_name) } else { String::new() },
+            if let Some(class_name) = &f.class_name { format!("{class_name}::") } else { String::new() },
             f.name,
             (0..f.signature.args.len()).map(|i| format!("{}", f.signature.args[i])).collect::<Vec<String>>().join(", "),
             f.signature.ret,

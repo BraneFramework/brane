@@ -171,7 +171,7 @@ impl InstanceInfo {
         };
 
         // Finally write it
-        match write!(handle, "{}", sself) {
+        match write!(handle, "{sself}") {
             Ok(_)    => Ok(()),
             Err(err) => Err(Error::InstanceInfoWriteError{ path: path.into(), err }),
         }
@@ -266,7 +266,7 @@ pub async fn add(name: String, hostname: Hostname, api_port: u16, drv_port: u16,
         debug!("Checking instance reachability...");
 
         // Do a simple HTTP call to the health
-        let health_addr : String            = format!("{}/health", api);
+        let health_addr : String            = format!("{api}/health");
         let res         : reqwest::Response = match reqwest::get(&health_addr).await {
             Ok(res)  => res,
             Err(err) => { return Err(Error::RequestError{ address: health_addr, err }); },
@@ -468,7 +468,7 @@ pub async fn list(show_status: bool) -> Result<(), Error> {
             // Get the status
             let status: String = 'reach: {
                 // Do a simple HTTP call to the health and see where we fail
-                let health_addr : String            = format!("{}/health", api_addr);
+                let health_addr : String            = format!("{api_addr}/health");
                 let res         : reqwest::Response = match reqwest::get(&health_addr).await {
                     Ok(res) => res,
                     Err(_)  => { break 'reach style("UNREACHABLE").red().bold().to_string(); },
@@ -549,7 +549,7 @@ pub fn select(name: String) -> Result<(), Error> {
 /// # Errors
 /// This function errors if we failed to find the instance or failed to update its file.
 pub fn edit(name: Option<String>, hostname: Option<Hostname>, api_port: Option<u16>, drv_port: Option<u16>) -> Result<(), Error> {
-    info!("Editing instance {}...", name.as_ref().map(|n| format!("'{}'", n)).unwrap_or("<active>".into()));
+    info!("Editing instance {}...", name.as_ref().map(|n| format!("'{n}'")).unwrap_or("<active>".into()));
 
     // Get the instance's directory
     debug!("Resolving instance directory...");

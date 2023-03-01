@@ -78,7 +78,7 @@ impl VmPlugin for OfflinePlugin {
         let mut info = info;
         info!("Calling task '{}' in an offline environment", info.name);
         debug!("Package: '{}', version {}", info.package_name, info.package_version);
-        debug!("Task input (data-wise): {}", info.input.iter().map(|(name, access)| format!("'{}' ({:?})", name, access)).collect::<Vec<String>>().join(", "));
+        debug!("Task input (data-wise): {}", info.input.iter().map(|(name, access)| format!("'{name}' ({access:?})")).collect::<Vec<String>>().join(", "));
         debug!("Task generates result? {}", if info.result.is_some() { "yes" } else { "no" });
 
         // First, we query the global state to find the result directory and required indices
@@ -162,9 +162,9 @@ impl VmPlugin for OfflinePlugin {
 
         // Simply write
         if !newline {
-            print!("{}", text);
+            print!("{text}");
         } else {
-            println!("{}", text);
+            println!("{text}");
         }
 
         // Done

@@ -65,7 +65,7 @@ async fn download_brane_services(address: impl AsRef<str>, path: impl AsRef<Path
         Ok(temp) => temp,
         Err(err) => { return Err(Error::TempDirError { err }); },
     };
-    let tar_path: PathBuf = temp.path().join(format!("{}.tar.gz", tar_name));
+    let tar_path: PathBuf = temp.path().join(format!("{tar_name}.tar.gz"));
 
     // Download it
     if let Err(err) = download_file_async(address, &tar_path, DownloadSecurity::https(), Some(Style::new().green().bold())).await {
@@ -77,7 +77,7 @@ async fn download_brane_services(address: impl AsRef<str>, path: impl AsRef<Path
     }
 
     // Extract the folder to the same temporary directory
-    println!("Unpacking {}...", style(format!("{}.tar.gz", tar_name)).bold().green());
+    println!("Unpacking {}...", style(format!("{tar_name}.tar.gz")).bold().green());
     let dir_path: PathBuf = temp.path().join("services");
     if let Err(err) = unarchive_async(&tar_path, &dir_path).await {
         // Don't call the destructor of `TempDir`, since it's much easier to debug if it lives after creation
@@ -220,7 +220,7 @@ pub async fn services(fix_dirs: bool, path: impl AsRef<Path>, arch: Arch, versio
             // Download the pre-determined set of auxillary images
             for (name, image) in AUXILLARY_DOCKER_IMAGES {
                 // We can skip it if it already exists
-                let image_path: PathBuf = path.join(format!("{}.tar", name));
+                let image_path: PathBuf = path.join(format!("{name}.tar"));
                 if !force && image_path.exists() {
                     debug!("Image '{}' already exists (skipping)", image_path.display());
                     continue;

@@ -135,7 +135,7 @@ async fn build(
 
         Err(err) => {
             // Print the error first
-            eprintln!("{}", err);
+            eprintln!("{err}");
 
             // Print some output message, and then cleanup
             println!(
@@ -282,7 +282,7 @@ fn prepare_directory(
     let file_path = package_dir.join("Dockerfile");
     match File::create(&file_path) {
         Ok(ref mut handle) => {
-            if let Err(err) = write!(handle, "{}", dockerfile) {
+            if let Err(err) = write!(handle, "{dockerfile}") {
                 return Err(BuildError::DockerfileWriteError{ path: file_path, err });
             }
         },
@@ -378,10 +378,10 @@ fn prepare_directory(
     command.current_dir(&container_dir);
     let output = match command.output() {
         Ok(output) => output,
-        Err(err)   => { return Err(BuildError::WdCompressionLaunchError{ command: format!("{:?}", command), err }); }
+        Err(err)   => { return Err(BuildError::WdCompressionLaunchError{ command: format!("{command:?}"), err }); }
     };
     if !output.status.success() {
-        return Err(BuildError::WdCompressionError{ command: format!("{:?}", command), code: output.status.code().unwrap_or(-1), stdout: String::from_utf8_lossy(&output.stdout).to_string(), stderr: String::from_utf8_lossy(&output.stderr).to_string() });
+        return Err(BuildError::WdCompressionError{ command: format!("{command:?}"), code: output.status.code().unwrap_or(-1), stdout: String::from_utf8_lossy(&output.stdout).to_string(), stderr: String::from_utf8_lossy(&output.stderr).to_string() });
     }
 
     // We're done with the working directory zip!

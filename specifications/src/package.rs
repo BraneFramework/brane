@@ -57,7 +57,7 @@ impl PackageKindError {
         let mut kinds = String::new();
         for kind in PackageKind::iter() {
             if !kinds.is_empty() { kinds += ", "; }
-            kinds += &format!("'{}'", kind);
+            kinds += &format!("'{kind}'");
         }
         kinds
     }
@@ -82,7 +82,7 @@ impl std::fmt::Display for CapabilityParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use CapabilityParseError::*;
         match self {
-            UnknownCapability{ raw } => write!(f, "Unknown capability '{}'", raw),
+            UnknownCapability{ raw } => write!(f, "Unknown capability '{raw}'"),
         }
     }
 }
@@ -109,13 +109,13 @@ pub enum PackageInfoError {
 impl std::fmt::Display for PackageInfoError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PackageInfoError::IllegalString{ err }     => write!(f, "Cannot construct PackageInfo object from YAML string: {}", err),
+            PackageInfoError::IllegalString{ err }     => write!(f, "Cannot construct PackageInfo object from YAML string: {err}"),
             PackageInfoError::IllegalFile{ path, err } => write!(f, "Cannot construct PackageInfo object from YAML file '{}': {}", path.display(), err),
-            PackageInfoError::IllegalJsonValue{ err }  => write!(f, "Cannot construct PackageInfo object from JSON value: {}", err),
+            PackageInfoError::IllegalJsonValue{ err }  => write!(f, "Cannot construct PackageInfo object from JSON value: {err}"),
             PackageInfoError::IOError{ path, err }     => write!(f, "Error while trying to read PackageInfo file '{}': {}", path.display(), err),
 
             PackageInfoError::FileCreateError{ path, err } => write!(f, "Could not create package info file '{}': {}", path.display(), err),
-            PackageInfoError::FileWriteError{ err }        => write!(f, "Could not serialize & write package info file: {}", err),
+            PackageInfoError::FileWriteError{ err }        => write!(f, "Could not serialize & write package info file: {err}"),
         }
     }
 }
@@ -146,15 +146,15 @@ pub enum PackageIndexError{
 impl std::fmt::Display for PackageIndexError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PackageIndexError::DuplicatePackage{ name, version }   => write!(f, "Encountered duplicate version {} of package '{}'", version, name),
-            PackageIndexError::IllegalVersion{ package, raw, err } => write!(f, "Could not parse version string '{}' in package.yml of package '{}' to a Version: {}", raw, package, err),
+            PackageIndexError::DuplicatePackage{ name, version }   => write!(f, "Encountered duplicate version {version} of package '{name}'"),
+            PackageIndexError::IllegalVersion{ package, raw, err } => write!(f, "Could not parse version string '{raw}' in package.yml of package '{package}' to a Version: {err}"),
 
-            PackageIndexError::RequestFailed{ url, err }     => write!(f, "Could not send a request to '{}': {}", url, err),
-            PackageIndexError::ResponseNot200{ url, status } => write!(f, "Request sent to '{}' returned status {}", url, status),
-            PackageIndexError::IllegalJsonFile{ url, err } => write!(f, "Cannot construct PackageIndex object from JSON file at '{}': {}", url, err),
+            PackageIndexError::RequestFailed{ url, err }     => write!(f, "Could not send a request to '{url}': {err}"),
+            PackageIndexError::ResponseNot200{ url, status } => write!(f, "Request sent to '{url}' returned status {status}"),
+            PackageIndexError::IllegalJsonFile{ url, err } => write!(f, "Cannot construct PackageIndex object from JSON file at '{url}': {err}"),
 
-            PackageIndexError::IllegalJsonReader{ err }    => write!(f, "Cannot construct PackageIndex object from JSON reader: {}", err),
-            PackageIndexError::IllegalPackageInfos{ err }  => write!(f, "Cannot parse list of PackageInfos: {}", err),
+            PackageIndexError::IllegalJsonReader{ err }    => write!(f, "Cannot construct PackageIndex object from JSON reader: {err}"),
+            PackageIndexError::IllegalPackageInfos{ err }  => write!(f, "Cannot parse list of PackageInfos: {err}"),
             PackageIndexError::IOError{ path, err }        => write!(f, "Error while trying to read PackageIndex file '{}': {}", path.display(), err),
         }
     }
@@ -711,7 +711,7 @@ impl PackageIndex {
         };
 
         // Try to return the package info matching to this name/version pair
-        self.packages.get(&format!("{}-{}", name, version))
+        self.packages.get(&format!("{name}-{version}"))
     }
 
     /// Returns the latest version of the given package.

@@ -480,8 +480,8 @@ impl Display for DataName {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use DataName::*;
         match self {
-            Data(name)               => write!(f, "Data<{}>", name),
-            IntermediateResult(name) => write!(f, "IntermediateResult<{}>", name),
+            Data(name)               => write!(f, "Data<{name}>"),
+            IntermediateResult(name) => write!(f, "IntermediateResult<{name}>"),
         }
     }
 }

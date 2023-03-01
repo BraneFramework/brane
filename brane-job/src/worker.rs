@@ -298,7 +298,7 @@ pub async fn preprocess_transfer_tar(worker_cfg: &WorkerConfig, proxy: Arc<Proxy
             }
 
             // Add the name of the file as the final result path
-            (tar_path.join(format!("data_{}.tar.gz", name)), data_path)
+            (tar_path.join(format!("data_{name}.tar.gz")), data_path)
         },
 
         DataName::IntermediateResult(name) => {
@@ -310,7 +310,7 @@ pub async fn preprocess_transfer_tar(worker_cfg: &WorkerConfig, proxy: Arc<Proxy
             }
 
             // Add the name of the file as the final result path
-            (tar_path.join(format!("res_{}.tar.gz", name)), res_path)
+            (tar_path.join(format!("res_{name}.tar.gz")), res_path)
         },
     };
     pre.stop();
@@ -444,13 +444,13 @@ async fn assert_workflow_permission(worker_cfg: &WorkerConfig, _workflow: &Workf
 
             ContainerPolicy::Allow{ name, hash } => {
                 if hash == container_hash {
-                    debug!("Allowing execution of container '{}' based on rule {} (Allow{})", container_hash, i, if let Some(name) = name { format!(" '{}'", name) } else { String::new() });
+                    debug!("Allowing execution of container '{}' based on rule {} (Allow{})", container_hash, i, if let Some(name) = name { format!(" '{name}'") } else { String::new() });
                     return Ok(true);
                 }
             },
             ContainerPolicy::Deny{ name, hash } => {
                 if hash == container_hash {
-                    debug!("Denying execution of container '{}' based on rule {} (Deny{})", container_hash, i, if let Some(name) = name { format!(" '{}'", name) } else { String::new() });
+                    debug!("Denying execution of container '{}' based on rule {} (Deny{})", container_hash, i, if let Some(name) = name { format!(" '{name}'") } else { String::new() });
                     return Ok(false);
                 }
             },
@@ -700,14 +700,14 @@ async fn execute_task_local(worker_cfg: &WorkerConfig, dinfo: DockerInfo, tx: &S
     // First, we preprocess the arguments
     let binds: Vec<VolumeBind> = match prof.time_fut("preprocessing", docker::preprocess_args(&mut tinfo.args, &tinfo.input, &tinfo.result, Some(&worker_cfg.paths.data), &worker_cfg.paths.results)).await {
         Ok(binds) => binds,
-        Err(err)  => { return Err(JobStatus::CreationFailed(format!("Failed to preprocess arguments: {}", err))); },
+        Err(err)  => { return Err(JobStatus::CreationFailed(format!("Failed to preprocess arguments: {err}"))); },
     };
 
     // Serialize them next
     let ser = prof.time("Serialization");
     let params: String = match serde_json::to_string(&tinfo.args) {
         Ok(params) => params,
-        Err(err)   => { return Err(JobStatus::CreationFailed(format!("Failed to serialize arguments: {}", err))); },
+        Err(err)   => { return Err(JobStatus::CreationFailed(format!("Failed to serialize arguments: {err}"))); },
     };
     ser.stop();
 
@@ -738,7 +738,7 @@ async fn execute_task_local(worker_cfg: &WorkerConfig, dinfo: DockerInfo, tx: &S
     let total = prof.time("Total");
     let name: String = match exec.time_fut("spawn overhead", docker::launch(info, &dinfo.socket_path, dinfo.client_version)).await {
         Ok(name) => name,
-        Err(err) => { return Err(JobStatus::CreationFailed(format!("Failed to spawn container: {}", err))); },
+        Err(err) => { return Err(JobStatus::CreationFailed(format!("Failed to spawn container: {err}"))); },
     };
     if let Err(err) = update_client(tx, JobStatus::Created).await { error!("{}", err); }
     if let Err(err) = update_client(tx, JobStatus::Started).await { error!("{}", err); }
@@ -746,7 +746,7 @@ async fn execute_task_local(worker_cfg: &WorkerConfig, dinfo: DockerInfo, tx: &S
     // ...and wait for it to complete
     let (code, stdout, stderr): (i32, String, String) = match exec.time_fut("join overhead", docker::join(name, dinfo.socket_path, dinfo.client_version, keep_container)).await {
         Ok(name) => name,
-        Err(err) => { return Err(JobStatus::CompletionFailed(format!("Failed to join container: {}", err))); },
+        Err(err) => { return Err(JobStatus::CompletionFailed(format!("Failed to join container: {err}"))); },
     };
     total.stop();
     exec.finish();
@@ -766,11 +766,11 @@ async fn execute_task_local(worker_cfg: &WorkerConfig, dinfo: DockerInfo, tx: &S
     let output = stdout.lines().last().unwrap_or_default().to_string();
     let raw: String = match decode_base64(output) {
         Ok(raw)  => raw,
-        Err(err) => { return Err(JobStatus::DecodingFailed(format!("Failed to decode output ase base64: {}", err))); },
+        Err(err) => { return Err(JobStatus::DecodingFailed(format!("Failed to decode output ase base64: {err}"))); },
     };
     let value: FullValue = match serde_json::from_str::<Option<FullValue>>(&raw) {
         Ok(value) => value.unwrap_or(FullValue::Void),
-        Err(err)  => { return Err(JobStatus::DecodingFailed(format!("Failed to decode output as JSON: {}", err))); },
+        Err(err)  => { return Err(JobStatus::DecodingFailed(format!("Failed to decode output as JSON: {err}"))); },
     };
     decode.stop();
 
@@ -1137,7 +1137,7 @@ impl JobService for WorkerServer {
         };
 
         // Do the profiling (F the first function)
-        let report = ProfileReport::auto_reporting_file("brane-job WorkerServer::preprocess", format!("brane-job_{}_preprocess", location_id));
+        let report = ProfileReport::auto_reporting_file("brane-job WorkerServer::preprocess", format!("brane-job_{location_id}_preprocess"));
         let _total = report.time("Total");
 
         // Fetch the data kind
@@ -1220,7 +1220,7 @@ impl JobService for WorkerServer {
         };
 
         // Do the profiling
-        let report   = ProfileReport::auto_reporting_file("brane-job WorkerServer::execute", format!("brane-job_{}_execute", location_id));
+        let report   = ProfileReport::auto_reporting_file("brane-job WorkerServer::execute", format!("brane-job_{location_id}_execute"));
         let overhead = report.nest("handler overhead");
         let total    = overhead.time("Total");
 
@@ -1234,7 +1234,7 @@ impl JobService for WorkerServer {
             Err(err)     => {
                 error!("Failed to deserialize workflow: {}", err);
                 debug!("Workflow:\n{}\n{}\n{}\n", (0..80).map(|_| '-').collect::<String>(), request.workflow, (0..80).map(|_| '-').collect::<String>());
-                if let Err(err) = tx.send(Err(Status::invalid_argument(format!("Failed to deserialize workflow: {}", err)))).await { error!("{}", err); }
+                if let Err(err) = tx.send(Err(Status::invalid_argument(format!("Failed to deserialize workflow: {err}")))).await { error!("{}", err); }
                 return Ok(Response::new(ReceiverStream::new(rx)));
             },
         };
@@ -1336,7 +1336,7 @@ impl JobService for WorkerServer {
         };
 
         // Do the profiling
-        let report = ProfileReport::auto_reporting_file("brane-job WorkerServer::commit", format!("brane-job_{}_commit", location_id));
+        let report = ProfileReport::auto_reporting_file("brane-job WorkerServer::commit", format!("brane-job_{location_id}_commit"));
         let _guard = report.time("Total");
 
         // Load the node config file

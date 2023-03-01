@@ -46,8 +46,8 @@ impl Display for DriverServiceError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use DriverServiceError::*;
         match self {
-            EndpointError{ address, err } => write!(f, "Failed to create a new Endpoint from '{}': {}", address, err),
-            ConnectError{ address, err }  => write!(f, "Failed to connect to gRPC endpoint '{}': {}", address, err),
+            EndpointError{ address, err } => write!(f, "Failed to create a new Endpoint from '{address}': {err}"),
+            ConnectError{ address, err }  => write!(f, "Failed to connect to gRPC endpoint '{address}': {err}"),
         }
     }
 }
@@ -160,7 +160,7 @@ impl DriverServiceClient {
     pub async fn create_session(&mut self, request: impl tonic::IntoRequest<CreateSessionRequest>) -> Result<Response<CreateSessionReply>, Status> {
         // Assert the client is ready to get the party started
         if let Err(err) = self.client.ready().await {
-            return Err(Status::new(Code::Unknown, format!("Service was not ready: {}", err)));
+            return Err(Status::new(Code::Unknown, format!("Service was not ready: {err}")));
         }
 
         // Set the default stuff
@@ -182,7 +182,7 @@ impl DriverServiceClient {
     pub async fn execute(&mut self, request: impl tonic::IntoRequest<ExecuteRequest>) -> Result<Response<Streaming<ExecuteReply>>, Status> {
         // Assert the client is ready to get the party started
         if let Err(err) = self.client.ready().await {
-            return Err(Status::new(Code::Unknown, format!("Service was not ready: {}", err)));
+            return Err(Status::new(Code::Unknown, format!("Service was not ready: {err}")));
         }
 
         // Set the default stuff

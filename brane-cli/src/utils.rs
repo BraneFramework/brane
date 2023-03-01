@@ -43,10 +43,10 @@ impl Display for DependencyError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
             DependencyError::DockerNotInstalled               => write!(f, "Local Docker instance cannot be reached (is Docker installed and running?)"),
-            DependencyError::DockerMinNotMet{ got, expected } => write!(f, "Docker version is {}, but Brane requires version {} or later", got, expected),
+            DependencyError::DockerMinNotMet{ got, expected } => write!(f, "Docker version is {got}, but Brane requires version {expected} or later"),
 
             DependencyError::BuildkitNotInstalled               => write!(f, "Local Docker instance does not have the Buildkit plugin installed"),
-            DependencyError::BuildKitMinNotMet{ got, expected } => write!(f, "Buildkit plugin for Docker version is {}, but Brane requires version {} or later", got, expected),
+            DependencyError::BuildKitMinNotMet{ got, expected } => write!(f, "Buildkit plugin for Docker version is {got}, but Brane requires version {expected} or later"),
         }
     }
 }

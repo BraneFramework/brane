@@ -139,7 +139,7 @@ fn update_link(edge: &mut Edge, index: usize) {
         },
 
         Return{} => {},
-        edge     => { panic!("Attempted to update the linear link on edge '{:?}'", edge); },
+        edge     => { panic!("Attempted to update the linear link on edge '{edge:?}'"); },
     }
 }
 

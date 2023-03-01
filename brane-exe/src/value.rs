@@ -48,7 +48,7 @@ mod tests {
         // Unwrap the serialization
         let ser: String = match ser {
             Ok(ser)  => ser,
-            Err(err) => { panic!("Serialization failed with error: {}", err); }
+            Err(err) => { panic!("Serialization failed with error: {err}"); }
         };
 
         // Now compare each of the six permutations
@@ -251,17 +251,17 @@ impl<'a, 'b> Display for ValueDisplay<'a, 'b> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Value::*;
         match self.value {
-            Boolean{ value } => write!(f, "{}", value),
-            Integer{ value } => write!(f, "{}", value),
-            Real{ value }    => write!(f, "{}", value),
-            String{ value }  => write!(f, "{}", value),
+            Boolean{ value } => write!(f, "{value}"),
+            Integer{ value } => write!(f, "{value}"),
+            Real{ value }    => write!(f, "{value}"),
+            String{ value }  => write!(f, "{value}"),
 
             Array{ values }         => write!(f, "[{}]",
                 values.iter().map(|v| format!("{}", v.display(self.table))).collect::<Vec<std::string::String>>().join(", ")
             ),
             Function{ def }         => write!(f, "{}({}) -> {}",
                 self.table.func(*def).name,
-                self.table.func(*def).args.iter().map(|a| format!("{}", a)).collect::<Vec<std::string::String>>().join(","),
+                self.table.func(*def).args.iter().map(|a| format!("{a}")).collect::<Vec<std::string::String>>().join(","),
                 self.table.func(*def).ret
             ),
             Instance{ values, def } => write!(f, "{} {{{}{}{}}}",
@@ -273,11 +273,11 @@ impl<'a, 'b> Display for ValueDisplay<'a, 'b> {
             Method{ cdef, fdef, .. } => write!(f, "{}::{}({}) -> {}",
                 self.table.class(*cdef).name,
                 self.table.func(*fdef).name,
-                self.table.func(*fdef).args.iter().map(|a| format!("{}", a)).collect::<Vec<std::string::String>>().join(","),
+                self.table.func(*fdef).args.iter().map(|a| format!("{a}")).collect::<Vec<std::string::String>>().join(","),
                 self.table.func(*fdef).ret
             ),
-            Data{ name }               => write!(f, "Data<{}>", name),
-            IntermediateResult{ name } => write!(f, "IntermediateResult<{}>", name),
+            Data{ name }               => write!(f, "Data<{name}>"),
+            IntermediateResult{ name } => write!(f, "IntermediateResult<{name}>"),
 
             Void => write!(f, "()"),
         }
@@ -920,22 +920,22 @@ impl Display for FullValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use FullValue::*;
         match self {
-            Boolean(value) => write!(f, "{}", value),
-            Integer(value) => write!(f, "{}", value),
-            Real(value)    => write!(f, "{}", value),
-            String(value)  => write!(f, "{}", value),
+            Boolean(value) => write!(f, "{value}"),
+            Integer(value) => write!(f, "{value}"),
+            Real(value)    => write!(f, "{value}"),
+            String(value)  => write!(f, "{value}"),
 
             Array(values)          => write!(f, "[{}]",
-                values.iter().map(|v| format!("{}", v)).collect::<Vec<std::string::String>>().join(", ")
+                values.iter().map(|v| format!("{v}")).collect::<Vec<std::string::String>>().join(", ")
             ),
             Instance(name, values) => write!(f, "{} {{{}{}{}}}",
                 name,
                 if values.is_empty() { "" } else { " " },
-                values.iter().map(|(n, v)| format!("{} := {}", n, v)).collect::<Vec<std::string::String>>().join(", "),
+                values.iter().map(|(n, v)| format!("{n} := {v}")).collect::<Vec<std::string::String>>().join(", "),
                 if values.is_empty() { "" } else { " " },
             ),
-            Data(name)               => write!(f, "{}", name),
-            IntermediateResult(name) => write!(f, "{}", name),
+            Data(name)               => write!(f, "{name}"),
+            IntermediateResult(name) => write!(f, "{name}"),
 
             Void => write!(f, "()"),
         }

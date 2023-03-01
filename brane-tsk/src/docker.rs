@@ -86,7 +86,7 @@ impl<'a> Display for ImageSourceSerializer<'a> {
         use ImageSource::*;
         match self.source {
             Path(path)       => write!(f, "Path<{}>", path.to_string_lossy()),
-            Registry(source) => write!(f, "Registry<{}>", source),
+            Registry(source) => write!(f, "Registry<{source}>"),
         }
     }
 }
@@ -111,7 +111,7 @@ impl Display for ImageSource {
         use ImageSource::*;
         match self {
             Path(path)     => write!(f, "{}", path.display()),
-            Registry(from) => write!(f, "{}", from),
+            Registry(from) => write!(f, "{from}"),
         }
     }
 }
@@ -220,8 +220,8 @@ impl Display for Network {
 
             Bridge          => write!(f, "bridge"),
             Host            => write!(f, "host"),
-            Container(name) => write!(f, "container:{}", name),
-            Custom(name)    => write!(f, "{}", name),
+            Container(name) => write!(f, "container:{name}"),
+            Custom(name)    => write!(f, "{name}"),
         }
     }
 }
@@ -229,13 +229,13 @@ impl Display for Network {
 impl From<Network> for String {
     #[inline]
     fn from(value: Network) -> Self {
-        format!("{}", value)
+        format!("{value}")
     }
 }
 impl From<&Network> for String {
     #[inline]
     fn from(value: &Network) -> Self {
-        format!("{}", value)
+        format!("{value}")
     }
 }
 
@@ -324,13 +324,13 @@ fn preprocess_arg(data_dir: Option<impl AsRef<Path>>, results_dir: impl AsRef<Pa
         // Some types might need recursion
         FullValue::Array(values) => {
             for (i, v) in values.iter_mut().enumerate() {
-                preprocess_arg(data_dir, results_dir, binds, input, format!("{}[{}]", name, i), v)?;
+                preprocess_arg(data_dir, results_dir, binds, input, format!("{name}[{i}]"), v)?;
             }
             return Ok(());
         },
         FullValue::Instance(_, props) => {
             for (n, v) in props {
-                preprocess_arg(data_dir, results_dir, binds, input, format!("{}.{}", name, n), v)?;
+                preprocess_arg(data_dir, results_dir, binds, input, format!("{name}.{n}"), v)?;
             }
             return Ok(());
         },
@@ -877,7 +877,7 @@ pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl
 pub async fn save_image(docker: &Docker, image: impl Into<Image>, target: impl AsRef<Path>) -> Result<(), Error> {
     let image  : Image = image.into();
     let target : &Path = target.as_ref();
-    debug!("Saving image {}{} to '{}'...", image.name, if let Some(version) = &image.version{ format!(":{}", version) } else { String::new() }, target.display());
+    debug!("Saving image {}{} to '{}'...", image.name, if let Some(version) = &image.version{ format!(":{version}") } else { String::new() }, target.display());
 
     // Open the output file
     let mut handle: tio::BufWriter<tfs::File> = match tfs::File::create(target).await {
@@ -889,7 +889,7 @@ pub async fn save_image(docker: &Docker, image: impl Into<Image>, target: impl A
     let name: String = if let Some(digest) = image.digest {
         digest
     } else {
-        format!("{}{}", image.name, if let Some(version) = image.version { format!(":{}", version) } else { String::new() })
+        format!("{}{}", image.name, if let Some(version) = image.version { format!(":{version}") } else { String::new() })
     };
 
     // Read the image tar as raw bytes from the Daemon
@@ -908,7 +908,7 @@ pub async fn save_image(docker: &Docker, image: impl Into<Image>, target: impl A
         debug!("Write OK");
         total += chunk.len();
     }
-    println!("Total downloaded size: {} bytes", total);
+    println!("Total downloaded size: {total} bytes");
 
     // Finish the stream & the handle
     if let Err(err) = handle.flush().await { return Err(Error::ImageFileShutdownError{ path: target.into(), err }); }

@@ -52,17 +52,17 @@ impl Display for RedirectError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use RedirectError::*;
         match self {
-            NoDomainName{ raw }                 => write!(f, "No domain name found in '{}'", raw),
-            IllegalUrl{ raw, err }              => write!(f, "Failed to parse '{}' as a valid URL: {}", raw, err),
-            TlsWithNonHostnameError{ kind }     => write!(f, "Got a request for TLS but with a non-hostname {} address provided", kind),
-            IllegalServerName{ raw, err }       => write!(f, "Cannot parse '{}' as a valid server name: {}", raw, err),
-            ListenerCreateError{ address, err } => write!(f, "Failed to create new TCP listener on '{}': {}", address, err),
-            Socks5CreateError{ address, err }   => write!(f, "Failed to create new SOCKS5 client to '{}': {}", address, err),
-            Socks6CreateError{ address, err }   => write!(f, "Failed to create new SOCKS6 client to '{}': {}", address, err),
+            NoDomainName{ raw }                 => write!(f, "No domain name found in '{raw}'"),
+            IllegalUrl{ raw, err }              => write!(f, "Failed to parse '{raw}' as a valid URL: {err}"),
+            TlsWithNonHostnameError{ kind }     => write!(f, "Got a request for TLS but with a non-hostname {kind} address provided"),
+            IllegalServerName{ raw, err }       => write!(f, "Cannot parse '{raw}' as a valid server name: {err}"),
+            ListenerCreateError{ address, err } => write!(f, "Failed to create new TCP listener on '{address}': {err}"),
+            Socks5CreateError{ address, err }   => write!(f, "Failed to create new SOCKS5 client to '{address}': {err}"),
+            Socks6CreateError{ address, err }   => write!(f, "Failed to create new SOCKS6 client to '{address}': {err}"),
 
-            TcpStreamConnectError{ address, err }     => write!(f, "Failed to connect to '{}': {}", address, err),
-            Socks5ConnectError{ address, proxy, err } => write!(f, "Failed to connect to '{}' through SOCKS5-proxy '{}': {}", address, proxy, err),
-            Socks6ConnectError{ address, proxy, err } => write!(f, "Failed to connect to '{}' through SOCKS6-proxy '{}': {}", address, proxy, err),
+            TcpStreamConnectError{ address, err }     => write!(f, "Failed to connect to '{address}': {err}"),
+            Socks5ConnectError{ address, proxy, err } => write!(f, "Failed to connect to '{address}' through SOCKS5-proxy '{proxy}': {err}"),
+            Socks6ConnectError{ address, proxy, err } => write!(f, "Failed to connect to '{address}' through SOCKS6-proxy '{proxy}': {err}"),
         }
     }
 }
@@ -97,16 +97,16 @@ impl Display for ClientError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ClientError::*;
         match self {
-            IllegalUrl{ raw, err }               => write!(f, "'{}' is not a valid URL: {}", raw, err),
-            UrlSchemeUpdateError{ url, scheme }  => write!(f, "Failed to update '{}' with new scheme '{}'", url, scheme),
-            UrlHostUpdateError{ url, host, err } => write!(f, "Failed to update '{}' with new host '{}': {}", url, host, err),
-            UrlPortUpdateError{ url, port }      => write!(f, "Failed to update '{}' with new port '{}'", url, port),
+            IllegalUrl{ raw, err }               => write!(f, "'{raw}' is not a valid URL: {err}"),
+            UrlSchemeUpdateError{ url, scheme }  => write!(f, "Failed to update '{url}' with new scheme '{scheme}'"),
+            UrlHostUpdateError{ url, host, err } => write!(f, "Failed to update '{url}' with new host '{host}': {err}"),
+            UrlPortUpdateError{ url, port }      => write!(f, "Failed to update '{url}' with new port '{port}'"),
 
-            RequestBuildError{ address, err }          => write!(f, "Failed to build a request to '{}': {}", address, err),
-            RequestError{ address, err }               => write!(f, "Failed to send request to '{}': {}", address, err),
-            RequestFailure{ address, code, err }       => write!(f, "Request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("??"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
-            RequestTextError{ address, err }           => write!(f, "Failed to get body of response from '{}' as plain text: {}", address, err),
-            RequestPortParseError{ address, raw, err } => write!(f, "Failed to parse '{}' received from '{}' as a port number: {}", raw, address, err),
+            RequestBuildError{ address, err }          => write!(f, "Failed to build a request to '{address}': {err}"),
+            RequestError{ address, err }               => write!(f, "Failed to send request to '{address}': {err}"),
+            RequestFailure{ address, code, err }       => write!(f, "Request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("??"), if let Some(err) = err { format!(": {err}") } else { String::new() }),
+            RequestTextError{ address, err }           => write!(f, "Failed to get body of response from '{address}' as plain text: {err}"),
+            RequestPortParseError{ address, raw, err } => write!(f, "Failed to parse '{raw}' received from '{address}' as a port number: {err}"),
         }
     }
 }

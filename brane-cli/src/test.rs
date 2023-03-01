@@ -166,7 +166,7 @@ fn prompt_for_param(what: impl AsRef<str>, name: impl AsRef<str>, data_type: Dat
 
                 // Prompt the user to use it
                 if match Confirm::new()
-                    .with_prompt(format!("{} has a default value: {}; would you like to use that?", style(name).bold().cyan(), style(format!("{}", default)).bold()))
+                    .with_prompt(format!("{} has a default value: {}; would you like to use that?", style(name).bold().cyan(), style(format!("{default}")).bold()))
                     .interact() {
                     Ok(use_default) => use_default,
                     Err(err)        => { return Err(TestError::YesNoQueryError{ err }); },
@@ -204,7 +204,7 @@ fn prompt_for_param(what: impl AsRef<str>, name: impl AsRef<str>, data_type: Dat
 
                 // Prompt the user to use it
                 if match Confirm::new()
-                    .with_prompt(format!("{} has a default value: {}; would you like to use that?", style(name).bold().cyan(), style(format!("{}", default)).bold()))
+                    .with_prompt(format!("{} has a default value: {}; would you like to use that?", style(name).bold().cyan(), style(format!("{default}")).bold()))
                     .interact() {
                     Ok(use_default) => use_default,
                     Err(err)        => { return Err(TestError::YesNoQueryError{ err }); },
@@ -332,20 +332,20 @@ fn write_value(value: FullValue) -> String {
         },
         FullValue::Instance(name, props) => {
             // Write them all in an instance expression
-            format!("new {}{{ {} }}", name, props.into_iter().map(|(n, v)| format!("{} := {}", n, v)).collect::<Vec<String>>().join(", "))
+            format!("new {}{{ {} }}", name, props.into_iter().map(|(n, v)| format!("{n} := {v}")).collect::<Vec<String>>().join(", "))
         },
         FullValue::Data(name) => {
             // Write it as a new Data declaration
-            format!("new Data{{ name := \"{}\" }}", name)
+            format!("new Data{{ name := \"{name}\" }}")
         },
         FullValue::IntermediateResult(name) => {
             // Also write it as a new Data declaration
-            format!("new Data{{ name := \"{}\" }}", name)
+            format!("new Data{{ name := \"{name}\" }}")
         },
 
         FullValue::Boolean(value) => if value { "true".into() } else { "false".into() },
-        FullValue::Integer(value) => format!("{}", value),
-        FullValue::Real(value)    => format!("{}", value),
+        FullValue::Integer(value) => format!("{value}"),
+        FullValue::Real(value)    => format!("{value}"),
         FullValue::String(value)  => format!("\"{}\"", value.replace('\\', "\\\\").replace('\"', "\\\"")),
 
         FullValue::Void => String::new(),
@@ -386,7 +386,7 @@ pub async fn handle(name: impl Into<String>, version: Version, show_result: Opti
     let output: FullValue = test_generic(package_info, show_result).await?;
 
     // Print it, done
-    println!("Result: {} [{}]", style(format!("{}", output)).bold().cyan(), style(format!("{}", output.data_type())).bold());
+    println!("Result: {} [{}]", style(format!("{output}")).bold().cyan(), style(format!("{}", output.data_type())).bold());
     Ok(())
 }
 
@@ -442,13 +442,13 @@ pub async fn test_generic(info: PackageInfo, show_result: Option<PathBuf>) -> Re
             // Write the result
             println!();
             println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("Contents of intermediate result '{}':", name);
+            println!("Contents of intermediate result '{name}':");
             let path: PathBuf = state.results_dir.path().join(name).join(file);
             let contents: String = match fs::read_to_string(&path) {
                 Ok(contents) => contents,
                 Err(err)     => { return Err(TestError::IntermediateResultFileReadError{ path, err }); },
             };
-            if !contents.is_empty() { println!("{}", contents); }
+            if !contents.is_empty() { println!("{contents}"); }
             println!("{}", (0..80).map(|_| '-').collect::<String>());
             println!();
         }

@@ -41,7 +41,7 @@ impl Display for ContainerHashesError {
             ParseError{ path, err }     => write!(f, "Failed to parse hash file '{}' as YAML: {}", path.display(), err),
             DuplicateHash{ path, hash } => write!(f, "Hash file '{}' contains duplicate hash '{}'", path.display(), hash),
 
-            SerializeError{ err }   => write!(f, "Failed to serialize hash file: {}", err),
+            SerializeError{ err }   => write!(f, "Failed to serialize hash file: {err}"),
             WriteError{ path, err } => write!(f, "Failed to write hash file to '{}': {}", path.display(), err),
         }
     }

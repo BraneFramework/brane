@@ -43,15 +43,15 @@ impl StackSlot {
 
     /// If this StackSlot is a value, returns a copy of it. Panics otherwise.
     #[inline]
-    fn into_value(self) -> Value { if let Self::Value(value) = self { value } else { panic!("Cannot get '{:?}' as a Value", self); } }
+    fn into_value(self) -> Value { if let Self::Value(value) = self { value } else { panic!("Cannot get '{self:?}' as a Value"); } }
 
     /// If this StackSlot is a value, returns a reference to it. Panics otherwise.
     #[inline]
-    fn as_value(&self) -> &Value { if let Self::Value(value) = self { value } else { panic!("Cannot get '{:?}' as a Value", self); } }
+    fn as_value(&self) -> &Value { if let Self::Value(value) = self { value } else { panic!("Cannot get '{self:?}' as a Value"); } }
 
     /// If this StackSlot is a value, returns a mutable reference to it. Panics otherwise.
     #[inline]
-    fn as_value_mut(&mut self) -> &mut Value { if let Self::Value(value) = self { value } else { panic!("Cannot get '{:?}' as a Value", self); } }
+    fn as_value_mut(&mut self) -> &mut Value { if let Self::Value(value) = self { value } else { panic!("Cannot get '{self:?}' as a Value"); } }
 }
 
 impl From<&Value> for StackSlot {

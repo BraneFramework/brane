@@ -176,7 +176,7 @@ impl VirtualSymTable {
         }
 
         // Failed to find it
-        panic!("Undeclared function '{}'", index);
+        panic!("Undeclared function '{index}'");
     }
 
     /// Retrieves the task with the given index.
@@ -198,7 +198,7 @@ impl VirtualSymTable {
         }
 
         // Failed to find it
-        panic!("Undeclared task '{}'", index);
+        panic!("Undeclared task '{index}'");
     }
 
     /// Retrieves the class with the given index.
@@ -220,7 +220,7 @@ impl VirtualSymTable {
         }
 
         // Failed to find it
-        panic!("Undeclared class '{}'", index);
+        panic!("Undeclared class '{index}'");
     }
 
     /// Retrieves the variable with the given index.
@@ -242,7 +242,7 @@ impl VirtualSymTable {
         }
 
         // Failed to find it
-        panic!("Undeclared variable '{}'", index);
+        panic!("Undeclared variable '{index}'");
     }
 
 

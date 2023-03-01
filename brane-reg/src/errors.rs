@@ -42,7 +42,7 @@ impl Display for StoreError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use StoreError::*;
         match self {
-            ReaderParseError{ err } => write!(f, "Failed to parse the given store reader as YAML: {}", err),
+            ReaderParseError{ err } => write!(f, "Failed to parse the given store reader as YAML: {err}"),
 
             FileOpenError{ path, err }  => write!(f, "Failed to open store file '{}': {}", path.display(), err),
             FileParseError{ path, err } => write!(f, "Failed to parse store file '{}' as YAML: {}", path.display(), err),
@@ -75,10 +75,10 @@ impl Display for ServerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ServerError::*;
         match self {
-            ServerBindError{ address, err } => write!(f, "Failed to bind new TCP server to '{}': {}", address, err),
-            KeypairLoadError{ err }         => write!(f, "Failed to load keypair: {}", err),
-            StoreLoadError{ err }           => write!(f, "Failed to load root store: {}", err),
-            ServerConfigError{ err }        => write!(f, "Failed to create new TLS server configuration: {}", err),
+            ServerBindError{ address, err } => write!(f, "Failed to bind new TCP server to '{address}': {err}"),
+            KeypairLoadError{ err }         => write!(f, "Failed to load keypair: {err}"),
+            StoreLoadError{ err }           => write!(f, "Failed to load root store: {err}"),
+            ServerConfigError{ err }        => write!(f, "Failed to create new TLS server configuration: {err}"),
         }
     }
 }
@@ -117,14 +117,14 @@ impl Display for DataError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use DataError::*;
         match self {
-            StoreSerializeError{ err }       => write!(f, "Failed to serialize known datasets: {}", err),
-            AssetSerializeError{ name, err } => write!(f, "Failed to serialize dataset metadata for dataset '{}': {}", name, err),
+            StoreSerializeError{ err }       => write!(f, "Failed to serialize known datasets: {err}"),
+            AssetSerializeError{ name, err } => write!(f, "Failed to serialize dataset metadata for dataset '{name}': {err}"),
 
-            TempDirCreateError{ err }              => write!(f, "Failed to create a temporary directory: {}", err),
-            DataArchiveError{ err }                => write!(f, "Failed to archive data: {}", err),
+            TempDirCreateError{ err }              => write!(f, "Failed to create a temporary directory: {err}"),
+            DataArchiveError{ err }                => write!(f, "Failed to archive data: {err}"),
             TarOpenError{ path, err }              => write!(f, "Failed to re-open tarball file '{}': {}", path.display(), err),
             TarReadError{ path, err }              => write!(f, "Failed to read from tarball file '{}': {}", path.display(), err),
-            TarSendError{ err }                    => write!(f, "Failed to send chunk of tarball file as body: {}", err),
+            TarSendError{ err }                    => write!(f, "Failed to send chunk of tarball file as body: {err}"),
             UnknownFileTypeError{ path }           => write!(f, "Dataset file '{}' is neither a file, nor a directory; don't know what to do with it", path.display()),
             MissingData{ name, path }              => write!(f, "The data of dataset '{}' should be at '{}', but doesn't exist", name, path.display()),
             MissingResult{ name, path }            => write!(f, "The data of intermediate result '{}' should be at '{}', but doesn't exist", name, path.display()),
@@ -156,8 +156,8 @@ impl Display for AuthorizeError {
         match self {
             ClientNoCert => write!(f, "No certificate provided"),
 
-            PolicyFileError{ err }     => write!(f, "Failed to load policy file: {}", err),
-            NoUserPolicy{ user, data } => write!(f, "No matching policy rule found for user '{}' / data '{}' (did you forget a final AllowAll/DenyAll?)", user, data),
+            PolicyFileError{ err }     => write!(f, "Failed to load policy file: {err}"),
+            NoUserPolicy{ user, data } => write!(f, "No matching policy rule found for user '{user}' / data '{data}' (did you forget a final AllowAll/DenyAll?)"),
         }
     }
 }

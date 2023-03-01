@@ -196,7 +196,7 @@ fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, mut versio
             if version != Version::from_str(env!("CARGO_PKG_VERSION")).unwrap() { return Err(Error::DockerComposeNotBakedIn { kind, version }); }
 
             // Write the target location if it does not yet exist
-            let compose_path: PathBuf = PathBuf::from("/tmp").join(format!("docker-compose-{}-{}.yml", kind, version));
+            let compose_path: PathBuf = PathBuf::from("/tmp").join(format!("docker-compose-{kind}-{version}.yml"));
             if !compose_path.exists() {
                 debug!("Unpacking baked-in {} Docker Compose file to '{}'...", kind, compose_path.display());
 
@@ -248,7 +248,7 @@ fn generate_override_file(kind: NodeKind, hosts: &HashMap<String, IpAddr>, profi
     // Generate the ComposeOverrideFileService
     let svc: ComposeOverrideFileService = ComposeOverrideFileService {
         volumes     : if let Some(dir) = profile_dir { vec![ format!("{}:/logs/profile", dir.display()) ] } else { vec![] },
-        extra_hosts : hosts.iter().map(|(hostname, ip)| format!("{}:{}", hostname, ip)).collect(),
+        extra_hosts : hosts.iter().map(|(hostname, ip)| format!("{hostname}:{ip}")).collect(),
     };
 
     // Generate the ComposeOverrideFile

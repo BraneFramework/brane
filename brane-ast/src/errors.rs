@@ -91,7 +91,7 @@ fn prettyprint_list<T: Display, S: AsRef<str>>(list: &[T], word: S) -> String {
         } else if i == list.len() - 2 {
             res.push_str(word.as_ref());
         }
-        res.push_str(&format!("{}", e));
+        res.push_str(&format!("{e}"));
     }
     res
 }
@@ -361,9 +361,9 @@ impl AstError {
     pub fn prettyprint<S1: AsRef<str>, S2: AsRef<str>>(&self, file: S1, source: S2) {
         use AstError::*;
         match self {
-            ReaderReadError { .. } => { eprintln!("{}", self); },
-            ParseError { .. }      => { eprintln!("{}", self); },
-            WriteError{ .. }       => { eprintln!("{}", self); },
+            ReaderReadError { .. } => { eprintln!("{self}"); },
+            ParseError { .. }      => { eprintln!("{self}"); },
+            WriteError{ .. }       => { eprintln!("{self}"); },
 
             SanityError(err)   => err.prettyprint(file, source),
             ResolveError(err)  => err.prettyprint(file, source),
@@ -424,17 +424,17 @@ impl Display for AstError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use AstError::*;
         match self {
-            ReaderReadError { err } => write!(f, "Failed to read given reader: {}", err),
-            ParseError{ err }       => write!(f, "{}", err),
-            WriteError{ err }       => write!(f, "Failed to write to given writer: {}", err),
+            ReaderReadError { err } => write!(f, "Failed to read given reader: {err}"),
+            ParseError{ err }       => write!(f, "{err}"),
+            WriteError{ err }       => write!(f, "Failed to write to given writer: {err}"),
 
-            SanityError(err)   => write!(f, "{}", err),
-            ResolveError(err)  => write!(f, "{}", err),
-            TypeError(err)     => write!(f, "{}", err),
-            NullError(err)     => write!(f, "{}", err),
-            LocationError(err) => write!(f, "{}", err),
-            PruneError(err)    => write!(f, "{}", err),
-            FlattenError(err)  => write!(f, "{}", err),
+            SanityError(err)   => write!(f, "{err}"),
+            ResolveError(err)  => write!(f, "{err}"),
+            TypeError(err)     => write!(f, "{err}"),
+            NullError(err)     => write!(f, "{err}"),
+            LocationError(err) => write!(f, "{err}"),
+            PruneError(err)    => write!(f, "{err}"),
+            FlattenError(err)  => write!(f, "{err}"),
         }
     }
 }
@@ -477,7 +477,7 @@ impl Display for SanityError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use SanityError::*;
         match self {
-            ProjError{ what, raw, .. } => write!(f, "Illegal {} '{}'", what, raw),
+            ProjError{ what, raw, .. } => write!(f, "Illegal {what} '{raw}'"),
         }
     }
 }
@@ -588,32 +588,32 @@ impl Display for ResolveError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ResolveError::*;
         match self {
-            VersionParseError{ err, .. }                       => write!(f, "Failed to parse package version: {}", err),
-            UnknownPackageError{ name, version, .. }           => write!(f, "Package '{}' does not exist{}", name, if !version.is_latest() { format!(" or has no version '{}'", version) } else { String::new() }),
-            FunctionImportError{ package_name, name, err, .. } => write!(f, "Could not import function '{}' from package '{}': {}", name, package_name, err),
-            ClassImportError{ package_name, name, err, .. }    => write!(f, "Could not import class '{}' from package '{}': {}", name, package_name, err),
+            VersionParseError{ err, .. }                       => write!(f, "Failed to parse package version: {err}"),
+            UnknownPackageError{ name, version, .. }           => write!(f, "Package '{}' does not exist{}", name, if !version.is_latest() { format!(" or has no version '{version}'") } else { String::new() }),
+            FunctionImportError{ package_name, name, err, .. } => write!(f, "Could not import function '{name}' from package '{package_name}': {err}"),
+            ClassImportError{ package_name, name, err, .. }    => write!(f, "Could not import class '{name}' from package '{package_name}': {err}"),
 
-            FunctionDefineError{ name, err, .. }             => write!(f, "Could not define function '{}': {}", name, err),
-            ParameterDefineError{ func_name, name, err, .. } => write!(f, "Could not define parmater '{}' of function '{}': {}", name, func_name, err),
+            FunctionDefineError{ name, err, .. }             => write!(f, "Could not define function '{name}': {err}"),
+            ParameterDefineError{ func_name, name, err, .. } => write!(f, "Could not define parmater '{name}' of function '{func_name}': {err}"),
 
-            ClassDefineError{ name, err, .. }              => write!(f, "Could not define class '{}': {}", name, err),
-            UndefinedClass{ ident, .. }                    => write!(f, "Undefined class or type '{}'", ident),
-            DuplicateMethodAndProperty{ c_name, name, .. } => write!(f, "'{}' refers to both a name and a property in class {} (make sure all names are unique)", name, c_name),
-            IllegalSelf{ arg, .. }                         => write!(f, "'self' can only be first parameter of method, not at position {}", arg),
-            MissingSelf{ c_name, name, .. }                => write!(f, "Missing 'self' parameter as first parameter in method '{}' in class {}", name, c_name),
+            ClassDefineError{ name, err, .. }              => write!(f, "Could not define class '{name}': {err}"),
+            UndefinedClass{ ident, .. }                    => write!(f, "Undefined class or type '{ident}'"),
+            DuplicateMethodAndProperty{ c_name, name, .. } => write!(f, "'{name}' refers to both a name and a property in class {c_name} (make sure all names are unique)"),
+            IllegalSelf{ arg, .. }                         => write!(f, "'self' can only be first parameter of method, not at position {arg}"),
+            MissingSelf{ c_name, name, .. }                => write!(f, "Missing 'self' parameter as first parameter in method '{name}' in class {c_name}"),
 
-            UnknownMergeStrategy{ raw, .. }      => write!(f, "Unknown merge strategy '{}'", raw),
-            VariableDefineError{ name, err, .. } => write!(f, "Could not define variable '{}': {}", name, err),
+            UnknownMergeStrategy{ raw, .. }      => write!(f, "Unknown merge strategy '{raw}'"),
+            VariableDefineError{ name, err, .. } => write!(f, "Could not define variable '{name}': {err}"),
 
-            UndefinedFunction{ ident, .. } => write!(f, "Undefined function or method '{}'", ident),
+            UndefinedFunction{ ident, .. } => write!(f, "Undefined function or method '{ident}'"),
 
-            NonClassProjection{ name, got, .. }  => write!(f, "Cannot access field '{}' of non-class type {}", name, got),
-            UnknownField{ class_name, name, .. } => write!(f, "Class '{}' has no field '{}'", class_name, name),
+            NonClassProjection{ name, got, .. }  => write!(f, "Cannot access field '{name}' of non-class type {got}"),
+            UnknownField{ class_name, name, .. } => write!(f, "Class '{class_name}' has no field '{name}'"),
 
             DataIncorrectExpr{ .. }      => write!(f, "Data class can only take String literals as name"),
-            UnknownDataError{ name, .. } => write!(f, "No location has access to data asset '{}'", name),
+            UnknownDataError{ name, .. } => write!(f, "No location has access to data asset '{name}'"),
 
-            UndefinedVariable{ ident, .. } => write!(f, "Undefined variable or parameter '{}'", ident),
+            UndefinedVariable{ ident, .. } => write!(f, "Undefined variable or parameter '{ident}'"),
         }
     }
 }
@@ -723,32 +723,32 @@ impl Display for TypeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use TypeError::*;
         match self {
-            ProjOnNonClassError{ got, .. }       => write!(f, "Cannot use projection (.) on non-Class type {}", got),
-            UnexpectedMethod{ name, .. }         => write!(f, "Cannot use method '{}' as property", name),
-            UnknownField{ class_name, name, .. } => write!(f, "Class '{}' has no field '{}'", class_name, name),
+            ProjOnNonClassError{ got, .. }       => write!(f, "Cannot use projection (.) on non-Class type {got}"),
+            UnexpectedMethod{ name, .. }         => write!(f, "Cannot use method '{name}' as property"),
+            UnknownField{ class_name, name, .. } => write!(f, "Class '{class_name}' has no field '{name}'"),
 
-            IncorrectType { got, expected, .. } => write!(f, "Expected a {}, got {}", expected, got),
+            IncorrectType { got, expected, .. } => write!(f, "Expected a {expected}, got {got}"),
 
             IllegalDataReturnError{ name, .. } => write!(f, "Function '{}' returns a {}, whereas this is illegal (use an {} instead)", name, BuiltinClasses::Data.name(), BuiltinClasses::IntermediateResult.name()),
 
-            IncompatibleReturns{ got, expected, .. } => write!(f, "Not all return paths return the same value: the first returns {}, this returns {}", expected, got),
+            IncompatibleReturns{ got, expected, .. } => write!(f, "Not all return paths return the same value: the first returns {expected}, this returns {got}"),
 
-            ParallelNoReturn{ block, .. }                   => write!(f, "Block {} in parallel statement does not return while it should", block),
-            ParallelUnexpectedReturn{ block, got, .. }      => write!(f, "Block {} in parallel statement does returns a value of type {} while it should not return", block, got),
-            ParallelIncompleteReturn{ block, expected, .. } => write!(f, "Block {} in parallel statement does not return a value of type {} while it should", block, expected),
+            ParallelNoReturn{ block, .. }                   => write!(f, "Block {block} in parallel statement does not return while it should"),
+            ParallelUnexpectedReturn{ block, got, .. }      => write!(f, "Block {block} in parallel statement does returns a value of type {got} while it should not return"),
+            ParallelIncompleteReturn{ block, expected, .. } => write!(f, "Block {block} in parallel statement does not return a value of type {expected} while it should"),
             ParallelIllegalType{ merge, got, expected, .. } => write!(f, "Using '{:?}' merge strategy requires parallel branches to return values of type {}, but got {}", merge, prettyprint_list(expected, "or"), got),
             ParallelNoStrategy{ .. }                        => write!(f, "Specify a merge strategy that returns a value if you intend to store the value"),
 
-            NonFunctionCall{ got, .. }                    => write!(f, "Cannot call object of type {}", got),
-            UndefinedFunctionCall{ name, .. }             => write!(f, "Undefined function '{}'", name),
-            FunctionArityError{ name, got, expected, .. } => write!(f, "Function '{}' expected {} arguments, but {} were given", name, expected, got),
+            NonFunctionCall{ got, .. }                    => write!(f, "Cannot call object of type {got}"),
+            UndefinedFunctionCall{ name, .. }             => write!(f, "Undefined function '{name}'"),
+            FunctionArityError{ name, got, expected, .. } => write!(f, "Function '{name}' expected {expected} arguments, but {got} were given"),
 
-            InconsistentArrayError{ got, expected, .. } => write!(f, "Array expression has conflicting type requirements: started out as {}, got {}", expected, got),
+            InconsistentArrayError{ got, expected, .. } => write!(f, "Array expression has conflicting type requirements: started out as {expected}, got {got}"),
 
-            NonArrayIndexError{ got, .. } => write!(f, "Cannot index non-Array type {}", got),
+            NonArrayIndexError{ got, .. } => write!(f, "Cannot index non-Array type {got}"),
 
-            DataNameNotAStringError{ name, got, .. } => write!(f, "Expected class {} to have a `name` property with a literal string, got {:?}", name, got),
-            DataNoNamePropertyError{ name, .. }      => write!(f, "Missing `name` property for class {}", name),
+            DataNameNotAStringError{ name, got, .. } => write!(f, "Expected class {name} to have a `name` property with a literal string, got {got:?}"),
+            DataNoNamePropertyError{ name, .. }      => write!(f, "Missing `name` property for class {name}"),
         }
     }
 }
@@ -887,7 +887,7 @@ impl Display for PruneError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use PruneError::*;
         match self {
-            MissingReturn { expected, .. } => write!(f, "Missing return statement of type {}", expected),
+            MissingReturn { expected, .. } => write!(f, "Missing return statement of type {expected}"),
         }
     }
 }
@@ -930,7 +930,7 @@ impl Display for FlattenError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use FlattenError::*;
         match self {
-            IntermediateResultConflict { name } => write!(f, "Conflicting generated identifiers for intermediate results ('{}'). This is a very unlikely event, and probably solved by simply trying again.", name),
+            IntermediateResultConflict { name } => write!(f, "Conflicting generated identifiers for intermediate results ('{name}'). This is a very unlikely event, and probably solved by simply trying again."),
         }
     }
 }

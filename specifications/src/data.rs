@@ -47,8 +47,8 @@ impl Display for DataIndexError {
             FileOpenError{ path, err }  => write!(f, "Failed to open data index file '{}': {}", path.display(), err),
             FileParseError{ path, err } => write!(f, "Failed to parse data index file '{}': {}", path.display(), err),
 
-            ReaderParseError{ err }          => write!(f, "Failed to parse given reader as a data index file: {}", err),
-            DuplicateAsset{ location, name } => write!(f, "Location '{}' defines an asset with identifier '{}' more than once", location, name),
+            ReaderParseError{ err }          => write!(f, "Failed to parse given reader as a data index file: {err}"),
+            DuplicateAsset{ location, name } => write!(f, "Location '{location}' defines an asset with identifier '{name}' more than once"),
         }
     }
 }
@@ -69,7 +69,7 @@ impl Display for RuntimeDataIndexError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use RuntimeDataIndexError::*;
         match self {
-            DuplicateDataset{ name }  => write!(f, "A dataset under the name of '{}' was already defined", name),
+            DuplicateDataset{ name }  => write!(f, "A dataset under the name of '{name}' was already defined"),
         }
     }
 }
@@ -106,8 +106,8 @@ impl Display for DataInfoError {
             FileCreateError{ path, err } => write!(f, "Failed to create data info file '{}': {}", path.display(), err),
             FileWriteError{ path, err }  => write!(f, "Failed to write to data info file '{}': {}", path.display(), err),
 
-            ReaderParseError{ err } => write!(f, "Failed to parse given reader as a data info file: {}", err),
-            WriterWriteError{ err } => write!(f, "Failed to write the data info file to given writer: {}", err),
+            ReaderParseError{ err } => write!(f, "Failed to parse given reader as a data info file: {err}"),
+            WriterWriteError{ err } => write!(f, "Failed to write the data info file to given writer: {err}"),
         }
     }
 }
@@ -134,7 +134,7 @@ impl Display for AssetInfoError {
             FileOpenError{ path, err }  => write!(f, "Failed to open asset info file '{}': {}", path.display(), err),
             FileParseError{ path, err } => write!(f, "Failed to parse asset info file '{}': {}", path.display(), err),
 
-            ReaderParseError{ err } => write!(f, "Failed to parse given reader as a asset info file: {}", err),
+            ReaderParseError{ err } => write!(f, "Failed to parse given reader as a asset info file: {err}"),
         }
     }
 }

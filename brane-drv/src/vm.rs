@@ -104,7 +104,7 @@ impl VmPlugin for InstancePlugin {
 
         // Prepare the request to send to the delegate node
         debug!("Sending preprocess request to job node '{}'...", delegate_address);
-        let job = prof.time(format!("on {}", delegate_address));
+        let job = prof.time(format!("on {delegate_address}"));
         let message: working_grpc::PreprocessRequest = working_grpc::PreprocessRequest {
             data : Some(name.into()),
             kind : Some(preprocess.into()),
@@ -144,7 +144,7 @@ impl VmPlugin for InstancePlugin {
     async fn execute(global: &Arc<RwLock<Self::GlobalState>>, _local: &Self::LocalState, info: TaskInfo<'_>, prof: ProfileScopeHandle<'_>) -> Result<Option<FullValue>, Self::ExecuteError> {
         info!("Executing task '{}' at '{}' in a distributed environment...", info.name, info.location);
         debug!("Package: '{}' v{}", info.package_name, info.package_version);
-        debug!("Input data: {:?}", info.input.keys().map(|k| format!("{}", k)).collect::<Vec<String>>());
+        debug!("Input data: {:?}", info.input.keys().map(|k| format!("{k}")).collect::<Vec<String>>());
         debug!("Result: {:?}", info.result);
         debug!("Input arguments: {:#?}", info.args);
         debug!("Requirements: {:?}", info.requirements);
@@ -180,7 +180,7 @@ impl VmPlugin for InstancePlugin {
 
         // Prepare the request to send to the delegate node
         debug!("Sending execute request to job node '{}'...", delegate_address);
-        let job = prof.time(format!("on {}", delegate_address));
+        let job = prof.time(format!("on {delegate_address}"));
         let message: working_grpc::ExecuteRequest = working_grpc::ExecuteRequest {
             api  : api_address.serialize().to_string(),
 
@@ -266,7 +266,7 @@ impl VmPlugin for InstancePlugin {
 
                 Err(status) => {
                     // Something went wrong
-                    result = Err(format!("Status error: {}", status));
+                    result = Err(format!("Status error: {status}"));
                     break;
                 },
             }
@@ -354,7 +354,7 @@ impl VmPlugin for InstancePlugin {
 
         // Prepare the request to send to the delegate node
         debug!("Sending commit request to job node '{}'...", delegate_address);
-        let job = prof.time(format!("on {}", delegate_address));
+        let job = prof.time(format!("on {delegate_address}"));
         let message: working_grpc::CommitRequest = working_grpc::CommitRequest {
             result_name : name.into(),
             data_name   : data_name.into(),

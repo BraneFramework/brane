@@ -53,7 +53,7 @@ async fn create_path(endpoint: &Url, remote: impl Into<String>, tls: &Option<New
     };
 
     // Send it with reqwest
-    let address : String = format!("{}paths/new", endpoint);
+    let address : String = format!("{endpoint}paths/new");
     let client  : Client = Client::new();
     let req: Request = match client.post(&address).json(&request).build() {
         Ok(req)  => req,
@@ -109,8 +109,8 @@ impl ProxyClient {
         let endpoint: &Address = endpoint.as_ref();
 
         // Parse the address as an endpoint
-        let endpoint: Url = Url::from_str(&endpoint.to_string()).unwrap_or_else(|err| panic!("Cannot parse given address '{}' as a URL: {}", endpoint, err));
-        if endpoint.domain().is_none() { panic!("Given address '{}' does not have a domain", endpoint); }
+        let endpoint: Url = Url::from_str(&endpoint.to_string()).unwrap_or_else(|err| panic!("Cannot parse given address '{endpoint}' as a URL: {err}"));
+        if endpoint.domain().is_none() { panic!("Given address '{endpoint}' does not have a domain"); }
 
         // Return us
         Self {
@@ -167,8 +167,8 @@ impl ProxyClient {
 
         // Assert it has the appropriate fields
         let url: &Url = request.url_mut();
-        if url.domain().is_none() { panic!("URL {} does not have a domain defined", url); }
-        if url.port().is_none() { panic!("URL {} does not have a port defined", url); }
+        if url.domain().is_none() { panic!("URL {url} does not have a domain defined"); }
+        if url.port().is_none() { panic!("URL {url} does not have a port defined"); }
 
         // Check if we already have a path for this
         let remote: String = format!("{}://{}:{}", url.scheme(), url.domain().unwrap(), url.port().unwrap());
@@ -236,8 +236,8 @@ impl ProxyClient {
             Err(err)    => { return Err(Error::IllegalUrl { raw: address.into(), err }); },
         };
         // Assert it has the appropriate fields
-        if address.domain().is_none() { panic!("URL {} does not have a domain defined", address); }
-        if address.port().is_none() { panic!("URL {} does not have a port defined", address); }
+        if address.domain().is_none() { panic!("URL {address} does not have a domain defined"); }
+        if address.port().is_none() { panic!("URL {address} does not have a port defined"); }
 
         // Check if we already have a path for this
         let remote: String = format!("{}://{}:{}", address.scheme(), address.domain().unwrap(), address.port().unwrap());
@@ -303,8 +303,8 @@ impl ProxyClient {
             Err(err)    => { return Err(Error::IllegalUrl { raw: address.into(), err }); },
         };
         // Assert it has the appropriate fields
-        if address.domain().is_none() { panic!("URL {} does not have a domain defined", address); }
-        if address.port().is_none() { panic!("URL {} does not have a port defined", address); }
+        if address.domain().is_none() { panic!("URL {address} does not have a domain defined"); }
+        if address.port().is_none() { panic!("URL {address} does not have a port defined"); }
 
         // Check if we already have a path for this
         let remote: String = format!("{}://{}:{}", address.scheme(), address.domain().unwrap(), address.port().unwrap());

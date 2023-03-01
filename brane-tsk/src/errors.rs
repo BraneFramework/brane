@@ -48,8 +48,8 @@ impl Display for TaskError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use TaskError::*;
         match self {
-            PlanError{ err } => write!(f, "Failed to plan workflow: {}", err),
-            ExecError{ err } => write!(f, "Failed to execute workflow: {}", err),
+            PlanError{ err } => write!(f, "Failed to plan workflow: {err}"),
+            ExecError{ err } => write!(f, "Failed to execute workflow: {err}"),
         }
     }
 }
@@ -120,34 +120,34 @@ impl Display for PlanError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use PlanError::*;
         match self {
-            InfraFileLoadError{ err } => write!(f, "Failed to load infrastructure file: {}", err),
+            InfraFileLoadError{ err } => write!(f, "Failed to load infrastructure file: {err}"),
 
             AmbigiousLocationError{ name, locs }                => write!(f, "Ambigious location for task '{}': {}", name, if let Locations::Restricted(locs) = locs { format!("possible locations are {}, but you need to reduce that to only 1 (use On-structs for that)", locs.join(", ")) } else { "all locations are possible, but you need to reduce that to only 1 (use On-structs for that)".into() }),
-            RequestError{ address, err }                        => write!(f, "Failed to send GET-request to '{}': {}", address, err),
-            RequestFailure{ address, code, err }                => write!(f, "GET-request to '{}' failed with {} ({}){}", address, code, code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {}", err) } else { String::new() }),
-            RequestBodyError{ address, err }                    => write!(f, "Failed to get the body of response from '{}' as UTF-8 text: {}", address, err),
-            RequestParseError{ address, raw, err }              => write!(f, "Failed to parse response '{}' from '{}' as valid JSON: {}", raw, address, err),
-            UnsupportedCapabilities{ task, loc, expected, got } => write!(f, "Location '{}' only supports capabilities {:?}, whereas task '{}' requires capabilities {:?}", loc, got, task, expected),
-            UnknownDataset{ name }                              => write!(f, "Unknown dataset '{}'", name),
-            UnknownIntermediateResult{ name }                   => write!(f, "Unknown intermediate result '{}'", name),
-            DataPlanError{ err }                                => write!(f, "Failed to plan dataset: {}", err),
-            DatasetUnavailable{ name, locs }                    => write!(f, "Dataset '{}' is unavailable{}", name, if !locs.is_empty() { format!("; however, locations {} do (try to get download permission to those datasets)", locs.iter().map(|l| format!("'{}'", l)).collect::<Vec<String>>().join(", ")) } else { String::new() }),
-            IntermediateResultUnavailable{ name, locs }         => write!(f, "Intermediate result '{}' is unavailable{}", name, if !locs.is_empty() { format!("; however, locations {} do (try to get download permission to those datasets)", locs.iter().map(|l| format!("'{}'", l)).collect::<Vec<String>>().join(", ")) } else { String::new() }),
+            RequestError{ address, err }                        => write!(f, "Failed to send GET-request to '{address}': {err}"),
+            RequestFailure{ address, code, err }                => write!(f, "GET-request to '{}' failed with {} ({}){}", address, code, code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {err}") } else { String::new() }),
+            RequestBodyError{ address, err }                    => write!(f, "Failed to get the body of response from '{address}' as UTF-8 text: {err}"),
+            RequestParseError{ address, raw, err }              => write!(f, "Failed to parse response '{raw}' from '{address}' as valid JSON: {err}"),
+            UnsupportedCapabilities{ task, loc, expected, got } => write!(f, "Location '{loc}' only supports capabilities {got:?}, whereas task '{task}' requires capabilities {expected:?}"),
+            UnknownDataset{ name }                              => write!(f, "Unknown dataset '{name}'"),
+            UnknownIntermediateResult{ name }                   => write!(f, "Unknown intermediate result '{name}'"),
+            DataPlanError{ err }                                => write!(f, "Failed to plan dataset: {err}"),
+            DatasetUnavailable{ name, locs }                    => write!(f, "Dataset '{}' is unavailable{}", name, if !locs.is_empty() { format!("; however, locations {} do (try to get download permission to those datasets)", locs.iter().map(|l| format!("'{l}'")).collect::<Vec<String>>().join(", ")) } else { String::new() }),
+            IntermediateResultUnavailable{ name, locs }         => write!(f, "Intermediate result '{}' is unavailable{}", name, if !locs.is_empty() { format!("; however, locations {} do (try to get download permission to those datasets)", locs.iter().map(|l| format!("'{l}'")).collect::<Vec<String>>().join(", ")) } else { String::new() }),
 
-            UpdateEncodeError{ correlation_id, kind, err } => write!(f, "Failed to encode status update '{:?}' for a planning session with ID '{}': {}", kind, correlation_id, err),
-            KafkaSendError{ correlation_id, topic, err }   => write!(f, "Failed to send status update on Kafka topic '{}' for a planning session with ID '{}': {}", topic, correlation_id, err),
+            UpdateEncodeError{ correlation_id, kind, err } => write!(f, "Failed to encode status update '{kind:?}' for a planning session with ID '{correlation_id}': {err}"),
+            KafkaSendError{ correlation_id, topic, err }   => write!(f, "Failed to send status update on Kafka topic '{topic}' for a planning session with ID '{correlation_id}': {err}"),
 
             PlanningTimeout{ correlation_id, timeout } => write!(f, "The planner didn't start planning workflow with ID '{}' in time (timed out after {} seconds)", correlation_id, timeout / 1000),
             PlanParseError{ correlation_id, raw, err } => write!(f, "Failed to parse planning result of workflow with ID '{}': {}\n\n{}\n\n", correlation_id, err, BlockFormatter::new(raw)),
-            PlanningFailed{ correlation_id, reason }   => write!(f, "Failed to plan workflow with ID '{}'{}", correlation_id, if let Some(reason) = reason { format!(": {}", reason) } else { String::new() }),
-            PlanningError{ correlation_id, err }       => write!(f, "Encountered an error while planning workflow with ID '{}': {}", correlation_id, err),
+            PlanningFailed{ correlation_id, reason }   => write!(f, "Failed to plan workflow with ID '{}'{}", correlation_id, if let Some(reason) = reason { format!(": {reason}") } else { String::new() }),
+            PlanningError{ correlation_id, err }       => write!(f, "Encountered an error while planning workflow with ID '{correlation_id}': {err}"),
 
-            KafkaTopicError{ brokers, topics, err }        => write!(f, "Failed to ensure Kafka topics {} on brokers '{}': {}", topics.iter().map(|t| format!("'{}'", t)).collect::<Vec<String>>().join(", "), brokers, err),
-            KafkaProducerError{ err }                      => write!(f, "Failed to create Kafka producer: {}", err),
-            KafkaConsumerError{ err }                      => write!(f, "Failed to create Kafka consumer: {}", err),
-            KafkaOffsetsError{ err }                       => write!(f, "Failed to restore committed offsets to Kafka consumer: {}", err),
-            KafkaStreamError{ err }                        => write!(f, "Failed to listen for incoming Kafka events: {}", err),
-            WorkflowSerializeError{ err }                  => write!(f, "Failed to serialize workflow: {}", err),
+            KafkaTopicError{ brokers, topics, err }        => write!(f, "Failed to ensure Kafka topics {} on brokers '{}': {}", topics.iter().map(|t| format!("'{t}'")).collect::<Vec<String>>().join(", "), brokers, err),
+            KafkaProducerError{ err }                      => write!(f, "Failed to create Kafka producer: {err}"),
+            KafkaConsumerError{ err }                      => write!(f, "Failed to create Kafka consumer: {err}"),
+            KafkaOffsetsError{ err }                       => write!(f, "Failed to restore committed offsets to Kafka consumer: {err}"),
+            KafkaStreamError{ err }                        => write!(f, "Failed to listen for incoming Kafka events: {err}"),
+            WorkflowSerializeError{ err }                  => write!(f, "Failed to serialize workflow: {err}"),
         }
     }
 }
@@ -231,14 +231,14 @@ impl Display for PreprocessError {
         match self {
             UnavailableData{ name } => write!(f, "{} '{}' is not available locally", name.variant(), name.name()),
 
-            NodeConfigReadError{ err, .. }               => write!(f, "Failed to load node config file: {}", err),
+            NodeConfigReadError{ err, .. }               => write!(f, "Failed to load node config file: {err}"),
             InfraReadError{ path, err }                  => write!(f, "Failed to load infrastructure file '{}': {}", path.display(), err),
-            UnknownLocationError{ loc }                  => write!(f, "Unknown location '{}'", loc),
-            ProxyError{ err }                            => write!(f, "Failed to prepare proxy service: {}", err),
-            GrpcConnectError{ endpoint, err }            => write!(f, "Failed to start gRPC connection with delegate node '{}': {}", endpoint, err),
-            GrpcRequestError{ what, endpoint, err }      => write!(f, "Failed to send {} request to delegate node '{}': {}", what, endpoint, err),
-            PreprocessError{ endpoint, kind, name, err } => write!(f, "Remote delegate '{}' failed to preprocess {} '{}': {}", endpoint, kind, name, err),
-            AccessKindParseError{ endpoint, raw, err }   => write!(f, "Failed to parse access kind '{}' sent by remote delegate '{}': {}", raw, endpoint, err),
+            UnknownLocationError{ loc }                  => write!(f, "Unknown location '{loc}'"),
+            ProxyError{ err }                            => write!(f, "Failed to prepare proxy service: {err}"),
+            GrpcConnectError{ endpoint, err }            => write!(f, "Failed to start gRPC connection with delegate node '{endpoint}': {err}"),
+            GrpcRequestError{ what, endpoint, err }      => write!(f, "Failed to send {what} request to delegate node '{endpoint}': {err}"),
+            PreprocessError{ endpoint, kind, name, err } => write!(f, "Remote delegate '{endpoint}' failed to preprocess {kind} '{name}': {err}"),
+            AccessKindParseError{ endpoint, raw, err }   => write!(f, "Failed to parse access kind '{raw}' sent by remote delegate '{endpoint}': {err}"),
 
             // KeypairLoadError{ err }                          => write!(f, "Failed to load keypair: {}", err),
             // StoreLoadError{ err }                            => write!(f, "Failed to load root store: {}", err),
@@ -252,16 +252,16 @@ impl Display for PreprocessError {
             DirNotExistsError{ what, path }                  => write!(f, "{} directory '{}' doesn't exist", what.capitalize(), path.display()),
             DirRemoveError{ what, path, err }                => write!(f, "Failed to remove {} directory '{}': {}", what, path.display(), err),
             DirCreateError{ what, path, err }                => write!(f, "Failed to create {} directory '{}': {}", what, path.display(), err),
-            ProxyCreateError{ address, err }                 => write!(f, "Failed to create proxy to '{}': {}", address, err),
-            ClientCreateError{ err }                         => write!(f, "Failed to create HTTP-client: {}", err),
-            DownloadRequestError{ address, err }             => write!(f, "Failed to send GET download request to '{}': {}", address, err),
-            DownloadRequestFailure{ address, code, message } => write!(f, "GET download request to '{}' failed with status code {} ({}){}", address, code, code.canonical_reason().unwrap_or("???"), if let Some(message) = message { format!(": {}", message) } else { String::new() }),
-            DownloadStreamError{ address, err }              => write!(f, "Failed to get next chunk in download stream from '{}': {}", address, err),
+            ProxyCreateError{ address, err }                 => write!(f, "Failed to create proxy to '{address}': {err}"),
+            ClientCreateError{ err }                         => write!(f, "Failed to create HTTP-client: {err}"),
+            DownloadRequestError{ address, err }             => write!(f, "Failed to send GET download request to '{address}': {err}"),
+            DownloadRequestFailure{ address, code, message } => write!(f, "GET download request to '{}' failed with status code {} ({}){}", address, code, code.canonical_reason().unwrap_or("???"), if let Some(message) = message { format!(": {message}") } else { String::new() }),
+            DownloadStreamError{ address, err }              => write!(f, "Failed to get next chunk in download stream from '{address}': {err}"),
             TarCreateError{ path, err }                      => write!(f, "Failed to create tarball file '{}': {}", path.display(), err),
             TarOpenError{ path, err }                        => write!(f, "Failed to re-open tarball file '{}': {}", path.display(), err),
             TarWriteError{ path, err }                       => write!(f, "Failed to write to tarball file '{}': {}", path.display(), err),
-            DataExtractError{ err }                          => write!(f, "Failed to extract dataset: {}", err),
-            AccessKindSerializeError{ err }                  => write!(f, "Failed to serialize the given AccessKind: {}", err),
+            DataExtractError{ err }                          => write!(f, "Failed to extract dataset: {err}"),
+            AccessKindSerializeError{ err }                  => write!(f, "Failed to serialize the given AccessKind: {err}"),
         }
     }
 }
@@ -369,50 +369,50 @@ impl Display for ExecuteError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use self::ExecuteError::*;
         match self {
-            UnknownPackage{ name, version }                         => write!(f, "Unknown package '{}' (or it does not have version {})", name, version),
+            UnknownPackage{ name, version }                         => write!(f, "Unknown package '{name}' (or it does not have version {version})"),
             UnknownData{ name }                                     => write!(f, "Unknown {} '{}'", name.variant(), name.name()),
-            ArgsEncodeError{ err }                                  => write!(f, "Failed to serialize input arguments: {}", err),
+            ArgsEncodeError{ err }                                  => write!(f, "Failed to serialize input arguments: {err}"),
             ExternalCallFailed{ name, image, code, stdout, stderr } => write!(f, "Task '{}' (image '{}') failed with exit code {}\n\n{}\n\n{}\n\n", name, image, code, BlockFormatter::new(stdout), BlockFormatter::new(stderr)),
             Base64DecodeError{ raw, err }                           => write!(f, "Failed to decode task output as valid Base64: {}\n\n{}\n\n", BlockFormatter::new(raw), err),
             Utf8DecodeError{ raw, err }                             => write!(f, "Failed to decode task output as valid UTF-8: {}\n\n{}\n\n", BlockFormatter::new(raw), err),
             JsonDecodeError{ raw, err }                             => write!(f, "Failed to decode task output as valid JSON: {}\n\n{}\n\n", BlockFormatter::new(raw), err),
 
-            VolumeBindError{ err }            => write!(f, "Failed to create VolumeBind: {}", err),
+            VolumeBindError{ err }            => write!(f, "Failed to create VolumeBind: {err}"),
             ResultDirNotADir{ path }          => write!(f, "Result directory '{}' exists but is not a directory", path.display()),
             ResultDirRemoveError{ path, err } => write!(f, "Failed to remove existing result directory '{}': {}", path.display(), err),
             ResultDirCreateError{ path, err } => write!(f, "Failed to create result directory '{}': {}", path.display(), err),
-            DockerError{ name, image, err }   => write!(f, "Failed to execute task '{}' (image '{}') as a Docker container: {}", name, image, err),
+            DockerError{ name, image, err }   => write!(f, "Failed to execute task '{name}' (image '{image}') as a Docker container: {err}"),
 
-            StatusEmptyStringError{ status }            => write!(f, "Incoming status update {:?} is missing mandatory `value` field", status),
-            StatusValueParseError{ status, raw, err }   => write!(f, "Failed to parse '{}' as a FullValue in incoming status update {:?}: {}", raw, status, err),
-            StatusTripletParseError{ status, raw, err } => write!(f, "Failed to parse '{}' as a return code/stdout/stderr triplet in incoming status update {:?}: {}", raw, status, err),
-            ClientUpdateError{ status, err }            => write!(f, "Failed to update client of status {:?}: {}", status, err),
-            NodeConfigReadError{ err, .. }              => write!(f, "Failed to load node config file: {}", err),
+            StatusEmptyStringError{ status }            => write!(f, "Incoming status update {status:?} is missing mandatory `value` field"),
+            StatusValueParseError{ status, raw, err }   => write!(f, "Failed to parse '{raw}' as a FullValue in incoming status update {status:?}: {err}"),
+            StatusTripletParseError{ status, raw, err } => write!(f, "Failed to parse '{raw}' as a return code/stdout/stderr triplet in incoming status update {status:?}: {err}"),
+            ClientUpdateError{ status, err }            => write!(f, "Failed to update client of status {status:?}: {err}"),
+            NodeConfigReadError{ err, .. }              => write!(f, "Failed to load node config file: {err}"),
             InfraReadError{ path, err }                 => write!(f, "Failed to load infrastructure file '{}': {}", path.display(), err),
-            UnknownLocationError{ loc }                 => write!(f, "Unknown location '{}'", loc),
-            ProxyError{ err }                           => write!(f, "Failed to prepare proxy service: {}", err),
-            GrpcConnectError{ endpoint, err }           => write!(f, "Failed to start gRPC connection with delegate node '{}': {}", endpoint, err),
-            GrpcRequestError{ what, endpoint, err }     => write!(f, "Failed to send {} request to delegate node '{}': {}", what, endpoint, err),
-            ExecuteError{ endpoint, name, status, err } => write!(f, "Remote delegate '{}' returned status '{:?}' while executing task '{}': {}", endpoint, status, name, err),
+            UnknownLocationError{ loc }                 => write!(f, "Unknown location '{loc}'"),
+            ProxyError{ err }                           => write!(f, "Failed to prepare proxy service: {err}"),
+            GrpcConnectError{ endpoint, err }           => write!(f, "Failed to start gRPC connection with delegate node '{endpoint}': {err}"),
+            GrpcRequestError{ what, endpoint, err }     => write!(f, "Failed to send {what} request to delegate node '{endpoint}': {err}"),
+            ExecuteError{ endpoint, name, status, err } => write!(f, "Remote delegate '{endpoint}' returned status '{status:?}' while executing task '{name}': {err}"),
 
             DigestReadError{ path, err }                     => write!(f, "Failed to read cached digest in '{}': {}", path.display(), err),
             DigestError{ path, err }                         => write!(f, "Failed to read digest of image '{}': {}", path.display(), err),
-            ProxyCreateError{ address, err }                 => write!(f, "Failed to create proxy to '{}': {}", address, err),
-            ClientCreateError{ err }                         => write!(f, "Failed to create HTTP-client: {}", err),
-            DownloadRequestError{ address, err }             => write!(f, "Failed to send GET download request to '{}': {}", address, err),
-            DownloadRequestFailure{ address, code, message } => write!(f, "GET download request to '{}' failed with status code {} ({}){}", address, code, code.canonical_reason().unwrap_or("???"), if let Some(message) = message { format!(": {}", message) } else { String::new() }),
-            DownloadStreamError{ address, err }              => write!(f, "Failed to get next chunk in download stream from '{}': {}", address, err),
+            ProxyCreateError{ address, err }                 => write!(f, "Failed to create proxy to '{address}': {err}"),
+            ClientCreateError{ err }                         => write!(f, "Failed to create HTTP-client: {err}"),
+            DownloadRequestError{ address, err }             => write!(f, "Failed to send GET download request to '{address}': {err}"),
+            DownloadRequestFailure{ address, code, message } => write!(f, "GET download request to '{}' failed with status code {} ({}){}", address, code, code.canonical_reason().unwrap_or("???"), if let Some(message) = message { format!(": {message}") } else { String::new() }),
+            DownloadStreamError{ address, err }              => write!(f, "Failed to get next chunk in download stream from '{address}': {err}"),
             ImageCreateError{ path, err }                    => write!(f, "Failed to create tarball file '{}': {}", path.display(), err),
             ImageWriteError{ path, err }                     => write!(f, "Failed to write to tarball file '{}': {}", path.display(), err),
             IdWriteError{ path, err }                        => write!(f, "Failed to write image ID to file '{}': {}", path.display(), err),
             IdReadError{ path, err }                         => write!(f, "Failed to read image from file '{}': {}", path.display(), err),
-            HashError{ err }                                 => write!(f, "Failed to hash image: {}", err),
+            HashError{ err }                                 => write!(f, "Failed to hash image: {err}"),
             HashWriteError{ path, err }                      => write!(f, "Failed to write image hash to file '{}': {}", path.display(), err),
             HashReadError{ path, err }                       => write!(f, "Failed to read image hash from file '{}': {}", path.display(), err),
 
             AuthorizationFailure{ checker: _ }    => write!(f, "Checker rejected workflow"),
-            AuthorizationError{ checker: _, err } => write!(f, "Checker failed to authorize workflow: {}", err),
-            PackageIndexError{ endpoint, err }    => write!(f, "Failed to get PackageIndex from '{}': {}", endpoint, err),
+            AuthorizationError{ checker: _, err } => write!(f, "Checker failed to authorize workflow: {err}"),
+            PackageIndexError{ endpoint, err }    => write!(f, "Failed to get PackageIndex from '{endpoint}': {err}"),
             BackendFileError{ path, err }         => write!(f, "Failed to load backend file '{}': {}", path.display(), err),
         }
     }
@@ -433,8 +433,8 @@ impl Display for AuthorizeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use AuthorizeError::*;
         match self {
-            PolicyFileError{ err }    => write!(f, "Failed to load policy file: {}", err),
-            NoContainerPolicy{ hash } => write!(f, "No policy found that applies to a container with hash '{}' (did you add a final AllowAll/DenyAll?)", hash),
+            PolicyFileError{ err }    => write!(f, "Failed to load policy file: {err}"),
+            NoContainerPolicy{ hash } => write!(f, "No policy found that applies to a container with hash '{hash}' (did you add a final AllowAll/DenyAll?)"),
         }
     }
 }
@@ -452,7 +452,7 @@ impl Display for StdoutError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use StdoutError::*;
         match self {
-            TxWriteError{ err } => write!(f, "Failed to write '{}' on gRPC channel back to client", err),
+            TxWriteError{ err } => write!(f, "Failed to write '{err}' on gRPC channel back to client"),
         }
     }
 }
@@ -513,23 +513,23 @@ impl Display for CommitError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use self::CommitError::*;
         match self {
-            UnavailableDataError{ name, locs }   => write!(f, "Dataset '{}' is unavailable{}", name, if !locs.is_empty() { format!("; however, locations {} do (try to get download permission to those datasets)", locs.iter().map(|l| format!("'{}'", l)).collect::<Vec<String>>().join(", ")) } else { String::new() }),
+            UnavailableDataError{ name, locs }   => write!(f, "Dataset '{}' is unavailable{}", name, if !locs.is_empty() { format!("; however, locations {} do (try to get download permission to those datasets)", locs.iter().map(|l| format!("'{l}'")).collect::<Vec<String>>().join(", ")) } else { String::new() }),
             DataDirNotADir{ path }               => write!(f, "Dataset directory '{}' exists but is not a directory", path.display()),
             DataDirCreateError{ path, err }      => write!(f, "Failed to create dataset directory '{}': {}", path.display(), err),
             DataInfoCreateError{ path, err }     => write!(f, "Failed to create new data info file '{}': {}", path.display(), err),
-            DataInfoSerializeError{ err }        => write!(f, "Failed to serialize DataInfo struct: {}", err),
+            DataInfoSerializeError{ err }        => write!(f, "Failed to serialize DataInfo struct: {err}"),
             DataInfoWriteError{ path, err }      => write!(f, "Failed to write DataInfo to '{}': {}", path.display(), err),
             DirReadError{ path, err }            => write!(f, "Failed to read directory '{}': {}", path.display(), err),
             DirEntryReadError{ path, i, err }    => write!(f, "Failed to read entry {} in directory '{}': {}", i, path.display(), err),
-            DataCopyError{ err }                 => write!(f, "Failed to copy data directory: {}", err),
+            DataCopyError{ err }                 => write!(f, "Failed to copy data directory: {err}"),
 
-            NodeConfigReadError{ err, .. }          => write!(f, "Failed to load node config file: {}", err),
+            NodeConfigReadError{ err, .. }          => write!(f, "Failed to load node config file: {err}"),
             InfraReadError{ path, err }             => write!(f, "Failed to load infrastructure file '{}': {}", path.display(), err),
-            UnknownLocationError{ loc }             => write!(f, "Unknown location '{}'", loc),
-            ProxyError{ err }                       => write!(f, "Failed to prepare proxy service: {}", err),
-            GrpcConnectError{ endpoint, err }       => write!(f, "Failed to start gRPC connection with delegate node '{}': {}", endpoint, err),
-            GrpcRequestError{ what, endpoint, err } => write!(f, "Failed to send {} request to delegate node '{}': {}", what, endpoint, err),
-            CommitError{ endpoint, name, err }      => write!(f, "Remote delegate '{}' failed to commit intermediate result '{}'{}", endpoint, name, if let Some(err) = err { format!(": {}", err) } else { String::new() }),
+            UnknownLocationError{ loc }             => write!(f, "Unknown location '{loc}'"),
+            ProxyError{ err }                       => write!(f, "Failed to prepare proxy service: {err}"),
+            GrpcConnectError{ endpoint, err }       => write!(f, "Failed to start gRPC connection with delegate node '{endpoint}': {err}"),
+            GrpcRequestError{ what, endpoint, err } => write!(f, "Failed to send {what} request to delegate node '{endpoint}': {err}"),
+            CommitError{ endpoint, name, err }      => write!(f, "Remote delegate '{}' failed to commit intermediate result '{}'{}", endpoint, name, if let Some(err) = err { format!(": {err}") } else { String::new() }),
 
             AssetInfoReadError{ path, err } => write!(f, "Failed to load asset info file '{}': {}", path.display(), err),
             FileRemoveError{ path, err }    => write!(f, "Failed to remove file '{}': {}", path.display(), err),
@@ -553,7 +553,7 @@ impl Display for IdError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use IdError::*;
         match self {
-            ParseError{ what, raw, err } => write!(f, "Failed to parse {} from '{}': {}", what, raw, err),
+            ParseError{ what, raw, err } => write!(f, "Failed to parse {what} from '{raw}': {err}"),
         }
     }
 }
@@ -643,31 +643,31 @@ impl Display for DockerError {
         match self {
             ConnectionError{ path, version, err } => write!(f, "Failed to connect to the local Docker daemon through socket '{}' and with client version {}: {}", path.display(), version, err),
 
-            WaitError{ name, err } => write!(f, "Failed to wait for Docker container with name '{}': {}", name, err),
-            LogsError{ name, err } => write!(f, "Failed to get logs of Docker container with name '{}': {}", name, err),
+            WaitError{ name, err } => write!(f, "Failed to wait for Docker container with name '{name}': {err}"),
+            LogsError{ name, err } => write!(f, "Failed to get logs of Docker container with name '{name}': {err}"),
 
-            InspectContainerError{ name, err } => write!(f, "Failed to inspect Docker container with name '{}': {}", name, err),
-            ContainerNoNetwork{ name }         => write!(f, "Docker container with name '{}' is not connected to any networks", name),
+            InspectContainerError{ name, err } => write!(f, "Failed to inspect Docker container with name '{name}': {err}"),
+            ContainerNoNetwork{ name }         => write!(f, "Docker container with name '{name}' is not connected to any networks"),
 
-            CreateContainerError{ name, image, err } => write!(f, "Could not create Docker container with name '{}' (image: {}): {}", name, image, err),
-            StartError{ name, image, err }           => write!(f, "Could not start Docker container with name '{}' (image: {}): {}", name, image, err),
+            CreateContainerError{ name, image, err } => write!(f, "Could not create Docker container with name '{name}' (image: {image}): {err}"),
+            StartError{ name, image, err }           => write!(f, "Could not start Docker container with name '{name}' (image: {image}): {err}"),
 
-            ContainerNoState{ name }    => write!(f, "Docker container with name '{}' has no execution state (has it been started?)", name),
-            ContainerNoExitCode{ name } => write!(f, "Docker container with name '{}' has no return code (did you wait before completing?)", name),
+            ContainerNoState{ name }    => write!(f, "Docker container with name '{name}' has no execution state (has it been started?)"),
+            ContainerNoExitCode{ name } => write!(f, "Docker container with name '{name}' has no return code (did you wait before completing?)"),
 
-            ContainerRemoveError{ name, err } => write!(f, "Fialed to remove Docker container with name '{}': {}", name, err),
+            ContainerRemoveError{ name, err } => write!(f, "Fialed to remove Docker container with name '{name}': {err}"),
 
             ImageFileOpenError{ path, err }     => write!(f, "Failed to open image file '{}': {}", path.display(), err),
             ImageImportError{ path, err }       => write!(f, "Failed to import image file '{}' into Docker engine: {}", path.display(), err),
             ImageFileCreateError{ path, err }   => write!(f, "Failed to create image file '{}': {}", path.display(), err),
-            ImageExportError{ name, err }       => write!(f, "Failed to export image '{}': {}", name, err),
+            ImageExportError{ name, err }       => write!(f, "Failed to export image '{name}': {err}"),
             ImageFileWriteError{ path, err }    => write!(f, "Failed to write to image file '{}': {}", path.display(), err),
             ImageFileShutdownError{ path, err } => write!(f, "Failed to shut image file '{}' down: {}", path.display(), err),
 
-            ImagePullError{ source, err }       => write!(f, "Failed to pull image '{}' into Docker engine: {}", source, err),
-            ImageTagError{ image, source, err } => write!(f, "Failed to tag pulled image '{}' as '{}': {}", source, image, err),
+            ImagePullError{ source, err }       => write!(f, "Failed to pull image '{source}' into Docker engine: {err}"),
+            ImageTagError{ image, source, err } => write!(f, "Failed to tag pulled image '{source}' as '{image}': {err}"),
 
-            ImageInspectError{ image, err }    => write!(f, "Failed to inspect image '{}'{}: {}", image.name(), if let Some(digest) = image.digest() { format!(" ({})", digest) } else { String::new() }, err),
+            ImageInspectError{ image, err }    => write!(f, "Failed to inspect image '{}'{}: {}", image.name(), if let Some(digest) = image.digest() { format!(" ({digest})") } else { String::new() }, err),
             ImageRemoveError{ image, id, err } => write!(f, "Failed to remove image '{}' (id: {}) from Docker engine: {}", image.name(), id, err),
 
             ImageTarOpenError{ path, err }                 => write!(f, "Could not open given Docker image file '{}': {}", path.display(), err),
@@ -721,17 +721,17 @@ impl Display for LocalError {
         match self {
             PackageDirReadError{ path, err }             => write!(f, "Could not read package directory '{}': {}", path.display(), err),
             UnreadableVersionEntry{ path }               => write!(f, "Could not get the version directory from '{}'", path.display()),
-            IllegalVersionEntry{ package, version, err } => write!(f, "Entry '{}' for package '{}' is not a valid version: {}", version, package, err),
-            NoVersions{ package }                        => write!(f, "Package '{}' does not have any registered versions", package),
+            IllegalVersionEntry{ package, version, err } => write!(f, "Entry '{version}' for package '{package}' is not a valid version: {err}"),
+            NoVersions{ package }                        => write!(f, "Package '{package}' does not have any registered versions"),
 
             PackagesDirReadError{ path, err }        => write!(f, "Could not read from Brane packages directory '{}': {}", path.display(), err),
             InvalidPackageYml{ package, path, err }  => write!(f, "Could not read '{}' for package '{}': {}", path.display(), package, err),
-            PackageIndexError{ err }                 => write!(f, "Could not create PackageIndex: {}", err),
+            PackageIndexError{ err }                 => write!(f, "Could not create PackageIndex: {err}"),
 
             DatasetsReadError{ path, err } => write!(f, "Failed to read datasets folder '{}': {}", path.display(), err),
             DataInfoOpenError{ path, err } => write!(f, "Failed to open data info file '{}': {}", path.display(), err),
             DataInfoReadError{ path, err } => write!(f, "Failed to read/parse data info file '{}': {}", path.display(), err),
-            DataIndexError{ err }          => write!(f, "Failed to create data index from local datasets: {}", err),
+            DataIndexError{ err }          => write!(f, "Failed to create data index from local datasets: {err}"),
         }
     }
 }
@@ -765,16 +765,16 @@ impl Display for ApiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ApiError::*;
         match self {
-            RequestError{ address, err }                => write!(f, "Failed to post request to '{}': {}", address, err),
-            ResponseBodyError{ address, err }           => write!(f, "Failed to get body from response from '{}': {}", address, err),
-            ResponseJsonParseError{ address, raw, err } => write!(f, "Failed to parse response \"\"\"{}\"\"\" from '{}' as JSON: {}", raw, address, err),
-            NoResponse{ address }                       => write!(f, "'{}' responded without a body (not even that no packages are available)", address),
+            RequestError{ address, err }                => write!(f, "Failed to post request to '{address}': {err}"),
+            ResponseBodyError{ address, err }           => write!(f, "Failed to get body from response from '{address}': {err}"),
+            ResponseJsonParseError{ address, raw, err } => write!(f, "Failed to parse response \"\"\"{raw}\"\"\" from '{address}' as JSON: {err}"),
+            NoResponse{ address }                       => write!(f, "'{address}' responded without a body (not even that no packages are available)"),
 
-            PackageKindParseError{ address, index, raw, err } => write!(f, "Failed to parse '{}' as package kind in package {} returned by '{}': {}", raw, index, address, err),
-            VersionParseError{ address, index, raw, err }     => write!(f, "Failed to parse '{}' as version in package {} returned by '{}': {}", raw, index, address, err),
-            PackageIndexError{ address, err }                 => write!(f, "Failed to create a package index from the package infos given by '{}': {}", address, err),
+            PackageKindParseError{ address, index, raw, err } => write!(f, "Failed to parse '{raw}' as package kind in package {index} returned by '{address}': {err}"),
+            VersionParseError{ address, index, raw, err }     => write!(f, "Failed to parse '{raw}' as version in package {index} returned by '{address}': {err}"),
+            PackageIndexError{ address, err }                 => write!(f, "Failed to create a package index from the package infos given by '{address}': {err}"),
 
-            DataIndexError{ address, err } => write!(f, "Failed to create a data index from the data infos given by '{}': {}", address, err),
+            DataIndexError{ address, err } => write!(f, "Failed to create a data index from the data infos given by '{address}': {err}"),
         }
     }
 }

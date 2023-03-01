@@ -24,7 +24,7 @@ use warp::{Reply, Rejection};
 /// Simply returns the environment veriable with '200 OK'.
 pub async fn handle() -> Result<impl Reply, Rejection> {
     let version = env!("CARGO_PKG_VERSION");
-    let version = format!("v{}", version);
+    let version = format!("v{version}");
     let version_len = version.len();
     let mut response = Response::new(Body::from(version));
 

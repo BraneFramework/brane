@@ -37,7 +37,7 @@ impl PortAllocator {
     /// # Panics
     /// This function panics if `start` > `end`.
     pub fn new(start: u16, end: u16) -> Self {
-        if start > end { panic!("Start cannot be larger than end ({} > {})", start, end); }
+        if start > end { panic!("Start cannot be larger than end ({start} > {end})"); }
         Self {
             index : start,
             end

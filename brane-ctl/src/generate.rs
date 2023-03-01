@@ -317,7 +317,7 @@ fn generate_config(what: impl Display, config: impl Serialize, path: impl AsRef<
     };
 
     // Write it and we're done
-    if let Err(err) = write!(handle, "{}", sconfig) { return Err(Error::FileWriteError{ what: "config", path: path.into(), err }); }
+    if let Err(err) = write!(handle, "{sconfig}") { return Err(Error::FileWriteError{ what: "config", path: path.into(), err }); }
     Ok(())
 }
 
@@ -521,7 +521,7 @@ struct CfsslCsrKey {
 pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Address>, proxy_protocol: ProxyProtocol, fix_dirs: bool, config_path: impl Into<PathBuf>, command: GenerateNodeSubcommand) -> Result<(), Error> {
     let path        : PathBuf = path.into();
     let config_path : PathBuf = config_path.into();
-    info!("Generating node.yml for a {}...", match &command { GenerateNodeSubcommand::Central { .. } => { "central node".into() }, GenerateNodeSubcommand::Worker{ location_id, .. } => { format!("worker node with location ID '{}'", location_id) } });
+    info!("Generating node.yml for a {}...", match &command { GenerateNodeSubcommand::Central { .. } => { "central node".into() }, GenerateNodeSubcommand::Worker{ location_id, .. } => { format!("worker node with location ID '{location_id}'") } });
 
     // Generate the host -> IP map from the pairs.
     let hosts: HashMap<String, IpAddr> = {
@@ -576,16 +576,16 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
                         api : PublicService {
                             name    : api_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), api_port).into(),
-                            address : Address::Hostname(format!("http://{}", api_name), api_port),
+                            address : Address::Hostname(format!("http://{api_name}"), api_port),
 
-                            external_address : Address::Hostname(format!("http://{}", hostname), api_port),
+                            external_address : Address::Hostname(format!("http://{hostname}"), api_port),
                         },
                         drv : PublicService {
                             name    : drv_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), drv_port).into(),
-                            address : Address::Hostname(format!("grpc://{}", drv_name), drv_port),
+                            address : Address::Hostname(format!("grpc://{drv_name}"), drv_port),
 
-                            external_address : Address::Hostname(format!("grpc://{}", hostname), drv_port),
+                            external_address : Address::Hostname(format!("grpc://{hostname}"), drv_port),
                         },
                         plr : KafkaService {
                             name : plr_name,
@@ -595,7 +595,7 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
                         prx : PrivateService {
                             name    : prx_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address : Address::Hostname(format!("http://{}", prx_name), prx_port),
+                            address : Address::Hostname(format!("http://{prx_name}"), prx_port),
                         },
 
                         aux_scylla : PrivateService {
@@ -676,28 +676,28 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
                         reg : PublicService {
                             name    : reg_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), reg_port).into(),
-                            address : Address::Hostname(format!("https://{}", reg_name), reg_port),
+                            address : Address::Hostname(format!("https://{reg_name}"), reg_port),
 
-                            external_address : Address::Hostname(format!("https://{}", hostname), reg_port),
+                            external_address : Address::Hostname(format!("https://{hostname}"), reg_port),
                         },
                         job : PublicService {
                             name    : job_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), job_port).into(),
-                            address : Address::Hostname(format!("grpc://{}", job_name), job_port),
+                            address : Address::Hostname(format!("grpc://{job_name}"), job_port),
 
-                            external_address : Address::Hostname(format!("grpc://{}", hostname), job_port),
+                            external_address : Address::Hostname(format!("grpc://{hostname}"), job_port),
                         },
                         chk : PublicService {
                             name    : chk_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), chk_port).into(),
-                            address : Address::Hostname(format!("https://{}", chk_name), chk_port),
+                            address : Address::Hostname(format!("https://{chk_name}"), chk_port),
 
-                            external_address : Address::Hostname(format!("https://{}", hostname), chk_port),
+                            external_address : Address::Hostname(format!("https://{hostname}"), chk_port),
                         },
                         prx : PrivateService {
                             name    : prx_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address : Address::Hostname(format!("https://{}", prx_name), prx_port),
+                            address : Address::Hostname(format!("https://{prx_name}"), prx_port),
                         },
                     },
                 }),
@@ -835,7 +835,7 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
     match &kind {
         GenerateCertsSubcommand::Server { location_id, hostname } => {
             // Then write the CA config itself (always, since it contains call-specific information)
-            let ca_csr_path: PathBuf = temp_dir.join(format!("ca-csr-{}.json", id));
+            let ca_csr_path: PathBuf = temp_dir.join(format!("ca-csr-{id}.json"));
             debug!("Generating '{}'...", ca_csr_path.display());
             generate_config("CA CSR config", CfsslCaCsr {
                 cn    : location_id.clone(),
@@ -843,7 +843,7 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
                 names : vec![ HashMap::from([ ("".into(), "".into()) ]) ],
             }, &ca_csr_path)?;
             // And the server config
-            let server_csr_path: PathBuf = temp_dir.join(format!("server-csr-{}.json", id));
+            let server_csr_path: PathBuf = temp_dir.join(format!("server-csr-{id}.json"));
             debug!("Generating '{}'...", server_csr_path.display());
             generate_config("server CSR config", CfsslClientServerCsr {
                 cn    : location_id.clone(),
@@ -859,7 +859,7 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
 
         GenerateCertsSubcommand::Client { location_id, hostname, ca_cert, ca_key } => {
             // Generate the client config
-            let client_csr_path: PathBuf = temp_dir.join(format!("client-csr-{}.json", id));
+            let client_csr_path: PathBuf = temp_dir.join(format!("client-csr-{id}.json"));
             debug!("Generating '{}'...", client_csr_path.display());
             generate_config("client CSR config", CfsslClientServerCsr {
                 cn    : location_id.clone(),
@@ -875,7 +875,7 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
             if !ca_key.is_file() { return Err(Error::CaKeyNotAFile{ path: ca_cert.clone() }); }
 
             // Generate the key file(s) in a temporary directory
-            let certs_dir : PathBuf = temp_dir.join(format!("certs-{}", id));
+            let certs_dir : PathBuf = temp_dir.join(format!("certs-{id}"));
             if let Err(err) = fs::create_dir_all(&certs_dir) { return Err(Error::DirCreateError{ path: certs_dir, err }); }
             generate_client_server_cert("client", CfsslExecutables{ cfssl: &cfssl_path, cfssljson: &cfssljson_path }, ca_cert, ca_key, ca_config_path, client_csr_path, certs_dir.join("client"))?;
 

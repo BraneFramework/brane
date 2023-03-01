@@ -43,7 +43,7 @@ impl Locations {
     /// # Panics
     /// This function panics if the Locations was not `Locations::Restricted`. Use `Locations::is_restrictive` to query beforehand.
     #[inline]
-    pub fn restricted(&self) -> &[Location] { if let Self::Restricted(locs) = self { locs } else { panic!("Cannot unwrap Locations::{:?} as restricted", self); } }
+    pub fn restricted(&self) -> &[Location] { if let Self::Restricted(locs) = self { locs } else { panic!("Cannot unwrap Locations::{self:?} as restricted"); } }
 
 
 
