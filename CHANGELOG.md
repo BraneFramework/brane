@@ -13,19 +13,19 @@ All notable changes to the Brane framework will be documented in this file.
 - Support for compiling `branectl` containerized, to meet `GLIBC` requirements.
 - The Docker Compose-files (`docker-compose-central.yml` and `docker-compose-worker.yml`) as baked-in files to `branectl`.
 - `brane-prx` being able to proxy traffic through a SOCKS5 proxy.
-  - To do this, the `proxy`-field in `node.yml` has a different syntax to select the target protocol (**breaking change**).
+  - To do this, the `proxy`-field in `node.yml` has a different syntax to select the target protocol [**breaking change**].
   - `branectl` has also been updated to reflect this.
 
 ### Changed
 - Protobuf descriptions to be in pure Rust instead of `.proto` files. This should allow use to re-use Rust structs in a more ergonimic style, as well as get rid of the very annoying `protoc` dependency.
-- `brane login` to be more like a keymanager instead. Check `brane instance` and `brane certs` instead, and consult the [wiki](https://wiki.enablingpersonalizedinterventions.nl/user-guide) for how to use this new system (**breaking change**).
+- `brane login` to be more like a keymanager instead. Check `brane instance` and `brane certs` instead, and consult the [wiki](https://wiki.enablingpersonalizedinterventions.nl/user-guide) for how to use this new system [**breaking change**].
 - The `--debug` flag in the `brane-cli` can now be used from all nested subcommands.
 - Various option and flags (`--debug`, `-n`/`--node-config`, `-e`/`--exe`, `-f`/`--file`, `-m`/`--mode`) to be able to be used in subcommands as well in `branectl`.
-- `branectl` to default to `docker compose` instead of `docker-compose` as compose executable (**breaking change**).
+- `branectl` to default to `docker compose` instead of `docker-compose` as compose executable [**breaking change**].
 - `branectl` using the friendlier, in-house [humanlog](https://github.com/Lut99/humanlog-rs) logger instead of [env_logger](https://docs.rs/env_logger/latest/env_logger/).
 - `make.py` to move the download capabilities to `branectl`, allowing for a friendlier (and easier) interface.
 - `aux-xenon` to be an image in the Brane release tar (central node).
-- The general layout of `node.yml` to be more sensible (it focusses on services rather than names, ports, etc) (**breaking change**)
+- The general layout of `node.yml` to be more sensible (it focusses on services rather than names, ports, etc) [**breaking change**]
 
 ### Fixed
 - The previous version not making it through the tests.
