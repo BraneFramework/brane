@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    01 Mar 2023, 11:27:09
+//    09 Mar 2023, 13:44:50
 //  Auto updated?
 //    Yes
 // 
@@ -539,13 +539,14 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
     debug!("Generating node config...");
     let node_config: NodeConfig = match command {
         // Generate the central node
-        GenerateNodeSubcommand::Central { mut hostname, infra, certs, packages, prx_name, api_name, drv_name, plr_name, prx_port, api_port, drv_port, plr_cmd_topic, plr_res_topic } => {
-            // Remove any scheme from the hostname
-            if let Address::Hostname(ref mut domain, _) = hostname {
-                if let Some(pos) = domain.find("://") {
-                    *domain = domain[pos + 3..].into();
-                }
+        GenerateNodeSubcommand::Central { hostname, infra, certs, packages, prx_name, api_name, drv_name, plr_name, prx_port, api_port, drv_port, plr_cmd_topic, plr_res_topic } => {
+            // Remove any scheme, paths, ports, whatever from the hostname
+            let mut hostname: &str = &hostname;
+            if let Some(pos) = hostname.find("://") {
+                hostname = &hostname[pos + 3..];
             }
+            hostname = hostname.split(':').next().unwrap();
+            hostname = hostname.split('/').next().unwrap();
 
             // Resolve any path depending on the '$CONFIG'
             let infra : PathBuf = resolve_config_path(infra, &config_path);
@@ -619,14 +620,15 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
         },
 
         // Generate the worker node
-        GenerateNodeSubcommand::Worker { location_id, mut hostname, backend, policies, certs, packages, data, results, temp_data, temp_results, prx_name, reg_name, job_name, chk_name, prx_port, reg_port, job_port, chk_port } => {
-            // Remove any scheme from the hostname
-            if let Address::Hostname(ref mut domain, _) = hostname {
-                if let Some(pos) = domain.find("://") {
-                    *domain = domain[pos + 3..].into();
-                }
+        GenerateNodeSubcommand::Worker { location_id, hostname, backend, policies, certs, packages, data, results, temp_data, temp_results, prx_name, reg_name, job_name, chk_name, prx_port, reg_port, job_port, chk_port } => {
+            // Remove any scheme, paths, ports, whatever from the hostname
+            let mut hostname: &str = &hostname;
+            if let Some(pos) = hostname.find("://") {
+                hostname = &hostname[pos + 3..];
             }
-
+            hostname = hostname.split(':').next().unwrap();
+            hostname = hostname.split('/').next().unwrap();
+            
             // Resolve the service names
             let prx_name: String = prx_name.replace("$LOCATION", &location_id);
             let reg_name: String = reg_name.replace("$LOCATION", &location_id);
@@ -690,14 +692,14 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
                         chk : PublicService {
                             name    : chk_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), chk_port).into(),
-                            address : Address::Hostname(format!("https://{chk_name}"), chk_port),
+                            address : Address::Hostname(format!("http://{chk_name}"), chk_port),
 
                             external_address : Address::Hostname(format!("https://{hostname}"), chk_port),
                         },
                         prx : PrivateService {
                             name    : prx_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address : Address::Hostname(format!("https://{prx_name}"), prx_port),
+                            address : Address::Hostname(format!("http://{prx_name}"), prx_port),
                         },
                     },
                 }),
@@ -1061,9 +1063,16 @@ pub fn policy(fix_dirs: bool, path: impl Into<PathBuf>, allow_all: bool) -> Resu
 
     // Create the CredsFile
     debug!("Generating backend information...");
-    let policies: PolicyFile = PolicyFile {
-        users      : vec![ UserPolicy::AllowAll ],
-        containers : vec![ ContainerPolicy::AllowAll ],
+    let policies: PolicyFile = if allow_all {
+        PolicyFile {
+            users      : vec![ UserPolicy::AllowAll ],
+            containers : vec![ ContainerPolicy::AllowAll ],
+        }
+    } else {
+        PolicyFile {
+            users      : vec![ UserPolicy::DenyAll ],
+            containers : vec![ ContainerPolicy::DenyAll ],
+        }
     };
 
     // Make sure its directory exists
