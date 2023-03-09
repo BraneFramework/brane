@@ -4,7 +4,7 @@
 //  Created:
 //    28 Feb 2023, 10:01:27
 //  Last edited:
-//    28 Feb 2023, 18:56:31
+//    09 Mar 2023, 16:19:06
 //  Auto updated?
 //    Yes
 // 
@@ -21,87 +21,15 @@ use std::str::FromStr;
 
 use enum_debug::EnumDebug;
 use serde::{Deserialize, Serialize};
-use serde::ser::Serializer;
-use serde::de::{self, Deserializer, Visitor};
 
 use specifications::address::Address;
 
 pub use crate::errors::NodeConfigError as Error;
-use crate::errors::{NodeKindParseError, ProxyProtocolParseError};
+use crate::errors::NodeKindParseError;
 use crate::spec::YamlConfig;
 
 
 /***** AUXILLARY *****/
-/// Defines the supported proxy protocols (versions).
-#[derive(Clone, Copy, Debug, EnumDebug, Eq, Hash, PartialEq)]
-pub enum ProxyProtocol {
-    /// Version 5
-    Socks5,
-    /// Version 6
-    Socks6,
-}
-impl Display for ProxyProtocol {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use ProxyProtocol::*;
-        match self {
-            Socks5 => write!(f, "SOCKS5"),
-            Socks6 => write!(f, "SOCKS6"),
-        }
-    }
-}
-impl FromStr for ProxyProtocol {
-    type Err = ProxyProtocolParseError;
-
-    #[inline]
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "socks5" => Ok(Self::Socks5),
-            "socks6" => Ok(Self::Socks6),
-            _        => Err(ProxyProtocolParseError::UnknownProtocol { raw: s.into() }),
-        }
-    }
-}
-impl Serialize for ProxyProtocol {
-    #[inline]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-impl<'de> Deserialize<'de> for ProxyProtocol {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        /// Visitor for the ProxyProtocol.
-        struct ProxyProtocolVisitor;
-        impl<'de> Visitor<'de> for ProxyProtocolVisitor {
-            type Value = ProxyProtocol;
-
-            fn expecting(&self, f: &mut Formatter<'_>) -> FResult {
-                write!(f, "a proxy protocol identifier")
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                match ProxyProtocol::from_str(v) {
-                    Ok(prot) => Ok(prot),
-                    Err(err) => Err(E::custom(err)),
-                }
-            }
-        }
-
-        // Call the visitor
-        deserializer.deserialize_str(ProxyProtocolVisitor)
-    }
-}
-
-
-
 /// Defines the possible node types.
 #[derive(Clone, Copy, Debug, EnumDebug, Eq, Hash, PartialEq)]
 pub enum NodeKind {
@@ -109,6 +37,8 @@ pub enum NodeKind {
     Central,
     /// The worker node, which lives on a hospital and does all the heavy work.
     Worker,
+    /// The proxy node is essentially an external proxy for a central or worker node.
+    Proxy,
 }
 impl Display for NodeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -116,6 +46,7 @@ impl Display for NodeKind {
         match self {
             Central => write!(f, "central"),
             Worker  => write!(f, "worker"),
+            Proxy   => write!(f, "proxy"),
         }
     }
 }
@@ -126,6 +57,7 @@ impl FromStr for NodeKind {
         match s {
             "central" => Ok(Self::Central),
             "worker"  => Ok(Self::Worker),
+            "proxy"   => Ok(Self::Proxy),
     
             raw => Err(NodeKindParseError::UnknownNodeKind{ raw: raw.into() }),
         }
@@ -142,22 +74,11 @@ impl FromStr for NodeKind {
 pub struct NodeConfig {
     /// Custom hostname <-> IP mappings to satisfy rustls
     pub hostnames : HashMap<String, IpAddr>,
-    /// The proxy to use for control messages, if any.
-    pub proxy     : Option<ProxyConfig>,
 
     /// Any node-specific config
     pub node : NodeSpecificConfig,
 }
 impl<'de> YamlConfig<'de> for NodeConfig {}
-
-/// Define configuration for control proxy traffic.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ProxyConfig {
-    /// The address of the proxy itself.
-    pub address  : Address,
-    /// The protocol that we use to communicate to the proxy.
-    pub protocol : ProxyProtocol,
-}
 
 
 
@@ -165,11 +86,13 @@ pub struct ProxyConfig {
 #[derive(Clone, Debug, Deserialize, EnumDebug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeSpecificConfig {
-    /// Defines the services for the control node
+    /// Defines the services for the control node.
     #[serde(alias = "control")]
     Central(CentralConfig),
-    /// Defines the services for the worker node
+    /// Defines the services for the worker node.
     Worker(WorkerConfig),
+    /// Defines the services for the proxy node.
+    Proxy(ProxyConfig),
 }
 impl NodeSpecificConfig {
     /// Returns the kind of this config.
@@ -179,6 +102,7 @@ impl NodeSpecificConfig {
         match self {
             Central(_) => NodeKind::Central,
             Worker(_)  => NodeKind::Worker,
+            Proxy(_)   => NodeKind::Proxy,
         }
     }
 
@@ -285,6 +209,58 @@ impl NodeSpecificConfig {
     /// The internal WorkerConfig struct if we were a `NodeSpecificConfig::Worker`. Will return `None` otherwise.
     #[inline]
     pub fn try_into_worker(self) -> Option<WorkerConfig> { if let Self::Worker(config) = self { Some(config) } else { None } }
+
+    /// Returns if this NodeSpecificConfig is a `NodeSpecificConfig::Proxy`.
+    /// 
+    /// # Returns
+    /// True if it is, or false otherwise.
+    #[inline]
+    pub fn is_proxy(&self) -> bool { matches!(self, Self::Proxy(_)) }
+    /// Provides immutable access to the proxy-node specific configuration.
+    /// 
+    /// # Returns
+    /// A reference to the internal ProxyConfig struct.
+    /// 
+    /// # Panics
+    /// This function panics if we were not `NodeSpecificConfig::Proxy`. If you are looking for a more user-friendly version, check `NodeSpecificConfig::try_proxy()` instead.
+    #[inline]
+    pub fn proxy(&self) -> &ProxyConfig { if let Self::Proxy(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeSpecificConfig::Proxy", self.variant()); } }
+    /// Provides mutable access to the proxy-node specific configuration.
+    /// 
+    /// # Returns
+    /// A mutable reference to the internal ProxyConfig struct.
+    /// 
+    /// # Panics
+    /// This function panics if we were not `NodeSpecificConfig::Proxy`. If you are looking for a more user-friendly version, check `NodeSpecificConfig::try_proxy_mut()` instead.
+    #[inline]
+    pub fn proxy_mut(&mut self) -> &mut ProxyConfig { if let Self::Proxy(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeSpecificConfig::Proxy", self.variant()); } }
+    /// Returns the internal proxy-node specific configuration.
+    /// 
+    /// # Returns
+    /// The internal ProxyConfig struct.
+    /// 
+    /// # Panics
+    /// This function panics if we were not `NodeSpecificConfig::Proxy`. If you are looking for a more user-friendly version, check `NodeSpecificConfig::try_into_proxy()` instead.
+    #[inline]
+    pub fn into_proxy(self) -> ProxyConfig { if let Self::Proxy(config) = self { config } else { panic!("Cannot unwrap a {:?} as a NodeSpecificConfig::Proxy", self.variant()); } }
+    /// Provides immutable access to the proxy-node specific configuration.
+    /// 
+    /// # Returns
+    /// A reference to the internal ProxyConfig struct if we were a `NodeSpecificConfig::Proxy`. Will return `None` otherwise.
+    #[inline]
+    pub fn try_proxy(&self) -> Option<&ProxyConfig> { if let Self::Proxy(config) = self { Some(config) } else { None } }
+    /// Provides mutable access to the proxy-node specific configuration.
+    /// 
+    /// # Returns
+    /// A mutable reference to the internal ProxyConfig struct if we were a `NodeSpecificConfig::Proxy`. Will return `None` otherwise.
+    #[inline]
+    pub fn try_proxy_mut(&mut self) -> Option<&mut ProxyConfig> { if let Self::Proxy(config) = self { Some(config) } else { None } }
+    /// Returns the internal proxy-node specific configuration.
+    /// 
+    /// # Returns
+    /// The internal ProxyConfig struct if we were a `NodeSpecificConfig::Proxy`. Will return `None` otherwise.
+    #[inline]
+    pub fn try_into_proxy(self) -> Option<ProxyConfig> { if let Self::Proxy(config) = self { Some(config) } else { None } }
 }
 
 
@@ -307,7 +283,9 @@ pub struct CentralPaths {
     pub packages : PathBuf,
 
     /// The path to the infrastructure file.
-    pub infra    : PathBuf,
+    pub infra : PathBuf,
+    /// The path to the proxy file, if applicable. Ignored if no service is present.
+    pub proxy : Option<PathBuf>,
 }
 
 /// Defines the services for the central/control node.
@@ -369,6 +347,8 @@ pub struct WorkerPaths {
     pub backend  : PathBuf,
     /// The path to the "policy" file (`policies.yml` - temporary)
     pub policies : PathBuf,
+    /// The path to the proxy file, if applicable. Ignored if no service is present.
+    pub proxy    : Option<PathBuf>,
 
     /// The path of the dataset directory.
     pub data         : PathBuf,
@@ -395,6 +375,34 @@ pub struct WorkerServices {
     /// Defines the proxy service.
     #[serde(alias = "proxy")]
     pub prx : PrivateService,
+}
+
+
+
+/// Defines the configuration for the proxy node.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ProxyConfig {
+    /// Defines the paths for this node.
+    pub paths    : ProxyPaths,
+    /// Defines the services for this node.
+    pub services : ProxyServices,
+}
+
+/// Defines the paths for the proxy node.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ProxyPaths {
+    /// The path to the certificate directory.
+    pub certs : PathBuf,
+    /// The path to the proxy file.
+    pub proxy : PathBuf,
+}
+
+/// Defines the services for the proxy node.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ProxyServices {
+    /// For the Proxy node, the proxy services is a) public, and b) required.
+    #[serde(alias = "proxy")]
+    pub prx : PublicService,
 }
 
 

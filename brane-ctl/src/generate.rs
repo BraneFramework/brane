@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    09 Mar 2023, 13:44:50
+//    09 Mar 2023, 18:55:51
 //  Auto updated?
 //    Yes
 // 
@@ -31,7 +31,7 @@ use serde::Serialize;
 use brane_cfg::spec::Config as _;
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::backend::{BackendFile, Credentials};
-use brane_cfg::node::{CentralConfig, CentralPaths, CentralServices, KafkaService, NodeConfig, NodeSpecificConfig, PrivateService, ProxyConfig, ProxyProtocol, PublicService, WorkerConfig, WorkerPaths, WorkerServices};
+use brane_cfg::node::{CentralConfig, CentralPaths, CentralServices, KafkaService, NodeConfig, NodeSpecificConfig, PrivateService, ProxyConfig, PublicService, WorkerConfig, WorkerPaths, WorkerServices};
 use brane_cfg::policies::{ContainerPolicy, PolicyFile, UserPolicy};
 use brane_shr::fs::{download_file_async, set_executable, DownloadSecurity};
 use specifications::address::Address;
@@ -518,7 +518,7 @@ struct CfsslCsrKey {
 /// 
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Address>, proxy_protocol: ProxyProtocol, fix_dirs: bool, config_path: impl Into<PathBuf>, command: GenerateNodeSubcommand) -> Result<(), Error> {
+pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, fix_dirs: bool, config_path: impl Into<PathBuf>, command: GenerateNodeSubcommand) -> Result<(), Error> {
     let path        : PathBuf = path.into();
     let config_path : PathBuf = config_path.into();
     info!("Generating node.yml for a {}...", match &command { GenerateNodeSubcommand::Central { .. } => { "central node".into() }, GenerateNodeSubcommand::Worker{ location_id, .. } => { format!("worker node with location ID '{location_id}'") } });
@@ -560,10 +560,6 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
             // Generate the config's contents
             NodeConfig {
                 hostnames : hosts,
-                proxy     : proxy.map(|a| ProxyConfig {
-                    address  : a,
-                    protocol : proxy_protocol,
-                }),
 
                 node : NodeSpecificConfig::Central(CentralConfig {
                     paths : CentralPaths {
@@ -653,10 +649,6 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
             // Generate the config's contents
             NodeConfig {
                 hostnames : hosts,
-                proxy     : proxy.map(|a| ProxyConfig {
-                    address  : a,
-                    protocol : proxy_protocol,
-                }),
 
                 node : NodeSpecificConfig::Worker(WorkerConfig {
                     name : location_id,

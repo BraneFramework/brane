@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 11:07:05
 //  Last edited:
-//    28 Nov 2022, 14:20:51
+//    09 Mar 2023, 18:39:29
 //  Auto updated?
 //    Yes
 // 
@@ -19,11 +19,15 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::{Arc, MutexGuard};
 
 use log::{debug, error, info};
+use tokio::net::{TcpListener, TcpStream};
 use warp::{Rejection, Reply};
 use warp::http::StatusCode;
 use warp::hyper::{Body, Response};
 use warp::hyper::body::Bytes;
 
+use specifications::address::Address;
+
+use crate::errors::RedirectError;
 use crate::spec::{Context, NewPathRequest, NewPathRequestTlsOptions};
 use crate::ports::PortAllocator;
 use crate::redirect::path_server_factory;
@@ -62,7 +66,9 @@ macro_rules! reject {
 
 
 /***** LIBRARY *****/
-/// Creates a new path in the proxy service, returning the port on which it becomes available.
+/// Creates a new path outgoing from the proxy service.
+/// 
+/// This will allocate a new port that an internal service can connect to. Any traffic that then occurs on this port is forwarded and trafficked back to the specified domain.
 /// 
 /// # Arguments
 /// - `body`: The body of the given request, which we will attempt to parse as JSON.
@@ -76,8 +82,8 @@ macro_rules! reject {
 /// 
 /// # Errors
 /// This function errors if we failed to start a new task that listens for the given port. If so, a `500 INTERNAL ERROR` is returned.
-pub async fn new_path(body: Bytes, context: Arc<Context>) -> Result<impl Reply, Rejection> {
-    info!("Handling POST on '/paths/new' (i.e., create new proxy path)...");
+pub async fn new_outgoing_path(body: Bytes, context: Arc<Context>) -> Result<impl Reply, Rejection> {
+    info!("Handling POST on '/outgoing/new' (i.e., create new outgoing proxy path)...");
 
     // Start by parsing the incoming body
     debug!("Parsing incoming body...");
@@ -122,7 +128,7 @@ pub async fn new_path(body: Bytes, context: Arc<Context>) -> Result<impl Reply, 
             error!("Failed to create the path server: {}", err);
             return Err(reject!("An internal server error has occurred."));
         },
-   };
+    };
     // Spawn it as a separate task
     tokio::spawn(server);
 
@@ -135,4 +141,71 @@ pub async fn new_path(body: Bytes, context: Arc<Context>) -> Result<impl Reply, 
     // Done, return the port
     debug!("OK, returning port {} to client", port);
     Ok(Response::new(Body::from(port.to_string())))
+}
+
+
+
+/// Creates a new path incoming to the proxy service.
+/// 
+/// This will allocate a new static port that an internal service can connect to. Any traffic that then occurs on this port is forwarded and trafficked back to the specified, (probably) internal address.
+/// 
+/// # Arguments
+/// - `port`: The port to allocate the new service on. Cannot be in the allocated range.
+/// - `address`: The address of the remote server to forward traffic to.
+/// - `context`: The Context struct that contains things we might need.
+/// 
+/// # Errors
+/// This function will error if we setup the new tunnel server for some reason; typically, this will be if the port is already in use.
+pub async fn new_incoming_path(port: u16, address: Address, context: Arc<Context>) -> Result<(), RedirectError> {
+    debug!("Creating new incoming path on port {} to '{}'...", port, address);
+
+    // Sanity check: crash if the port is within the target range
+    if context.proxy.outgoing_range.contains(&port) { return Err(RedirectError::PortInOutgoingRange{ port, range: context.proxy.outgoing_range.clone() }); }
+
+    // Attempt to start listening on that port
+    let socket_addr: SocketAddr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0).into(), port).into();
+    debug!("Creating listener on '{}'", socket_addr);
+    let listener: TcpListener = match TcpListener::bind(socket_addr).await {
+        Ok(listener) => listener,
+        Err(err)     => { return Err(RedirectError::ListenerCreateError { address: socket_addr, err }); },
+    };
+
+    // Wrap that in a tokio future that does all of our work
+    tokio::spawn(async move {
+        info!("Initialized inbound listener '>{}' to '{}'", port, address);
+        loop {
+            // Wait for the next connection
+            debug!(">{}->{}: Ready for new connection", port, address);
+            let (mut iconn, client_addr): (TcpStream, SocketAddr) = match listener.accept().await {
+                Ok(res)  => res,
+                Err(err) => {
+                    error!(">{}->{}: Failed to accept incoming connection: {}", port, address, err);
+                    continue;
+                },
+            };
+            debug!(">{}->{}: Got new connection from '{}'", port, address, client_addr);
+
+            // Now we establish a new connection to the internal host
+            let addr: String = format!("{}:{}", address.domain(), address.port());
+            debug!("Connecting to '{}'...", addr);
+            let mut oconn: TcpStream = match TcpStream::connect(&addr).await {
+                Ok(oconn) => oconn,
+                Err(err)  => {
+                    error!(">{}->{}: Failed to connect to internal '{}': {}", port, address, addr, err);
+                    continue;
+                },
+            };
+
+            // For the remainder of this session, simply copy the TCP stream both ways
+            debug!(">{}->{}: Bidirectional link started", port, address);
+            if let Err(err) = tokio::io::copy_bidirectional(&mut iconn, &mut oconn).await {
+                error!(">{}->{}: Bidirectional link failed: {}", port, address, err);
+                continue;
+            }
+            debug!(">{}->{}: Bidirectional link completed", port, address);
+        }
+    });
+
+    // Done
+    Ok(())
 }
