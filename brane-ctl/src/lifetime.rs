@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    01 Mar 2023, 11:21:35
+//    10 Mar 2023, 17:23:22
 //  Auto updated?
 //    Yes
 // 
@@ -30,7 +30,7 @@ use rand::distributions::Alphanumeric;
 use serde::{Deserialize, Serialize};
 
 use brane_cfg::spec::Config as _;
-use brane_cfg::node::{CentralPaths, CentralServices, NodeConfig, NodeKind, NodeSpecificConfig, WorkerPaths, WorkerServices};
+use brane_cfg::node::{CentralPaths, CentralServices, NodeConfig, NodeKind, NodeSpecificConfig, ProxyPaths, ProxyServices, WorkerPaths, WorkerServices};
 use brane_tsk::docker::{ensure_image, get_digest, ImageSource};
 use specifications::container::Image;
 use specifications::version::Version;
@@ -219,6 +219,12 @@ fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, mut versio
                             return Err(Error::DockerComposeWriteError{ path: compose_path, err });
                         }
                     },
+
+                    NodeKind::Proxy => {
+                        if let Err(err) = write!(handle, "{}", include_str!("../../docker-compose-proxy.yml")) {
+                            return Err(Error::DockerComposeWriteError{ path: compose_path, err });
+                        }
+                    },
                 }
             }
 
@@ -235,13 +241,14 @@ fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, mut versio
 /// - `kind`: The kind of this node.
 /// - `hosts`: The map of hostnames -> IP addresses to include.
 /// - `profile_dir`: The profile directory to mount (or not).
+/// - `add_proxy`: Whether to add information for the proxy or not.
 /// 
 /// # Returns
 /// The path to the generated compose file if it was necessary. If not (i.e., no hosts given), returns `None`.
 /// 
 /// # Errors
 /// This function errors if we failed to write the file.
-fn generate_override_file(kind: NodeKind, hosts: &HashMap<String, IpAddr>, profile_dir: Option<PathBuf>) -> Result<Option<PathBuf>, Error> {
+fn generate_override_file(kind: NodeKind, hosts: &HashMap<String, IpAddr>, profile_dir: Option<PathBuf>, add_proxy: bool) -> Result<Option<PathBuf>, Error> {
     // Early quit if there's nothing to do
     if hosts.is_empty() { return Ok(None); }
 
@@ -251,26 +258,29 @@ fn generate_override_file(kind: NodeKind, hosts: &HashMap<String, IpAddr>, profi
         extra_hosts : hosts.iter().map(|(hostname, ip)| format!("{hostname}:{ip}")).collect(),
     };
 
-    // Generate the ComposeOverrideFile
-    let extra_hosts: ComposeOverrideFile = match kind {
-        NodeKind::Central =>  ComposeOverrideFile {
-            version  : "3.6",
-            services : HashMap::from([
-                ("brane-prx", svc.clone()),
-                ("brane-api", svc.clone()),
-                ("brane-drv", svc.clone()),
-                ("brane-plr", svc),
-            ]),
-        },
+    // Generate the list of hosts for which to override the hostname and junk
+    let mut services: HashMap<&str, ComposeOverrideFileService> = match kind {
+        NodeKind::Central => HashMap::from([
+            ("brane-api", svc.clone()),
+            ("brane-drv", svc.clone()),
+            ("brane-plr", svc.clone()),
+        ]),
 
-        NodeKind::Worker =>  ComposeOverrideFile {
-            version  : "3.6",
-            services : HashMap::from([
-                ("brane-prx", svc.clone()),
-                ("brane-reg", svc.clone()),
-                ("brane-job", svc),
-            ]),
-        },
+        NodeKind::Worker => HashMap::from([
+            ("brane-reg", svc.clone()),
+            ("brane-job", svc.clone()),
+        ]),
+
+        NodeKind::Proxy => HashMap::with_capacity(1),
+    };
+
+    // Add in the proxy if relevant
+    if add_proxy { services.insert("brane-prx", svc); }
+
+    // Wrap it in a ComposeOverrideFile
+    let extra_hosts: ComposeOverrideFile = ComposeOverrideFile {
+        version  : "3.6",
+        services,
     };
 
     // Attemp to open the file to write that to
@@ -355,21 +365,20 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
     // Match on the node kind
     let node_config_dir: &Path = node_config_path.parent().unwrap();
     match &node_config.node {
-        NodeSpecificConfig::Central(central) => {
+        NodeSpecificConfig::Central(node) => {
             // Now we do a little ugly something, but we unpack the paths and ports here so that we get compile errors if we add more later on
             let CentralPaths {
                 certs, packages,
-                infra,
-            } = &central.paths;
+                infra, proxy,
+            } = &node.paths;
             let CentralServices {
                 api, drv, plr, prx,
                 aux_scylla: _, aux_kafka: _, aux_zookeeper: _,
-            } = &central.services;
+            } = &node.services;
 
             // Add the environment variables, which are basically just central-specific paths and ports to mount in the compose file
             res.extend([
                 // Names
-                ("PRX_NAME", OsString::from(&prx.name.as_str())),
                 ("API_NAME", OsString::from(&api.name.as_str())),
                 ("DRV_NAME", OsString::from(&drv.name.as_str())),
                 ("PLR_NAME", OsString::from(&plr.name.as_str())),
@@ -383,26 +392,33 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
                 ("API_PORT", OsString::from(format!("{}", api.bind.port()))),
                 ("DRV_PORT", OsString::from(format!("{}", drv.bind.port()))),
             ]);
+
+            // Only add the proxy stuff if given
+            if let Some(proxy) = proxy {
+                res.extend([
+                    ("PRX_NAME", OsString::from(&prx.name.as_str())),
+                    ("PROXY", canonicalize_join(node_config_dir, proxy)?.as_os_str().into()),
+                ]);
+            }
         },
 
-        NodeSpecificConfig::Worker(worker) => {
+        NodeSpecificConfig::Worker(node) => {
             // Now we do a little ugly something, but we unpack the paths here so that we get compile errors if we add more later on
             let WorkerPaths {
                 certs, packages,
-                backend, policies,
+                backend, policies, proxy,
                 data, results, temp_data, temp_results,
-            } = &worker.paths;
+            } = &node.paths;
             let WorkerServices {
                 reg, job, chk, prx,
-            } = &worker.services;
+            } = &node.services;
 
             // Add the environment variables, which are basically just central-specific paths to mount in the compose file
             res.extend([
                 // Also add the location ID
-                ("LOCATION_ID", OsString::from(&worker.name)),
+                ("LOCATION_ID", OsString::from(&node.name)),
 
                 // Names
-                ("PRX_NAME", OsString::from(&prx.name.as_str())),
                 ("REG_NAME", OsString::from(&reg.name.as_str())),
                 ("JOB_NAME", OsString::from(&job.name.as_str())),
                 ("CHK_NAME", OsString::from(&chk.name.as_str())),
@@ -421,6 +437,34 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
                 ("REG_PORT", OsString::from(format!("{}", reg.bind.port()))),
                 ("JOB_PORT", OsString::from(format!("{}", job.bind.port()))),
             ]);
+
+            // Only add the proxy stuff if given
+            if let Some(proxy) = proxy {
+                res.extend([
+                    ("PRX_NAME", OsString::from(&prx.name.as_str())),
+                    ("PROXY", canonicalize_join(node_config_dir, proxy)?.as_os_str().into()),
+                ]);
+            }
+        },
+
+        NodeSpecificConfig::Proxy(node) => {
+            // Now we do a little ugly something, but we unpack the paths and ports here so that we get compile errors if we add more later on
+            let ProxyPaths {
+                proxy, certs,
+            } = &node.paths;
+            let ProxyServices {
+                prx,
+            } = &node.services;
+
+            // Add the environment variables for the proxy
+            res.extend([
+                // Names
+                ("PRX_NAME", OsString::from(&prx.name.as_str())),
+
+                // Paths
+                ("PROXY", canonicalize_join(node_config_dir, proxy)?.as_os_str().into()),
+                ("CERTS", canonicalize_join(node_config_dir, certs)?.as_os_str().into()),
+            ]);
         },
     }
 
@@ -435,6 +479,7 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
 /// - `exe`: The `docker-compose` executable to run.
 /// - `file`: The DockerFile to run.
 /// - `project`: The project name to launch the containers for.
+/// - `proxyfile`: If given, an additional `docker-compose` file that will add the proxy service.
 /// - `hostfile`: If given, an additional `docker-compose` file that overrides the default one with extra hosts.
 /// - `envs`: The map of environment variables to set.
 /// 
@@ -443,7 +488,7 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
 /// 
 /// # Errors
 /// This function fails if we failed to launch the command, or the command itself failed.
-fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl AsRef<str>, hostfile: Option<PathBuf>, envs: HashMap<&'static str, OsString>) -> Result<(), Error> {
+fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl AsRef<str>, proxyfile: Option<PathBuf>, hostfile: Option<PathBuf>, envs: HashMap<&'static str, OsString>) -> Result<(), Error> {
     let file    : &Path = file.as_ref();
     let project : &str  = project.as_ref();
 
@@ -452,6 +497,10 @@ fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl
     cmd.args(exe.1);
     cmd.args([ "-p", project, "-f" ]);
     cmd.arg(file.as_os_str());
+    if let Some(proxyfile) = proxyfile {
+        cmd.arg("-f");
+        cmd.arg(proxyfile);
+    }
     if let Some(hostfile) = hostfile {
         cmd.arg("-f");
         cmd.arg(hostfile);
@@ -524,7 +573,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir, node_config.node.central().paths.proxy.is_some())?;
 
             // Map the images & load them
             if !opts.skip_import {
@@ -546,7 +595,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             let envs: HashMap<&str, OsString> = construct_envs(&opts.version, &node_config_path, &node_config)?;
 
             // Launch the docker-compose command
-            run_compose(resolve_exe(exe)?, resolve_node(file, "central"), "brane-central", hostfile, envs)?;
+            run_compose(resolve_exe(exe)?, resolve_node(file, "central"), "brane-central", node_config.node.central().paths.proxy.clone(), hostfile, envs)?;
         },
 
         StartSubcommand::Worker{ brane_prx, brane_reg, brane_job } => {
@@ -560,7 +609,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir)?;
+            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir, node_config.node.worker().paths.proxy.is_some())?;
 
             // Map the images & load them
             if !opts.skip_import {
@@ -575,8 +624,13 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             // Construct the environment variables
             let envs: HashMap<&str, OsString> = construct_envs(&opts.version, &node_config_path, &node_config)?;
 
+            // Prepare the path to call iff we're adding a proxy
+            if node_config.node.worker().paths.proxy.is_some() {
+                /* TODO */
+            }
+
             // Launch the docker-compose command
-            run_compose(resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().name), hostfile, envs)?;
+            run_compose(resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().name), node_config.node.worker().paths.proxy.clone(), hostfile, envs)?;
         },
     }
 
@@ -621,8 +675,12 @@ pub fn stop(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl 
     let envs: HashMap<&str, OsString> = construct_envs(&Version::latest(), &node_config_path, &node_config)?;
 
     // Resolve the filename and deduce the project name
-    let file  : PathBuf = resolve_node(file, if node_config.node.kind() == NodeKind::Central { "central" } else { "worker" });
-    let pname : String  = format!("brane-{}", match &node_config.node { NodeSpecificConfig::Central(_) => "central".into(), NodeSpecificConfig::Worker(node) => format!("worker-{}", node.name) });
+    let file  : PathBuf = resolve_node(file, match node_config.node.kind() { NodeKind::Central => "central", NodeKind::Worker => "worker", NodeKind::Proxy => "proxy" });
+    let pname : String  = format!("brane-{}", match &node_config.node {
+        NodeSpecificConfig::Central(_)   => "central".into(),
+        NodeSpecificConfig::Worker(node) => format!("worker-{}", node.name),
+        NodeSpecificConfig::Proxy(_)     => "proxy".into(),
+    });
 
     // Now launch docker-compose
     let exe: (String, Vec<String>) = resolve_exe(exe)?;

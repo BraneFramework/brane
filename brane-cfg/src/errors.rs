@@ -4,7 +4,7 @@
 //  Created:
 //    04 Oct 2022, 11:09:56
 //  Last edited:
-//    28 Feb 2023, 12:52:14
+//    10 Mar 2023, 16:07:32
 //  Auto updated?
 //    Yes
 // 
@@ -63,64 +63,6 @@ impl Display for CertsError {
     }
 }
 impl Error for CertsError {}
-
-
-
-// Errors that relate to the InfraFile struct.
-#[derive(Debug)]
-pub enum InfraFileError {
-    /// Failed to open the given file.
-    FileOpenError{ path: PathBuf, err: std::io::Error },
-    /// Failed to read/parse the given file as YAML.
-    FileParseError{ path: PathBuf, err: serde_yaml::Error },
-
-    /// Failed to write to the given writer.
-    WriterWriteError{ err: std::io::Error },
-    /// Failed to serialze the NodeConfig.
-    ConfigSerializeError{ err: serde_yaml::Error },
-}
-impl Display for InfraFileError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use InfraFileError::*;
-        match self {
-            FileOpenError{ path, err }  => write!(f, "Failed to open infrastructure file '{}': {}", path.display(), err),
-            FileParseError{ path, err } => write!(f, "Failed to parse infrastructure file '{}' as YAML: {}", path.display(), err),
-
-            WriterWriteError{ err }     => write!(f, "Failed to write to given writer: {err}"),
-            ConfigSerializeError{ err } => write!(f, "Failed to serialize infrastructure file to YAML: {err}"),
-        }
-    }
-}
-impl Error for InfraFileError {}
-
-
-
-/// Errors that relate to the CredsFile struct.
-#[derive(Debug)]
-pub enum CredsFileError {
-    /// Failed to open the given file.
-    FileOpenError{ path: PathBuf, err: std::io::Error },
-    /// Failed to read/parse the given file as YAML.
-    FileParseError{ path: PathBuf, err: serde_yaml::Error },
-
-    /// Failed to write to the given writer.
-    WriterWriteError{ err: std::io::Error },
-    /// Failed to serialze the NodeConfig.
-    ConfigSerializeError{ err: serde_yaml::Error },
-}
-impl Display for CredsFileError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use CredsFileError::*;
-        match self {
-            FileOpenError{ path, err }  => write!(f, "Failed to open credentials file '{}': {}", path.display(), err),
-            FileParseError{ path, err } => write!(f, "Failed to parse credentials file '{}' as YAML: {}", path.display(), err),
-
-            WriterWriteError{ err }     => write!(f, "Failed to write to given writer: {err}"),
-            ConfigSerializeError{ err } => write!(f, "Failed to serialize credentials file to YAML: {err}"),
-        }
-    }
-}
-impl Error for CredsFileError {}
 
 
 
@@ -196,35 +138,6 @@ impl Error for NodeKindParseError {}
 
 
 
-/// Errors that relate to the PolicyFile.
-#[derive(Debug)]
-pub enum PolicyFileError {
-    /// Failed to open & read the file
-    FileReadError{ path: PathBuf, err: std::io::Error },
-    /// Failed to parse the file as YAML of our specification.
-    FileParseError{ path: PathBuf, err: serde_yaml::Error },
-
-    /// Failed to write to the given writer.
-    WriterWriteError{ err: std::io::Error },
-    /// Failed to serialze the NodeConfig.
-    ConfigSerializeError{ err: serde_yaml::Error },
-}
-impl Display for PolicyFileError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use PolicyFileError::*;
-        match self {
-            FileReadError{ path, err }  => write!(f, "Failed to read file '{}': {}", path.display(), err),
-            FileParseError{ path, err } => write!(f, "Failed to parse file '{}' as YAML: {}", path.display(), err),
-
-            WriterWriteError{ err }     => write!(f, "Failed to write to given writer: {err}"),
-            ConfigSerializeError{ err } => write!(f, "Failed to serialize infrastructure file to YAML: {err}"),
-        }
-    }
-}
-impl Error for PolicyFileError {}
-
-
-
 /// Defines general errors for configs.
 #[derive(Debug)]
 pub enum ConfigError<E: Debug> {
@@ -232,6 +145,8 @@ pub enum ConfigError<E: Debug> {
     OutputCreateError{ path: PathBuf, err: std::io::Error },
     /// Failed to open the input file.
     InputOpenError{ path: PathBuf, err: std::io::Error },
+    /// Failed to read the input file.
+    InputReadError{ path: PathBuf, err: std::io::Error },
 
     /// Failed to serialize the config to a string.
     StringSerializeError{ err: E },
@@ -252,7 +167,8 @@ impl<E: Error> Display for ConfigError<E> {
         use ConfigError::*;
         match self {
             OutputCreateError{ path, err } => write!(f, "Failed to create output file '{}': {}", path.display(), err),
-            InputOpenError{ path, err }    => write!(f, "Faield to open input file '{}': {}", path.display(), err),
+            InputOpenError{ path, err }    => write!(f, "Failed to open input file '{}': {}", path.display(), err),
+            InputReadError{ path, err }    => write!(f, "Failed to read input file '{}': {}", path.display(), err),
 
             StringSerializeError{ err }     => write!(f, "Failed to serialize to string: {err}"),
             WriterSerializeError{ err }     => write!(f, "Failed to serialize to a writer: {err}"),

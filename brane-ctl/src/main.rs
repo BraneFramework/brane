@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    01 Mar 2023, 11:22:23
+//    10 Mar 2023, 16:45:30
 //  Auto updated?
 //    Yes
 // 
@@ -12,7 +12,9 @@
 //!   Entrypoint to the `branectl` executable.
 // 
 
+use std::net::IpAddr;
 use std::path::PathBuf;
+use std::ops::RangeInclusive;
 
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
@@ -24,7 +26,7 @@ use specifications::address::Address;
 use specifications::package::Capability;
 use specifications::version::Version;
 
-use brane_ctl::spec::{API_DEFAULT_VERSION, Arch, DockerClientVersion, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair, StartDockerOpts, StartOpts, StartSubcommand};
+use brane_ctl::spec::{API_DEFAULT_VERSION, Arch, DockerClientVersion, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, InclusiveRange, Pair, StartDockerOpts, StartOpts, StartSubcommand};
 use brane_ctl::{download, generate, lifetime, packages};
 
 
@@ -152,13 +154,7 @@ enum GenerateSubcommand {
     Node {
         /// Defines one or more additional hostnames to define in the nested Docker container.
         #[clap(short = 'H', long, help = "One or more additional hostnames to set in the spawned Docker containers. Should be given as '<hostname>:<ip>' pairs.")]
-        hosts : Vec<HostnamePair>,
-        /// Defines any proxy node to proxy control messages through.
-        #[clap(long, help = "If given, reroutes all control network traffic for this node through the given proxy.")]
-        proxy          : Option<Address>,
-        /// Defines the protocol of connecting to the proxy.
-        #[clap(long, default_value = "socks5", help = "The manner of connection to the remote proxy. Only has effect if the remote proxy is given (i.e., you specified '--proxy' as well).")]
-        proxy_protocol : ProxyProtocol,
+        hosts : Vec<Pair<String, ':', IpAddr>>,
 
         /// If given, will generate missing directories instead of throwing errors.
         #[clap(short='f', long, help = " If given, will generate any missing directories.")]
@@ -193,7 +189,7 @@ enum GenerateSubcommand {
     Infra {
         /// Defines the list of domains
         #[clap(name = "LOCATIONS", help = "The list of locations (i.e., worker nodes) connected to this instance. The list is given as a list of '<ID>:<ADDR>' pairs.")]
-        locations : Vec<LocationPair<':', String>>,
+        locations : Vec<Pair<String, ':', String>>,
 
         /// If given, will generate missing directories instead of throwing errors.
         #[clap(short='f', long, help = "If given, will generate any missing directories.")]
@@ -204,13 +200,13 @@ enum GenerateSubcommand {
 
         /// Determines the name of the given domain.
         #[clap(short='N', long="name", help = "Sets the name (i.e., human-friendly name, not the identifier) of the given location. Should be given as a '<LOCATION>=<NAME>` pair. If omitted, will default to the domain's identifier with some preprocessing to make it look nicer.")]
-        names     : Vec<LocationPair<'=', String>>,
+        names     : Vec<Pair<String, '=', String>>,
         /// Determines the port of the registry node on the given domain.
         #[clap(short, long="reg-port", help = "Determines the port of the delegate service on the given location. Should be given as a '<LOCATION>=<PORT>' pair. If omitted, will default to '50051' for each location.")]
-        reg_ports : Vec<LocationPair<'=', u16>>,
+        reg_ports : Vec<Pair<String, '=', u16>>,
         /// Determines the port of the delegate node on the given domain.
         #[clap(short, long="job-port", help = "Determines the port of the delegate service on the given location. Should be given as a '<LOCATION>=<PORT>' pair. If omitted, will default to '50052' for each location.")]
-        job_ports : Vec<LocationPair<'=', u16>>,
+        job_ports : Vec<Pair<String, '=', u16>>,
     },
 
     #[clap(name = "backend", about = "Generates a new `backend.yml` file.")]
@@ -246,6 +242,23 @@ enum GenerateSubcommand {
         /// Sets the default file to allow everything instead of nothing.
         #[clap(short, long, help = "Generates the file with AllowAll-rules instead of DenyAll-rules. Don't forget to edit the file if you do!")]
         allow_all : bool,
+    },
+
+    #[clap(name = "proxy", about = "Generates a new `proxy.yml` file.")]
+    Proxy {
+        /// If given, will generate missing directories instead of throwing errors.
+        #[clap(short='f', long, help = "If given, will generate any missing directories.")]
+        fix_dirs : bool,
+        /// The path to write to.
+        #[clap(short, long, default_value = "./policies.yml", help = "The path to write the policy file to.")]
+        path     : PathBuf,
+
+        /// Defines the range of ports that we can allocate for outgoing connections.
+        #[clap(short, long, default_value="4200-4299", help="Defines the range of ports that we may allocate when one of the Brane services wants to make an outgoing connection. Given as '<START>-<END>', where '<START>' and '<END>' are port numbers, '<START>' >= '<END>'. Both are inclusive.")]
+        outgoing_range : InclusiveRange<u16>,
+        /// Defines the map of incoming ports.
+        #[clap(short, long, help="Defines any incoming port mappings. Given as '<PORT>:<ADDRESS>', where the '<PORT>' is the port to open for incoming connections, and '<ADDRESS>' is the address to forward the traffic to.")]
+        incoming       : Vec<Pair<u16, ':', Address>>,
     },
 }
 
@@ -322,9 +335,9 @@ async fn main() {
             },
         },
         CtlSubcommand::Generate(subcommand) => match *subcommand {
-            GenerateSubcommand::Node{ hosts, proxy, proxy_protocol, fix_dirs, config_path, kind } => {
+            GenerateSubcommand::Node{ hosts, fix_dirs, config_path, kind } => {
                 // Call the thing
-                if let Err(err) = generate::node(args.node_config, hosts, proxy, proxy_protocol, fix_dirs, config_path, *kind) { error!("{}", err); std::process::exit(1); }
+                if let Err(err) = generate::node(args.node_config, hosts, fix_dirs, config_path, *kind) { error!("{}", err); std::process::exit(1); }
             },
 
             GenerateSubcommand::Certs { fix_dirs, path, temp_dir, kind } => {
@@ -344,6 +357,11 @@ async fn main() {
             GenerateSubcommand::Policy{ fix_dirs, path, allow_all } => {
                 // Call the thing
                 if let Err(err) = generate::policy(fix_dirs, path, allow_all) { error!("{}", err); std::process::exit(1); }
+            },
+
+            GenerateSubcommand::Proxy{ fix_dirs, path, outgoing_range, incoming } => {
+                // Call the thing
+                if let Err(err) = generate::proxy(fix_dirs, path, outgoing_range, incoming, forward) { error!("{}", err); std::process::exit(1); }
             },
         },
 

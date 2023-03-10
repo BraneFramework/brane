@@ -4,7 +4,7 @@
 //  Created:
 //    04 Oct 2022, 11:04:33
 //  Last edited:
-//    26 Jan 2023, 09:56:13
+//    10 Mar 2023, 15:52:45
 //  Auto updated?
 //    Yes
 // 
@@ -13,15 +13,13 @@
 // 
 
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
 use specifications::address::Address;
 
-pub use crate::errors::InfraFileError as Error;
+pub use crate::spec::YamlError as Error;
+use crate::spec::YamlConfig;
 
 
 /***** AUXILLARY *****/
@@ -44,7 +42,7 @@ pub struct InfraLocation {
 /// Defines a "handle" to the document that contains the Brane instance layout.
 /// 
 /// It is recommended to only load when used, to allow system admins to update the file during runtime.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct InfraFile {
     /// The map of locations (mapped by ID).
     locations : HashMap<String, InfraLocation>,
@@ -63,58 +61,6 @@ impl InfraFile {
         Self {
             locations,
         }
-    }
-
-    /// Reads the `infra.yml` file at the given path to an InfraFile.
-    /// 
-    /// # Arguments
-    /// - `path`: The path from which to load this file.
-    /// 
-    /// # Returns
-    /// A new InfraFile instance.
-    /// 
-    /// # Errors
-    /// This function fails if we could either not read the file or the file was not valid YAML.
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, Error> {
-        let path: &Path = path.as_ref();
-
-        // Open the file
-        let handle: File = match File::open(path) {
-            Ok(handle) => handle,
-            Err(err)   => { return Err(Error::FileOpenError { path: path.into(), err }); },  
-        };
-
-        // Run it through serde, done
-        match serde_yaml::from_reader(handle) {
-            Ok(locs) => Ok(locs),
-            Err(err) => Err(Error::FileParseError { path: path.into(), err }),
-        }
-    }
-
-    /// Writes the InfraFile to the given writer.
-    /// 
-    /// # Arguments
-    /// - `writer`: The writer to write the InfraFile to.
-    /// 
-    /// # Returns
-    /// Nothing, but does obviously populate the given writer with its own serialized contents.
-    /// 
-    /// # Errors
-    /// This function errors if we failed to write or failed to serialize ourselves.
-    pub fn to_writer(&self, writer: impl Write) -> Result<(), Error> {
-        let mut writer = writer;
-
-        // Serialize the config
-        let config: String = match serde_yaml::to_string(self) {
-            Ok(config) => config,
-            Err(err)   => { return Err(Error::ConfigSerializeError{ err }); },
-        };
-
-        // Write it
-        if let Err(err) = writer.write_all(config.as_bytes()) { return Err(Error::WriterWriteError{ err }); }
-
-        // Done
-        Ok(())
     }
 
 
@@ -142,6 +88,7 @@ impl InfraFile {
     pub fn iter_mut(&mut self) -> std::collections::hash_map::IterMut<String, InfraLocation> { self.into_iter() }
 
 }
+impl<'de> YamlConfig<'de> for InfraFile {}
 
 impl IntoIterator for InfraFile {
     type Item     = (String, InfraLocation);

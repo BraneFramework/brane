@@ -1,0 +1,27 @@
+version: '3.6'
+
+services:
+  ###############
+  ## AUXILLARY ##
+  ###############
+
+  # Nothing yet
+
+
+
+  ###########
+  ## BRANE ##
+  ###########
+
+  # "Proxy" service that can be targeted by local connections to be proxied (and encrypted with client auth) to remote hosts.
+  brane-prx:
+    image: brane-prx:${BRANE_VERSION:-latest}
+    container_name: ${PRX_NAME:-brane-prx}
+    restart: always
+    volumes:
+    - ${NODE_CONFIG_PATH}:/node.yml
+    - ${CERTS}:${CERTS}
+
+networks:
+  default:
+    name: brane-proxy

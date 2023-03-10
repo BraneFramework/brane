@@ -4,7 +4,7 @@
 //  Created:
 //    09 Mar 2023, 15:15:47
 //  Last edited:
-//    09 Mar 2023, 16:17:24
+//    10 Mar 2023, 15:52:51
 //  Auto updated?
 //    Yes
 // 
@@ -24,6 +24,7 @@ use serde::ser::Serializer;
 
 use specifications::address::Address;
 
+pub use crate::spec::YamlError as Error;
 use crate::errors::ProxyProtocolParseError;
 use crate::spec::YamlConfig;
 
