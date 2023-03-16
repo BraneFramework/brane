@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    10 Mar 2023, 16:46:04
+//    16 Mar 2023, 17:23:07
 //  Auto updated?
 //    Yes
 // 
@@ -139,7 +139,7 @@ impl FromStr for DockerClientVersion {
 /// Defines an _inclusive_ range of numbers.
 #[derive(Clone, Debug)]
 pub struct InclusiveRange<T>(pub RangeInclusive<T>);
-impl<T: FromStr + PartialOrd> FromStr for InclusiveRange<T> where T::Err: 'static + std::error::Error, {
+impl<T: FromStr + PartialOrd> FromStr for InclusiveRange<T> where T::Err: 'static + Send + Sync + std::error::Error, {
     type Err = InclusiveRangeParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -224,7 +224,7 @@ impl<K: Display, const C: char, V: Display> Display for Pair<K, C, V> {
         write!(f, "{}: {}", self.0, self.1)
     }
 }
-impl<K: FromStr, const C: char, V: FromStr> FromStr for Pair<K, C, V> where K::Err: 'static + std::error::Error, V::Err: 'static + std::error::Error, {
+impl<K: FromStr, const C: char, V: FromStr> FromStr for Pair<K, C, V> where K::Err: 'static + Send + Sync + std::error::Error, V::Err: 'static + Send + Sync + std::error::Error, {
     type Err = PairParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -240,7 +240,7 @@ impl<K: FromStr, const C: char, V: FromStr> FromStr for Pair<K, C, V> where K::E
 
         // Attempt to parse the something as the key
         let key   : K = K::from_str(skey).map_err(|err| PairParseError::IllegalSomething{ what: std::any::type_name::<K>(), raw: skey.into(), err: Box::new(err) })?;
-        let value : V = V::from_str(skey).map_err(|err| PairParseError::IllegalSomething{ what: std::any::type_name::<V>(), raw: svalue.into(), err: Box::new(err) })?;
+        let value : V = V::from_str(svalue).map_err(|err| PairParseError::IllegalSomething{ what: std::any::type_name::<V>(), raw: svalue.into(), err: Box::new(err) })?;
 
         // OK, return ourselves
         Ok(Self(key, value))
@@ -264,10 +264,15 @@ pub struct StartDockerOpts {
 /// Defines a collection of options to pass to the `start`-subcommand handler.
 #[derive(Clone, Debug)]
 pub struct StartOpts {
+    /// Whether to enable extra verbosity for Docker Compose.
+    pub compose_verbose : bool,
+
     /// The Brane version to start.
     pub version     : Version,
-    /// The 'release mode', which is used to easily switch between using `target/release` and `target/debug`.
-    pub mode        : String,
+    /// The image base directory, which is used to easily switch between using `./target/release` and `./target/debug`.
+    pub image_dir   : PathBuf,
+    /// Use local .tars for auxillary images instead of DockerHub ones.
+    pub local_aux   : bool,
     /// Do not import any images if given, but instead assume they are already loaded.
     pub skip_import : bool,
     /// If given, mounts the given profile directory to examine profiling results conveniently.
@@ -311,7 +316,7 @@ pub enum GenerateNodeSubcommand {
         #[clap(short, long, default_value = "$CONFIG/infra.yml", help = "The location of the 'infra.yml' file. Use '$CONFIG' to reference the value given by '--config-path'.")]
         infra    : PathBuf,
         /// Custom `proxy.yml` path.
-        #[clap(short, long, default_value = "$CONFIG/proxy.yml", help = "The location of the 'proxy.yml' file. Use '$CONFIG' to reference the value given by '--config-path'.")]
+        #[clap(short='P', long, default_value = "$CONFIG/proxy.yml", help = "The location of the 'proxy.yml' file. Use '$CONFIG' to reference the value given by '--config-path'.")]
         proxy    : PathBuf,
         /// Custom certificates path.
         #[clap(short, long, default_value = "$CONFIG/certs", help = "The location of the certificate directory. Use '$CONFIG' to reference the value given by '--config-path'.")]
@@ -372,7 +377,7 @@ pub enum GenerateNodeSubcommand {
         #[clap(long, default_value = "$CONFIG/policies.yml", help = "The location of the `policies.yml` file that determines which containers and users are allowed to be executed. Use `$CONFIG` to reference the value given by --config-path.")]
         policies     : PathBuf,
         /// Custom `proxy.yml` path.
-        #[clap(short, long, default_value = "$CONFIG/proxy.yml", help = "The location of the 'proxy.yml' file. Use '$CONFIG' to reference the value given by '--config-path'.")]
+        #[clap(short='P', long, default_value = "$CONFIG/proxy.yml", help = "The location of the 'proxy.yml' file. Use '$CONFIG' to reference the value given by '--config-path'.")]
         proxy        : PathBuf,
         /// Custom certificates path.
         #[clap(short, long, default_value = "$CONFIG/certs", help = "The location of the certificate directory. Use '$CONFIG' to reference the value given by --config-path.")]
@@ -432,14 +437,14 @@ pub enum GenerateNodeSubcommand {
         hostname : String,
 
         /// Custom `proxy.yml` path.
-        #[clap(short, long, default_value = "$CONFIG/proxy.yml", help = "The location of the 'proxy.yml' file. Use '$CONFIG' to reference the value given by '--config-path'.")]
+        #[clap(short='P', long, default_value = "$CONFIG/proxy.yml", help = "The location of the 'proxy.yml' file. Use '$CONFIG' to reference the value given by '--config-path'.")]
         proxy : PathBuf,
         /// Custom certificates path.
         #[clap(short, long, default_value = "$CONFIG/certs", help = "The location of the certificate directory. Use '$CONFIG' to reference the value given by --config-path.")]
         certs : PathBuf,
 
         /// The name of the proxy service.
-        #[clap(long, default_value = "brane-prx-$LOCATION", help = "The name of the local proxy service's container. Use '$LOCATION' to use the location ID.")]
+        #[clap(long, default_value = "brane-prx", help = "The name of the local proxy service's container.")]
         prx_name : String,
 
         /// The port of the proxy service.
@@ -540,29 +545,29 @@ pub enum StartSubcommand {
     #[clap(name = "central", about = "Starts a central node based on the values in the local node.yml file.")]
     Central {
         /// THe path (or other source) to the `aux-scylla` service.
-        #[clap(short = 's', long, default_value = "Registry<scylladb/scylla:4.6.3>", help = "The image to load for the aux-scylla service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters.")]
-        aux_scylla    : ImageSource,
+        #[clap(short = 's', long, help = "The image to load for the aux-scylla service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Default: 'Registry<scylladb/scylla:4.6.3>', unless '--local-aux' is given. In that case, 'Path<$IMG_DIR/aux-scylla.tar>' is used as default instead.")]
+        aux_scylla    : Option<ImageSource>,
         /// The path (or other source) to the `aux-kafka` service.
-        #[clap(short = 'k', long, default_value = "Registry<ubuntu/kafka:3.1-22.04_beta>", help = "The image to load for the aux-kafka service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters.")]
-        aux_kafka     : ImageSource,
+        #[clap(short = 'k', long, help = "The image to load for the aux-kafka service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Default: 'Registry<ubuntu/kafka:3.1-22.04_beta>', unless '--local-aux' is given. In that case, 'Path<$IMG_DIR/aux-kafka.tar>' is used as default instead.")]
+        aux_kafka     : Option<ImageSource>,
         /// The path (or other source) to the `aux-zookeeper` service.
-        #[clap(short = 'z', long, default_value = "Registry<ubuntu/zookeeper:3.1-22.04_beta>", help = "The image to load for the aux-zookeeper service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters.")]
-        aux_zookeeper : ImageSource,
+        #[clap(short = 'z', long, help = "The image to load for the aux-zookeeper service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Default: 'Registry<ubuntu/zookeeper:3.1-22.04_beta>', unless '--local-aux' is given. In that case, 'Path<$IMG_DIR/aux-zookeeper.tar>' is used as default instead.")]
+        aux_zookeeper : Option<ImageSource>,
         /// The path (or other source) to the `aux-xenon` service.
-        #[clap(short = 'm', long, default_value = "Path<./target/release/aux-xenon.tar>", help = "The image to load for the aux-xenon service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters.")]
+        #[clap(short = 'm', long, default_value = "Path<$IMG_DIR/aux-xenon.tar>", help = "The image to load for the aux-xenon service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$IMG_DIR' to reference the value indicated by '--image-dir'.")]
         aux_xenon     : ImageSource,
 
         /// The path (or other source) to the `brane-prx` service.
-        #[clap(short = 'P', long, default_value = "Path<./target/$MODE/brane-prx.tar>", help = "The image to load for the brane-prx service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$MODE' to reference the value indicated by --mode.")]
+        #[clap(short = 'P', long, default_value = "Path<$IMG_DIR/brane-prx.tar>", help = "The image to load for the brane-prx service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$IMG_DIR' to reference the value indicated by '--image-dir'.")]
         brane_prx : ImageSource,
         /// The path (or other source) to the `brane-api` service.
-        #[clap(short = 'a', long, default_value = "Path<./target/$MODE/brane-api.tar>", help = "The image to load for the brane-plr service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$MODE' to reference the value indicated by --mode.")]
+        #[clap(short = 'a', long, default_value = "Path<$IMG_DIR/brane-api.tar>", help = "The image to load for the brane-plr service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$IMG_DIR' to reference the value indicated by '--image-dir'.")]
         brane_api : ImageSource,
         /// The path (or other source) to the `brane-drv` service.
-        #[clap(short = 'd', long, default_value = "Path<./target/$MODE/brane-drv.tar>", help = "The image to load for the brane-drv service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$MODE' to reference the value indicated by --mode.")]
+        #[clap(short = 'd', long, default_value = "Path<$IMG_DIR/brane-drv.tar>", help = "The image to load for the brane-drv service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$IMG_DIR' to reference the value indicated by '--image-dir'.")]
         brane_drv : ImageSource,
         /// The path (or other source) to the `brane-plr` service.
-        #[clap(short = 'p', long, default_value = "Path<./target/$MODE/brane-plr.tar>", help = "The image to load for the brane-plr service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$MODE' to reference the value indicated by --mode.")]
+        #[clap(short = 'p', long, default_value = "Path<$IMG_DIR/brane-plr.tar>", help = "The image to load for the brane-plr service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$IMG_DIR' to reference the value indicated by '--image-dir'.")]
         brane_plr : ImageSource,
     },
 
@@ -570,13 +575,21 @@ pub enum StartSubcommand {
     #[clap(name = "worker", about = "Starts a worker node based on the values in the local node.yml file.")]
     Worker {
         /// The path (or other source) to the `brane-prx` service.
-        #[clap(short = 'P', long, default_value = "Path<./target/$MODE/brane-prx.tar>", help = "The image to load for the brane-prx service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$MODE' to reference the value indicated by --mode.")]
+        #[clap(short = 'P', long, default_value = "Path<$IMG_DIR/brane-prx.tar>", help = "The image to load for the brane-prx service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$IMG_DIR' to reference the value indicated by '--image-dir'.")]
         brane_prx : ImageSource,
         /// The path (or other source) to the `brane-api` service.
-        #[clap(short = 'r', long, default_value = "Path<./target/$MODE/brane-reg.tar>", help = "The image to load for the brane-reg service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$MODE' to reference the value indicated by --mode.")]
+        #[clap(short = 'r', long, default_value = "Path<$IMG_DIR/brane-reg.tar>", help = "The image to load for the brane-reg service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$IMG_DIR' to reference the value indicated by '--image-dir'.")]
         brane_reg : ImageSource,
         /// The path (or other source) to the `brane-drv` service.
-        #[clap(short = 'j', long, default_value = "Path<./target/$MODE/brane-job.tar>", help = "The image to load for the brane-job service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$MODE' to reference the value indicated by --mode.")]
+        #[clap(short = 'j', long, default_value = "Path<$IMG_DIR/brane-job.tar>", help = "The image to load for the brane-job service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$IMG_DIR' to reference the value indicated by '--image-dir'.")]
         brane_job : ImageSource,
+    },
+
+    /// Starts a proxy node.
+    #[clap(name = "proxy", about = "Starts a proxy node based on the values in the local node.yml file.")]
+    Proxy {
+        /// The path (or other source) to the `brane-prx` service.
+        #[clap(short = 'P', long, default_value = "Path<$IMG_DIR/brane-prx.tar>", help = "The image to load for the brane-prx service. If it's a path that exists, will attempt to load that file; otherwise, assumes it's an image name in a remote registry. You can wrap your names in either `Path<...>` or `Registry<...>` if it matters. Finally, use '$IMG_DIR' to reference the value indicated by '--image-dir'.")]
+        brane_prx : ImageSource,
     },
 }

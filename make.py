@@ -5,7 +5,7 @@
 # Created:
 #   09 Jun 2022, 12:20:28
 # Last edited:
-#   23 Feb 2023, 13:36:40
+#   16 Mar 2023, 17:02:54
 # Auto updated?
 #   Yes
 #
@@ -3090,13 +3090,13 @@ for svc in AUX_CENTRAL_SERVICES + AUX_WORKER_SERVICES:
     if svc == "xenon":
         # Generate the service image build target
         targets[f"{svc}-image"] = ImageTarget(f"{svc}-image",
-            f"./contrib/images/Dockerfile.xenon", f"./target/release/aux-{svc}.tar", build_args={ "JUICEFS_ARCH": "$JUICEFS_ARCH" },
+            f"./contrib/images/Dockerfile.xenon", f"./target/$RELEASE/aux-{svc}.tar", build_args={ "JUICEFS_ARCH": "$JUICEFS_ARCH" },
             description=f"Builds the container image for the aux-{svc} auxillary service to a .tar file."
         )
 
         # Generate the install targets for the image
         targets[f"install-{svc}-image"] = InstallImageTarget(f"install-{svc}-image",
-            f"./target/release/aux-{svc}.tar", f"aux-{svc}",
+            f"./target/$RELEASE/aux-{svc}.tar", f"aux-{svc}",
             dep=f"{svc}-image",
             description=f"Installs the aux-{svc} image by loading it into the local Docker engine."
         )

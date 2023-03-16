@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    10 Mar 2023, 16:48:35
+//    16 Mar 2023, 17:50:50
 //  Auto updated?
 //    Yes
 // 
@@ -206,6 +206,8 @@ pub enum LifetimeError {
     /// Failed to write to a Docker Compose file.
     DockerComposeWriteError{ path: PathBuf, err: std::io::Error },
 
+    /// Failed to read the `proxy.yml` file.
+    ProxyReadError{ err: brane_cfg::spec::YamlError },
     /// Failed to open the extra hosts file.
     HostsFileCreateError{ path: PathBuf, err: std::io::Error },
     /// Failed to write to the extra hosts file.
@@ -215,6 +217,11 @@ pub enum LifetimeError {
     ImageDigestError{ path: PathBuf, err: brane_tsk::docker::Error },
     /// Failed to load/import the given image.
     ImageLoadError{ image: Box<Image>, source: Box<ImageSource>, err: brane_tsk::docker::Error },
+
+    /// The user gave us a proxy service definition, but not a proxy file path.
+    MissingProxyPath,
+    /// The user gave use a proxy file path, but not a proxy service definition.
+    MissingProxyService,
 
     /// Failed to load the given node config file.
     NodeConfigLoadError{ err: brane_cfg::spec::YamlError },
@@ -241,11 +248,15 @@ impl Display for LifetimeError {
             DockerComposeCreateError{ path, err }    => write!(f, "Failed to create Docker Compose file '{}': {}", path.display(), err),
             DockerComposeWriteError{ path, err }     => write!(f, "Failed to write to Docker Compose file '{}': {}", path.display(), err),
 
+            ProxyReadError{ err }             => write!(f, "Failed to read proxy config file: {}", err),
             HostsFileCreateError{ path, err } => write!(f, "Failed to create extra hosts file '{}': {}", path.display(), err),
             HostsFileWriteError{ path, err }  => write!(f, "Failed to write to extra hosts file '{}': {}", path.display(), err),
     
             ImageDigestError{ path, err }        => write!(f, "Failed to get digest of image {}: {}", style(path.display()).bold(), err),
             ImageLoadError{ image, source, err } => write!(f, "Failed to load image {} from '{}': {}", style(image).bold(), style(source).bold(), err),
+
+            MissingProxyPath    => write!(f, "A path to a 'proxy.yml' file is given, but not a proxy service specification. Specify both if you want to host a proxy service in this node."),
+            MissingProxyService => write!(f, "A proxy service specification is given, but not a path to a 'proxy.yml' file. Specify both if you want to host a proxy service in this node."),
 
             NodeConfigLoadError{ err }                 => write!(f, "Failed to load node.yml file: {err}"),
             DockerConnectError{ socket, version, err } => write!(f, "Failed to connect to local Docker socket '{}' using API version {}: {}", socket.display(), version, err),
@@ -331,7 +342,7 @@ pub enum InclusiveRangeParseError {
     /// Did not find the separating dash
     MissingDash{ raw: String },
     /// Failed to parse one of the numbers
-    NumberParseError{ what: &'static str, raw: String, err: Box<dyn Error> },
+    NumberParseError{ what: &'static str, raw: String, err: Box<dyn Send + Sync + Error> },
     /// The first number is not equal to or higher than the second one
     StartLargerThanEnd{ start: String, end: String },
 }
@@ -355,7 +366,7 @@ pub enum PairParseError {
     /// Missing an equals in the pair.
     MissingSeparator{ separator: char, raw: String },
     /// Failed to parse the given something as a certain other thing
-    IllegalSomething{ what: &'static str, raw: String, err: Box<dyn Error> },
+    IllegalSomething{ what: &'static str, raw: String, err: Box<dyn Send + Sync + Error> },
 }
 impl Display for PairParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {

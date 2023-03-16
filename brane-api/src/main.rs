@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2022, 15:15:36
 //  Last edited:
-//    28 Feb 2023, 18:53:28
+//    16 Mar 2023, 16:56:25
 //  Auto updated?
 //    Yes
 // 
@@ -105,7 +105,7 @@ async fn main() {
     // Configure Juniper.
     let node_config_path : PathBuf          = opts.node_config_path;
     let scylla                              = Arc::new(scylla);
-    let proxy            : Arc<ProxyClient> = Arc::new(ProxyClient::new(central.services.prx.address));
+    let proxy            : Arc<ProxyClient> = Arc::new(ProxyClient::new(central.services.prx.address()));
     let context = warp::any().map(move || Context {
         node_config_path : node_config_path.clone(),
         scylla           : scylla.clone(),

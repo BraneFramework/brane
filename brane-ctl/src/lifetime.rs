@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    10 Mar 2023, 17:23:22
+//    16 Mar 2023, 18:15:15
 //  Auto updated?
 //    Yes
 // 
@@ -15,6 +15,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsString;
+use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
 use std::net::IpAddr;
@@ -30,7 +31,8 @@ use rand::distributions::Alphanumeric;
 use serde::{Deserialize, Serialize};
 
 use brane_cfg::spec::Config as _;
-use brane_cfg::node::{CentralPaths, CentralServices, NodeConfig, NodeKind, NodeSpecificConfig, ProxyPaths, ProxyServices, WorkerPaths, WorkerServices};
+use brane_cfg::proxy::ProxyConfig;
+use brane_cfg::node::{CentralPaths, CentralServices, NodeConfig, NodeKind, NodeSpecificConfig, PrivateOrExternalService, ProxyPaths, ProxyServices, WorkerPaths, WorkerServices};
 use brane_tsk::docker::{ensure_image, get_digest, ImageSource};
 use specifications::container::Image;
 use specifications::version::Version;
@@ -55,9 +57,13 @@ struct ComposeOverrideFile {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ComposeOverrideFileService {
     /// Defines any additional mounts
-    volumes: Vec<String>,
+    volumes     : Vec<String>,
     /// Defines the extra hosts themselves.
-    extra_hosts: Vec<String>,
+    extra_hosts : Vec<String>,
+    /// Whether to set any profiles.
+    profiles    : Vec<String>,
+    /// Whether to open any additional ports.
+    ports       : Vec<String>,
 }
 
 
@@ -128,23 +134,45 @@ fn resolve_node(path: impl AsRef<Path>, node: impl AsRef<str>) -> PathBuf {
     PathBuf::from(path.as_ref().to_string_lossy().replace("$NODE", node.as_ref()))
 }
 
-/// Resolves the given ImageSource to replace '$MODE' with the actual mode given.
+/// Resolves the given potentially given ImageSource to two possible default values, depending on whether we use DockerHub images or local ones.
 /// 
 /// # Arguments
 /// - `source`: The ImageSource to resolve.
-/// - `mode`: The mode to use. Effectively just a directory nested in `target`.
+/// - `local_aux`: Determines whether to resolve a missing ImageSource to a Path source (true) or a Registry source (false).
+/// - `svc`: The name of the specific service to resolve this one to if it's missing. Only used if `local_aux` is true.
+/// - `img_dir`: The directory to resolve it with if `local_aux` is true.
+/// - `image`: The ID of the image to pull from DockerHub we use to resolve the `source` if it's missing. Only used if `local_aux` is false.
+/// 
+/// # Returns
+/// A new ImageSource that is the same if 'source' was `Some(...)`, or else resolved to a default value.\
+fn resolve_aux_svc(source: Option<ImageSource>, local_aux: bool, svc: impl Display, img_dir: impl AsRef<Path>, image: impl Into<String>) -> ImageSource {
+    match source {
+        Some(source) => source,
+        None         => if local_aux {
+            resolve_image_dir(ImageSource::Path(PathBuf::from(format!("$IMG_DIR/aux-{}.tar", svc))), img_dir)
+        } else {
+            ImageSource::Registry(image.into())
+        },
+    }
+}
+
+/// Resolves the given ImageSource to replace '$IMG_DIR' with the directory given.
+/// 
+/// # Arguments
+/// - `source`: The ImageSource to resolve.
+/// - `img_dir`: The directory to resolve it with.
 /// 
 /// # Returns
 /// A new ImageSource that is the same but not with (potentially) $NODE removed.
 #[inline]
-fn resolve_mode(source: impl AsRef<ImageSource>, mode: impl AsRef<str>) -> ImageSource {
-    let source : &ImageSource = source.as_ref();
-    let mode   : &str         = mode.as_ref();
+fn resolve_image_dir(source: impl AsRef<ImageSource>, img_dir: impl AsRef<Path>) -> ImageSource {
+    let source  : &ImageSource = source.as_ref();
+    let img_dir : &Path        = img_dir.as_ref();
 
     // Switch on the source type to do the thing
     match source {
-        ImageSource::Path(path)       => ImageSource::Path(PathBuf::from(path.to_string_lossy().replace("$MODE", mode))),
-        ImageSource::Registry(source) => ImageSource::Registry(source.replace("$MODE", mode)),
+        ImageSource::Path(path)       => ImageSource::Path(PathBuf::from(path.to_string_lossy().replace("$IMG_DIR", &img_dir.to_string_lossy()))),
+        ImageSource::Registry(source) => ImageSource::Registry(source.replace("$IMG_DIR", &img_dir.to_string_lossy())),
     }
 }
 
@@ -238,17 +266,16 @@ fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, mut versio
 /// Generate an additional, temporary `docker-compose.yml` file that adds additional hostnames and/or additional volumes.
 /// 
 /// # Arguments
-/// - `kind`: The kind of this node.
+/// - `node_config`: The NodeConfig that contains information about whether to launch a proxy and, if so, how.
 /// - `hosts`: The map of hostnames -> IP addresses to include.
 /// - `profile_dir`: The profile directory to mount (or not).
-/// - `add_proxy`: Whether to add information for the proxy or not.
 /// 
 /// # Returns
 /// The path to the generated compose file if it was necessary. If not (i.e., no hosts given), returns `None`.
 /// 
 /// # Errors
 /// This function errors if we failed to write the file.
-fn generate_override_file(kind: NodeKind, hosts: &HashMap<String, IpAddr>, profile_dir: Option<PathBuf>, add_proxy: bool) -> Result<Option<PathBuf>, Error> {
+fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAddr>, profile_dir: Option<PathBuf>) -> Result<Option<PathBuf>, Error> {
     // Early quit if there's nothing to do
     if hosts.is_empty() { return Ok(None); }
 
@@ -256,31 +283,110 @@ fn generate_override_file(kind: NodeKind, hosts: &HashMap<String, IpAddr>, profi
     let svc: ComposeOverrideFileService = ComposeOverrideFileService {
         volumes     : if let Some(dir) = profile_dir { vec![ format!("{}:/logs/profile", dir.display()) ] } else { vec![] },
         extra_hosts : hosts.iter().map(|(hostname, ip)| format!("{hostname}:{ip}")).collect(),
+        profiles    : vec![],
+        ports       : vec![],
     };
 
-    // Generate the list of hosts for which to override the hostname and junk
-    let mut services: HashMap<&str, ComposeOverrideFileService> = match kind {
-        NodeKind::Central => HashMap::from([
-            ("brane-api", svc.clone()),
-            ("brane-drv", svc.clone()),
-            ("brane-plr", svc.clone()),
-        ]),
+    // Match on the kind of node
+    let overridefile: ComposeOverrideFile = match &node_config.node {
+        NodeSpecificConfig::Central(node) => {
+            // Prepare a proxy service override
+            let mut prx_svc: ComposeOverrideFileService = svc.clone();
+            if let Some(proxy_path) = &node.paths.proxy {
+                // Open the extra ports
 
-        NodeKind::Worker => HashMap::from([
-            ("brane-reg", svc.clone()),
-            ("brane-job", svc.clone()),
-        ]),
+                // Read the proxy file to find the incoming ports
+                let proxy: ProxyConfig = match ProxyConfig::from_path(proxy_path) {
+                    Ok(proxy) => proxy,
+                    Err(err)  => { return Err(Error::ProxyReadError{ err }); },
+                };
 
-        NodeKind::Proxy => HashMap::with_capacity(1),
-    };
+                // Open both the management and the incoming ports now
+                prx_svc.ports.reserve(proxy.incoming.len());
+                for (port, _) in proxy.incoming {
+                    prx_svc.ports.push(format!("0.0.0.0:{port}:{port}"));
+                }
+            } else {
+                // Otherwise, add it won't start
+                prx_svc.profiles = vec![ "donotstart".into() ];
+            }
 
-    // Add in the proxy if relevant
-    if add_proxy { services.insert("brane-prx", svc); }
+            // Generate the override file for this node
+            ComposeOverrideFile {
+                version  : "3.6",
+                services : HashMap::from([
+                    ("brane-api", svc.clone()),
+                    ("brane-drv", svc.clone()),
+                    ("brane-plr", svc),
+                    ("brane-prx", prx_svc),
+                ]),
+            }
+        },
 
-    // Wrap it in a ComposeOverrideFile
-    let extra_hosts: ComposeOverrideFile = ComposeOverrideFile {
-        version  : "3.6",
-        services,
+        NodeSpecificConfig::Worker(node) => {
+            // Prepare a proxy service override
+            let mut prx_svc: ComposeOverrideFileService = svc.clone();
+            if let Some(proxy_path) = &node.paths.proxy {
+                // Open the extra ports
+
+                // Read the proxy file to find the incoming ports
+                let proxy: ProxyConfig = match ProxyConfig::from_path(proxy_path) {
+                    Ok(proxy) => proxy,
+                    Err(err)  => { return Err(Error::ProxyReadError{ err }); },
+                };
+
+                // Open both the management and the incoming ports now
+                prx_svc.ports.reserve(proxy.incoming.len());
+                for (port, _) in proxy.incoming {
+                    prx_svc.ports.push(format!("0.0.0.0:{port}:{port}"));
+                }
+            } else {
+                // Otherwise, add it won't start
+                prx_svc.profiles = vec![ "donotstart".into() ];
+            }
+
+            // Generate the override file for this node
+            ComposeOverrideFile {
+                version  : "3.6",
+                services : HashMap::from([
+                    ("brane-reg", svc.clone()),
+                    ("brane-job", svc),
+                    ("brane-prx", prx_svc),
+                ]),
+            }
+        },
+
+        NodeSpecificConfig::Proxy(node) => {
+            // Prepare a proxy service override
+            let mut prx_svc: ComposeOverrideFileService = svc;
+
+            // Read the management port
+            let manage_port: u16 = node.services.prx.bind.port();
+            // Read the proxy file to find the incoming ports
+            let proxy: ProxyConfig = match ProxyConfig::from_path(&node.paths.proxy) {
+                Ok(proxy) => proxy,
+                Err(err)  => { return Err(Error::ProxyReadError{ err }); },
+            };
+            // Find the start & stop ports of the outgoing range
+            let start : u16 = *proxy.outgoing_range.start();
+            let end   : u16 = *proxy.outgoing_range.end();
+
+            // Open both the management and the incoming ports now
+            prx_svc.ports.reserve(1 + proxy.incoming.len() + 1);
+            prx_svc.ports.push(format!("0.0.0.0:{}:{}", manage_port, manage_port));
+            for (port, _) in proxy.incoming {
+                prx_svc.ports.push(format!("0.0.0.0:{port}:{port}"));
+            }
+            prx_svc.ports.push(format!("0.0.0.0:{start}-{end}:{start}-{end}"));
+
+            // Generate the override file for this node
+            ComposeOverrideFile {
+                version  : "3.6",
+                services : HashMap::from([
+                    ("brane-prx", prx_svc),
+                ]),
+            }
+        },
     };
 
     // Attemp to open the file to write that to
@@ -291,7 +397,7 @@ fn generate_override_file(kind: NodeKind, hosts: &HashMap<String, IpAddr>, profi
     };
 
     // Now write the map in the correct format
-    match serde_yaml::to_writer(handle, &extra_hosts) {
+    match serde_yaml::to_writer(handle, &overridefile) {
         Ok(_)    => Ok(Some(compose_path)),
         Err(err) => Err(Error::HostsFileWriteError{ path: compose_path, err }),
     }
@@ -394,10 +500,16 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
             ]);
 
             // Only add the proxy stuff if given
-            if let Some(proxy) = proxy {
+            if let PrivateOrExternalService::Private(name) = prx {
                 res.extend([
-                    ("PRX_NAME", OsString::from(&prx.name.as_str())),
-                    ("PROXY", canonicalize_join(node_config_dir, proxy)?.as_os_str().into()),
+                    ("PRX_NAME", OsString::from(&name.name.as_str())),
+                    ("PROXY", canonicalize_join(node_config_dir, proxy.as_ref().ok_or(Error::MissingProxyPath)?)?.as_os_str().into()),
+                ]);
+            }
+            if let Some(path) = proxy {
+                res.extend([
+                    ("PRX_NAME", OsString::from(&prx.try_private().ok_or(Error::MissingProxyService)?.name.as_str())),
+                    ("PROXY", canonicalize_join(node_config_dir, path)?.as_os_str().into()),
                 ]);
             }
         },
@@ -439,10 +551,16 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
             ]);
 
             // Only add the proxy stuff if given
-            if let Some(proxy) = proxy {
+            if let PrivateOrExternalService::Private(name) = prx {
                 res.extend([
-                    ("PRX_NAME", OsString::from(&prx.name.as_str())),
-                    ("PROXY", canonicalize_join(node_config_dir, proxy)?.as_os_str().into()),
+                    ("PRX_NAME", OsString::from(&name.name.as_str())),
+                    ("PROXY", canonicalize_join(node_config_dir, proxy.as_ref().ok_or(Error::MissingProxyPath)?)?.as_os_str().into()),
+                ]);
+            }
+            if let Some(path) = proxy {
+                res.extend([
+                    ("PRX_NAME", OsString::from(&prx.try_private().ok_or(Error::MissingProxyService)?.name.as_str())),
+                    ("PROXY", canonicalize_join(node_config_dir, path)?.as_os_str().into()),
                 ]);
             }
         },
@@ -476,11 +594,12 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
 /// Runs Docker compose on the given Docker file.
 /// 
 /// # Arguments
+/// - `compose_verbose`: If given, attempts to enable additional debug prints in the Docker Compose executable.
 /// - `exe`: The `docker-compose` executable to run.
 /// - `file`: The DockerFile to run.
 /// - `project`: The project name to launch the containers for.
 /// - `proxyfile`: If given, an additional `docker-compose` file that will add the proxy service.
-/// - `hostfile`: If given, an additional `docker-compose` file that overrides the default one with extra hosts.
+/// - `overridefile`: If given, an additional `docker-compose` file that overrides the default one with extra hosts and other properties.
 /// - `envs`: The map of environment variables to set.
 /// 
 /// # Returns
@@ -488,22 +607,19 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
 /// 
 /// # Errors
 /// This function fails if we failed to launch the command, or the command itself failed.
-fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl AsRef<str>, proxyfile: Option<PathBuf>, hostfile: Option<PathBuf>, envs: HashMap<&'static str, OsString>) -> Result<(), Error> {
+fn run_compose(compose_verbose: bool, exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl AsRef<str>, overridefile: Option<PathBuf>, envs: HashMap<&'static str, OsString>) -> Result<(), Error> {
     let file    : &Path = file.as_ref();
     let project : &str  = project.as_ref();
 
     // Start creating the command
-    let mut cmd: Command = Command::new(exe.0);
-    cmd.args(exe.1);
+    let mut cmd: Command = Command::new(&exe.0);
+    cmd.args(&exe.1);
+    if compose_verbose { cmd.arg("--verbose"); }
     cmd.args([ "-p", project, "-f" ]);
     cmd.arg(file.as_os_str());
-    if let Some(proxyfile) = proxyfile {
+    if let Some(overridefile) = overridefile {
         cmd.arg("-f");
-        cmd.arg(proxyfile);
-    }
-    if let Some(hostfile) = hostfile {
-        cmd.arg("-f");
-        cmd.arg(hostfile);
+        cmd.arg(overridefile);
     }
     cmd.args([ "up", "-d" ]);
     cmd.envs(envs);
@@ -512,7 +628,7 @@ fn run_compose(exe: (String, Vec<String>), file: impl AsRef<Path>, project: impl
     cmd.stderr(Stdio::inherit());
 
     // Run it
-    println!("Running docker-compose {} on {}...", style("up").bold().green(), style(file.display()).bold());
+    println!("Running '{}{}' {} on {}...", exe.0, if !exe.1.is_empty() { format!(" {}", exe.1.join(" ")) } else { String::new() }, style("up").bold().green(), style(file.display()).bold());
     debug!("Command: {:?}", cmd);
     let output: Output = match cmd.output() {
         Ok(output) => output,
@@ -573,21 +689,21 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir, node_config.node.central().paths.proxy.is_some())?;
+            let overridefile : Option<PathBuf> = generate_override_file(&node_config, &node_config.hostnames, opts.profile_dir)?;
 
             // Map the images & load them
             if !opts.skip_import {
-                let images: HashMap<&'static str, ImageSource> = HashMap::from([
-                    ("aux-scylla", aux_scylla),
-                    ("aux-kafka", aux_kafka),
-                    ("aux-zookeeper", aux_zookeeper),
-                    ("aux-xenon", aux_xenon),
+                let mut images: HashMap<&'static str, ImageSource> = HashMap::from([
+                    ("aux-scylla", resolve_aux_svc(aux_scylla, opts.local_aux, "scylla", &opts.image_dir, "scylladb/scylla:4.6.3")),
+                    ("aux-kafka", resolve_aux_svc(aux_kafka, opts.local_aux, "kafka", &opts.image_dir, "ubuntu/kafka:3.1-22.04_beta")),
+                    ("aux-zookeeper", resolve_aux_svc(aux_zookeeper, opts.local_aux, "zookeeper", &opts.image_dir, "ubuntu/zookeeper:3.1-22.04_beta")),
+                    ("aux-xenon", resolve_image_dir(aux_xenon, &opts.image_dir)),
 
-                    ("brane-prx", resolve_mode(brane_prx, &opts.mode)),
-                    ("brane-api", resolve_mode(brane_api, &opts.mode)),
-                    ("brane-drv", resolve_mode(brane_drv, &opts.mode)),
-                    ("brane-plr", resolve_mode(brane_plr, &opts.mode)),
+                    ("brane-api", resolve_image_dir(brane_api, &opts.image_dir)),
+                    ("brane-drv", resolve_image_dir(brane_drv, &opts.image_dir)),
+                    ("brane-plr", resolve_image_dir(brane_plr, &opts.image_dir)),
                 ]);
+                if node_config.node.central().services.prx.is_private() { images.insert("brane-prx", resolve_image_dir(brane_prx, &opts.image_dir)); }
                 load_images(&docker, images, &opts.version).await?;
             }
 
@@ -595,7 +711,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             let envs: HashMap<&str, OsString> = construct_envs(&opts.version, &node_config_path, &node_config)?;
 
             // Launch the docker-compose command
-            run_compose(resolve_exe(exe)?, resolve_node(file, "central"), "brane-central", node_config.node.central().paths.proxy.clone(), hostfile, envs)?;
+            run_compose(opts.compose_verbose, resolve_exe(exe)?, resolve_node(file, "central"), "brane-central", overridefile, envs)?;
         },
 
         StartSubcommand::Worker{ brane_prx, brane_reg, brane_job } => {
@@ -609,14 +725,42 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             };
 
             // Generate hosts file
-            let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir, node_config.node.worker().paths.proxy.is_some())?;
+            let overridefile : Option<PathBuf> = generate_override_file(&node_config, &node_config.hostnames, opts.profile_dir)?;
+
+            // Map the images & load them
+            if !opts.skip_import {
+                let mut images: HashMap<&'static str, ImageSource> = HashMap::from([
+                    ("brane-reg", resolve_image_dir(brane_reg, &opts.image_dir)),
+                    ("brane-job", resolve_image_dir(brane_job, &opts.image_dir)),
+                ]);
+                if node_config.node.worker().services.prx.is_private() { images.insert("brane-prx", resolve_image_dir(brane_prx, &opts.image_dir)); }
+                load_images(&docker, images, &opts.version).await?;
+            }
+
+            // Construct the environment variables
+            let envs: HashMap<&str, OsString> = construct_envs(&opts.version, &node_config_path, &node_config)?;
+
+            // Launch the docker-compose command
+            run_compose(opts.compose_verbose, resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().name), overridefile, envs)?;
+        },
+
+        StartSubcommand::Proxy{ brane_prx } => {
+            // Assert we are building the correct one
+            if node_config.node.kind() != NodeKind::Proxy  { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Proxy, expected: node_config.node.kind() }); }
+
+            // Connect to the Docker client
+            let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
+                Ok(docker) => docker,
+                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
+            };
+
+            // Generate hosts file
+            let overridefile: Option<PathBuf> = generate_override_file(&node_config, &node_config.hostnames, opts.profile_dir)?;
 
             // Map the images & load them
             if !opts.skip_import {
                 let images: HashMap<&'static str, ImageSource> = HashMap::from([
-                    ("brane-prx", resolve_mode(brane_prx, &opts.mode)),
-                    ("brane-reg", resolve_mode(brane_reg, &opts.mode)),
-                    ("brane-job", resolve_mode(brane_job, &opts.mode)),
+                    ("brane-prx", resolve_image_dir(brane_prx, &opts.image_dir)),
                 ]);
                 load_images(&docker, images, &opts.version).await?;
             }
@@ -624,13 +768,8 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             // Construct the environment variables
             let envs: HashMap<&str, OsString> = construct_envs(&opts.version, &node_config_path, &node_config)?;
 
-            // Prepare the path to call iff we're adding a proxy
-            if node_config.node.worker().paths.proxy.is_some() {
-                /* TODO */
-            }
-
             // Launch the docker-compose command
-            run_compose(resolve_exe(exe)?, resolve_node(file, "worker"), format!("brane-worker-{}", node_config.node.worker().name), node_config.node.worker().paths.proxy.clone(), hostfile, envs)?;
+            run_compose(opts.compose_verbose, resolve_exe(exe)?, resolve_node(file, "proxy"), "brane-proxy", overridefile, envs)?;
         },
     }
 
@@ -646,6 +785,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
 /// This is a very simple command, no more than a wrapper around docker-compose.
 /// 
 /// # Arguments
+/// - `compose_verbose`: If given, attempts to enable additional debug prints in the Docker Compose executable.
 /// - `exe`: The `docker-compose` executable to run.
 /// - `file`: The docker-compose file file to use to stop.
 /// - `node_config_path`: The path to the node config file that we use to deduce the project name.
@@ -655,7 +795,7 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
 /// 
 /// # Errors
 /// This function errors if we failed to run docker-compose.
-pub fn stop(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl Into<PathBuf>) -> Result<(), Error> {
+pub fn stop(compose_verbose: bool, exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl Into<PathBuf>) -> Result<(), Error> {
     let exe              : &str    = exe.as_ref();
     let node_config_path : PathBuf = node_config_path.into();
     info!("Stopping node from Docker compose file '{}', defined in '{}'", file.as_ref().map(|f| f.display().to_string()).unwrap_or_else(|| "<baked-in>".into()), node_config_path.display());
@@ -684,8 +824,9 @@ pub fn stop(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl 
 
     // Now launch docker-compose
     let exe: (String, Vec<String>) = resolve_exe(exe)?;
-    let mut cmd: Command = Command::new(exe.0);
-    cmd.args(exe.1);
+    let mut cmd: Command = Command::new(&exe.0);
+    cmd.args(&exe.1);
+    if compose_verbose { cmd.arg("--verbose"); }
     cmd.args([ "-p", pname.as_str(), "-f" ]);
     cmd.arg(file.as_os_str());
     cmd.args([ "down" ]);
@@ -695,7 +836,7 @@ pub fn stop(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl 
     cmd.stderr(Stdio::inherit());
 
     // Run it
-    println!("Running docker-compose {} on {}...", style("down").bold().green(), style(file.display()).bold());
+    println!("Running '{}{}' {} on {}...", exe.0, if !exe.1.is_empty() { format!(" {}", exe.1.join(" ")) } else { String::new() }, style("down").bold().green(), style(file.display()).bold());
     debug!("Command: {:?}", cmd);
     let output: Output = match cmd.output() {
         Ok(output) => output,

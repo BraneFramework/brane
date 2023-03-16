@@ -4,7 +4,7 @@
 //  Created:
 //    28 Feb 2023, 10:01:27
 //  Last edited:
-//    09 Mar 2023, 16:19:06
+//    16 Mar 2023, 16:18:10
 //  Auto updated?
 //    Yes
 // 
@@ -303,7 +303,7 @@ pub struct CentralServices {
     pub plr : KafkaService,
     /// Describes the proxy service.
     #[serde(alias = "proxy")]
-    pub prx : PrivateService,
+    pub prx : PrivateOrExternalService,
 
     // Auxillary services
     /// Describes the Scylla service.
@@ -374,7 +374,7 @@ pub struct WorkerServices {
     pub chk : PublicService,
     /// Defines the proxy service.
     #[serde(alias = "proxy")]
-    pub prx : PrivateService,
+    pub prx : PrivateOrExternalService,
 }
 
 
@@ -403,6 +403,142 @@ pub struct ProxyServices {
     /// For the Proxy node, the proxy services is a) public, and b) required.
     #[serde(alias = "proxy")]
     pub prx : PublicService,
+}
+
+
+
+/// Defines an abstraction over _either_ a private service, _or_ an external service.
+#[derive(Clone, Debug, Deserialize, EnumDebug, Serialize)]
+#[serde(rename_all="snake_case")]
+pub enum PrivateOrExternalService {
+    /// It's a private service.
+    Private(PrivateService),
+    /// It's an external service.
+    External(ExternalService),
+}
+impl PrivateOrExternalService {
+    /// Returns whether this is a private service or not.
+    /// 
+    /// # Returns
+    /// True if it is, false if it is an external service.
+    #[inline]
+    pub fn is_private(&self) -> bool { matches!(self, Self::Private(_)) }
+    /// Provides access to the internal `PrivateService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// A reference to the internal `PrivateService` object.
+    /// 
+    /// # Panics
+    /// This function panics if we were not a `Private` service.
+    #[inline]
+    pub fn private(&self) -> &PrivateService { if let Self::Private(svc) = self { svc } else { panic!("Cannot unwrap {:?} as PrivateOrExternalService::Private", self.variant()); } }
+    /// Provides mutable access to the internal `PrivateService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// A mutable reference to the internal `PrivateService` object.
+    /// 
+    /// # Panics
+    /// This function panics if we were not a `Private` service.
+    #[inline]
+    pub fn private_mut(&mut self) -> &mut PrivateService { if let Self::Private(svc) = self { svc } else { panic!("Cannot unwrap {:?} as PrivateOrExternalService::Private", self.variant()); } }
+    /// Returns the internal `PrivateService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// The internal `PrivateService` object. This consumes `self`.
+    /// 
+    /// # Panics
+    /// This function panics if we were not a `Private` service.
+    #[inline]
+    pub fn into_private(self) -> PrivateService { if let Self::Private(svc) = self { svc } else { panic!("Cannot unwrap {:?} as PrivateOrExternalService::Private", self.variant()); } }
+    /// Provides access to the internal `PrivateService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// A reference to the internal `PrivateService` object if this is a `PrivateOrExternalService::Private`, or else `None`.
+    #[inline]
+    pub fn try_private(&self) -> Option<&PrivateService> { if let Self::Private(svc) = self { Some(svc) } else { None } }
+    /// Provides mutable access to the internal `PrivateService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// A mutable reference to the internal `PrivateService` object if this is a `PrivateOrExternalService::Private`, or else `None`.
+    #[inline]
+    pub fn try_private_mut(&mut self) -> Option<&mut PrivateService> { if let Self::Private(svc) = self { Some(svc) } else { None } }
+    /// Returns the internal `PrivateService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// The internal `PrivateService` object if this is a `PrivateOrExternalService::Private`, or else `None`. This consumes `self`.
+    #[inline]
+    pub fn try_into_private(self) -> Option<PrivateService> { if let Self::Private(svc) = self { Some(svc) } else { None } }
+
+    /// Returns whether this is an external service or not.
+    /// 
+    /// # Returns
+    /// True if it is, false if it is a private service.
+    #[inline]
+    pub fn is_external(&self) -> bool { matches!(self, Self::External(_)) }
+    /// Provides access to the internal `ExternalService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// A reference to the internal `ExternalService` object.
+    /// 
+    /// # Panics
+    /// This function panics if we were not an `External` service.
+    #[inline]
+    pub fn external(&self) -> &ExternalService { if let Self::External(svc) = self { svc } else { panic!("Cannot unwrap {:?} as PrivateOrExternalService::External", self.variant()); } }
+    /// Provides mutable access to the internal `ExternalService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// A mutable reference to the internal `ExternalService` object.
+    /// 
+    /// # Panics
+    /// This function panics if we were not an `External` service.
+    #[inline]
+    pub fn external_mut(&mut self) -> &mut ExternalService { if let Self::External(svc) = self { svc } else { panic!("Cannot unwrap {:?} as PrivateOrExternalService::External", self.variant()); } }
+    /// Returns the internal `ExternalService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// The internal `ExternalService` object. This consumes `self`.
+    /// 
+    /// # Panics
+    /// This function panics if we were not an `External` service.
+    #[inline]
+    pub fn into_external(self) -> ExternalService { if let Self::External(svc) = self { svc } else { panic!("Cannot unwrap {:?} as PrivateOrExternalService::External", self.variant()); } }
+    /// Provides access to the internal `ExternalService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// A reference to the internal `ExternalService` object if this is a `PrivateOrExternalService::External`, or else `None`.
+    #[inline]
+    pub fn try_external(&self) -> Option<&ExternalService> { if let Self::External(svc) = self { Some(svc) } else { None } }
+    /// Provides mutable access to the internal `ExternalService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// A mutable reference to the internal `ExternalService` object if this is a `PrivateOrExternalService::External`, or else `None`.
+    #[inline]
+    pub fn try_external_mut(&mut self) -> Option<&mut ExternalService> { if let Self::External(svc) = self { Some(svc) } else { None } }
+    /// Returns the internal `ExternalService` object, assuming this is one.
+    /// 
+    /// # Returns
+    /// The internal `ExternalService` object if this is a `PrivateOrExternalService::External`, or else `None`. This consumes `self`.
+    #[inline]
+    pub fn try_into_external(self) -> Option<ExternalService> { if let Self::External(svc) = self { Some(svc) } else { None } }
+
+    /// Provides access to the internal (private) address that services can connect to.
+    /// 
+    /// # Returns
+    /// A reference to the internal `Address`-object.
+    #[inline]
+    pub fn address(&self) -> &Address { match self { Self::Private(svc) => &svc.address, Self::External(svc) => &svc.address, } }
+    /// Provides mutable access to the internal (private) address that services can connect to.
+    /// 
+    /// # Returns
+    /// A mutable reference to the internal `Address`-object.
+    #[inline]
+    pub fn address_mut(&mut self) -> &mut Address { match self { Self::Private(svc) => &mut svc.address, Self::External(svc) => &mut svc.address, } }
+    /// Returns the internal (private) address that services can connect to.
+    /// 
+    /// # Returns
+    /// The internal `Address`-object. This consumes `self`.
+    #[inline]
+    pub fn into_address(self) -> Address { match self { Self::Private(svc) => svc.address, Self::External(svc) => svc.address, } }
 }
 
 
@@ -443,4 +579,11 @@ pub struct KafkaService {
     /// The topic on which we can receive results of the service.
     #[serde(alias = "result_topic")]
     pub res  : String,
+}
+
+/// Defines a service that we do not host, but only use.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ExternalService {
+    /// Defines the address to connect to.
+    pub address : Address,
 }

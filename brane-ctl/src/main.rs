@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    10 Mar 2023, 16:45:30
+//    16 Mar 2023, 17:10:38
 //  Auto updated?
 //    Yes
 // 
@@ -14,14 +14,13 @@
 
 use std::net::IpAddr;
 use std::path::PathBuf;
-use std::ops::RangeInclusive;
 
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 use humanlog::{DebugMode, HumanLogger};
 use log::error;
 
-use brane_cfg::node::ProxyProtocol;
+use brane_cfg::proxy::{ForwardConfig, ProxyProtocol};
 use specifications::address::Address;
 use specifications::package::Capability;
 use specifications::version::Version;
@@ -80,9 +79,12 @@ enum CtlSubcommand {
         #[clap(short, long, default_value = env!("CARGO_PKG_VERSION"), help = "The Brane version to import.")]
         version : Version,
 
-        /// Sets the '$MODE' variable, which can easily switch the location of compiled binaries.
-        #[clap(long, global=true, default_value = "release", conflicts_with = "skip_import", help = "Sets the mode ($MODE) to use in the image flags of the `start` command.")]
-        mode        : String,
+        /// Sets the '$IMG_DIR' variable, which can easily switch the location of compiled binaries.
+        #[clap(long, global=true, default_value = "./target/release", conflicts_with = "skip_import", help = "Sets the image directory ($IMG_DIR) to use in the image flags of the `start` command.")]
+        image_dir   : PathBuf,
+        /// If given, will use locally downloaded versions of the auxillary images.
+        #[clap(long, global=true, help="If given, will use downloaded .tar files of the auxillary images instead of pulling them from DockerHub. Essentially, this will change the default value of all auxillary image paths to 'Path<$IMG_DIR/aux-SVC.tar>', where 'SVC' is the specific service (e.g., 'scylla'). For more information, see the '--aux-scylla', '--aux-kafka' and '--aux-zookeeper' flags.")]
+        local_aux   : bool,
         /// Whether to skip importing images or not.
         #[clap(long, global=true, help = "If given, skips the import of the images. This is useful if you have already loaded the images in your Docker daemon manually.")]
         skip_import : bool,
@@ -230,7 +232,7 @@ enum GenerateSubcommand {
         kind : Box<GenerateBackendSubcommand>,
     },
 
-    #[clap(name = "policy", about = "Generates a new `policies.yml` file.")]
+    #[clap(name = "policy", alias = "policies", about = "Generates a new `policies.yml` file.")]
     Policy {
         /// If given, will generate missing directories instead of throwing errors.
         #[clap(short='f', long, help = "If given, will generate any missing directories.")]
@@ -247,7 +249,7 @@ enum GenerateSubcommand {
     #[clap(name = "proxy", about = "Generates a new `proxy.yml` file.")]
     Proxy {
         /// If given, will generate missing directories instead of throwing errors.
-        #[clap(short='f', long, help = "If given, will generate any missing directories.")]
+        #[clap(short, long, help = "If given, will generate any missing directories.")]
         fix_dirs : bool,
         /// The path to write to.
         #[clap(short, long, default_value = "./policies.yml", help = "The path to write the policy file to.")]
@@ -255,10 +257,16 @@ enum GenerateSubcommand {
 
         /// Defines the range of ports that we can allocate for outgoing connections.
         #[clap(short, long, default_value="4200-4299", help="Defines the range of ports that we may allocate when one of the Brane services wants to make an outgoing connection. Given as '<START>-<END>', where '<START>' and '<END>' are port numbers, '<START>' >= '<END>'. Both are inclusive.")]
-        outgoing_range : InclusiveRange<u16>,
+        outgoing_range   : InclusiveRange<u16>,
         /// Defines the map of incoming ports.
         #[clap(short, long, help="Defines any incoming port mappings. Given as '<PORT>:<ADDRESS>', where the '<PORT>' is the port to open for incoming connections, and '<ADDRESS>' is the address to forward the traffic to.")]
-        incoming       : Vec<Pair<u16, ':', Address>>,
+        incoming         : Vec<Pair<u16, ':', Address>>,
+        /// Defines if the proxy should be forwarded.
+        #[clap(short='F', long, help="If given, will forward any traffic to the given destination. The specific protocol use is given in '--forward-protocol'")]
+        forward          : Option<Address>,
+        /// Defines which protocol to use if forwarding.
+        #[clap(short='P', long, default_value="socks6", help="Defines how to forward the traffic to a proxy. Ignored if '--forward' is not given.")]
+        forward_protocol : ProxyProtocol,
     },
 }
 
@@ -359,9 +367,9 @@ async fn main() {
                 if let Err(err) = generate::policy(fix_dirs, path, allow_all) { error!("{}", err); std::process::exit(1); }
             },
 
-            GenerateSubcommand::Proxy{ fix_dirs, path, outgoing_range, incoming } => {
+            GenerateSubcommand::Proxy{ fix_dirs, path, outgoing_range, incoming, forward, forward_protocol } => {
                 // Call the thing
-                if let Err(err) = generate::proxy(fix_dirs, path, outgoing_range, incoming, forward) { error!("{}", err); std::process::exit(1); }
+                if let Err(err) = generate::proxy(fix_dirs, path, outgoing_range.0, incoming.into_iter().map(|p| (p.0, p.1)).collect(), forward.map(|a| ForwardConfig { address: a, protocol: forward_protocol })) { error!("{}", err); std::process::exit(1); }
             },
         },
 
@@ -375,11 +383,11 @@ async fn main() {
             
         },
 
-        CtlSubcommand::Start{ exe, file, docker_socket, docker_version, version, mode, skip_import, profile_dir, kind, } => {
-            if let Err(err) = lifetime::start(exe, file, args.node_config, StartDockerOpts{ socket: docker_socket, version: docker_version }, StartOpts{ version, mode, skip_import, profile_dir }, *kind).await { error!("{}", err); std::process::exit(1); }
+        CtlSubcommand::Start{ exe, file, docker_socket, docker_version, version, image_dir, local_aux, skip_import, profile_dir, kind, } => {
+            if let Err(err) = lifetime::start(exe, file, args.node_config, StartDockerOpts{ socket: docker_socket, version: docker_version }, StartOpts{ compose_verbose: args.debug || args.trace, version, image_dir, local_aux, skip_import, profile_dir }, *kind).await { error!("{}", err); std::process::exit(1); }
         },
         CtlSubcommand::Stop{ exe, file } => {
-            if let Err(err) = lifetime::stop(exe, file, args.node_config) { error!("{}", err); std::process::exit(1); }
+            if let Err(err) = lifetime::stop(args.debug || args.trace, exe, file, args.node_config) { error!("{}", err); std::process::exit(1); }
         },
 
         CtlSubcommand::Version { arch: _, kind: _, ctl: _, node: _ } => {

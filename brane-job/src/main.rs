@@ -4,7 +4,7 @@
 //  Created:
 //    18 Oct 2022, 13:47:17
 //  Last edited:
-//    28 Feb 2023, 18:25:23
+//    16 Mar 2023, 16:56:01
 //  Auto updated?
 //    Yes
 // 
@@ -89,7 +89,7 @@ async fn main() {
     let server = WorkerServer::new(
         opts.node_config_path,
         opts.keep_containers,
-        Arc::new(ProxyClient::new(worker.services.prx.address)),
+        Arc::new(ProxyClient::new(worker.services.prx.address())),
     );
 
     // Start gRPC server with callback service.

@@ -58,6 +58,7 @@ services:
     restart: always
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
+    - ${PROXY:-}:${PROXY:-}
     - ${CERTS}:${CERTS}
 
   # The service in charge of package registry, downloading, uploading, etc
@@ -129,6 +130,3 @@ services:
 networks:
   default:
     name: brane-central
-
-volumes:
-  data:

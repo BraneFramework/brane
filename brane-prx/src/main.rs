@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 10:52:33
 //  Last edited:
-//    09 Mar 2023, 16:19:16
+//    16 Mar 2023, 17:41:25
 //  Auto updated?
 //    Yes
 // 
@@ -112,9 +112,16 @@ async fn main() {
         proxy  : proxy_config,
         opened : Mutex::new(HashMap::new()),
     });
-    let context = warp::any().map(move || context.clone());
+
+    // Spawn the incoming ports before we listen for new outgoing port requests
+    for (port, address) in &context.proxy.incoming {
+        if let Err(err) = manage::new_incoming_path(*port, address.clone(), context.clone()).await {
+            error!("Failed to spawn new incoming path: {}", err);
+        }
+    }
 
     // Prepare the warp paths for management
+    let context = warp::any().map(move || context.clone());
     let filter = warp::post()
         .and(warp::path("outgoing"))
         .and(warp::path("new"))
@@ -125,8 +132,8 @@ async fn main() {
 
     // Extract the proxy address
     let bind_addr: SocketAddr = match node_config.node {
-        NodeSpecificConfig::Central(node) => node.services.prx.bind,
-        NodeSpecificConfig::Worker(node)  => node.services.prx.bind,
+        NodeSpecificConfig::Central(node) => node.services.prx.private().bind,
+        NodeSpecificConfig::Worker(node)  => node.services.prx.private().bind,
         NodeSpecificConfig::Proxy(node)   => node.services.prx.bind,
     };
 

@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    10 Mar 2023, 16:44:12
+//    16 Mar 2023, 17:28:16
 //  Auto updated?
 //    Yes
 // 
@@ -32,7 +32,7 @@ use serde::Serialize;
 use brane_cfg::spec::Config as _;
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::backend::{BackendFile, Credentials};
-use brane_cfg::node::{self, CentralConfig, CentralPaths, CentralServices, KafkaService, NodeConfig, NodeSpecificConfig, PrivateService, ProxyPaths, ProxyServices, PublicService, WorkerConfig, WorkerPaths, WorkerServices};
+use brane_cfg::node::{self, CentralConfig, CentralPaths, CentralServices, ExternalService, KafkaService, NodeConfig, NodeSpecificConfig, PrivateService, PrivateOrExternalService, ProxyPaths, ProxyServices, PublicService, WorkerConfig, WorkerPaths, WorkerServices};
 use brane_cfg::policies::{ContainerPolicy, PolicyFile, UserPolicy};
 use brane_cfg::proxy::{self, ForwardConfig};
 use brane_shr::fs::{download_file_async, set_executable, DownloadSecurity};
@@ -601,8 +601,8 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<Pair<String, ':', IpAddr>>, fix
                         certs    : canonicalize(certs)?,
                         packages : canonicalize(packages)?,
 
-                        infra : canonicalize(resolve_config_path(infra, &config_path))?,
-                        proxy : if external_proxy.is_some() { Some(canonicalize(resolve_config_path(proxy, &config_path))?) } else { None },
+                        infra : canonicalize(infra)?,
+                        proxy : if external_proxy.is_some() { None } else { Some(canonicalize(proxy)?) },
                     },
 
                     services : CentralServices {
@@ -625,14 +625,16 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<Pair<String, ':', IpAddr>>, fix
                             cmd  : plr_cmd_topic,
                             res  : plr_res_topic,
                         },
-                        prx : PrivateService {
-                            name    : prx_name.clone(),
-                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address : if let Some(address) = external_proxy {
-                                address
-                            } else {
-                                Address::Hostname(format!("http://{prx_name}"), prx_port)
-                            },
+                        prx : if let Some(address) = external_proxy {
+                            PrivateOrExternalService::External(ExternalService {
+                                address,
+                            })
+                        } else {
+                            PrivateOrExternalService::Private(PrivateService {
+                                name    : prx_name.clone(),
+                                bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
+                                address : Address::Hostname(format!("http://{prx_name}"), prx_port),
+                            })
                         },
 
                         aux_scylla : PrivateService {
@@ -701,7 +703,7 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<Pair<String, ':', IpAddr>>, fix
 
                         backend      : canonicalize(backend)?,
                         policies     : canonicalize(policies)?,
-                        proxy        : if external_proxy.is_some() { Some(canonicalize(proxy)?) } else { None },
+                        proxy        : if external_proxy.is_some() { None } else { Some(canonicalize(proxy)?) },
 
                         data         : canonicalize(data)?,
                         results      : canonicalize(results)?,
@@ -731,10 +733,16 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<Pair<String, ':', IpAddr>>, fix
 
                             external_address : Address::Hostname(format!("https://{hostname}"), chk_port),
                         },
-                        prx : PrivateService {
-                            name    : prx_name.clone(),
-                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address : Address::Hostname(format!("http://{prx_name}"), prx_port),
+                        prx : if let Some(address) = external_proxy {
+                            PrivateOrExternalService::External(ExternalService {
+                                address,
+                            })
+                        } else {
+                            PrivateOrExternalService::Private(PrivateService {
+                                name    : prx_name.clone(),
+                                bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
+                                address : Address::Hostname(format!("http://{prx_name}"), prx_port),
+                            })
                         },
                     },
                 }),
@@ -775,7 +783,7 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<Pair<String, ':', IpAddr>>, fix
                             bind             : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
                             address          : Address::Hostname(format!("http://{prx_name}"), prx_port),
 
-                            external_address : Address::Hostname(hostname.into(), prx_port),
+                            external_address : Address::Hostname(format!("http://{hostname}"), prx_port),
                         },
                     },
                 }),
@@ -1171,8 +1179,6 @@ pub fn policy(fix_dirs: bool, path: impl Into<PathBuf>, allow_all: bool) -> Resu
     Ok(())
 }
 
-
-
 /// Handles generating a new `proxy.yml` config file.
 /// 
 /// # Arguments
@@ -1180,15 +1186,14 @@ pub fn policy(fix_dirs: bool, path: impl Into<PathBuf>, allow_all: bool) -> Resu
 /// - `path`: The path to write the `policies.yml` to.
 /// - `outgoing_range`: The range of ports to allocate for outgoing connections.
 /// - `incoming`: The map of incoming ports to internal destinations to setup for incoming ports.
-/// - `proxy`: If to proxy and, if so, to where.
-/// - `protocol`: The protocol to use for proxying.
+/// - `forward`: The settings for forwaring traffic to a SOCKS proxy, if enabled.
 /// 
 /// # Returns
 /// Nothing, but does write a new file to the given path and updates the user on stdout on success.
 /// 
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub fn proxy(fix_dirs: bool, path: impl Into<PathBuf>, outgoing_range: RangeInclusive<u16>, incoming: Option<HashMap<u16, Address>>, forward: Option<ForwardConfig>) -> Result<(), Error> {
+pub fn proxy(fix_dirs: bool, path: impl Into<PathBuf>, outgoing_range: RangeInclusive<u16>, incoming: HashMap<u16, Address>, forward: Option<ForwardConfig>) -> Result<(), Error> {
     let path: PathBuf = path.into();
     info!("Generating proxy.yml...");
 

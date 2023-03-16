@@ -20,6 +20,7 @@ services:
     restart: always
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
+    - ${PROXY:-}:${PROXY:-}
     - ${CERTS}:${CERTS}
 
   # The service in charge of the local container- and data registry

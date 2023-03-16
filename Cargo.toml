@@ -1,5 +1,18 @@
 [workspace]
 members = [
+    ### BINARIES ###
+    # These crates directly relate to the CTL tool
+    "brane-ctl",
+
+    # These crates directly relate to the CLI tool
+    "brane-cli",
+    "brane-oas",
+
+    # These crates directly relate to the `branec` tool
+    "brane-cc",
+
+
+    ### SERVICES ###
     # These crates implement services for central nodes
     "brane-drv",
     "brane-plr",
@@ -13,16 +26,8 @@ members = [
     # These crates implement services that occur on any type of node
     "brane-prx",
 
-    # These crates directly relate to the CTL tool
-    "brane-ctl",
 
-    # These crates directly relate to the CLI tool
-    "brane-cli",
-    "brane-oas",
-
-    # These crates directly relate to the `branec` tool
-    "brane-cc",
-
+    ### LIBRARIES ###
     # These crates provide the full BraneScript/Bakery/... stack
     "brane-tsk",
     "brane-exe",

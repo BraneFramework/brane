@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2022, 16:11:00
 //  Last edited:
-//    12 Dec 2022, 13:23:49
+//    16 Mar 2023, 16:55:41
 //  Auto updated?
 //    Yes
 // 
@@ -14,6 +14,7 @@
 
 use std::path::Path;
 
+use brane_cfg::spec::Config as _;
 use brane_cfg::infra::InfraFile;
 
 pub use crate::errors::VerifyError as Error;

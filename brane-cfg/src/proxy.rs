@@ -4,7 +4,7 @@
 //  Created:
 //    09 Mar 2023, 15:15:47
 //  Last edited:
-//    10 Mar 2023, 15:52:51
+//    16 Mar 2023, 15:39:53
 //  Auto updated?
 //    Yes
 // 
@@ -111,7 +111,8 @@ pub struct ProxyConfig {
     /// Defines a list of forwarding ports for outside incoming connections. Maps incoming port to outgoing address.
     /// 
     /// Note: these will also have to be opened in Docker, obviously, but `branectl` can do this for you.
-    pub incoming       : Option<HashMap<u16, Address>>,
+    #[serde(default="HashMap::new")]
+    pub incoming       : HashMap<u16, Address>,
 
     /// Whether we have to forward our traffic through some external proxy.
     pub forward  : Option<ForwardConfig>,
@@ -120,7 +121,7 @@ impl Default for ProxyConfig {
     fn default() -> Self {
         Self {
             outgoing_range : 4200..=4299,
-            incoming       : None,
+            incoming       : HashMap::new(),
 
             forward : None,
         }
