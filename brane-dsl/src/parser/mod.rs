@@ -4,7 +4,7 @@
 //  Created:
 //    18 Aug 2022, 09:48:12
 //  Last edited:
-//    17 Jan 2023, 14:55:18
+//    20 Mar 2023, 11:02:55
 //  Auto updated?
 //    Yes
 // 
@@ -33,7 +33,8 @@ pub mod bscript;
 macro_rules! tag_token (
     (Token::$variant:ident) => (
         move |i: Tokens<'a>| {
-            use nom::{Err, error_position, Needed, try_parse, take};
+            use nom::{Err, error_position, Needed};
+            use nom::bytes::complete::take;
             use nom::error::ErrorKind;
 
             if i.tok.is_empty() {
@@ -53,7 +54,7 @@ macro_rules! tag_token (
                     }
                 }
             } else {
-                let (i1, t1) = try_parse!(i, take!(1));
+                let (i1, t1) = take(1usize)(i)?;
 
                 if t1.tok.is_empty() {
                     Err(Err::Incomplete(Needed::Size(NonZeroUsize::new(1).unwrap())))
