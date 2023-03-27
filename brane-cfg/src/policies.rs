@@ -4,7 +4,7 @@
 //  Created:
 //    01 Dec 2022, 09:20:32
 //  Last edited:
-//    10 Mar 2023, 15:52:42
+//    27 Mar 2023, 11:45:02
 //  Auto updated?
 //    Yes
 // 
@@ -45,17 +45,20 @@ pub enum UserPolicy {
     /// Allows this user to do anything.
     AllowUserAll {
         /// The name/ID of the user as found in their certificate
+        #[serde(alias = "user")]
         name : String,
     },
     /// Denies this user anything.
     DenyUserAll {
         /// The name/ID of the user as found in their certificate.
+        #[serde(alias = "user")]
         name : String,
     },
 
     /// Allows this user to do anything on a limited set of datasets.
     Allow {
         /// The name/ID of the user as found in their certificate.
+        #[serde(alias = "user")]
         name : String,
         /// The dataset to allow the operations for.
         data : String,
@@ -63,6 +66,7 @@ pub enum UserPolicy {
     /// Deny this user to do thing on a limited set of datasets.
     Deny {
         /// The name/ID of the user as found on their certificate.
+        #[serde(alias = "user")]
         name : String,
         /// The dataset for which to deny them.
         data : String,
