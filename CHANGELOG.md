@@ -16,6 +16,7 @@ All notable changes to the Brane framework will be documented in this file.
   - To do this, the `proxy`-field in `node.yml` has a different syntax to select the target protocol [**breaking change**].
   - `branectl` has also been updated to reflect this.
 - The `--local-aux` option to `branectl` such that it becomes easier to use pre-downloaded auxillary images.
+- Docker Buildx cache mounts (`--mount=type=cache`) to the compilation step, which should massively increase speed of repeated release builds.
 
 ### Changed
 - Protobuf descriptions to be in pure Rust instead of `.proto` files. This should allow use to re-use Rust structs in a more ergonimic style, as well as get rid of the very annoying `protoc` dependency.
