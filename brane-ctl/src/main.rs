@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    16 Mar 2023, 17:10:38
+//    28 Mar 2023, 10:46:00
 //  Auto updated?
 //    Yes
 // 
@@ -25,8 +25,8 @@ use specifications::address::Address;
 use specifications::package::Capability;
 use specifications::version::Version;
 
-use brane_ctl::spec::{API_DEFAULT_VERSION, Arch, DockerClientVersion, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, InclusiveRange, Pair, StartDockerOpts, StartOpts, StartSubcommand};
-use brane_ctl::{download, generate, lifetime, packages};
+use brane_ctl::spec::{API_DEFAULT_VERSION, Arch, DockerClientVersion, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, InclusiveRange, Pair, ResolvableNodeKind, StartDockerOpts, StartOpts, StartSubcommand};
+use brane_ctl::{download, generate, lifetime, packages, unpack};
 
 
 /***** ARGUMENTS *****/
@@ -56,6 +56,8 @@ enum CtlSubcommand {
     Download(Box<DownloadSubcommand>),
     #[clap(subcommand)]
     Generate(Box<GenerateSubcommand>),
+    #[clap(subcommand)]
+    Unpack(Box<UnpackSubcommand>),
 
     #[clap(subcommand)]
     Packages(Box<PackageSubcommand>),
@@ -121,7 +123,7 @@ enum CtlSubcommand {
 
 /// Defines download-related subcommands for the `branectl` tool.
 #[derive(Debug, Subcommand)]
-#[clap(name = "download", about = "Groups commands that can automatically download stuff from the project's repository.")]
+#[clap(name = "download", about = "Download pre-compiled images or binaries from the project's repository.")]
 enum DownloadSubcommand {
     #[clap(name = "services", about = "Downloads all of the Brane service images from the GitHub repository to the local machine.")]
     Services {
@@ -150,7 +152,7 @@ enum DownloadSubcommand {
 
 /// Defines generate-related subcommands for the `branectl` tool.
 #[derive(Debug, Subcommand)]
-#[clap(name = "generate", about = "Groups commands about (config) generation.")]
+#[clap(name = "generate", about = "Generate configuration files for setting up a new node.")]
 enum GenerateSubcommand {
     #[clap(name = "node", about = "Generates a new 'node.yml' file at the location indicated by --node-config.")]
     Node {
@@ -270,9 +272,28 @@ enum GenerateSubcommand {
     },
 }
 
+/// Defines subcommands that allow us to unpack baked-in files.
+#[derive(Debug, Subcommand)]
+#[clap(name = "unpack", alias = "extract", about = "Unpack a certain file that is baked-in the CTL executable.")]
+enum UnpackSubcommand {
+    #[clap(name = "compose", about = "Unpacks the Docker Compose file that we use to setup the services for an node. Note, however, that this Docker Compose file is templated with a lot of environment variables, so it's only really useful if you want to change some Compose settings. Check 'branectl start -f'.")]
+    Compose {
+        /// The location to which to extract the file.
+        #[clap(name="PATH", default_value="./docker-compose-$NODE.yml", help="Defines the path to which we unpack the file. You can use '$NODE' to refer to the node kind as specified by 'NODE_KIND'")]
+        path : PathBuf,
+
+        /// The type of node for which to extract.
+        #[clap(short, long, default_value="$NODECFG", help="Defines the kind of node for which to unpack the Docker Compose file. You can use '$NODECFG' to refer to the node kind defined in the `node.yml` file (see 'branectl -n').")]
+        kind     : ResolvableNodeKind,
+        /// Whether to fix missing directories (true) or throw errors (false).
+        #[clap(short, long, help="If given, will create missing directories instead of throwing an error.")]
+        fix_dirs : bool,
+    }
+}
+
 /// Defines package-related subcommands for the `branectl` tool.
 #[derive(Debug, Subcommand)]
-#[clap(name = "packages", about = "Groups commands about package management.")]
+#[clap(name = "packages", about = "Manage packages that are stored on this node.")]
 enum PackageSubcommand {
     /// Generates the hash for the given package container.
     #[clap(name = "hash", about = "Hashes the given `image.tar` file for use in policies.")]
@@ -285,7 +306,7 @@ enum PackageSubcommand {
 
 /// Defines data- and intermediate results-related subcommands for the `branectl` tool.
 #[derive(Debug, Subcommand)]
-#[clap(name = "data", about = "Groups commands about data and intermediate result management.")]
+#[clap(name = "data", about = "Manage data and intermediate results stored on this node.")]
 enum DataSubcommand {
 
 }
@@ -370,6 +391,11 @@ async fn main() {
             GenerateSubcommand::Proxy{ fix_dirs, path, outgoing_range, incoming, forward, forward_protocol } => {
                 // Call the thing
                 if let Err(err) = generate::proxy(fix_dirs, path, outgoing_range.0, incoming.into_iter().map(|p| (p.0, p.1)).collect(), forward.map(|a| ForwardConfig { address: a, protocol: forward_protocol })) { error!("{}", err); std::process::exit(1); }
+            },
+        },
+        CtlSubcommand::Unpack(subcommand) => match *subcommand {
+            UnpackSubcommand::Compose { kind, path, fix_dirs } => {
+                if let Err(err) = unpack::compose(kind, fix_dirs, path, args.node_config) { error!("{err}"); std::process::exit(1); }
             },
         },
 

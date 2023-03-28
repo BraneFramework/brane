@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    16 Mar 2023, 17:23:07
+//    28 Mar 2023, 10:40:26
 //  Auto updated?
 //    Yes
 // 
@@ -21,6 +21,7 @@ use std::str::FromStr;
 use clap::Subcommand;
 use enum_debug::EnumDebug;
 
+use brane_cfg::node::NodeKind;
 use brane_tsk::docker::{ClientVersion, ImageSource};
 use specifications::address::Address;
 use specifications::version::Version;
@@ -136,6 +137,32 @@ impl FromStr for DockerClientVersion {
 
 
 
+/// Defines a wrapper around a `NodeKind` that also allows it to be resolved later from the contents of the `node.yml` file.
+#[derive(Clone, Copy, Debug)]
+pub struct ResolvableNodeKind(pub Option<NodeKind>);
+impl Display for ResolvableNodeKind {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        match self.0 {
+            Some(kind) => write!(f, "{kind}"),
+            None       => write!(f, "$NODECFG"),
+        }
+    }
+}
+impl FromStr for ResolvableNodeKind {
+    type Err = brane_cfg::errors::NodeKindParseError;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "$NODECFG" => Ok(Self(None)),
+            raw        => Ok(Self(Some(NodeKind::from_str(raw)?))),
+        }
+    }
+}
+
+
+
 /// Defines an _inclusive_ range of numbers.
 #[derive(Clone, Debug)]
 pub struct InclusiveRange<T>(pub RangeInclusive<T>);
@@ -166,50 +193,6 @@ impl<T: FromStr + PartialOrd> FromStr for InclusiveRange<T> where T::Err: 'stati
 }
 
 
-
-// /// Defines a `<hostname>:<ip>` pair that is conveniently parseable.
-// #[derive(Clone, Debug)]
-// pub struct HostnamePair(pub String, pub IpAddr);
-
-// impl Display for HostnamePair {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-//         write!(f, "{} -> {}", self.0, self.1)
-//     }
-// }
-// impl FromStr for HostnamePair {
-//     type Err = HostnamePairParseError;
-
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         // Find the colon to split on
-//         let colon_pos: usize = match s.find(':') {
-//             Some(pos) => pos,
-//             None      => { return Err(HostnamePairParseError::MissingColon{ raw: s.into() }); },
-//         };
-
-//         // Split it
-//         let hostname : &str = &s[..colon_pos];
-//         let ip       : &str = &s[colon_pos + 1..];
-
-//         // Attempt to parse the IP as either an IPv4 _or_ an IPv6
-//         match IpAddr::from_str(ip) {
-//             Ok(ip)   => Ok(Self(hostname.into(), ip)),
-//             Err(err) => Err(HostnamePairParseError::IllegalIpAddr{ raw: ip.into(), err }),
-//         }
-//     }
-// }
-
-// impl AsRef<HostnamePair> for HostnamePair {
-//     #[inline]
-//     fn as_ref(&self) -> &Self { self }
-// }
-// impl From<&HostnamePair> for HostnamePair {
-//     #[inline]
-//     fn from(value: &HostnamePair) -> Self { value.clone() }
-// }
-// impl From<&mut HostnamePair> for HostnamePair {
-//     #[inline]
-//     fn from(value: &mut HostnamePair) -> Self { value.clone() }
-// }
 
 /// Defines a `<something><char><something>` pair that is conveniently parseable, e.g., `<hostname>:<ip>` or `<domain>=<property>`.
 /// 

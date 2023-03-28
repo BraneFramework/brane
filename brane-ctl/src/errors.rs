@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    16 Mar 2023, 17:50:50
+//    28 Mar 2023, 10:54:06
 //  Auto updated?
 //    Yes
 // 
@@ -309,6 +309,36 @@ impl Display for PackagesError {
     }
 }
 impl Error for PackagesError {}
+
+
+
+/// Errors that relate to unpacking files.
+#[derive(Debug)]
+pub enum UnpackError {
+    /// Failed to get the NodeConfig file.
+    NodeConfigError{ err: brane_cfg::spec::YamlError },
+    /// Failed to write the given file.
+    FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to create the target directory.
+    TargetDirCreateError{ path: PathBuf, err: std::io::Error },
+    /// The target directory was not found.
+    TargetDirNotFound{ path: PathBuf },
+    /// The target directory was not a directory.
+    TargetDirNotADir{ path: PathBuf },
+}
+impl Display for UnpackError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use UnpackError::*;
+        match self {
+            NodeConfigError{ err }            => write!(f, "Failed to read node config file: {err} (specify a kind manually using '--kind')"),
+            FileWriteError{ what, path, err } => write!(f, "Failed to write {} file to '{}': {}", what, path.display(), err),
+            TargetDirCreateError{ path, err } => write!(f, "Failed to create target directory '{}': {}", path.display(), err),
+            TargetDirNotFound{ path }         => write!(f, "Target directory '{}' not found (you can create it by re-running this command with '-f')", path.display()),
+            TargetDirNotADir{ path }          => write!(f, "Target directory '{}' exists but is not a directory", path.display()),
+        }
+    }
+}
+impl Error for UnpackError {}
 
 
 
