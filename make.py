@@ -1565,8 +1565,13 @@ class Arch:
         """
 
         # Open the process
-        handle = subprocess.Popen(["uname", "-m"], stdout=subprocess.PIPE, text=True)
-        stdout, _ = handle.communicate()
+        try:
+            handle = subprocess.Popen(["uname", "-m"], stdout=subprocess.PIPE, text=True)
+            stdout, _ = handle.communicate()
+        except FileNotFoundError as e:
+            pdebug("Failed to run `uname -m` to detect Architecture; assuming Windows")
+            # Read the environment variable to find the architecture
+            stdout = os.environ["PROCESSOR_ARCHITECTURE"]
 
         # Parse the value, put it in an empty Arch object
         arch = Arch()
@@ -1689,9 +1694,13 @@ class Os:
             Uses "uname -s" to detect this.
         """
 
-        # Open the process
-        handle = subprocess.Popen(["uname", "-s"], stdout=subprocess.PIPE, text=True)
-        stdout, _ = handle.communicate()
+        # Open the process that we use to determine the host
+        try:
+            handle = subprocess.Popen(["uname", "-s"], stdout=subprocess.PIPE, text=True)
+            stdout, _ = handle.communicate()
+        except FileNotFoundError as e:
+            pdebug("Failed to run `uname -s` to detect OS; assuming Windows")
+            stdout = "windows"
 
         # Parse the value, put it in an empty Os object
         os = Os()
@@ -1727,6 +1736,8 @@ class Os:
             return "linux"
         elif os == "darwin" or os == "macos":
             return "darwin"
+        elif os == "windows":
+            return "windows"
         else:
             raise ValueError(f"Unknown OS '{text}'")
 

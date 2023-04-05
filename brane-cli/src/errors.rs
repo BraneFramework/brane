@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    01 Mar 2023, 11:14:19
+//    05 Apr 2023, 16:20:10
 //  Auto updated?
 //    Yes
 // 
@@ -122,12 +122,14 @@ pub enum BuildError {
     /// Could not properly convert the OpenAPI document into a PackageInfo
     PackageInfoFromOpenAPIError{ err: anyhow::Error },
 
-    /// A lock file exists for the current building package, so wait
-    LockFileExists{ path: PathBuf },
-    /// Could not create a file lock for system reasons
-    LockCreateError{ path: PathBuf, err: std::io::Error },
-    /// Failed to cleanup the .lock file from the build directory after a successfull build.
-    LockCleanupError{ path: PathBuf, err: std::io::Error },
+    // /// A lock file exists for the current building package, so wait
+    // LockFileExists{ path: PathBuf },
+    // /// Could not create a file lock for system reasons
+    // LockCreateError{ path: PathBuf, err: std::io::Error },
+    // /// Failed to cleanup the .lock file from the build directory after a successfull build.
+    // LockCleanupError{ path: PathBuf, err: std::io::Error },
+    /// Failed to create a LockFile.
+    LockCreateError{ name: String, err: brane_shr::fs::Error },
 
     /// Could not write to the DockerFile string.
     DockerfileStrWriteError{ err: std::fmt::Error },
@@ -242,9 +244,10 @@ impl Display for BuildError {
             VersionParseError{ err }           => write!(f, "Could not parse OAS Document version number: {err}"),
             PackageInfoFromOpenAPIError{ err } => write!(f, "Could not convert the OAS Document into a Package Info file: {err}"),
 
-            LockFileExists{ path }        => write!(f, "The build directory '{}' is busy; try again later (a lock file exists)", path.display()),
-            LockCreateError{ path, err }  => write!(f, "Could not create lock file '{}': {}", path.display(), err),
-            LockCleanupError{ path, err } => write!(f, "Could not clean the lock file ('{}') from build directory: {}", path.display(), err),
+            // LockFileExists{ path }        => write!(f, "The build directory '{}' is busy; try again later (a lock file exists)", path.display()),
+            // LockCreateError{ path, err }  => write!(f, "Could not create lock file '{}': {}", path.display(), err),
+            // LockCleanupError{ path, err } => write!(f, "Could not clean the lock file ('{}') from build directory: {}", path.display(), err),
+            LockCreateError{ name, err } => write!(f, "Failed to create lockfile for package '{name}': {err}"),
 
             DockerfileStrWriteError{ err } => write!(f, "Could not write to the internal DockerFile: {err}"),
             UnsafePath{ path }             => write!(f, "File '{path}' tries to escape package working directory; consider moving Brane's working directory up (using --workdir) and avoid '..'"),
