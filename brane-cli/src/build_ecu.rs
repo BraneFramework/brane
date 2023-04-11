@@ -8,7 +8,7 @@ use console::style;
 use fs_extra::dir::CopyOptions;
 use path_clean::clean as clean_path;
 
-use brane_shr::fs::LockFile;
+use brane_shr::fs::FileLock;
 use specifications::arch::Arch;
 use specifications::container::{ContainerInfo, LocalContainerInfo};
 use specifications::package::PackageInfo;
@@ -57,7 +57,10 @@ pub async fn handle(
 
     // Lock the directory, build, unlock the directory
     {
-        let _lock = LockHandle::lock(package_dir.join(".lock")).map_err(|err| BuildError::LockCreateError{ name: document.name, err })?;
+        let _lock = match FileLock::lock(&document.name, &document.version, package_dir.join(".lock")) {
+            Ok(lock) => lock,
+            Err(err) => { return Err(BuildError::LockCreateError{ name: document.name, err }); },
+        };
         build(arch, document, context, &package_dir, branelet_path, keep_files).await?;
     };
 

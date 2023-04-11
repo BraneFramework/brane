@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    01 Mar 2023, 11:14:27
+//    11 Apr 2023, 15:47:46
 //  Auto updated?
 //    Yes
 // 
@@ -15,10 +15,11 @@
 use std::borrow::Cow;
 use std::io::Read;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
+use bollard::ClientVersion;
 use console::style;
 use tempfile::{tempdir, TempDir};
 
@@ -227,13 +228,15 @@ pub fn initialize_dummy_vm(options: ParserOptions) -> Result<DummyVmState, Error
 /// 
 /// # Arguments
 /// - `options`: The ParserOptions that describe how to parse the given source.
+/// - `socket_path`: The Docker socket path with which to connect to the local daemon.
+/// - `client_version`: The version of the Docker client with which to connect.
 /// 
 /// # Returns
 /// The newly created virtual machine together with associated states as an OfflineVmState.
 /// 
 /// # Errors
 /// This function errors if we failed to get the new package indices or other information.
-pub fn initialize_offline_vm(options: ParserOptions) -> Result<OfflineVmState, Error> {
+pub fn initialize_offline_vm(options: ParserOptions, socket_path: impl Into<PathBuf>, client_version: ClientVersion) -> Result<OfflineVmState, Error> {
     // Get the directory with the packages
     let packages_dir = match ensure_packages_dir(false) {
         Ok(dir)  => dir,
@@ -283,7 +286,7 @@ pub fn initialize_offline_vm(options: ParserOptions) -> Result<OfflineVmState, E
         source : String::new(),
         options,
 
-        vm : Some(OfflineVm::new(packages_dir, datasets_dir, temp_dir_path, package_index, data_index)),
+        vm : Some(OfflineVm::new(socket_path, client_version, packages_dir, datasets_dir, temp_dir_path, package_index, data_index)),
     })
 }
 
@@ -783,17 +786,19 @@ async fn dummy_run(options: ParserOptions, what: impl AsRef<str>, source: impl A
 /// 
 /// # Arguments
 /// - `options`: The ParseOptions that specify how to parse the incoming source.
+/// - `socket_path`: The Docker socket path with which to connect to the local daemon.
+/// - `client_version`: The version of the Docker client with which to connect.
 /// - `what`: A description of the source we're reading (e.g., the filename or `<stdin>`)
 /// - `source`: The source code to read.
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-async fn local_run(options: ParserOptions, what: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), Error> {
+async fn local_run(options: ParserOptions, socket_path: impl Into<PathBuf>, client_version: ClientVersion, what: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), Error> {
     let what      : &str  = what.as_ref();
     let source    : &str  = source.as_ref();
 
     // First we initialize the remote thing
-    let mut state: OfflineVmState = initialize_offline_vm(options)?;
+    let mut state: OfflineVmState = initialize_offline_vm(options, socket_path, client_version)?;
     // Next, we run the VM (one snippet only ayway)
     let res: FullValue = run_offline_vm(&mut state, what, source).await?;
     // Then, we collect and process the result

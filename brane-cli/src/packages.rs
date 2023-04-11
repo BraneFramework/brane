@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;use anyhow::Result;
 
@@ -6,7 +7,7 @@ use bollard::errors::Error;
 use bollard::image::ImportImageOptions;
 use bollard::image::TagImageOptions;
 use bollard::models::BuildInfo;
-use bollard::Docker;
+use bollard::{ClientVersion, Docker};
 use chrono::{Local, Utc};
 use console::{pad_str, style, Alignment};
 use dialoguer::Confirm;
@@ -330,13 +331,19 @@ pub async fn load(
 /// # Arguments
 ///  - `force`: Whether or not to force removal (remove the image from the Docker daemon even if there are still containers using it).
 ///  - `packages`: The list of (name, Version) pairs to remove.
+///  - `socket_path`: The path to the Docker socket with which to connect.
+///  - `client_version`: The Docker client version with which to connect.
 /// 
 /// # Returns  
 /// Nothing on success, or else an error.
 pub async fn remove(
     force: bool,
     packages: Vec<(String, Version)>,
+    socket_path: impl AsRef<Path>,
+    client_version: ClientVersion,
 ) -> Result<(), PackageError> {
+    let socket_path: &Path = socket_path.as_ref();
+
     // Iterate over the packages
     for (name, version) in packages {
         // Remove without confirmation if explicity stated package version.
@@ -371,7 +378,7 @@ pub async fn remove(
 
             // Remove that image from the Docker daemon
             let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
-            if let Err(err) = docker::remove_image(&image).await {
+            if let Err(err) = docker::remove_image(&image, socket_path, client_version).await {
                 return Err(PackageError::DockerRemoveError{ image: Box::new(image), err });
             }
 
@@ -466,7 +473,7 @@ pub async fn remove(
 
             // Remove that image from the Docker daemon
             let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
-            if let Err(err) = docker::remove_image(&image).await {
+            if let Err(err) = docker::remove_image(&image, socket_path, client_version).await {
                 return Err(PackageError::DockerRemoveError{ image: Box::new(image), err });
             }
         }

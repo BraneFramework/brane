@@ -44,12 +44,6 @@ impl LocalVersion {
     /// # Returns
     /// A new LocalVersion instance on success, or else a VersionError.
     fn new() -> Result<Self, VersionError> {
-        // Parse the architecture
-        let arch = match Arch::host() {
-            Ok(arch) => arch,
-            Err(err) => { return Err(VersionError::HostArchError{ err }); }
-        };
-
         // Parse the env
         let version = match Version::from_str(env!("CARGO_PKG_VERSION")) {
             Ok(version) => version,
@@ -58,7 +52,7 @@ impl LocalVersion {
 
         // Done, return the struct
         Ok(Self {
-            arch,
+            arch : Arch::HOST,
             version,
         })
     }
@@ -130,7 +124,7 @@ impl RemoteVersion {
         // Done!
         debug!("Remote version number: {}", &version);
         Ok(Self {
-            _arch : Arch::x86_64,
+            _arch : Arch::X86_64,
             version,
         })
     }

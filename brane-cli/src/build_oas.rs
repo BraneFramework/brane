@@ -9,7 +9,7 @@ use brane_oas::{self, build};
 use console::style;
 use openapiv3::OpenAPI;
 
-use brane_shr::fs::LockFile;
+use brane_shr::fs::FileLock;
 use specifications::arch::Arch;
 use specifications::package::{PackageKind, PackageInfo};
 use specifications::version::Version;
@@ -54,7 +54,10 @@ pub async fn handle(
 
     // Lock the directory, build, unlock the directory
     {
-        let _lock = LockHandle::lock(package_dir.join(".lock")).map_err(|err| BuildError::LockCreateError{ name: package_info.name, err })?;
+        let _lock = match FileLock::lock(&package_info.name, &package_info.version, package_dir.join(".lock")) {
+            Ok(lock) => lock,
+            Err(err) => { return Err(BuildError::LockCreateError{ name: package_info.name, err }); },
+        };
         build(arch, document, package_info, &package_dir, branelet_path, keep_files).await?;
     };
 

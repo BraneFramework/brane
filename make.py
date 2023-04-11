@@ -5,7 +5,7 @@
 # Created:
 #   09 Jun 2022, 12:20:28
 # Last edited:
-#   23 Feb 2023, 13:36:40
+#   11 Apr 2023, 12:01:25
 # Auto updated?
 #   Yes
 #
@@ -19,16 +19,14 @@ from __future__ import annotations
 import abc
 import argparse
 import hashlib
-import http
 import json
 import os
-# import requests
+import platform
+import shutil
 import subprocess
 import sys
 import tarfile
-import time
 import typing
-import urllib.request
 
 
 ##### CONSTANTS #####
@@ -1766,6 +1764,138 @@ class Os:
 
 
 
+class Match(abc.ABC):
+    """
+        Baseclass for Match objects, which can express some condition on a string.
+    """
+
+    @abc.abstractmethod
+    def __init__(self) -> None:
+        # Simply init as empty (no parent stuff)
+        pass
+
+    @abc.abstractmethod
+    def __str__(self) -> str:
+        pass
+
+    @abc.abstractmethod
+    def match(self, _to_match: str, _args: argparse.Namespace) -> bool:
+        """
+            Returns whether the given string is matched by this match.
+        """
+        pass
+
+class LiteralMatch(Match):
+    """
+        A match that matches a string literal.
+    """
+
+    _lit : str
+
+    def __init__(self, literal: str) -> None:
+        """
+            Constructor for the LiteralMatch.
+
+            Arguments:
+            - `literal`: The literal to match.
+        """
+
+        # Do the parent thing
+        Match.__init__(self)
+
+        # Store the literal to match
+        self._lit = literal
+
+    def __str__(self) -> str:
+        """
+            Returns a string representation of this match.
+        """
+
+        return self._lit
+
+    def match(self, to_match: str, _args: argparse.Namespace) -> bool:
+        """
+            Returns whether the given string is matched by this match.
+        """
+
+        # Literal matching is just... literally... matching...
+        return to_match == self._lit
+
+class StrippedMatch(Match):
+    """
+        Matches the given string with a literal, but only after the new string has been stripped from whitespaces.
+    """
+
+    # The literal to match.
+    _lit : str
+
+    def __init__(self, literal: str) -> None:
+        """
+            Constructor for the StrippedMatch.
+
+            Arguments:
+            - `literal`: The literal to match.
+        """
+
+        # Do the parent thing
+        Match.__init__(self)
+
+        # Store the literal to match
+        self._lit = literal
+
+    def __str__(self) -> str:
+        """
+            Returns a string representation of this match.
+        """
+
+        return self._lit
+
+    def match(self, to_match: str, _args: argparse.Namespace) -> bool:
+        """
+            Returns whether the given string is matched by this match.
+        """
+
+        # Literal matching is just... literally... matching...
+        return to_match.strip() == self._lit
+
+class NegatedMatch(Match):
+    """
+        A match that matches using another match, then negates the result.
+    """
+
+    _match : Match
+
+    def __init__(self, match: Match) -> None:
+        """
+            Constructor for the NegatedMatch.
+
+            Arguments:
+            - `match`: The other match to negate.
+        """
+
+        # Do the parent thing
+        Match.__init__(self)
+
+        # Store the literal to match
+        self._match = match
+
+    def __str__(self) -> str:
+        """
+            Returns a string representation of this match.
+        """
+
+        return f"Anything but '{self._match}'"
+
+    def match(self, to_match: str, args: argparse.Namespace) -> bool:
+        """
+            Returns whether the given string is matched by this match.
+        """
+
+        # Match using the nested one, then negate
+        return not self._match.match(to_match, args)
+
+
+
 class Command(abc.ABC):
     """
         Baseclass for Commands, whether virtual or calling some subprocess.
@@ -1896,11 +2026,9 @@ class ShellCommand(Command):
 
 
 
-    def run(self, args: argparse.Namespace) -> int:
+    def _prepare_run(self, args: argparse.Namespace) -> tuple[list[str], dict[str, str], str]:
         """
-            Runs the command. Returns the 'error code', which may be some wacky
-            stuff in the case of abstract commands. In any case, '0' means
-            success.
+            Prepares running the internal command by creating the command, environment dictionary and current working directory, respectively.
         """
 
         # Resolve the CWD
@@ -1922,13 +2050,206 @@ class ShellCommand(Command):
         # Resolve the arguments
         rargs = [ resolve_args(arg, args) for arg in self._args ]
 
+        # We're done
+        return ([self._exec] + rargs, env, cwd)
+
+    def run(self, args: argparse.Namespace) -> int:
+        """
+            Runs the command. Returns the 'error code', which may be some wacky
+            stuff in the case of abstract commands. In any case, '0' means
+            success.
+
+            Note that this respects the `args.dry_run` variable.
+        """
+
+        # Prepare what we need to run
+        (cmd, env, cwd) = self._prepare_run(args)
+
         # Start the process, but only if not dry-running
         if not args.dry_run:
-            handle = subprocess.Popen([self._exec] + rargs, stdout=sys.stdout, stderr=sys.stderr, env=env, cwd=cwd)
+            handle = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, env=env, cwd=cwd)
             handle.wait()
             return handle.returncode
         else:
             return 0
+
+    def run_with_capture(self, args: argparse.Namespace) -> tuple[int, str, str]:
+        """
+            Runs the command, returning not only the error code but also a captured stdout and stderr.
+
+            Note that this respects the `args.dry_run` variable.
+        """
+
+        # Prepare what we need to run
+        (cmd, env, cwd) = self._prepare_run(args)
+
+        # Start the process, but only if not dry-running
+        if not args.dry_run:
+            handle = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=cwd)
+            (stdout, stderr) = handle.communicate()
+            return (handle.returncode, stdout.decode("utf-8"), stderr.decode("utf-8"))
+        else:
+            return (0, "", "")
+
+class ConditionalShellCommand(Command):
+    """
+        Defines a shell command that is actually two commands, and the second is only executed if the first returns a specific target.
+    """
+
+    _cond   : ShellCommand
+    _cons   : ShellCommand
+    _code   : int
+    _stdout : typing.Optional[Match]
+    _stderr : typing.Optional[Match]
+
+    def __init__(self, condition: ShellCommand, consequence: ShellCommand, target_code: int = 0, target_stdout: typing.Optional[Match] = None, target_stderr: typing.Optional[Match] = None) -> None:
+        """
+            Constructor for the ConditionalShellCommand.
+
+            Arguments
+            - `condition`: The command to run that determines the condition.
+            - `consequence`: The command to run if the `condition` returns the desired code/stdout/stderr.
+            - `target_code`: The code to match on the `condition`'s return state. If the `condition` returns anything else, the `consequence` is _not_ executed.
+            - `target_stdout`: If not None, then the stdout of the command must match the given string, lest the `consequence` will not be executed. The matching strategy is dictacted by the given Match class.
+            - `target_stderr`: If not None, then the stderr of the command must match the given string, lest the `consequence` will not be executed. The matching strategy is dictacted by the given Match class.
+        """
+
+        # Set the parent constructor
+        Command.__init__(self)
+
+        # Store the other commands
+        self._cond   = condition
+        self._cons   = consequence
+        self._code   = target_code
+        self._stdout = target_stdout
+        self._stderr = target_stderr
+
+    def serialize(self, args: argparse.Namespace) -> str:
+        """
+            Allows the Command to be formatted.
+        """
+
+        # Write the command we always run
+        s = f"Running '{self._cons.serialize(args)}' iff '{self._cond.serialize(args)}' returns exit code {self._code}"
+        # Add the stdout & stderr checks
+        if self._stdout is not None:
+            s += " and writes correct stdout"
+        if self._stderr is not None:
+            s += " and writes correct stderr"
+        # Done
+        return s
+
+    def run(self, args: argparse.Namespace) -> int:
+        """
+            Runs the conditional command, then maybe runs the other command.
+        """
+
+        # Run the conditional command first, catching stdout and whatnot
+        (code, stdout, stderr) = self._cond.run_with_capture(args)
+
+        # Match it, with useful debug prints
+        if code != self._code:
+            pdebug(f"Not running consequent ({self._cons.serialize(args)}) because condition ({self._cond.serialize(args)}) did not return exit code {self._code} (got {code})")
+            return 0
+        if self._stdout is not None and not self._stdout.match(stdout, args):
+            pdebug(f"Not running consequent ({self._cons.serialize(args)}) because condition ({self._cond.serialize(args)})'s stdout did not match\n\nExpected:\n{self._stdout}\n\nGot:\n{stdout}\n\n)")
+            return 0
+        if self._stderr is not None and not self._stderr.match(stderr, args):
+            pdebug(f"Not running consequent ({self._cons.serialize(args)}) because condition ({self._cond.serialize(args)})'s stderr did not match\n\nExpected:\n{self._stderr}\n\nGot:\n{stderr}\n\n)")
+            return 0
+
+        # Now we can run the real command as usual
+        return self._cons.run(args)
+
+class MakeDirCommand(Command):
+    """
+        A command that runs a platform-independent directory creation.
+    """
+
+    _path      : str
+    _exists_ok : bool
+
+    def __init__(self, path: str, exists_ok: bool = True) -> None:
+        """
+            Constructor for the MakeDirCommand class.
+
+            Arguments:
+            - `path`: The path to the directory to create. The usual replacements apply.
+            - `exists_ok`: If True, then we do not raise an error if the directory already exists.
+        """
+
+        # Set the base stuff
+        Command.__init__(self)
+
+        # Store our own arguments
+        self._path      = path
+        self._exists_ok = exists_ok
+
+    def serialize(self, args: argparse.Namespace) -> str:
+        """
+            Allows the Command to be formatted.
+        """
+
+        return f"Creating directory '{self._path}'"
+
+    def run(self, _args: argparse.Namespace) -> int:
+        """
+            Creates a directory with error catching.
+        """
+
+        # Only run if we're not dry running
+        if not args.dry_run:
+            try:
+                os.makedirs(self._path, exist_ok=self._exists_ok)
+                return 0
+            except IOError as e:
+                perror(f"Failed to create directory '{self._path}': {e}")
+                return e.errno
+
+class CopyCommand(Command):
+    """
+        A command that runs a platform-independent file copy.
+    """
+
+    _source : str
+    _target : str
+
+    def __init__(self, source: str, target: str) -> None:
+        """
+            Constructor for the CopyCommand.
+
+            Arguments:
+            - `source`: The source file to copy from.
+            - `target`: The target file to copy to.
+        """
+
+        # Set the base stuff
+        Command.__init__(self)
+
+        # Store the paths
+        self._source = source
+        self._target = target
+
+    def serialize(self, _args: argparse.Namespace) -> str:
+        """
+            Allows the Command to be formatted.
+        """
+
+        return f"Copying '{self._source}' to '{self._target}'"
+
+    def run(self, args: argparse.Namespace) -> int:
+        """
+            Copies the given file with error catching.
+        """
+
+        # Only run if we're not dry running
+        if not args.dry_run:
+            try:
+                shutil.copyfile(self._source, self._target)
+                return 0
+            except IOError as e:
+                perror(f"Failed to copy '{self._source}' to '{self._target}': {e}")
+                return e.errno
 
 class PseudoCommand(Command):
     """
@@ -2491,7 +2812,7 @@ class ShellTarget(Target):
         super().__init__(name, srcs, srcs_deps, dsts, deps, description)
 
         # Store the commands too
-        self._commands = commands;
+        self._commands = commands
 
 
 
@@ -2651,7 +2972,7 @@ class ImageTarget(Target):
         destination = resolve_args(self._dsts[0], args)
 
         # Add a command for the output folder
-        mkdir = ShellCommand("mkdir", "-p", f"{os.path.dirname(destination)}")
+        mkdir = MakeDirCommand(os.path.dirname(destination))
 
         # Construct the build command
         build = ShellCommand("docker", "build", "--output", f"type=docker,dest={destination}", "-f", self._dockerfile)
@@ -2726,36 +3047,72 @@ class InContainerTarget(Target):
             Will raise errors if it somehow fails to do so.
         """
 
-        # Get the current user ID
-        handle = subprocess.Popen(["id", "-u"], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (stdout, stderr) = handle.communicate()
-        if handle.returncode != 0: cancel(f"Failed to get current user ID using 'id -u':\n{stderr}")
-        uid = stdout.strip()
+        # The user story is different per OS
+        if platform.system() != "Windows":
+            # Get the current user ID
+            handle = subprocess.Popen(["id", "-u"], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (stdout, stderr) = handle.communicate()
+            if handle.returncode != 0: cancel(f"Failed to get current user ID using 'id -u':\n{stderr}")
+            uid = stdout.strip()
 
-        # Get the current group ID
-        handle = subprocess.Popen(["id", "-g"], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (stdout, stderr) = handle.communicate()
-        if handle.returncode != 0: cancel(f"Failed to get current group ID using 'id -u':\n{stderr}")
-        gid = stdout.strip()
+            # Get the current group ID
+            handle = subprocess.Popen(["id", "-g"], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (stdout, stderr) = handle.communicate()
+            if handle.returncode != 0: cancel(f"Failed to get current group ID using 'id -u':\n{stderr}")
+            gid = stdout.strip()
+
+            # Put it in the global variable
+            user = (uid, gid)
+        else:
+            # We don't need to do any of this on Windows
+            user = None
 
 
 
         # Prepare the command
         if self._keep_alive:
-            # Build the start command
-            c = f"[[ $(docker ps -f \"name={self._image}\" --format '{{{{.Names}}}}') == {self._image} ]] || docker run --name {self._image} -d --rm --entrypoint sleep"
+            # Prepare the command that actually runs the container
+            start = ShellCommand("docker", "run", "--name", f"{self._image}", "-d", "--rm", "--entrypoint", "sleep")
             for (src, dst) in self._volumes:
                 # Resolve the src and dst
                 src = resolve_args(src, args)
                 dst = resolve_args(dst, args)
                 # Add
-                c += f" -v {src}:{dst}"
-            c += f" {self._image} infinity"
+                start.add("-v", f"{src}:{dst}")
+            start.add(self._image, "infinity")
 
-            # Start the container in the background if it didn't already
-            start = ShellCommand("bash", "-c", c)
+            # Wrap it in a conditional command to only run it if the container is not already running (to preserve state)
+            start = ConditionalShellCommand(
+                # The condition checks if it's already running
+                ShellCommand("docker", "ps", "-f", f"name={self._image}", "--format", "{{.Names}}"),
+                # The consequent starts the container
+                start,
+                # We match on the name of the container, which is only given if it already runs
+                target_code = 0, target_stdout = NegatedMatch(StrippedMatch(self._image)), target_stderr = None,
+            )
 
-            # Now run the actual command within the container
+            # # Build the start command (OS-dependent)
+            # if platform.system() != "Windows":
+            #     c = f"[[ $(docker ps -f \"name={self._image}\" --format '{{{{.Names}}}}') == {self._image} ]] || docker run --name {self._image} -d --rm --entrypoint sleep"
+            # else:
+            #     c = f"for /f \"delims=\" %i in ('docker ps -f \"name={self._image}\" --format \"{{{{.Names}}}}\"') do if \"%i\" == {self._image} docker run --name {self._image} -d --rm --entrypoint sleep"
+
+            # # Attach any volumes to it + the container command itself
+            # for (src, dst) in self._volumes:
+            #     # Resolve the src and dst
+            #     src = resolve_args(src, args)
+            #     dst = resolve_args(dst, args)
+            #     # Add
+            #     c += f" -v {src}:{dst}"
+            # c += f" {self._image} infinity"
+
+            # # Start the container in the background if it didn't already
+            # if platform.system() != "Windows":
+            #     start = ShellCommand("bash", "-c", c)
+            # else:
+            #     start = ShellCommand("for ")
+
+            # Now prepare to run the actual command within the container
             run = ShellCommand("docker", "exec", "-it", self._image, "/build.sh")
             for c in self._command:
                 # Do standard replacements in the command
@@ -2763,12 +3120,13 @@ class InContainerTarget(Target):
                 run.add(c)
             cmds = [ start, run ]
 
-            # If any volumes, add the command that will restore the permissions
+            # If any volumes, add the commands that will restore the permissions
             for (src, _) in self._volumes:
                 # Possibly replace the src
                 src = resolve_args(src, args)
-                # Add the command
-                cmds.append(ShellCommand("sudo", "chown", "-R", f"{uid}:{gid}", src, description=f"Restoring user permissions to '{src}' ($CMD)..."))
+                # Add the command (OS-dependent)
+                if type(user) == tuple:
+                    cmds.append(ShellCommand("sudo", "chown", "-R", f"{user[0]}:{user[1]}", src, description=f"Restoring user permissions to '{src}' ($CMD)..."))
 
             # Return the commands
             return typing.cast(typing.List[Command], cmds)
@@ -2798,8 +3156,9 @@ class InContainerTarget(Target):
             for (src, _) in self._volumes:
                 # Possibly replace the src
                 src = resolve_args(src, args)
-                # Add the command
-                cmds.append(ShellCommand("sudo", "chown", "-R", f"{uid}:{gid}", src, description=f"Restoring user permissions to '{src}' ($CMD)..."))
+                # Add the command (OS-dependent)
+                if type(user) == tuple:
+                    cmds.append(ShellCommand("sudo", "chown", "-R", f"{user[0]}:{user[1]}", src, description=f"Restoring user permissions to '{src}' ($CMD)..."))
 
             # Done, return it
             return typing.cast(typing.List[Command], cmds)
@@ -2811,27 +3170,21 @@ class InstallTarget(Target):
         Target that installs something (i.e., copies it to a target system folder).
     """
 
-    _need_sudo : bool
 
-
-    def __init__(self, name: str, source: str, target: str, need_sudo: bool, dep: str, description: str = "") -> None:
+    def __init__(self, name: str, source: str, target: str, dep: str, description: str = "") -> None:
         """
             Constructor for the ImageTarget.
 
             Arguments:
             - `name`: The name of the target. Only used within this script to reference it later.
-            - `source`: The source file to copy from. May contain special parameters such as '$ARCH'.
+            - `source`: The source file to copy to. May contain special parameters such as '$ARCH'.
             - `target`: The target file to copy from. May contain special parameters such as '$ARCH'.
-            - `need_sudo`: Whether or not sudo is required to perform this copy.
             - `dep`: The dependenciy that will produce the source file.
             - `description`: If a non-empty string, then it's a description of the target s.t. it shows up in the list of all Targets.
         """
 
         # Run the parent constructor
         super().__init__(name, [], { dep: [ source ] }, [ target ], [ dep ], description)
-
-        # Add whether we need sudo (the source/destination are using the parent fields)
-        self._need_sudo = need_sudo
 
 
 
@@ -2847,18 +3200,13 @@ class InstallTarget(Target):
         source = resolve_args(typing.cast(typing.List[str], self._srcs_deps[self._deps[0]])[0], args)
         target = resolve_args(self._dsts[0], args)
 
-        # Add a command that makes the directory
-        mkdir = ShellCommand("sudo" if self._need_sudo else "mkdir")
-        if self._need_sudo: mkdir.add("mkdir")
-        mkdir.add("-p", os.path.dirname(target))
-
-        # Prepare the command
-        cmd = ShellCommand("sudo" if self._need_sudo else "cp")
-        if self._need_sudo: cmd.add("cp")
-        cmd.add(source, target)
+        # Assert the target directory exists
+        mkdir = MakeDirCommand(os.path.dirname(target))
+        # Prepare the copy
+        copy  = CopyCommand(source, target)
 
         # Done, return it
-        return [ mkdir, cmd ]
+        return [ mkdir, copy ]
 
 class InstallImageTarget(Target):
     """
@@ -3005,9 +3353,19 @@ targets = {
         },
         description = "Builds the Brane Command-Line Compiler (Brane CC). You may use '--containerized' to build it in a container."
     ),
-    "branelet" : CrateTarget("branelet",
-        "brane-let", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=True,
-        description = "Builds the Brane in-package executable, for use with the `build --init` command in the CLI."
+    "branelet" : EitherTarget("branelet",
+        "con", {
+            True  : InContainerTarget("branelet-con",
+                "brane-build", volumes=[ ("$CWD", "/build") ], command=["brane-let", "--arch", "$ARCH"],
+                keep_alive=True,
+                dsts=["./target/containers/x86_64-unknown-linux-musl/release/branelet"],
+                deps=["install-build-image"],
+            ),
+            False : CrateTarget("branelet-compiled",
+                "brane-let", target="$ARCH-unknown-linux-musl", give_target_on_unspecified=True,
+            ),
+        },
+        description = "Build the Brane in-package executable, for use with the `build --init` command in the CLI. You may use '--containerized' to build it in a container."
     ),
     "instance" : VoidTarget("instance",
         deps=[ f"{svc}-image" for svc in CENTRAL_SERVICES ] + [ f"{svc}-image" for svc in AUX_CENTRAL_SERVICES ],
@@ -3031,17 +3389,17 @@ targets = {
         description="Installs the OpenSSL build image by loading it into the local Docker engine"
     ),
     "install-cli" : InstallTarget("install-cli",
-        "./target/$RELEASE/brane", "/usr/local/bin/brane", need_sudo=True,
+        "./target/$RELEASE/brane", "/usr/local/bin/brane",
         dep="cli",
         description="Installs the CLI executable to the '/usr/local/bin' directory."
     ),
     "install-ctl" : InstallTarget("install-ctl",
-        "./target/$RELEASE/branectl", "/usr/local/bin/branectl", need_sudo=True,
+        "./target/$RELEASE/branectl", "/usr/local/bin/branectl",
         dep="ctl",
         description="Installs the CTL executable to the '/usr/local/bin' directory."
     ),
     "install-cc" : InstallTarget("install-cc",
-        "./target/$RELEASE/branec", "/usr/local/bin/branec", need_sudo=True,
+        "./target/$RELEASE/branec", "/usr/local/bin/branec",
         dep="cc",
         description="Installs the compiler executable to the '/usr/local/bin' directory."
     ),
@@ -3069,7 +3427,7 @@ for svc in CENTRAL_SERVICES + WORKER_SERVICES:
     )
     # Generate the matching install target
     targets[f"install-{svc}-binary-dev"] = InstallTarget(f"install-{svc}-binary-dev",
-        f"./target/$RUST_ARCH-unknown-linux-musl/debug/brane-{svc}", f"./.container-bins/$ARCH/brane-{svc}", need_sudo=False,
+        f"./target/$RUST_ARCH-unknown-linux-musl/debug/brane-{svc}", f"./.container-bins/$ARCH/brane-{svc}",
         dep=f"{svc}-binary-dev",
         description=f"Installs the brane-{svc} debug binary to a separate location in the repo where Docker may access it."
     )

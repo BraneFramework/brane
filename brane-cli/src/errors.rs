@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    05 Apr 2023, 16:20:10
+//    11 Apr 2023, 14:54:32
 //  Auto updated?
 //    Yes
 // 
@@ -1262,6 +1262,27 @@ impl Display for UtilError {
     }
 }
 impl Error for UtilError {}
+
+
+
+/// Defines errors that relate to finding our directories.
+#[derive(Debug)]
+pub enum DirError {
+    /// Failed to find a user directory. The `what` hints at the kind of user directory (fill in "<WHAT> directory", e.g., "config", "data", ...)
+    UserDirError{ what: &'static str },
+    /// Failed to read the softlink.
+    SoftlinkReadError{ path: PathBuf, err: std::io::Error },
+}
+impl Display for DirError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use DirError::*;
+        match self {
+            UserDirError{ what }           => write!(f, "Failed to find user {} directory", what),
+            SoftlinkReadError{ path, err } => write!(f, "Failed to read softlink '{}': {}", path.display(), err),
+        }
+    }
+}
+impl Error for DirError {}
 
 
 

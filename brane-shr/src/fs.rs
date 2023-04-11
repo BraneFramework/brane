@@ -4,7 +4,7 @@
 //  Created:
 //    09 Nov 2022, 11:12:06
 //  Last edited:
-//    05 Apr 2023, 17:20:26
+//    11 Apr 2023, 12:52:39
 //  Auto updated?
 //    Yes
 // 
@@ -619,6 +619,8 @@ pub fn set_permissions(path: impl AsRef<Path>, permissions: PermissionSet) -> Re
 /// This function errors if we failed to update the permissions - probably either because the file did not exist, or we do not have the required permisisons ourselves.
 #[cfg(unix)]
 pub fn set_executable(path: impl AsRef<Path>) -> Result<(), Error> {
+    use std::os::unix::fs::PermissionsExt as _;
+
     let path: &Path = path.as_ref();
     debug!("Making file '{}' executable...", path.display());
 

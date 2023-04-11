@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    01 Mar 2023, 11:20:24
+//    11 Apr 2023, 13:26:17
 //  Auto updated?
 //    Yes
 // 
@@ -15,7 +15,6 @@
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::net::IpAddr;
 use std::path::PathBuf;
-use std::process::{Command, Output};
 use std::str::FromStr;
 
 use clap::Subcommand;
@@ -39,66 +38,57 @@ lazy_static::lazy_static!{
 
 
 /***** AUXILLARY *****/
-/// A formatter for architectures that writes it in a way that Brane understands.
-#[derive(Debug)]
-pub struct ArchBraneFormatter<'a> {
-    /// The architecture to format.
-    arch : &'a Arch,
-}
-impl<'a> Display for ArchBraneFormatter<'a> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        match self.arch {
-            Arch::X86_64  => write!(f, "x86_64"),
-            Arch::Aarch64 => write!(f, "aarch64"),
-        }
-    }
-}
+// /// A formatter for architectures that writes it in a way that Brane understands.
+// #[derive(Debug)]
+// pub struct ArchBraneFormatter<'a> {
+//     /// The architecture to format.
+//     arch : &'a Arch,
+// }
+// impl<'a> Display for ArchBraneFormatter<'a> {
+//     #[inline]
+//     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+//         match self.arch {
+//             Arch::X86_64  => write!(f, "x86_64"),
+//             Arch::Aarch64 => write!(f, "aarch64"),
+//         }
+//     }
+// }
 
-/// Defines the possible architectures for which we can download images.
-#[derive(Clone, Copy, Debug, EnumDebug)]
-pub enum Arch {
-    /// Typical Intel/AMD machines.
-    X86_64,
-    /// Apple ARM
-    Aarch64,
-}
-impl Arch {
-    /// Returns a formatter that writes the architecture in a Brane-friendly way.
-    #[inline]
-    pub fn brane(&self) -> ArchBraneFormatter { ArchBraneFormatter{ arch: self } }
-}
-impl FromStr for Arch {
-    type Err = ArchParseError;
+// /// Defines the possible architectures for which we can download images.
+// #[derive(Clone, Copy, Debug, EnumDebug)]
+// pub enum Arch {
+//     /// Typical Intel/AMD machines.
+//     X86_64,
+//     /// Apple ARM
+//     Aarch64,
+// }
+// impl Arch {
+//     /// Returns a formatter that writes the architecture in a Brane-friendly way.
+//     #[inline]
+//     pub fn brane(&self) -> ArchBraneFormatter { ArchBraneFormatter{ arch: self } }
+// }
+// impl FromStr for Arch {
+//     type Err = ArchParseError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            // User-specified ones
-            "x86_64"  | "amd64" => Ok(Self::X86_64),
-            "aarch64" | "arm64" => Ok(Self::Aarch64),
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         match s {
+//             // User-specified ones
+//             "x86_64"  | "amd64" => Ok(Self::X86_64),
+//             "aarch64" | "arm64" => Ok(Self::Aarch64),
 
-            // Meta-argument for resolving the local architecture
-            "$LOCAL" => {
-                // Prepare our magic command to run (`uname -m`)
-                let mut cmd: Command = Command::new("uname");
-                cmd.arg("-m");
+//             // Meta-argument for resolving the local architecture
+//             #[cfg(target_arch = "x86_64")]
+//             "$LOCAL" => Ok(Self::X86_64),
+//             #[cfg(target_arch = "aarch64")]
+//             "$LOCAL" => Ok(Self::Aarch64),
+//             #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+//             "$LOCAL" => { compile_error!("Non-x86/64, non-aarch64 processor architecture not supported"); },
 
-                // Call it
-                let res: Output = match cmd.output() {
-                    Ok(res)  => res,
-                    Err(err) => { return Err(ArchParseError::SpawnError{ command: cmd, err }); },
-                };
-                if !res.status.success() { return Err(ArchParseError::SpawnFailure { command: cmd, status: res.status, err: String::from_utf8_lossy(&res.stderr).into() }); }
-
-                // Attempt to parse the default output again
-                Self::from_str(String::from_utf8_lossy(&res.stdout).trim())
-            },
-
-            // Any other is a failure
-            _ => Err(ArchParseError::UnknownArch{ raw: s.into() }),
-        }
-    }
-}
+//             // Any other is a failure
+//             _ => Err(ArchParseError::UnknownArch{ raw: s.into() }),
+//         }
+//     }
+// }
 
 
 

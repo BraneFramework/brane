@@ -4,7 +4,7 @@
 //  Created:
 //    21 Feb 2022, 12:32:28
 //  Last edited:
-//    05 Apr 2023, 16:16:41
+//    11 Apr 2023, 13:30:13
 //  Auto updated?
 //    Yes
 // 
@@ -14,13 +14,9 @@
 // 
 
 use std::fs;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
-use console::style;
-
-use brane_shr::fs::FileLock;
 use specifications::arch::Arch;
 
 use crate::errors::BuildError;
@@ -129,11 +125,11 @@ pub fn build_docker_image<P: AsRef<Path>>(
     command.arg("--tag");
     command.arg(tag);
     command.arg("--platform");
-    command.arg(format!("linux/{}", arch.to_docker()));
+    command.arg(format!("linux/{}", arch.docker()));
     command.arg("--build-arg");
     command.arg(format!("BRANELET_ARCH={arch}"));
     command.arg("--build-arg");
-    command.arg(format!("JUICEFS_ARCH={}", arch.to_juicefs()));
+    command.arg(format!("JUICEFS_ARCH={}", arch.juicefs()));
     command.arg(".");
     command.current_dir(package_dir);
     let output = match command.status() {
