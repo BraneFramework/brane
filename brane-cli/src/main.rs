@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 14:34:28
 //  Last edited:
-//    11 Apr 2023, 13:37:20
+//    12 Apr 2023, 10:15:45
 //  Auto updated?
 //    Yes
 // 
@@ -390,7 +390,13 @@ enum InstanceSubcommand {
 
         /// Whether to query for permission or not (but negated).
         #[clap(short, long, help = "If given, does not ask for permission before removing the instances. Use at your own risk.")]
-        force : bool,
+        force          : bool,
+        /// The Docker socket location.
+        #[clap(short='s', long, default_value = "/var/run/docker.sock", help = "The path to the Docker socket with which we communicate with the dameon.")]
+        docker_socket  : PathBuf,
+        /// The Docker client version.
+        #[clap(short='v', long, default_value = "", help = "The API version with which we connect.")]
+        client_version : ClientVersion,
     },
 
     #[clap(name = "list", about = "Lists the registered instances.")]

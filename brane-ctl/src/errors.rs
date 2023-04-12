@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    01 Mar 2023, 11:26:55
+//    12 Apr 2023, 12:06:07
 //  Auto updated?
 //    Yes
 // 
@@ -306,30 +306,6 @@ impl Display for PackagesError {
     }
 }
 impl Error for PackagesError {}
-
-
-
-/// Errors that relate to parsing Docker client version numbers.
-#[derive(Debug)]
-pub enum DockerClientVersionParseError {
-    /// Missing a dot in the version number
-    MissingDot{ raw: String },
-    /// The given major version was not a valid usize
-    IllegalMajorNumber{ raw: String, err: std::num::ParseIntError },
-    /// The given major version was not a valid usize
-    IllegalMinorNumber{ raw: String, err: std::num::ParseIntError },
-}
-impl Display for DockerClientVersionParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use DockerClientVersionParseError::*;
-        match self {
-            MissingDot{ raw }              => write!(f, "Missing '.' in Docket client version number '{raw}'"),
-            IllegalMajorNumber{ raw, err } => write!(f, "'{raw}' is not a valid Docket client version major number: {err}"),
-            IllegalMinorNumber{ raw, err } => write!(f, "'{raw}' is not a valid Docket client version minor number: {err}"),
-        }
-    }
-}
-impl Error for DockerClientVersionParseError {}
 
 
 

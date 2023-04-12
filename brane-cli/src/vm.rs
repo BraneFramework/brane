@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:34:05
 //  Last edited:
-//    11 Apr 2023, 15:43:07
+//    12 Apr 2023, 11:57:13
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use bollard::ClientVersion;
 use chrono::Utc;
 use log::{debug, info};
 use tokio::fs as tfs;
@@ -36,7 +35,7 @@ use brane_shr::fs::copy_dir_recursively_async;
 use brane_tsk::errors::{CommitError, ExecuteError, PreprocessError, StdoutError};
 use brane_tsk::spec::{LOCALHOST, Planner as _};
 use brane_tsk::tools::decode_base64;
-use brane_tsk::docker::{self, ExecuteInfo, ImageSource, Network};
+use brane_tsk::docker::{self, DockerOptions, ExecuteInfo, ImageSource, Network};
 use specifications::container::{Image, VolumeBind};
 use specifications::data::{AccessKind, DataIndex, DataInfo, PreprocessKind};
 use specifications::package::{PackageIndex, PackageInfo};
@@ -84,9 +83,9 @@ impl VmPlugin for OfflinePlugin {
 
         // First, we query the global state to find the result directory and required indices
         let get = prof.time("Information retrieval");
-        let (socket_path, client_version, package_dir, results_dir, pindex): (PathBuf, ClientVersion, PathBuf, PathBuf, Arc<PackageIndex>) = {
+        let (docker_opts, package_dir, results_dir, pindex): (DockerOptions, PathBuf, PathBuf, Arc<PackageIndex>) = {
             let state: RwLockReadGuard<GlobalState> = global.read().unwrap();
-            (state.socket_path.clone(), state.client_version, state.package_dir.clone(), state.results_dir.clone(), state.pindex.clone())
+            (state.docker_opts.clone(), state.package_dir.clone(), state.results_dir.clone(), state.pindex.clone())
         };
 
         // Next, we resolve the package
@@ -129,7 +128,7 @@ impl VmPlugin for OfflinePlugin {
 
         // We can now execute the task on the local Docker daemon
         debug!("Executing task '{}'...", info.name);
-        let (code, stdout, stderr) = match prof.time_fut("execution", docker::run_and_wait(einfo, socket_path, client_version, false)).await {
+        let (code, stdout, stderr) = match prof.time_fut("execution", docker::run_and_wait(docker_opts, einfo, false)).await {
             Ok(res)  => res,
             Err(err) => { return Err(ExecuteError::DockerError{ name: info.name.into(), image: Box::new(image), err }); }
         };
@@ -282,8 +281,7 @@ impl OfflineVm {
     /// Constructor for the OfflineVm that initializes it with the initial state.
     /// 
     /// # Arguments
-    /// - `socket_path`: The path to the Docker socket to connect to.
-    /// - `client_version`: The client version with which to connect to the Docker daemon.
+    /// - `docker_opts`: The information we need to connect to the local Docker daemon.
     /// - `package_dir`: The directory where packages (and thus images) are stored.
     /// - `dataset_dir`: The directory where datasets (and thus committed results) are stored.
     /// - `results_dir`: The directory where temporary results are stored.
@@ -293,11 +291,10 @@ impl OfflineVm {
     /// # Returns
     /// A new OfflineVm instance with one coherent state.
     #[inline]
-    pub fn new(socket_path: impl Into<PathBuf>, client_version: ClientVersion, package_dir: impl Into<PathBuf>, dataset_dir: impl Into<PathBuf>, results_dir: impl Into<PathBuf>, package_index: Arc<PackageIndex>, data_index: Arc<DataIndex>) -> Self {
+    pub fn new(docker_opts: DockerOptions, package_dir: impl Into<PathBuf>, dataset_dir: impl Into<PathBuf>, results_dir: impl Into<PathBuf>, package_index: Arc<PackageIndex>, data_index: Arc<DataIndex>) -> Self {
         Self {
             state : Self::new_state(GlobalState {
-                socket_path : socket_path.into(),
-                client_version,
+                docker_opts,
 
                 package_dir : package_dir.into(),
                 dataset_dir : dataset_dir.into(),

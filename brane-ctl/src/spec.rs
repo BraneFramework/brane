@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    11 Apr 2023, 13:26:17
+//    12 Apr 2023, 12:08:47
 //  Auto updated?
 //    Yes
 // 
@@ -24,7 +24,7 @@ use brane_tsk::docker::{ClientVersion, ImageSource};
 use specifications::address::Address;
 use specifications::version::Version;
 
-use crate::errors::{ArchParseError, DockerClientVersionParseError, HostnamePairParseError, LocationPairParseError};
+use crate::errors::{HostnamePairParseError, LocationPairParseError};
 
 
 /***** STATICS *****/
@@ -89,40 +89,6 @@ lazy_static::lazy_static!{
 //         }
 //     }
 // }
-
-
-
-/// Defines a wrapper around ClientVersion that allows it to be parsed.
-#[derive(Clone, Copy, Debug)]
-pub struct DockerClientVersion(pub ClientVersion);
-impl FromStr for DockerClientVersion {
-    type Err = DockerClientVersionParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Find the dot to split on
-        let dot_pos: usize = match s.find('.') {
-            Some(pos) => pos,
-            None      => { return Err(DockerClientVersionParseError::MissingDot{ raw: s.into() }); },
-        };
-
-        // Split it
-        let major: &str = &s[..dot_pos];
-        let minor: &str = &s[dot_pos + 1..];
-
-        // Attempt to parse each of them as the appropriate integer type
-        let major: usize = match usize::from_str(major) {
-            Ok(major) => major,
-            Err(err)  => { return Err(DockerClientVersionParseError::IllegalMajorNumber{ raw: s.into(), err }); },
-        };
-        let minor: usize = match usize::from_str(minor) {
-            Ok(minor) => minor,
-            Err(err)  => { return Err(DockerClientVersionParseError::IllegalMinorNumber{ raw: s.into(), err }); },
-        };
-
-        // Done, return the value
-        Ok(DockerClientVersion(ClientVersion{ major_version: major, minor_version: minor }))
-    }
-}
 
 
 
@@ -211,7 +177,7 @@ pub struct StartDockerOpts {
     /// The location of the Docker socket with which to connect.
     pub socket  : PathBuf,
     /// The client version with which to connect.
-    pub version : DockerClientVersion, 
+    pub version : ClientVersion, 
 }
 
 /// Defines a collection of options to pass to the `start`-subcommand handler.
@@ -246,7 +212,7 @@ pub enum DownloadServicesSubcommand {
         socket         : PathBuf,
         /// The client version to connect with.
         #[clap(short, long, default_value=API_DEFAULT_VERSION.as_str(), help="The client version to connect to the Docker instance with.")]
-        client_version : DockerClientVersion,
+        client_version : ClientVersion,
     },
 }
 
@@ -443,7 +409,7 @@ pub enum GenerateBackendSubcommand {
         socket         : PathBuf,
         /// The client version to connect to the local Docker daemon with.
         #[clap(short, long, help = "If given, fixes the Docker client version to the given one.")]
-        client_version : Option<DockerClientVersion>,
+        client_version : Option<ClientVersion>,
     },
 }
 
