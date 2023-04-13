@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    12 Apr 2023, 12:06:07
+//    13 Apr 2023, 10:06:52
 //  Auto updated?
 //    Yes
 // 
@@ -140,18 +140,10 @@ pub enum GenerateError {
     /// Failed to write the header to the new file.
     FileHeaderWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to write the main body to the new file.
-    NodeWriteError{ path: PathBuf, err: brane_cfg::spec::YamlError },
+    FileBodyWriteError{ what: &'static str, path: PathBuf, err: brane_cfg::spec::YamlError },
 
     /// The given location is unknown.
     UnknownLocation{ loc: String },
-    /// Failed to write the main body to the new file.
-    InfraWriteError{ path: PathBuf, err: brane_cfg::infra::Error },
-
-    /// Failed to write the main body to the new file.
-    BackendWriteError{ path: PathBuf, err: brane_cfg::backend::Error },
-
-    /// Failed to write the main body to the new file.
-    PolicyWriteError{ path: PathBuf, err: brane_cfg::policies::Error },
 }
 impl Display for GenerateError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -181,16 +173,11 @@ impl Display for GenerateError {
             FileOpenError{ what, path, err }        => write!(f, "Failed to open {} file '{}': {}", what, path.display(), err),
             CopyError{ source, target, err }        => write!(f, "Failed to write '{}' to '{}': {}", source.display(), target.display(), err),
 
-            FileCreateError{ what, path, err }      => write!(f, "Failed to create new {} file '{}': {}", what, path.display(), err),
-            FileHeaderWriteError{ what, path, err } => write!(f, "Failed to write header to {} file '{}': {}", what, path.display(), err),
-            NodeWriteError{ err, .. }               => write!(f, "Failed to write body to node.yml file: {err}"),
+            FileCreateError{ what, path, err }      => write!(f, "Failed to create new {} file '{what}': {err}", path.display()),
+            FileHeaderWriteError{ what, path, err } => write!(f, "Failed to write header to {} file '{what}': {err}", path.display()),
+            FileBodyWriteError{ what, err, .. }     => write!(f, "Failed to write body to {what} file: {err}"),
 
             UnknownLocation{ loc }     => write!(f, "Unknown location '{loc}' (did you forget to specify it in the LOCATIONS argument?)"),
-            InfraWriteError{ err, .. } => write!(f, "Failed to write body to infra.yml file: {err}"),
-
-            BackendWriteError{ err, .. } => write!(f, "Failed to write body to backend.yml file: {err}"),
-
-            PolicyWriteError{ err, .. } => write!(f, "Failed to write body to policies.yml file: {err}"),
         }
     }
 }
@@ -219,6 +206,8 @@ pub enum LifetimeError {
     /// Failed to write to a Docker Compose file.
     DockerComposeWriteError{ path: PathBuf, err: std::io::Error },
 
+    /// Failed to read the `proxy.yml` file.
+    ProxyReadError{ err: brane_cfg::spec::YamlError },
     /// Failed to open the extra hosts file.
     HostsFileCreateError{ path: PathBuf, err: std::io::Error },
     /// Failed to write to the extra hosts file.
@@ -228,6 +217,11 @@ pub enum LifetimeError {
     ImageDigestError{ path: PathBuf, err: brane_tsk::docker::Error },
     /// Failed to load/import the given image.
     ImageLoadError{ image: Box<Image>, source: Box<ImageSource>, err: brane_tsk::docker::Error },
+
+    /// The user gave us a proxy service definition, but not a proxy file path.
+    MissingProxyPath,
+    /// The user gave use a proxy file path, but not a proxy service definition.
+    MissingProxyService,
 
     /// Failed to load the given node config file.
     NodeConfigLoadError{ err: brane_cfg::spec::YamlError },
@@ -254,11 +248,15 @@ impl Display for LifetimeError {
             DockerComposeCreateError{ path, err }    => write!(f, "Failed to create Docker Compose file '{}': {}", path.display(), err),
             DockerComposeWriteError{ path, err }     => write!(f, "Failed to write to Docker Compose file '{}': {}", path.display(), err),
 
+            ProxyReadError{ err }             => write!(f, "Failed to read proxy config file: {}", err),
             HostsFileCreateError{ path, err } => write!(f, "Failed to create extra hosts file '{}': {}", path.display(), err),
             HostsFileWriteError{ path, err }  => write!(f, "Failed to write to extra hosts file '{}': {}", path.display(), err),
     
             ImageDigestError{ path, err }        => write!(f, "Failed to get digest of image {}: {}", style(path.display()).bold(), err),
             ImageLoadError{ image, source, err } => write!(f, "Failed to load image {} from '{}': {}", style(image).bold(), style(source).bold(), err),
+
+            MissingProxyPath    => write!(f, "A path to a 'proxy.yml' file is given, but not a proxy service specification. Specify both if you want to host a proxy service in this node."),
+            MissingProxyService => write!(f, "A proxy service specification is given, but not a path to a 'proxy.yml' file. Specify both if you want to host a proxy service in this node."),
 
             NodeConfigLoadError{ err }                 => write!(f, "Failed to load node.yml file: {err}"),
             DockerConnectError{ socket, version, err } => write!(f, "Failed to connect to local Docker socket '{}' using API version {}: {}", socket.display(), version, err),
@@ -278,6 +276,10 @@ impl Error for LifetimeError {}
 pub enum PackagesError {
     /// Failed to load the given node config file.
     NodeConfigLoadError{ err: brane_cfg::spec::YamlError },
+    /// The given node type is not supported for this operation.
+    /// 
+    /// The `what` should fill in the `<WHAT>` in: "Cannot <WHAT> on a ... node"
+    UnsupportedNode{ what: &'static str, kind: NodeKind },
     /// The given file is not a file.
     FileNotAFile{ path: PathBuf },
     /// Failed to parse the given `NAME[:VERSION]` pair.
@@ -296,6 +298,7 @@ impl Display for PackagesError {
         use PackagesError::*;
         match self {
             NodeConfigLoadError{ err }                  => write!(f, "Failed to load node.yml file: {err}"),
+            UnsupportedNode{ what, kind }               => write!(f, "Cannot {what} on a {} node", kind.variant()),
             FileNotAFile{ path }                        => write!(f, "Given image path '{}' exists but is not a file", path.display()),
             IllegalNameVersionPair{ raw, err }          => write!(f, "Failed to parse given image name[:version] pair '{raw}': {err}"),
             DirReadError{ what, path, err }             => write!(f, "Failed to read {} directory '{}': {}", what, path.display(), err),
@@ -309,45 +312,102 @@ impl Error for PackagesError {}
 
 
 
-/// Errors that relate to parsing HostnamePairs.
+/// Errors that relate to unpacking files.
 #[derive(Debug)]
-pub enum HostnamePairParseError {
-    /// Missing a colon in the pair.
-    MissingColon{ raw: String },
-    /// Failed to parse the given IP as an IPv4 or an IPv6
-    IllegalIpAddr{ raw: String, err: std::net::AddrParseError },
+pub enum UnpackError {
+    /// Failed to get the NodeConfig file.
+    NodeConfigError{ err: brane_cfg::spec::YamlError },
+    /// Failed to write the given file.
+    FileWriteError{ what: &'static str, path: PathBuf, err: std::io::Error },
+    /// Failed to create the target directory.
+    TargetDirCreateError{ path: PathBuf, err: std::io::Error },
+    /// The target directory was not found.
+    TargetDirNotFound{ path: PathBuf },
+    /// The target directory was not a directory.
+    TargetDirNotADir{ path: PathBuf },
 }
-impl Display for HostnamePairParseError {
+impl Display for UnpackError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use HostnamePairParseError::*;
+        use UnpackError::*;
         match self {
-            MissingColon{ raw }       => write!(f, "Missing ':' in hostname/IP pair '{raw}'"),
-            IllegalIpAddr{ raw, err } => write!(f, "Failed to parse '{raw}' as a valid IP address: {err}"),
+            NodeConfigError{ err }            => write!(f, "Failed to read node config file: {err} (specify a kind manually using '--kind')"),
+            FileWriteError{ what, path, err } => write!(f, "Failed to write {} file to '{}': {}", what, path.display(), err),
+            TargetDirCreateError{ path, err } => write!(f, "Failed to create target directory '{}': {}", path.display(), err),
+            TargetDirNotFound{ path }         => write!(f, "Target directory '{}' not found (you can create it by re-running this command with '-f')", path.display()),
+            TargetDirNotADir{ path }          => write!(f, "Target directory '{}' exists but is not a directory", path.display()),
         }
     }
 }
-impl Error for HostnamePairParseError {}
+impl Error for UnpackError {}
 
 
 
-/// Errors that relate to parsing LocationPairs.
+/// Errors that relate to parsing Docker client version numbers.
 #[derive(Debug)]
-pub enum LocationPairParseError<E> {
+pub enum DockerClientVersionParseError {
+    /// Missing a dot in the version number
+    MissingDot{ raw: String },
+    /// The given major version was not a valid usize
+    IllegalMajorNumber{ raw: String, err: std::num::ParseIntError },
+    /// The given major version was not a valid usize
+    IllegalMinorNumber{ raw: String, err: std::num::ParseIntError },
+}
+impl Display for DockerClientVersionParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use DockerClientVersionParseError::*;
+        match self {
+            MissingDot{ raw }              => write!(f, "Missing '.' in Docket client version number '{raw}'"),
+            IllegalMajorNumber{ raw, err } => write!(f, "'{raw}' is not a valid Docket client version major number: {err}"),
+            IllegalMinorNumber{ raw, err } => write!(f, "'{raw}' is not a valid Docket client version minor number: {err}"),
+        }
+    }
+}
+impl Error for DockerClientVersionParseError {}
+
+
+
+/// Errors that relate to parsing InclusiveRanges.
+#[derive(Debug)]
+pub enum InclusiveRangeParseError {
+    /// Did not find the separating dash
+    MissingDash{ raw: String },
+    /// Failed to parse one of the numbers
+    NumberParseError{ what: &'static str, raw: String, err: Box<dyn Send + Sync + Error> },
+    /// The first number is not equal to or higher than the second one
+    StartLargerThanEnd{ start: String, end: String },
+}
+impl Display for InclusiveRangeParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use InclusiveRangeParseError::*;
+        match self {
+            MissingDash{ raw }                 => write!(f, "Missing '-' in range '{raw}'"),
+            NumberParseError{ what, raw, err } => write!(f, "Failed to parse '{raw}' as a valid {what}: {err}"),
+            StartLargerThanEnd{ start, end }   => write!(f, "Start index '{start}' is larger than end index '{end}'"),
+        }
+    }
+}
+impl Error for InclusiveRangeParseError {}
+
+
+
+/// Errors that relate to parsing pairs of things.
+#[derive(Debug)]
+pub enum PairParseError {
     /// Missing an equals in the pair.
     MissingSeparator{ separator: char, raw: String },
     /// Failed to parse the given something as a certain other thing
-    IllegalSomething{ what: &'static str, raw: String, err: E },
+    IllegalSomething{ what: &'static str, raw: String, err: Box<dyn Send + Sync + Error> },
 }
-impl<E: Display> Display for LocationPairParseError<E> {
+impl Display for PairParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use LocationPairParseError::*;
+        use PairParseError::*;
         match self {
             MissingSeparator{ separator, raw } => write!(f, "Missing '{separator}' in location pair '{raw}'"),
             IllegalSomething{ what, raw, err } => write!(f, "Failed to parse '{raw}' as a {what}: {err}"),
         }
     }
 }
-impl<E: Debug + Display> Error for LocationPairParseError<E> {}
+impl Error for PairParseError {}
 
 
 

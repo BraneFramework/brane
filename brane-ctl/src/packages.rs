@@ -4,7 +4,7 @@
 //  Created:
 //    06 Dec 2022, 11:57:11
 //  Last edited:
-//    28 Feb 2023, 18:30:01
+//    10 Mar 2023, 16:49:17
 //  Auto updated?
 //    Yes
 // 
@@ -21,7 +21,7 @@ use std::str::FromStr;
 use log::{debug, info, warn};
 
 use brane_cfg::spec::Config as _;
-use brane_cfg::node::{NodeConfig, NodeSpecificConfig};
+use brane_cfg::node::{NodeConfig, NodeKind, NodeSpecificConfig};
 use brane_tsk::docker;
 use specifications::version::Version;
 
@@ -53,6 +53,7 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
     let packages_path: PathBuf = match node_config.node {
         NodeSpecificConfig::Central(node) => node.paths.packages,
         NodeSpecificConfig::Worker(node)  => node.paths.packages,
+        NodeSpecificConfig::Proxy(_)      => { return Err(Error::UnsupportedNode{ what: "compute a package hash", kind: NodeKind::Proxy }) },
     };
 
     // Attempt to resolve the image

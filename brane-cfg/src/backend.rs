@@ -4,7 +4,7 @@
 //  Created:
 //    18 Oct 2022, 13:50:11
 //  Last edited:
-//    23 Jan 2023, 11:52:42
+//    10 Mar 2023, 15:52:47
 //  Auto updated?
 //    Yes
 // 
@@ -14,15 +14,14 @@
 // 
 
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
 use specifications::package::Capability;
 
-pub use crate::errors::CredsFileError as Error;
+pub use crate::spec::YamlError as Error;
+use crate::spec::YamlConfig;
 
 
 /***** AUXILLARY *****/
@@ -70,7 +69,7 @@ pub enum Credentials {
 /// Defines a file that describes how a job service may connect to its backend.
 /// 
 /// Note that this struct is designed to act as a "handle"; i.e., keep it only around when using it but otherwise refer to it only by path.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BackendFile {
     /// The capabilities advertised by this domain.
     pub capabilities    : Option<HashSet<Capability>>,
@@ -81,60 +80,6 @@ pub struct BackendFile {
 }
 
 impl BackendFile {
-    /// Creates a new BackendFile by loading it from the given path.
-    /// 
-    /// # Arguments
-    /// - `path`: The path to load the BackendFile from.
-    /// 
-    /// # Returns
-    /// A new BackendFile instance.
-    /// 
-    /// # Errors
-    /// This function may error if the BackendFile was missing, unreadable or incorrectly formatted.
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, Error> {
-        let path: &Path = path.as_ref();
-
-        // Open the file
-        let handle: File = match File::open(path) {
-            Ok(handle) => handle,
-            Err(err)   => { return Err(Error::FileOpenError { path: path.into(), err }); },
-        };
-
-        // Read it with serde
-        match serde_yaml::from_reader(handle) {
-            Ok(result) => Ok(result),
-            Err(err)   => Err(Error::FileParseError { path: path.into(), err }),
-        }
-    }
-
-    /// Writes the BackendFile to the given writer.
-    /// 
-    /// # Arguments
-    /// - `writer`: The writer to write the BackendFile to.
-    /// 
-    /// # Returns
-    /// Nothing, but does obviously populate the given writer with its own serialized contents.
-    /// 
-    /// # Errors
-    /// This function errors if we failed to write or failed to serialize ourselves.
-    pub fn to_writer(&self, writer: impl Write) -> Result<(), Error> {
-        let mut writer = writer;
-
-        // Serialize the config
-        let config: String = match serde_yaml::to_string(self) {
-            Ok(config) => config,
-            Err(err)   => { return Err(Error::ConfigSerializeError{ err }); },
-        };
-
-        // Write it
-        if let Err(err) = writer.write_all(config.as_bytes()) { return Err(Error::WriterWriteError{ err }); }
-
-        // Done
-        Ok(())
-    }
-
-
-
     /// Returns whether the user wants hash containers to be hashed, generating a default value if they didn't specify it.
     /// 
     /// # Returns
@@ -142,3 +87,4 @@ impl BackendFile {
     #[inline]
     pub fn hash_containers(&self) -> bool { self.hash_containers.unwrap_or(true) }
 }
+impl<'de> YamlConfig<'de> for BackendFile {}

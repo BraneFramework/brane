@@ -4,7 +4,7 @@
 //  Created:
 //    25 Nov 2022, 15:09:17
 //  Last edited:
-//    26 Jan 2023, 09:57:09
+//    09 Mar 2023, 15:15:09
 //  Auto updated?
 //    Yes
 // 
@@ -53,7 +53,7 @@ async fn create_path(endpoint: &Url, remote: impl Into<String>, tls: &Option<New
     };
 
     // Send it with reqwest
-    let address : String = format!("{endpoint}paths/new");
+    let address : String = format!("{endpoint}outgoing/new");
     let client  : Client = Client::new();
     let req: Request = match client.post(&address).json(&request).build() {
         Ok(req)  => req,

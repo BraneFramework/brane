@@ -4,7 +4,7 @@
 //  Created:
 //    30 Sep 2022, 11:59:58
 //  Last edited:
-//    28 Feb 2023, 18:28:22
+//    16 Mar 2023, 16:56:12
 //  Auto updated?
 //    Yes
 // 
@@ -90,7 +90,7 @@ async fn main() {
     // Start the DriverHandler
     let handler = DriverHandler::new(
         &opts.node_config_path,
-        Arc::new(ProxyClient::new(central.services.prx.address)),
+        Arc::new(ProxyClient::new(central.services.prx.address())),
         planner.clone(),
     );
 

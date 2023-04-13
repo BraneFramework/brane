@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 11:43:56
 //  Last edited:
-//    27 Feb 2023, 15:32:14
+//    09 Mar 2023, 18:30:58
 //  Auto updated?
 //    Yes
 // 
@@ -15,6 +15,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::net::SocketAddr;
+use std::ops::RangeInclusive;
 
 use reqwest::StatusCode;
 use url::Url;
@@ -47,6 +48,9 @@ pub enum RedirectError {
     Socks5ConnectError{ address: String, proxy: Address, err: anyhow::Error },
     /// Failed to connect using a SOCKS6 client.
     Socks6ConnectError{ address: String, proxy: Address, err: anyhow::Error },
+
+    /// The given port for an incoming path is in the outgoing path's range.
+    PortInOutgoingRange{ port: u16, range: RangeInclusive<u16> },
 }
 impl Display for RedirectError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -63,6 +67,8 @@ impl Display for RedirectError {
             TcpStreamConnectError{ address, err }     => write!(f, "Failed to connect to '{address}': {err}"),
             Socks5ConnectError{ address, proxy, err } => write!(f, "Failed to connect to '{address}' through SOCKS5-proxy '{proxy}': {err}"),
             Socks6ConnectError{ address, proxy, err } => write!(f, "Failed to connect to '{address}' through SOCKS6-proxy '{proxy}': {err}"),
+
+            PortInOutgoingRange{ port, range } => write!(f, "Given port '{}' is within range {}-{} of the outgoing connection ports; please choose another (or choose another outgoing port range)", port, range.start(), range.end()),
         }
     }
 }

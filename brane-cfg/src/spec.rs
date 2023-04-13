@@ -4,7 +4,7 @@
 //  Created:
 //    28 Feb 2023, 10:07:36
 //  Last edited:
-//    28 Feb 2023, 18:21:46
+//    10 Mar 2023, 16:07:45
 //  Auto updated?
 //    Yes
 // 
@@ -19,14 +19,18 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use tokio::fs::File as TFile;
+use tokio::io::AsyncReadExt as _;
 
 use crate::errors::ConfigError;
 
 
 /***** LIBRARY *****/
 /// Defines a serializable struct that we typically use as configuration for a service.
+#[async_trait]
 pub trait Config: Clone + Debug {
     /// The types of errors that may be thrown by the serialization function(s).
     type Error : Error;
@@ -123,6 +127,39 @@ pub trait Config: Clone + Debug {
 
         // Write it using the child function, wrapping the error that may occur
         match Self::from_reader(handle) {
+            Ok(config)                                      => Ok(config),
+            Err(ConfigError::ReaderDeserializeError{ err }) => Err(ConfigError::FileDeserializeError { path: path.into(), err }),
+            Err(err)                                        => Err(err),
+        }
+    }
+    /// Deserializes this Config from the file at the given path, with the reading part done asynchronously.
+    /// 
+    /// Note that the parsing path cannot be done asynchronously. Also, note that, because serde does not support asynchronous deserialization, we have to read the entire file in one go.
+    /// 
+    /// # Arguments
+    /// - `path`: The path where to read the file from.
+    /// 
+    /// # Errors
+    /// This function may fail if we failed to open/read from the file or if its contents were invalid for this object.
+    async fn from_path_async(path: impl Send + AsRef<Path>) -> Result<Self, ConfigError<Self::Error>> {
+        let path: &Path = path.as_ref();
+
+        // Read the file to a string
+        let raw: String = {
+            // Attempt to open the given file
+            let mut handle: TFile = match TFile::open(path).await {
+                Ok(handle) => handle,
+                Err(err)   => { return Err(ConfigError::InputOpenError { path: path.into(), err }); },
+            };
+
+            // Read everything to a string
+            let mut raw: String = String::new();
+            if let Err(err) = handle.read_to_string(&mut raw).await { return Err(ConfigError::InputReadError{ path: path.into(), err }); }
+            raw
+        };
+
+        // Write it using the child function, wrapping the error that may occur
+        match Self::from_string(raw) {
             Ok(config)                                      => Ok(config),
             Err(ConfigError::ReaderDeserializeError{ err }) => Err(ConfigError::FileDeserializeError { path: path.into(), err }),
             Err(err)                                        => Err(err),

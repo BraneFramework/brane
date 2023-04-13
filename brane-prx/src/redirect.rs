@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 11:26:46
 //  Last edited:
-//    28 Feb 2023, 15:50:31
+//    09 Mar 2023, 18:37:20
 //  Auto updated?
 //    Yes
 // 
@@ -30,7 +30,8 @@ use url::Url;
 
 use brane_cfg::spec::Config as _;
 use brane_cfg::certs::{load_certstore, load_identity};
-use brane_cfg::node::{NodeConfig, NodeSpecificConfig, ProxyProtocol};
+use brane_cfg::node::{NodeConfig, NodeSpecificConfig};
+use brane_cfg::proxy::ProxyProtocol;
 use specifications::address::Address;
 
 pub use crate::errors::RedirectError as Error;
@@ -128,7 +129,7 @@ pub async fn path_server_factory(context: &Arc<Context>, socket_addr: SocketAddr
     };
 
     // Now match on what to do
-    if let Some(proxy_cfg) = &context.proxy {
+    if let Some(proxy_cfg) = &context.proxy.forward {
         // Open the relevant client
         let client: RemoteClient = match proxy_cfg.protocol {
             ProxyProtocol::Socks5 => {
@@ -178,7 +179,7 @@ pub async fn path_server(node_config_path: PathBuf, listener: TcpListener, clien
     info!("Initiated new path ':{}' to '{}'", socket_addr, address);
     loop {
         // Wait for the next connection
-        debug!(":{}->{}: Ready for new connection", socket_addr.port(), address); 
+        debug!(":{}->{}: Ready for new connection", socket_addr.port(), address);
         let (mut iconn, client_addr): (TcpStream, SocketAddr) = match listener.accept().await {
             Ok(res)  => res,
             Err(err) => {
@@ -217,6 +218,7 @@ pub async fn path_server(node_config_path: PathBuf, listener: TcpListener, clien
             let cert_path: &Path = match &node_config.node {
                 NodeSpecificConfig::Central(node) => &node.paths.certs,
                 NodeSpecificConfig::Worker(node)  => &node.paths.certs,
+                NodeSpecificConfig::Proxy(node)   => &node.paths.certs,
             };
 
             // Load the root CA certificate file

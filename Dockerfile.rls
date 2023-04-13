@@ -25,7 +25,9 @@ COPY . /build
 
 # Build optimized binaries
 WORKDIR /build
-RUN cargo build \
+RUN --mount=type=cache,id=cargoidx,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=cargocache,target=/build/target \
+    cargo build \
         --release \
         --package brane-api \
         --package brane-drv \
@@ -34,15 +36,13 @@ RUN cargo build \
         --package brane-prx \
         --package brane-plr \
         --package brane-reg \
-    && mv ./target/release/brane-api /brane-api \
-    && mv ./target/release/brane-drv /brane-drv \
-    && mv ./target/release/brane-job /brane-job \
-    && mv ./target/release/brane-log /brane-log \
-    && mv ./target/release/brane-prx /brane-prx \
-    && mv ./target/release/brane-plr /brane-plr \
-    && mv ./target/release/brane-reg /brane-reg \
-    && rm -rf /usr/local/cargo/registry \
-    && rm -rf ./target
+    && cp ./target/release/brane-api /brane-api \
+    && cp ./target/release/brane-drv /brane-drv \
+    && cp ./target/release/brane-job /brane-job \
+    && cp ./target/release/brane-log /brane-log \
+    && cp ./target/release/brane-prx /brane-prx \
+    && cp ./target/release/brane-plr /brane-plr \
+    && cp ./target/release/brane-reg /brane-reg
 
 # If ever run, run a shell
 WORKDIR /

@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    01 Mar 2023, 11:27:09
+//    16 Mar 2023, 17:28:16
 //  Auto updated?
 //    Yes
 // 
@@ -19,6 +19,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::net::{IpAddr, Ipv4Addr, SocketAddrV4};
+use std::ops::RangeInclusive;
 
 use console::{style, Style};
 use enum_debug::EnumDebug as _;
@@ -31,14 +32,15 @@ use serde::Serialize;
 use brane_cfg::spec::Config as _;
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::backend::{BackendFile, Credentials};
-use brane_cfg::node::{CentralConfig, CentralPaths, CentralServices, KafkaService, NodeConfig, NodeSpecificConfig, PrivateService, ProxyConfig, ProxyProtocol, PublicService, WorkerConfig, WorkerPaths, WorkerServices};
+use brane_cfg::node::{self, CentralConfig, CentralPaths, CentralServices, ExternalService, KafkaService, NodeConfig, NodeSpecificConfig, PrivateService, PrivateOrExternalService, ProxyPaths, ProxyServices, PublicService, WorkerConfig, WorkerPaths, WorkerServices};
 use brane_cfg::policies::{ContainerPolicy, PolicyFile, UserPolicy};
+use brane_cfg::proxy::{self, ForwardConfig};
 use brane_shr::fs::{download_file_async, set_executable, DownloadSecurity};
 use specifications::address::Address;
 use specifications::package::Capability;
 
 pub use crate::errors::GenerateError as Error;
-use crate::spec::{GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, HostnamePair, LocationPair};
+use crate::spec::{GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, Pair};
 use crate::utils::resolve_config_path;
 
 
@@ -135,6 +137,26 @@ fn canonicalize(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
     }
 }
 
+/// Function that takes a location ID and tries to make it a bit better.
+/// 
+/// Note that this function should be used for human-readable names only that don't have to be made unique.
+/// 
+/// # Arguments
+/// - `id`: The identifier to beautify.
+/// 
+/// # Returns
+/// A new string that might be the same, or be that but prettier.
+fn beautify_id(id: impl AsRef<str>) -> String {
+    // Replace underscores and dashes with spaces
+    let id: String = id.as_ref().replace(['-', '_'], " ");
+
+    // Capitalize each word
+    let id: String = id.split(' ').map(|w| if !w.is_empty() { let mut chars = w.chars(); format!("{}{}", chars.next().unwrap().to_uppercase(), chars.collect::<String>()) } else { String::new() }).collect::<Vec<String>>().join(" ");
+
+    // Return
+    id
+}
+
 /// Function that writes the standard node.yml header to the given writer.
 /// 
 /// # Arguments
@@ -156,33 +178,13 @@ fn write_node_header(writer: &mut impl Write) -> Result<(), std::io::Error> {
     writeln!(writer, "# will be reloaded dynamically by the services themselves.")?;
     writeln!(writer, "# ")?;
     writeln!(writer, "# For an overview of what you can do in this file, refer to")?;
-    writeln!(writer, "# https://wiki.enablingpersonalizedinterventions.nl/user-guide/system-admins/docs/config/node.md")?;
+    writeln!(writer, "# https://wiki.enablingpersonalizedinterventions.nl/user-guide/system-admins/docs/config/node.html")?;
     writeln!(writer, "# ")?;
     writeln!(writer)?;
     writeln!(writer)?;
 
     // And we're done!
     Ok(())
-}
-
-/// Function that takes a location ID and tries to make it a bit better.
-/// 
-/// Note that this function should be used for human-readable names only that don't have to be made unique.
-/// 
-/// # Arguments
-/// - `id`: The identifier to beautify.
-/// 
-/// # Returns
-/// A new string that might be the same, or be that but prettier.
-fn beautify_id(id: impl AsRef<str>) -> String {
-    // Replace underscores and dashes with spaces
-    let id: String = id.as_ref().replace(['-', '_'], " ");
-
-    // Capitalize each word
-    let id: String = id.split(' ').map(|w| if !w.is_empty() { let mut chars = w.chars(); format!("{}{}", chars.next().unwrap().to_uppercase(), chars.collect::<String>()) } else { String::new() }).collect::<Vec<String>>().join(" ");
-
-    // Return
-    id
 }
 
 /// Function that writes the standard infra.yml header to the given writer.
@@ -206,7 +208,7 @@ fn write_infra_header(writer: &mut impl Write) -> Result<(), std::io::Error> {
     writeln!(writer, "# restart.")?;
     writeln!(writer, "# ")?;
     writeln!(writer, "# For an overview of what you can do in this file, refer to")?;
-    writeln!(writer, "# https://wiki.enablingpersonalizedinterventions.nl/user-guide/system-admins/docs/config/infra.md")?;
+    writeln!(writer, "# https://wiki.enablingpersonalizedinterventions.nl/user-guide/system-admins/docs/config/infra.html")?;
     writeln!(writer, "# ")?;
     writeln!(writer)?;
     writeln!(writer)?;
@@ -238,7 +240,7 @@ fn write_backend_header(writer: &mut impl Write) -> Result<(), std::io::Error> {
     writeln!(writer, "# restart.")?;
     writeln!(writer, "# ")?;
     writeln!(writer, "# For an overview of what you can do in this file, refer to")?;
-    writeln!(writer, "# https://wiki.enablingpersonalizedinterventions.nl/user-guide/system-admins/docs/config/backend.md")?;
+    writeln!(writer, "# https://wiki.enablingpersonalizedinterventions.nl/user-guide/system-admins/docs/config/backend.html")?;
     writeln!(writer, "# ")?;
     writeln!(writer)?;
     writeln!(writer)?;
@@ -270,7 +272,36 @@ fn write_policy_header(writer: &mut impl Write) -> Result<(), std::io::Error> {
     writeln!(writer, "# restart.")?;
     writeln!(writer, "# ")?;
     writeln!(writer, "# For an overview of what you can do in this file, refer to")?;
-    writeln!(writer, "# https://wiki.enablingpersonalizedinterventions.nl/user-guide/system-admins/docs/config/policy.md")?;
+    writeln!(writer, "# https://wiki.enablingpersonalizedinterventions.nl/user-guide/system-admins/docs/config/policy.html")?;
+    writeln!(writer, "# ")?;
+    writeln!(writer)?;
+    writeln!(writer)?;
+
+    // And we're done!
+    Ok(())
+}
+
+/// Function that writes the standard proxy.yml header to the given writer.
+/// 
+/// # Arguments
+/// - `writer`: The Writer to write to.
+/// 
+/// # Returns
+/// Nothing, but does update the given writer with the standard header.
+/// 
+/// # Errors
+/// This function errors if we failed to write.
+fn write_proxy_header(writer: &mut impl Write) -> Result<(), std::io::Error> {
+    // Simply call write repeatedly
+    writeln!(writer, "# PROXY.yml")?;
+    writeln!(writer, "#   generated by branectl v{}", env!("CARGO_PKG_VERSION"))?;
+    writeln!(writer, "# ")?;
+    writeln!(writer, "# This file defines the settings for the proxy service on this node.")?;
+    writeln!(writer, "# This file is loaded eagerly, so changing it requires a restart of the proxy")?;
+    writeln!(writer, "# service itself.")?;
+    writeln!(writer, "# ")?;
+    writeln!(writer, "# For an overview of what you can do in this file, refer to")?;
+    writeln!(writer, "# https://wiki.enablingpersonalizedinterventions.nl/user-guide/system-admins/docs/config/proxy.html")?;
     writeln!(writer, "# ")?;
     writeln!(writer)?;
     writeln!(writer)?;
@@ -507,8 +538,6 @@ struct CfsslCsrKey {
 /// # Arguments
 /// - `path`: The path to write the central node.yml to.
 /// - `hosts`: List of additional hostnames to set in the launched containers.
-/// - `proxy`: The address to proxy to, if any (not the address of the proxy service, but rather that of a 'real' proxy).
-/// - `proxy_protocol`: The protocol to use for the proxy. Obviously, only relevant if we are proxying (i.e., `proxy` is not None).
 /// - `fix_dirs`: if true, will generate missing directories instead of complaining.
 /// - `config_path`: The path to the config directory that other paths may use as their base.
 /// - `command`: The GenerateSubcommand that contains the specific values to write, as well as whether to write a central or worker node.
@@ -518,10 +547,14 @@ struct CfsslCsrKey {
 /// 
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Address>, proxy_protocol: ProxyProtocol, fix_dirs: bool, config_path: impl Into<PathBuf>, command: GenerateNodeSubcommand) -> Result<(), Error> {
+pub fn node(path: impl Into<PathBuf>, hosts: Vec<Pair<String, ':', IpAddr>>, fix_dirs: bool, config_path: impl Into<PathBuf>, command: GenerateNodeSubcommand) -> Result<(), Error> {
     let path        : PathBuf = path.into();
     let config_path : PathBuf = config_path.into();
-    info!("Generating node.yml for a {}...", match &command { GenerateNodeSubcommand::Central { .. } => { "central node".into() }, GenerateNodeSubcommand::Worker{ location_id, .. } => { format!("worker node with location ID '{location_id}'") } });
+    info!("Generating node.yml for a {}...", match &command {
+        GenerateNodeSubcommand::Central { .. }            => { "central node".into() },
+        GenerateNodeSubcommand::Worker{ location_id, .. } => { format!("worker node with location ID '{location_id}'") },
+        GenerateNodeSubcommand::Proxy { .. }              => { "proxy node".into() },
+    });
 
     // Generate the host -> IP map from the pairs.
     let hosts: HashMap<String, IpAddr> = {
@@ -539,30 +572,29 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
     debug!("Generating node config...");
     let node_config: NodeConfig = match command {
         // Generate the central node
-        GenerateNodeSubcommand::Central { mut hostname, infra, certs, packages, prx_name, api_name, drv_name, plr_name, prx_port, api_port, drv_port, plr_cmd_topic, plr_res_topic } => {
-            // Remove any scheme from the hostname
-            if let Address::Hostname(ref mut domain, _) = hostname {
-                if let Some(pos) = domain.find("://") {
-                    *domain = domain[pos + 3..].into();
-                }
+        GenerateNodeSubcommand::Central { hostname, infra, proxy, certs, packages, external_proxy, prx_name, api_name, drv_name, plr_name, prx_port, api_port, drv_port, plr_cmd_topic, plr_res_topic } => {
+            // Remove any scheme, paths, ports, whatever from the hostname
+            let mut hostname: &str = &hostname;
+            if let Some(pos) = hostname.find("://") {
+                hostname = &hostname[pos + 3..];
             }
+            hostname = hostname.split(':').next().unwrap();
+            hostname = hostname.split('/').next().unwrap();
 
             // Resolve any path depending on the '$CONFIG'
             let infra : PathBuf = resolve_config_path(infra, &config_path);
+            let proxy : PathBuf = resolve_config_path(proxy, &config_path);
             let certs : PathBuf = resolve_config_path(certs, &config_path);
 
             // Ensure the directory structure is there
             ensure_dir_of(&infra, fix_dirs)?;
+            ensure_dir_of(&proxy, fix_dirs)?;
             ensure_dir(&certs, fix_dirs)?;
             ensure_dir(&packages, fix_dirs)?;
 
             // Generate the config's contents
             NodeConfig {
                 hostnames : hosts,
-                proxy     : proxy.map(|a| ProxyConfig {
-                    address  : a,
-                    protocol : proxy_protocol,
-                }),
 
                 node : NodeSpecificConfig::Central(CentralConfig {
                     paths : CentralPaths {
@@ -570,6 +602,7 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
                         packages : canonicalize(packages)?,
 
                         infra : canonicalize(infra)?,
+                        proxy : if external_proxy.is_some() { None } else { Some(canonicalize(proxy)?) },
                     },
 
                     services : CentralServices {
@@ -592,10 +625,16 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
                             cmd  : plr_cmd_topic,
                             res  : plr_res_topic,
                         },
-                        prx : PrivateService {
-                            name    : prx_name.clone(),
-                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address : Address::Hostname(format!("http://{prx_name}"), prx_port),
+                        prx : if let Some(address) = external_proxy {
+                            PrivateOrExternalService::External(ExternalService {
+                                address,
+                            })
+                        } else {
+                            PrivateOrExternalService::Private(PrivateService {
+                                name    : prx_name.clone(),
+                                bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
+                                address : Address::Hostname(format!("http://{prx_name}"), prx_port),
+                            })
                         },
 
                         aux_scylla : PrivateService {
@@ -619,14 +658,15 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
         },
 
         // Generate the worker node
-        GenerateNodeSubcommand::Worker { location_id, mut hostname, backend, policies, certs, packages, data, results, temp_data, temp_results, prx_name, reg_name, job_name, chk_name, prx_port, reg_port, job_port, chk_port } => {
-            // Remove any scheme from the hostname
-            if let Address::Hostname(ref mut domain, _) = hostname {
-                if let Some(pos) = domain.find("://") {
-                    *domain = domain[pos + 3..].into();
-                }
+        GenerateNodeSubcommand::Worker { location_id, hostname, backend, policies, proxy, certs, packages, data, results, temp_data, temp_results, external_proxy, prx_name, reg_name, job_name, chk_name, prx_port, reg_port, job_port, chk_port } => {
+            // Remove any scheme, paths, ports, whatever from the hostname
+            let mut hostname: &str = &hostname;
+            if let Some(pos) = hostname.find("://") {
+                hostname = &hostname[pos + 3..];
             }
-
+            hostname = hostname.split(':').next().unwrap();
+            hostname = hostname.split('/').next().unwrap();
+            
             // Resolve the service names
             let prx_name: String = prx_name.replace("$LOCATION", &location_id);
             let reg_name: String = reg_name.replace("$LOCATION", &location_id);
@@ -636,11 +676,13 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
             // Resolve any path depending on the '$CONFIG'
             let backend  : PathBuf = resolve_config_path(backend, &config_path);
             let policies : PathBuf = resolve_config_path(policies, &config_path);
+            let proxy    : PathBuf = resolve_config_path(proxy, &config_path);
             let certs    : PathBuf = resolve_config_path(certs, &config_path);
 
             // Ensure the directory structure is there
             ensure_dir_of(&backend, fix_dirs)?;
             ensure_dir_of(&policies, fix_dirs)?;
+            ensure_dir_of(&proxy, fix_dirs)?;
             ensure_dir(&certs, fix_dirs)?;
             ensure_dir(&packages, fix_dirs)?;
             ensure_dir(&data, fix_dirs)?;
@@ -651,10 +693,6 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
             // Generate the config's contents
             NodeConfig {
                 hostnames : hosts,
-                proxy     : proxy.map(|a| ProxyConfig {
-                    address  : a,
-                    protocol : proxy_protocol,
-                }),
 
                 node : NodeSpecificConfig::Worker(WorkerConfig {
                     name : location_id,
@@ -663,8 +701,9 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
                         certs    : canonicalize(certs)?,
                         packages : canonicalize(packages)?,
 
-                        backend      : canonicalize(resolve_config_path(backend, &config_path))?,
-                        policies     : canonicalize(resolve_config_path(policies, &config_path))?,
+                        backend      : canonicalize(backend)?,
+                        policies     : canonicalize(policies)?,
+                        proxy        : if external_proxy.is_some() { None } else { Some(canonicalize(proxy)?) },
 
                         data         : canonicalize(data)?,
                         results      : canonicalize(results)?,
@@ -690,14 +729,61 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
                         chk : PublicService {
                             name    : chk_name.clone(),
                             bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), chk_port).into(),
-                            address : Address::Hostname(format!("https://{chk_name}"), chk_port),
+                            address : Address::Hostname(format!("http://{chk_name}"), chk_port),
 
                             external_address : Address::Hostname(format!("https://{hostname}"), chk_port),
                         },
-                        prx : PrivateService {
-                            name    : prx_name.clone(),
-                            bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address : Address::Hostname(format!("https://{prx_name}"), prx_port),
+                        prx : if let Some(address) = external_proxy {
+                            PrivateOrExternalService::External(ExternalService {
+                                address,
+                            })
+                        } else {
+                            PrivateOrExternalService::Private(PrivateService {
+                                name    : prx_name.clone(),
+                                bind    : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
+                                address : Address::Hostname(format!("http://{prx_name}"), prx_port),
+                            })
+                        },
+                    },
+                }),
+            }
+        },
+
+        // Generate the proxy node
+        GenerateNodeSubcommand::Proxy { hostname, proxy, certs, prx_name, prx_port } => {
+            // Remove any scheme, paths, ports, whatever from the hostname
+            let mut hostname: &str = &hostname;
+            if let Some(pos) = hostname.find("://") {
+                hostname = &hostname[pos + 3..];
+            }
+            hostname = hostname.split(':').next().unwrap();
+            hostname = hostname.split('/').next().unwrap();
+
+            // Resolve any path depending on the '$CONFIG'
+            let proxy : PathBuf = resolve_config_path(proxy, &config_path);
+            let certs : PathBuf = resolve_config_path(certs, &config_path);
+
+            // Assert the directory structure is there
+            ensure_dir_of(&proxy, fix_dirs)?;
+            ensure_dir(&certs, fix_dirs)?;
+
+            // Populate the NodeConfig
+            NodeConfig {
+                hostnames : hosts,
+
+                node : NodeSpecificConfig::Proxy(node::ProxyConfig {
+                    paths : ProxyPaths {
+                        proxy : canonicalize(proxy)?,
+                        certs : canonicalize(certs)?,
+                    },
+
+                    services : ProxyServices {
+                        prx : PublicService {
+                            name             : prx_name.clone(),
+                            bind             : SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
+                            address          : Address::Hostname(format!("http://{prx_name}"), prx_port),
+
+                            external_address : Address::Hostname(format!("http://{hostname}"), prx_port),
                         },
                     },
                 }),
@@ -715,7 +801,7 @@ pub fn node(path: impl Into<PathBuf>, hosts: Vec<HostnamePair>, proxy: Option<Ad
     // Write the top comment header thingy
     if let Err(err) = write_node_header(&mut handle) { return Err(Error::FileHeaderWriteError{ what: "infra.yml", path, err }); }
     // Write the file itself
-    if let Err(err) = node_config.to_writer(handle, true) { return Err(Error::NodeWriteError{ path, err }); }
+    if let Err(err) = node_config.to_writer(handle, true) { return Err(Error::FileBodyWriteError{ what: "infra.yml", path, err }); }
 
     // Done
     println!("Successfully generated {}", style(path.display().to_string()).bold().green());
@@ -932,7 +1018,7 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
 /// 
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub fn infra(locations: Vec<LocationPair<':', String>>, fix_dirs: bool, path: impl Into<PathBuf>, names: Vec<LocationPair<'=', String>>, reg_ports: Vec<LocationPair<'=', u16>>, job_ports: Vec<LocationPair<'=', u16>>) -> Result<(), Error> {
+pub fn infra(locations: Vec<Pair<String, ':', String>>, fix_dirs: bool, path: impl Into<PathBuf>, names: Vec<Pair<String, '=', String>>, reg_ports: Vec<Pair<String, '=', u16>>, job_ports: Vec<Pair<String, '=', u16>>) -> Result<(), Error> {
     let path: PathBuf = path.into();
     info!("Generating creds.yml...");
 
@@ -983,7 +1069,7 @@ pub fn infra(locations: Vec<LocationPair<':', String>>, fix_dirs: bool, path: im
     // Write the header
     if let Err(err) = write_infra_header(&mut handle) { return Err(Error::FileHeaderWriteError { what: "infra.yml", path, err }); }
     // Write the contents
-    if let Err(err) = infra.to_writer(handle) { return Err(Error::InfraWriteError{ path, err }); }
+    if let Err(err) = infra.to_writer(handle, true) { return Err(Error::FileBodyWriteError{ what: "infra.yml", path, err }); }
 
     // Done
     println!("Successfully generated {}", style(path.display().to_string()).bold().green());
@@ -1036,7 +1122,7 @@ pub fn backend(fix_dirs: bool, path: impl Into<PathBuf>, capabilities: Vec<Capab
     // Write the header
     if let Err(err) = write_backend_header(&mut handle) { return Err(Error::FileHeaderWriteError { what: "backend.yml", path, err }); }
     // Write the contents
-    if let Err(err) = backend.to_writer(handle) { return Err(Error::BackendWriteError{ path, err }); }
+    if let Err(err) = backend.to_writer(handle, true) { return Err(Error::FileBodyWriteError{ what: "backend.yml", path, err }); }
 
     // Done
     println!("Successfully generated {}", style(path.display().to_string()).bold().green());
@@ -1061,9 +1147,16 @@ pub fn policy(fix_dirs: bool, path: impl Into<PathBuf>, allow_all: bool) -> Resu
 
     // Create the CredsFile
     debug!("Generating backend information...");
-    let policies: PolicyFile = PolicyFile {
-        users      : vec![ UserPolicy::AllowAll ],
-        containers : vec![ ContainerPolicy::AllowAll ],
+    let policies: PolicyFile = if allow_all {
+        PolicyFile {
+            users      : vec![ UserPolicy::AllowAll ],
+            containers : vec![ ContainerPolicy::AllowAll ],
+        }
+    } else {
+        PolicyFile {
+            users      : vec![ UserPolicy::DenyAll ],
+            containers : vec![ ContainerPolicy::DenyAll ],
+        }
     };
 
     // Make sure its directory exists
@@ -1079,7 +1172,53 @@ pub fn policy(fix_dirs: bool, path: impl Into<PathBuf>, allow_all: bool) -> Resu
     // Write the header
     if let Err(err) = write_policy_header(&mut handle) { return Err(Error::FileHeaderWriteError{ what: "policies.yml", path, err }); }
     // Write the contents
-    if let Err(err) = policies.to_writer(handle) { return Err(Error::PolicyWriteError{ path, err }); }
+    if let Err(err) = policies.to_writer(handle, true) { return Err(Error::FileBodyWriteError{ what: "policies.yml", path, err }); }
+
+    // Done
+    println!("Successfully generated {}", style(path.display().to_string()).bold().green());
+    Ok(())
+}
+
+/// Handles generating a new `proxy.yml` config file.
+/// 
+/// # Arguments
+/// - `fix_dirs`: if true, will generate missing directories instead of complaining.
+/// - `path`: The path to write the `policies.yml` to.
+/// - `outgoing_range`: The range of ports to allocate for outgoing connections.
+/// - `incoming`: The map of incoming ports to internal destinations to setup for incoming ports.
+/// - `forward`: The settings for forwaring traffic to a SOCKS proxy, if enabled.
+/// 
+/// # Returns
+/// Nothing, but does write a new file to the given path and updates the user on stdout on success.
+/// 
+/// # Errors
+/// This function may error if I/O errors occur while writing the file.
+pub fn proxy(fix_dirs: bool, path: impl Into<PathBuf>, outgoing_range: RangeInclusive<u16>, incoming: HashMap<u16, Address>, forward: Option<ForwardConfig>) -> Result<(), Error> {
+    let path: PathBuf = path.into();
+    info!("Generating proxy.yml...");
+
+    // Create the BackendFile
+    debug!("Generating proxy information...");
+    let proxy: proxy::ProxyConfig = proxy::ProxyConfig {
+        outgoing_range,
+        incoming,
+        forward,
+    };
+
+    // Make sure its directory exists
+    debug!("Writing to '{}'...", path.display());
+    ensure_dir_of(&path, fix_dirs)?;
+
+    // Open the file to write it to
+    let mut handle: File = match File::create(&path) {
+        Ok(handle) => handle,
+        Err(err)   => { return Err(Error::FileCreateError{ what: "proxy.yml", path, err }); },
+    };
+
+    // Write the header
+    if let Err(err) = write_proxy_header(&mut handle) { return Err(Error::FileHeaderWriteError { what: "proxy.yml", path, err }); }
+    // Write the contents
+    if let Err(err) = proxy.to_writer(handle, true) { return Err(Error::FileBodyWriteError{ what: "proxy.yml", path, err }); }
 
     // Done
     println!("Successfully generated {}", style(path.display().to_string()).bold().green());
