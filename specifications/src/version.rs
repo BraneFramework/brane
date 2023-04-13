@@ -4,7 +4,7 @@
 //  Created:
 //    23 Mar 2022, 15:15:12
 //  Last edited:
-//    01 Mar 2023, 09:46:03
+//    10 Apr 2023, 11:28:06
 //  Auto updated?
 //    Yes
 // 
@@ -531,6 +531,19 @@ impl Display for Version {
             write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
         }
     }
+}
+
+impl AsRef<Version> for Version {
+    #[inline]
+    fn as_ref(&self) -> &Self { self }
+}
+impl From<&Version> for Version {
+    #[inline]
+    fn from(value: &Version) -> Self { *value }
+}
+impl From<&mut Version> for Version {
+    #[inline]
+    fn from(value: &mut Version) -> Self { *value }
 }
 
 

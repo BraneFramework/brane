@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:47
 //  Last edited:
-//    30 Jan 2023, 13:31:50
+//    12 Apr 2023, 10:13:20
 //  Auto updated?
 //    Yes
 // 
@@ -30,6 +30,7 @@ use brane_exe::FullValue;
 use brane_tsk::spec::AppId;
 
 pub use crate::errors::ReplError as Error;
+use crate::spec::DockerOpts;
 use crate::utils::{ensure_config_dir, get_history_file};
 use crate::instance::InstanceInfo;
 use crate::run::{initialize_instance_vm, initialize_offline_vm, process_instance_result, process_offline_result, run_instance_vm, run_offline_vm, InstanceVmState, OfflineVmState};
@@ -179,10 +180,11 @@ impl Validator for ReplHelper {
 /// - `language`: The language with which to compile the file.
 /// - `clear`: Whether or not to clear the history of the REPL before beginning.
 /// - `profile`: If given, prints the profile timings to stdout if available.
+/// - `docker_opts`: The DockerOpts that determines how we connect to the local Docker dameon.
 /// 
 /// # Errors
 /// This function errors if we could not properly read from/write to the terminal. Additionally, it may error if any of the given statements fails for whatever reason.
-pub async fn start(proxy_addr: Option<String>, remote: bool, attach: Option<AppId>, language: Language, clear: bool, profile: bool) -> Result<(), Error> {
+pub async fn start(proxy_addr: Option<String>, remote: bool, attach: Option<AppId>, language: Language, clear: bool, profile: bool, docker_opts: DockerOpts) -> Result<(), Error> {
     // Build the config for the rustyline REPL.
     let config = Config::builder()
         .history_ignore_space(true)
@@ -234,7 +236,7 @@ pub async fn start(proxy_addr: Option<String>, remote: bool, attach: Option<AppI
         // Run the thing
         remote_repl(&mut rl, info.api.to_string(), info.drv.to_string(), proxy_addr, attach, options, profile).await?;
     } else {
-        local_repl(&mut rl, options).await?;
+        local_repl(&mut rl, options, docker_opts).await?;
     }
 
     // Try to save the history if we exited cleanly
@@ -329,13 +331,14 @@ async fn remote_repl(rl: &mut Editor<ReplHelper>, api_endpoint: impl AsRef<str>,
 /// 
 /// # Arguments
 /// - `rl`: The REPL interface we use to do the R-part of a REPL.
-/// - `options`: The ParseOptions that specify how to parse the incoming source.
+/// - `parse_opts`: The ParseOptions that specify how to parse the incoming source.
+/// - `docker_opts`: The DockerOpts that determines how we connect to the local Docker dameon.
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-async fn local_repl(rl: &mut Editor<ReplHelper>, options: ParserOptions) -> Result<(), Error> {
+async fn local_repl(rl: &mut Editor<ReplHelper>, parse_opts: ParserOptions, docker_opts: DockerOpts) -> Result<(), Error> {
     // First we initialize the remote thing
-    let mut state: OfflineVmState = match initialize_offline_vm(options) {
+    let mut state: OfflineVmState = match initialize_offline_vm(parse_opts, docker_opts) {
         Ok(state) => state,
         Err(err)  => { return Err(Error::InitializeError{ what: "offline VM", err }); },
     };

@@ -15,7 +15,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::hash::Hash;
-use std::process::{Command, ExitStatus};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
@@ -25,28 +24,87 @@ use serde::{Deserialize, Serialize};
 /// Defines the error that may occur when parsing architectures
 #[derive(Debug)]
 pub enum ArchError {
-    /// Could not launch the `uname -m` command
-    UnameLaunchError{ command: Command, err: std::io::Error },
-    /// The `uname -m` command did not return a successful exit status
-    UnameError{ command: Command, status: ExitStatus },
-
     /// Could not deserialize the given string
     UnknownArchitecture{ raw: String },
 }
-
 impl Display for ArchError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ArchError::*;
         match self {
-            UnameLaunchError{ command, err } => write!(f, "Could not launch '{command:?}': {err}"),
-            UnameError{ command, status }    => write!(f, "Command '{:?}' returned non-zero exit code {}", command, status.code().unwrap_or(-1)),
-
             UnknownArchitecture{ raw } => write!(f, "Unknown architecture '{raw}'"),
         }
     }
 }
-
 impl Error for ArchError {}
+
+
+
+
+
+/***** AUXILLARY *****/
+/// A formatter for architectures that writes it in a way that Brane understands.
+#[derive(Debug)]
+pub struct ArchBraneFormatter<'a> {
+    /// The architecture to format.
+    arch : &'a Arch,
+}
+impl<'a> Display for ArchBraneFormatter<'a> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        match self.arch {
+            Arch::X86_64  => write!(f, "x86_64"),
+            Arch::Aarch64 => write!(f, "aarch64"),
+        }
+    }
+}
+
+/// Formatter that writes the given Arch in a way that the Rust compiler ecosystem understands.
+#[derive(Debug)]
+pub struct ArchRustFormatter<'a> {
+    /// The architecture to format.
+    arch : &'a Arch,
+}
+impl<'a> Display for ArchRustFormatter<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use Arch::*;
+        match self.arch {
+            X86_64  => write!(f, "x86_64"),
+            Aarch64 => write!(f, "aarch64"),
+        }
+    }
+}
+
+/// Formatter that writes the given Arch in a way that the Docker ecosystem understands.
+#[derive(Debug)]
+pub struct ArchDockerFormatter<'a> {
+    /// The architecture to format.
+    arch : &'a Arch,
+}
+impl<'a> Display for ArchDockerFormatter<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use Arch::*;
+        match self.arch {
+            X86_64  => write!(f, "x86_64"),
+            Aarch64 => write!(f, "aarch64"),
+        }
+    }
+}
+
+/// Formatter that writes the given Arch in a way that the JuiceFS ecosystem understands.
+#[derive(Debug)]
+pub struct ArchJuiceFsFormatter<'a> {
+    /// The architecture to format.
+    arch : &'a Arch,
+}
+impl<'a> Display for ArchJuiceFsFormatter<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use Arch::*;
+        match self.arch {
+            X86_64  => write!(f, "amd64"),
+            Aarch64 => write!(f, "arm64"),
+        }
+    }
+}
 
 
 
@@ -54,89 +112,78 @@ impl Error for ArchError {}
 
 /***** LIBRARY *****/
 /// The Arch enum defines possible architectures that we know of and love
-#[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum Arch {
     /// The standard x86_64 architecture
     #[serde(alias="amd64")]
-    x86_64,
+    X86_64,
     /// The arm64 / macOS M1 architecture
     #[serde(alias="arm64")]
-    aarch64,
+    Aarch64,
 }
 
 impl Arch {
-    /// Serializes the Arch in a Rust-compatible way.
-    #[inline]
-    pub fn to_rust(&self) -> &'static str {
-        match self {
-            Arch::x86_64  => "x86_64",
-            Arch::aarch64 => "aarch64",
-        }
-    }
-
-    /// Serializes the Arch in a Docker-compatible way.
-    #[inline]
-    pub fn to_docker(&self) -> &'static str {
-        match self {
-            Arch::x86_64  => "x86_64",
-            Arch::aarch64 => "aarch64",
-        }
-    }
-
-    /// Serializes the Arch in a JuiceFS-binary-compatible way.
-    #[inline]
-    pub fn to_juicefs(&self) -> &'static str {
-        match self {
-            Arch::x86_64  => "amd64",
-            Arch::aarch64 => "arm64",
-        }
-    }
+    /// Constant referring to the compiled (=host) architecture
+    #[cfg(target_arch = "x86_64")]
+    pub const HOST: Self = Self::X86_64;
+    #[cfg(target_arch = "aarch64")]
+    pub const HOST: Self = Self::Aarch64;
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    pub const HOST: Self = { compile_error!("Non-x86/64, non-aarch64 processor architecture not supported") };
 
 
-
-    /// Attempts to parse the host architecture using `uname -m`.
+    /// Allows one to serialize the architecture for use in the Brane ecosystem.
     /// 
-    /// # Errors
-    /// This function may error if that command could not be executed, or the resulting architecture string is unsupported.
-    pub fn host() -> Result<Self, ArchError> {
-        // Build the command to run
-        let mut uname = Command::new("uname");
-        uname.arg("-m");
-        let res = match uname.output() {
-            Ok(res)  => res,
-            Err(err) => { return Err(ArchError::UnameLaunchError{ command: uname, err }); }
-        };
-        if !res.status.success() { return Err(ArchError::UnameError{ command: uname, status: res.status }); }
-
-        // Clean the stdout
-        let output: String = String::from_utf8_lossy(&res.stdout).to_string();
-        let output: &str = output.trim();
-
-        // Try to parse as architecture
-        Arch::from_str(output)
-    }
+    /// # Returns
+    /// An `ArchBraneFormatter` that implements Display in a Brane-compatible way.
+    #[inline]
+    pub fn brane(&self) -> ArchBraneFormatter { ArchBraneFormatter { arch: self } }
+    /// Allows one to serialize the architecture for use in the Rust ecosystem.
+    /// 
+    /// # Returns
+    /// An `ArchRustFormatter` that implements Display in a Rust-compatible way.
+    #[inline]
+    pub fn rust(&self) -> ArchRustFormatter { ArchRustFormatter { arch: self } }
+    /// Allows one to serialize the architecture for use in the Docker ecosystem.
+    /// 
+    /// # Returns
+    /// An `ArchDockerFormatter` that implements Display in a Docker-compatible way.
+    #[inline]
+    pub fn docker(&self) -> ArchDockerFormatter { ArchDockerFormatter { arch: self } }
+    /// Allows one to serialize the architecture for use in the Juice FS ecosystem.
+    /// 
+    /// # Returns
+    /// An `ArchJuiceFsFormatter` that implements Display in a Juice FS-compatible way.
+    #[inline]
+    pub fn juicefs(&self) -> ArchJuiceFsFormatter { ArchJuiceFsFormatter { arch: self } }
 }
 
 impl Display for Arch {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
-            Arch::x86_64  => write!(f, "x86_64"),
-            Arch::aarch64 => write!(f, "aarch64"),
+            Arch::X86_64  => write!(f, "x86-64"),
+            Arch::Aarch64 => write!(f, "ARM 64-bit"),
         }
     }
 }
-
 impl FromStr for Arch {
     type Err = ArchError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "x86_64" |
-            "amd64"  => Ok(Arch::x86_64),
+            "amd64"  => Ok(Arch::X86_64),
 
             "aarch64" |
-            "arm64"   => Ok(Arch::aarch64),
+            "arm64"   => Ok(Arch::Aarch64),
+
+            // Meta-argument for resolving the local architecture
+            #[cfg(target_arch = "x86_64")]
+            "$LOCAL" => Ok(Self::X86_64),
+            #[cfg(target_arch = "aarch64")]
+            "$LOCAL" => Ok(Self::Aarch64),
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            "$LOCAL" => { compile_error!("Non-x86/64, non-aarch64 processor architecture not supported"); },
 
             raw => Err(ArchError::UnknownArchitecture{ raw: raw.to_string() }),
         }

@@ -4,7 +4,7 @@
 //  Created:
 //    21 Feb 2022, 14:43:30
 //  Last edited:
-//    01 Mar 2023, 11:23:55
+//    11 Apr 2023, 15:35:16
 //  Auto updated?
 //    Yes
 // 
@@ -64,99 +64,7 @@ impl Error for DependencyError {}
 /// **Returns**  
 /// Nothing if the dependencies are met, a DependencyError if it wasn't, or a UtilError if we couldn't determine.
 pub async fn check_dependencies() -> Result<Result<(), DependencyError>, UtilError> {
-    // /* Docker */
-    // // Connect to the local instance using bollard
-    // let docker = match Docker::connect_with_local_defaults() {
-    //     Ok(docker) => docker,
-    //     Err(_)     => { return Ok(Err(DependencyError::DockerNotInstalled)); }
-    // };
-
-    // // Get the version of information of the docker container
-    // let docker_version = match docker.version().await {
-    //     Ok(docker_version) => match docker_version.version {
-    //         Some(docker_version) => docker_version,
-    //         None                 => { return Err(UtilError::DockerNoVersion); }
-    //     },
-    //     Err(err)           => { return Err(UtilError::DockerVersionError{ err }); }
-    // };
-
-    // // Try to convert the version number to a semver
-    // match Version::from_str(&docker_version) {
-    //     Ok(docker_version) => {
-    //         // Compare it with the required instance
-    //         if docker_version < MIN_DOCKER_VERSION {
-    //             return Ok(Err(DependencyError::DockerMinNotMet{ got: docker_version, expected: MIN_DOCKER_VERSION }));
-    //         }
-    //     },
-    //     Err(err) => {
-    //         warn!("{}", UtilError::IllegalDockerVersion{ version: docker_version, err });
-    //         warn!("Assuming Docker version is valid");
-    //     },
-    // };
-
-
-
-    // /* Buildx */
-    // // Run a command to get the buildx version
-    // let mut command = Command::new("docker");
-    // command.arg("buildx");
-    // command.arg("version");
-    // command.stdout(Stdio::piped());
-    // let output = match command.output() {
-    //     Ok(output) => output,
-    //     Err(err)   => { return Err(UtilError::BuildxLaunchError{ command: format!("{:?}", command), err }); }
-    // };
-    // if !output.status.success() {
-    //     return Ok(Err(DependencyError::BuildkitNotInstalled));
-    // }
-    // let buildx_version = String::from_utf8_lossy(&output.stdout).to_string();
-
-    // // Get the second when splitting on spaces
-    // let buildx_version = match buildx_version.split(' ').nth(1) {
-    //     Some(buildx_version) => buildx_version,
-    //     None => {
-    //         warn!("{}", UtilError::BuildxVersionNoParts{ version: buildx_version });
-    //         warn!("Assuming Docker Buildx version is valid");
-    //         return Ok(Ok(()));
-    //     }
-    // };
-
-    // // Remove the first v
-    // let buildx_version = if !buildx_version.is_empty() && buildx_version.starts_with('v') {
-    //     &buildx_version[1..]
-    // } else {
-    //     return Err(UtilError::BuildxVersionNoV{ version: buildx_version.to_string() });
-    // };
-
-    // // Consume the valid version number parts
-    // let mut buildx_version_raw = String::with_capacity(5);
-    // for c in buildx_version.chars() {
-    //     // Either consume or stop consuming
-    //     if (c as u32 >= '0' as u32 && c as u32 <= '9' as u32) || c == '.' {
-    //         buildx_version_raw.push(c);
-    //     } else {
-    //         break;
-    //     }
-    // }
-
-    // // Finally, try to convert into a semantic version number
-    // let buildx_version = match Version::from_str(&buildx_version_raw) {
-    //     Ok(buildx_version) => buildx_version,
-    //     Err(err) => {
-    //         warn!("{}", UtilError::IllegalBuildxVersion{ version: buildx_version_raw, err });
-    //         warn!("Assuming Docker Buildx version is valid");
-    //         return Ok(Ok(()));
-    //     }
-    // };
-
-    // // With that all done, compare it with the required
-    // if buildx_version < MIN_BUILDX_VERSION {
-    //     return Ok(Err(DependencyError::BuildKitMinNotMet{ got: buildx_version, expected: MIN_BUILDX_VERSION }));
-    // }
-
-
-
-    // We checked all the runtime dependencies!
+    // We checked all the runtime dependencies! (:sweat:)
     Ok(Ok(()))
 }
 
@@ -165,6 +73,8 @@ pub async fn check_dependencies() -> Result<Result<(), DependencyError>, UtilErr
 /// **Edited: now returning CliErrors.**
 /// 
 /// Tries to determine the package file in the pulled repository.
+/// 
+/// TODO: This is rather dumb, why does it not just check the contents of the file?
 /// 
 /// **Arguments**
 ///  * `dir`: The directory the is the root of a package.

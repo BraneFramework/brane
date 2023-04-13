@@ -4,7 +4,7 @@
 //  Created:
 //    09 Nov 2022, 11:12:06
 //  Last edited:
-//    01 Mar 2023, 09:48:04
+//    11 Apr 2023, 12:52:39
 //  Auto updated?
 //    Yes
 // 
@@ -15,15 +15,14 @@
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::fs::{self, Permissions};
-// use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
-use std::os::unix::fs::PermissionsExt as _;
-use std::ops::{BitOr, BitOrAssign};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
 
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
-use console::Style;
+use console::{style, Style};
+use fs2::FileExt as _;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, warn};
 use reqwest::{Response, StatusCode, Url};
@@ -32,6 +31,8 @@ use tokio::fs as tfs;
 use tokio::io::{self as tio, AsyncWriteExt};
 use tokio_stream::StreamExt;
 use tokio_tar::{Archive, Builder, Entries, Entry};
+
+use specifications::version::Version;
 
 use crate::debug::Capitalizeable;
 
@@ -251,6 +252,8 @@ pub enum Error {
     FileRemoveError{ path: PathBuf, err: std::io::Error },
     /// The checksum of a file was not what we expected.
     FileChecksumError{ what: &'static str, path: PathBuf, got: String, expected: String },
+    /// Failed to lock a file.
+    FileLockError{ path: PathBuf, err: std::io::Error },
     
     /// Directory not found.
     DirNotFound{ path: PathBuf },
@@ -309,6 +312,7 @@ impl Display for Error {
             FileCopyError{ source, target, err }           => write!(f, "Failed to copy file '{}' to '{}': {}", source.display(), target.display(), err),
             FileRemoveError{ path, err }                   => write!(f, "Failed to remove file '{}': {}", path.display(), err),
             FileChecksumError{ what, path, got, expected } => write!(f, "Checksum of {} file '{}' is incorrect: expected '{}', got '{}'", what, path.display(), got, expected),
+            FileLockError{ path, err }                     => write!(f, "Failed to lock file '{}': {}", path.display(), err),
 
             DirNotFound{ path }                         => write!(f, "Directory '{}' not found", path.display()),
             DirNotADir{ what, path }                    => write!(f, "{} directory '{}' exists but is not a directory", what.capitalize(), path.display()),
@@ -341,7 +345,7 @@ impl std::error::Error for Error {}
 
 /***** AUXILLARY *****/
 /// Defines permission flags we can set per group.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PermissionFlags(u8);
 impl PermissionFlags {
     /// All permissions are given (read, write, execute)
@@ -355,17 +359,25 @@ impl PermissionFlags {
     /// No permissions.
     pub const NONE    : Self = Self(0b000);
 }
+impl BitAnd for PermissionFlags {
+    type Output = Self;
+
+    #[inline]
+    fn bitand(self, rhs: Self) -> Self::Output { Self(self.0 & rhs.0) }
+}
+impl BitAndAssign for PermissionFlags {
+    #[inline]
+    fn bitand_assign(&mut self, rhs: Self) { self.0 &= rhs.0 }
+}
 impl BitOr for PermissionFlags {
     type Output = Self;
 
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Self(self.0 | rhs.0)
-    }
+    #[inline]
+    fn bitor(self, rhs: Self) -> Self::Output { Self(self.0 | rhs.0) }
 }
 impl BitOrAssign for PermissionFlags {
-    fn bitor_assign(&mut self, rhs: Self) {
-        self.0 |= rhs.0
-    }
+    #[inline]
+    fn bitor_assign(&mut self, rhs: Self) { self.0 |= rhs.0 }
 }
 
 /// Defines a set of permissions for the user, their group and others.
@@ -380,6 +392,7 @@ pub struct PermissionSet {
 }
 impl PermissionSet {
     /// Returns a binary representation of the internal permissions.
+    #[cfg(unix)]
     #[inline]
     fn octets(&self) -> u32 { ((self.user.0 as u32) << 6) | ((self.group.0 as u32) << 3) | (self.other.0 as u32) }
 }
@@ -483,6 +496,74 @@ impl<'c> Display for DownloadSecurity<'c> {
 
 
 /***** LIBRARY *****/
+/// Defines a wrapper around a file handle that can be used to implement file locks.
+#[derive(Debug)]
+pub struct FileLock {
+    /// The path to the file handle.
+    path    : PathBuf,
+    /// The file handle that represents the (unique!) lock.
+    _handle : fs::File,
+}
+impl FileLock {
+    /// Constructor for the FileLock that attempts to lock the given file.
+    /// 
+    /// This function will block until it becomes available.
+    /// 
+    /// Note that this lock is an exclusive lock.
+    /// 
+    /// # Arguments
+    /// - `name`: The name of the package for which we are waiting.
+    /// - `version`: The version of the package for which we are waiting.
+    /// - `path`: The path of the file to use a lockfile.
+    /// 
+    /// # Returns
+    /// A new instance of the FileLock that acts as a guard of the lock. As long as it's in scope, the exclusive lock will be held.
+    pub fn lock(name: impl AsRef<str>, version: impl AsRef<Version>, path: impl Into<PathBuf>) -> Result<Self, Error> {
+        let name    : &str     = name.as_ref();
+        let version : &Version = version.as_ref();
+        let path    : PathBuf  = path.into();
+
+        // Attempt to get the file handle
+        let handle: fs::File = match fs::File::create(&path) {
+            Ok(handle) => handle,
+            Err(err)   => { return Err(Error::FileCreateError { what: "lock file", path, err }); },
+        };
+
+        // Test if we have to lock it
+        if let Err(err) = handle.try_lock_exclusive() {
+            if err.kind() == std::io::ErrorKind::WouldBlock {
+                // Re-try for real (this is the actually blocking operation)
+                debug!("Waiting for lock on '{}'...", path.display());
+                println!("Package {} (version {}) is already being built by another process; waiting until it completes...", style(name).bold().cyan(), style(version).bold());
+                if let Err(err) = handle.lock_exclusive() { return Err(Error::FileLockError{ path, err }); }
+            } else {
+                return Err(Error::FileLockError{ path, err });
+            }
+        };
+
+        // OK, return ourselves
+        debug!("Lock '{}' acquired", path.display());
+        Ok(Self {
+            path,
+            _handle : handle,
+        })
+    }
+
+    /// Releases this file lock.
+    /// 
+    /// This works by simply consuming ourself, forcing a drop.
+    #[inline]
+    pub fn release(self) {}
+}
+impl Drop for FileLock {
+    fn drop(&mut self) {
+        // Simply print we are unlocking it; dropping the internal handle will do the rest
+        debug!("Lock '{}' released", self.path.display());
+    }
+}
+
+
+
 /// Changes the permissions of the given file to the given triplet.
 /// 
 /// # Arguments
@@ -501,8 +582,26 @@ pub fn set_permissions(path: impl AsRef<Path>, permissions: PermissionSet) -> Re
         Err(err)     => { return Err(Error::FileMetadataError{ path: path.into(), err }); },
     };
 
-    // Overwrite the permissions
-    perms.set_mode(permissions.octets());
+    #[cfg(unix)]    
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        // Overwrite the permissions
+        perms.set_mode(permissions.octets());
+    }
+    #[cfg(windows)]
+    {
+        // On windows we can only do write permissions
+        let new_readonly: bool = (permissions.user & PermissionFlags::WRITE) != PermissionFlags::WRITE;
+        if perms.readonly() != new_readonly {
+            debug!("Only changing user readonly permission for '{}' (write & executable not supported on windows)", path.display());
+            perms.set_readonly(new_readonly);
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        std::compile_error!("Non-Unix, non-Windows OS not supported.");
+    }
 
     // Write it back
     match fs::set_permissions(path, perms) {
@@ -518,7 +617,10 @@ pub fn set_permissions(path: impl AsRef<Path>, permissions: PermissionSet) -> Re
 /// 
 /// # Errors
 /// This function errors if we failed to update the permissions - probably either because the file did not exist, or we do not have the required permisisons ourselves.
+#[cfg(unix)]
 pub fn set_executable(path: impl AsRef<Path>) -> Result<(), Error> {
+    use std::os::unix::fs::PermissionsExt as _;
+
     let path: &Path = path.as_ref();
     debug!("Making file '{}' executable...", path.display());
 
@@ -536,6 +638,28 @@ pub fn set_executable(path: impl AsRef<Path>) -> Result<(), Error> {
         Ok(_)    => Ok(()),
         Err(err) => Err(Error::FilePermissionsError{ path: path.into(), err }),
     }
+}
+/// Updates the permissions of the given file to become executable.
+/// 
+/// Note that this overload does not actually do anything, since Windows doesn't really have this notion of executable files.
+/// 
+/// # Arguments
+/// - `path`: The path of the file to change the permissions of.
+/// 
+/// # Errors
+/// This function errors if we failed to update the permissions - probably either because the file did not exist, or we do not have the required permisisons ourselves.
+#[cfg(windows)]
+pub fn set_executable(path: impl AsRef<Path>) -> Result<(), Error> {
+    let path: &Path = path.as_ref();
+
+    // Assert the file exists and that's all
+    debug!("Nothing to do to make file '{}' executable (only file existance is checked)...", path.display());
+    if !path.exists() { return Err(Error::PathNotFoundError { what: "file", path: path.into() }); }
+    Ok(())
+}
+#[cfg(not(any(unix, windows)))]
+pub fn set_executable(path: impl AsRef<Path>) -> Result<(), Error> {
+    std::compile_error!("Non-Unix, non-Windows OS not supported.");
 }
 
 

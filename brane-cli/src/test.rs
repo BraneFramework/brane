@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 16:23:37
 //  Last edited:
-//    01 Mar 2023, 11:23:04
+//    12 Apr 2023, 10:12:10
 //  Auto updated?
 //    Yes
 // 
@@ -33,6 +33,7 @@ use specifications::package::PackageInfo;
 use specifications::version::Version;
 
 use crate::errors::TestError;
+use crate::spec::DockerOpts;
 use crate::utils::{ensure_datasets_dir, ensure_package_dir};
 use crate::run::{initialize_offline_vm, run_offline_vm, OfflineVmState};
 
@@ -363,13 +364,14 @@ fn write_value(value: FullValue) -> String {
 /// - `name`: The name of the package to test.
 /// - `version`: The version of the package to test.
 /// - `show_result`: Whether or not to `cat` the resulting file if any.
+/// - `docker_opts`: The options we use to connect to the local Docker daemon.
 /// 
 /// # Returns
 /// Nothing, but does do a whole dance of querying the user and executing a package based on that.
 /// 
 /// # Errors
 /// This function errors if any part of that dance failed.
-pub async fn handle(name: impl Into<String>, version: Version, show_result: Option<PathBuf>) -> Result<(), TestError> {
+pub async fn handle(name: impl Into<String>, version: Version, show_result: Option<PathBuf>, docker_opts: DockerOpts) -> Result<(), TestError> {
     let name: String = name.into();
 
     // Read the package info of the given package
@@ -383,7 +385,7 @@ pub async fn handle(name: impl Into<String>, version: Version, show_result: Opti
     };
 
     // Run the test for this info
-    let output: FullValue = test_generic(package_info, show_result).await?;
+    let output: FullValue = test_generic(package_info, show_result, docker_opts).await?;
 
     // Print it, done
     println!("Result: {} [{}]", style(format!("{output}")).bold().cyan(), style(format!("{}", output.data_type())).bold());
@@ -397,10 +399,11 @@ pub async fn handle(name: impl Into<String>, version: Version, show_result: Opti
 /// # Arguments
 /// - `info`: The PackageInfo that describes the package to test.
 /// - `show_result`: Whether or not to `cat` the resulting file if any.
+/// - `docker_opts`: The options we use to connect to the local Docker daemon.
 /// 
 /// # Returns
 /// The value of the chosen function in that package (which may be Void this time).
-pub async fn test_generic(info: PackageInfo, show_result: Option<PathBuf>) -> Result<FullValue, TestError> {
+pub async fn test_generic(info: PackageInfo, show_result: Option<PathBuf>, docker_opts: DockerOpts) -> Result<FullValue, TestError> {
     // Query the user what they'd like to do (we quickly convert the common Type to a ClassDef)
     let (function, mut args) = prompt_for_input(&info.name, &info.version, &info.functions, info.types.iter().map(|(n, t)| (n.clone(), ClassDef {
         name    : t.name.clone(),
@@ -425,7 +428,7 @@ pub async fn test_generic(info: PackageInfo, show_result: Option<PathBuf>) -> Re
     );
 
     // We run it by spinning up an offline VM
-    let mut state: OfflineVmState = match initialize_offline_vm(ParserOptions::bscript()) {
+    let mut state: OfflineVmState = match initialize_offline_vm(ParserOptions::bscript(), docker_opts) {
         Ok(state) => state,
         Err(err)  => { return Err(TestError::InitializeError{ err }); },
     };

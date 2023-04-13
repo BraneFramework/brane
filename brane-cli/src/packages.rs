@@ -22,7 +22,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use brane_dsl::DataType;
 use brane_shr::debug::PrettyListFormatter;
-use brane_tsk::docker;
+use brane_tsk::docker::{self, DockerOptions};
 use specifications::container::Image;
 use specifications::package::PackageInfo;
 use specifications::version::Version;
@@ -330,12 +330,14 @@ pub async fn load(
 /// # Arguments
 ///  - `force`: Whether or not to force removal (remove the image from the Docker daemon even if there are still containers using it).
 ///  - `packages`: The list of (name, Version) pairs to remove.
+///  - `docker_opts`: Configuration for how to connect to the local Docker daemon.
 /// 
 /// # Returns  
 /// Nothing on success, or else an error.
 pub async fn remove(
     force: bool,
     packages: Vec<(String, Version)>,
+    docker_opts: DockerOptions,
 ) -> Result<(), PackageError> {
     // Iterate over the packages
     for (name, version) in packages {
@@ -371,7 +373,7 @@ pub async fn remove(
 
             // Remove that image from the Docker daemon
             let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
-            if let Err(err) = docker::remove_image(&image).await {
+            if let Err(err) = docker::remove_image(docker_opts, &image).await {
                 return Err(PackageError::DockerRemoveError{ image: Box::new(image), err });
             }
 
@@ -466,7 +468,7 @@ pub async fn remove(
 
             // Remove that image from the Docker daemon
             let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
-            if let Err(err) = docker::remove_image(&image).await {
+            if let Err(err) = docker::remove_image(docker_opts, &image).await {
                 return Err(PackageError::DockerRemoveError{ image: Box::new(image), err });
             }
         }

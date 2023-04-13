@@ -15,6 +15,8 @@ All notable changes to the Brane framework will be documented in this file.
 - `brane-prx` being able to proxy traffic through a SOCKS5 proxy.
   - To do this, the `proxy`-field in `node.yml` has a different syntax to select the target protocol [**breaking change**].
   - `branectl` has also been updated to reflect this.
+- Windows support for `make.py`.
+- Windows support for the `brane` CLI.
 - The `--local-aux` option to `branectl` such that it becomes easier to use pre-downloaded auxillary images.
 - Docker Buildx cache mounts (`--mount=type=cache`) to the compilation step, which should massively increase speed of repeated release builds.
 
@@ -28,6 +30,7 @@ All notable changes to the Brane framework will be documented in this file.
 - `make.py` to move the download capabilities to `branectl`, allowing for a friendlier (and easier) interface.
 - `aux-xenon` to be an image in the Brane release tar (central node).
 - The general layout of `node.yml` to be more sensible (it focusses on services rather than names, ports, etc) [**breaking change**]
+- The `socksx` dependency to use [our own fork](https://github.com/epi-project/socksx) instead of [Onno's repository](https://github.com/onnovalkering/socksx) to achieve Windows compatibility for the `brane` CLI (see above).
 - `main.py`'s output directory for `aux-xenon` now respects the build mode (i.e., release or `--dev`).
 - The `-m`/`--mode` option in `branectl` to `--image-dir`, for a more sensible mode.
 

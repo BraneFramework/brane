@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    01 Mar 2023, 11:14:27
+//    12 Apr 2023, 12:02:04
 //  Auto updated?
 //    Yes
 // 
@@ -34,6 +34,7 @@ use specifications::package::PackageIndex;
 
 pub use crate::errors::RunError as Error;
 use crate::errors::OfflineVmError;
+use crate::spec::DockerOpts;
 use crate::data;
 use crate::utils::{ensure_datasets_dir, ensure_packages_dir, get_datasets_dir, get_packages_dir};
 use crate::vm::OfflineVm;
@@ -226,14 +227,15 @@ pub fn initialize_dummy_vm(options: ParserOptions) -> Result<DummyVmState, Error
 /// Function that prepares a local, offline virtual machine by initializing the proper indices and whatnot.
 /// 
 /// # Arguments
-/// - `options`: The ParserOptions that describe how to parse the given source.
+/// - `parse_opts`: The ParserOptions that describe how to parse the given source.
+/// - `docker_opts`: The configuration of our Docker client.
 /// 
 /// # Returns
 /// The newly created virtual machine together with associated states as an OfflineVmState.
 /// 
 /// # Errors
 /// This function errors if we failed to get the new package indices or other information.
-pub fn initialize_offline_vm(options: ParserOptions) -> Result<OfflineVmState, Error> {
+pub fn initialize_offline_vm(parse_opts: ParserOptions, docker_opts: impl Into<DockerOpts>) -> Result<OfflineVmState, Error> {
     // Get the directory with the packages
     let packages_dir = match ensure_packages_dir(false) {
         Ok(dir)  => dir,
@@ -279,11 +281,11 @@ pub fn initialize_offline_vm(options: ParserOptions) -> Result<OfflineVmState, E
         pindex      : package_index.clone(),
         dindex      : data_index.clone(),
 
-        state  : CompileState::new(),
-        source : String::new(),
-        options,
+        state   : CompileState::new(),
+        source  : String::new(),
+        options : parse_opts,
 
-        vm : Some(OfflineVm::new(packages_dir, datasets_dir, temp_dir_path, package_index, data_index)),
+        vm : Some(OfflineVm::new(docker_opts, packages_dir, datasets_dir, temp_dir_path, package_index, data_index)),
     })
 }
 
@@ -715,10 +717,11 @@ pub async fn process_instance_result(api_endpoint: impl AsRef<str>, proxy_addr: 
 /// - `language`: The language with which to compile the file.
 /// - `file`: The file to read and run. Can also be '-', in which case it is read from stdin instead.
 /// - `profile`: If given, prints the profile timings to stdout if available.
+/// - `docker_opts`: The options with which we connect to the local Docker daemon.
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-pub async fn handle(proxy_addr: Option<String>, language: Language, file: PathBuf, dummy: bool, remote: bool, profile: bool) -> Result<(), Error> {
+pub async fn handle(proxy_addr: Option<String>, language: Language, file: PathBuf, dummy: bool, remote: bool, profile: bool, docker_opts: impl Into<DockerOpts>) -> Result<(), Error> {
     // Either read the file or read stdin
     let (what, source_code): (Cow<str>, String) = if file == PathBuf::from("-") {
         let mut result: String = String::new();
@@ -746,7 +749,7 @@ pub async fn handle(proxy_addr: Option<String>, language: Language, file: PathBu
             // Run the thing
             remote_run(info.api.to_string(), info.drv.to_string(), proxy_addr, options, what, source_code, profile).await
         } else {
-            local_run(options, what, source_code).await
+            local_run(options, docker_opts, what, source_code).await
         }
     } else {
         dummy_run(options, what, source_code).await
@@ -782,18 +785,19 @@ async fn dummy_run(options: ParserOptions, what: impl AsRef<str>, source: impl A
 /// Runs the given file on the local machine.
 /// 
 /// # Arguments
-/// - `options`: The ParseOptions that specify how to parse the incoming source.
+/// - `parse_opts`: The ParseOptions that specify how to parse the incoming source.
+/// - `docker_opts`: The options with which we connect to the local Docker daemon.
 /// - `what`: A description of the source we're reading (e.g., the filename or `<stdin>`)
 /// - `source`: The source code to read.
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-async fn local_run(options: ParserOptions, what: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), Error> {
+async fn local_run(parse_opts: ParserOptions, docker_opts: impl Into<DockerOpts>, what: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), Error> {
     let what      : &str  = what.as_ref();
     let source    : &str  = source.as_ref();
 
     // First we initialize the remote thing
-    let mut state: OfflineVmState = initialize_offline_vm(options)?;
+    let mut state: OfflineVmState = initialize_offline_vm(parse_opts, docker_opts)?;
     // Next, we run the VM (one snippet only ayway)
     let res: FullValue = run_offline_vm(&mut state, what, source).await?;
     // Then, we collect and process the result

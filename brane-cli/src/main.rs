@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 14:34:28
 //  Last edited:
-//    30 Jan 2023, 14:30:40
+//    12 Apr 2023, 10:15:45
 //  Auto updated?
 //    Yes
 // 
@@ -34,7 +34,7 @@ use specifications::package::PackageKind;
 use specifications::version::Version as SemVersion;
 
 use brane_cli::{build_ecu, build_oas, certs, data, instance, packages, registry, repl, run, test, verify, version};
-use brane_cli::errors::{CliError, BuildError, ImportError};
+use brane_cli::errors::{CliError, ImportError};
 use brane_cli::spec::Hostname;
 
 
@@ -390,7 +390,13 @@ enum InstanceSubcommand {
 
         /// Whether to query for permission or not (but negated).
         #[clap(short, long, help = "If given, does not ask for permission before removing the instances. Use at your own risk.")]
-        force : bool,
+        force          : bool,
+        /// The Docker socket location.
+        #[clap(short='s', long, default_value = "/var/run/docker.sock", help = "The path to the Docker socket with which we communicate with the dameon.")]
+        docker_socket  : PathBuf,
+        /// The Docker client version.
+        #[clap(short='v', long, default_value = "", help = "The API version with which we connect.")]
+        client_version : ClientVersion,
     },
 
     #[clap(name = "list", about = "Lists the registered instances.")]
@@ -471,6 +477,9 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Create the directory structure if it does not yet exist
+    if let Err(err) = generate_structure() {  }
+
     // Run the subcommand given
     match run(options).await {
         Ok(_) => process::exit(0),
@@ -520,16 +529,10 @@ async fn run(options: Cli) -> Result<(), CliError> {
                 }
             };
 
-            // Determine the host architecture
-            let host_arch = match Arch::host() {
-                Ok(arch) => arch,
-                Err(err) => { return Err(CliError::BuildError{ err: BuildError::HostArchError{ err } }); }
-            };
-
             // Build a new package with it
             match kind {
-                PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(host_arch), workdir, file, init, keep_files).await.map_err(|err| CliError::BuildError{ err })?,
-                PackageKind::Oas => build_oas::handle(arch.unwrap_or(host_arch), workdir, file, init, keep_files).await.map_err(|err| CliError::BuildError{ err })?,
+                PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, keep_files).await.map_err(|err| CliError::BuildError{ err })?,
+                PackageKind::Oas => build_oas::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, keep_files).await.map_err(|err| CliError::BuildError{ err })?,
                 _                => eprintln!("Unsupported package kind: {kind}"),
             }
         }
@@ -627,16 +630,10 @@ async fn run(options: Cli) -> Result<(), CliError> {
                 }
             };
 
-            // Determine the host architecture
-            let host_arch = match Arch::host() {
-                Ok(arch) => arch,
-                Err(err) => { return Err(CliError::BuildError{ err: BuildError::HostArchError{ err } }); }
-            };
-
             // Build a new package with it
             match kind {
-                PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(host_arch), workdir, file, init, false).await.map_err(|err| CliError::BuildError{ err })?,
-                PackageKind::Oas => build_oas::handle(arch.unwrap_or(host_arch), workdir, file, init, false).await.map_err(|err| CliError::BuildError{ err })?,
+                PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, false).await.map_err(|err| CliError::BuildError{ err })?,
+                PackageKind::Oas => build_oas::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, false).await.map_err(|err| CliError::BuildError{ err })?,
                 _                => eprintln!("Unsupported package kind: {kind}"),
             }
         }

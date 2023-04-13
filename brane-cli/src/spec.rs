@@ -4,7 +4,7 @@
 //  Created:
 //    28 Nov 2022, 15:56:23
 //  Last edited:
-//    26 Jan 2023, 10:05:09
+//    12 Apr 2023, 11:56:23
 //  Auto updated?
 //    Yes
 // 
@@ -12,12 +12,13 @@
 //!   Defines (public) interfaces and structs in the `brane-cli` crate.
 // 
 
-use std::fmt::{Display, Formatter, Result as FResult};
+use std::fmt::{Debug, Display, Formatter, Result as FResult};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use brane_exe::spec::CustomGlobalState;
+use brane_tsk::docker::DockerOptions;
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 
@@ -114,6 +115,9 @@ impl FromStr for Hostname {
 /// The global state for the OfflineVm.
 #[derive(Clone, Debug)]
 pub struct GlobalState {
+    /// The information we want to know for Docker
+    pub docker_opts : DockerOptions,
+
     /// The path to the directory where packages (and thus container images) are stored for this session.
     pub package_dir : PathBuf,
     /// The path to the directory where datasets (where we wanna copy results) are stored for this session.

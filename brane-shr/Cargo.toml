@@ -8,6 +8,7 @@ edition = "2018"
 async-compression = { version = "0.3.15", features = ["tokio","gzip"] }
 console = "0.15"
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
+fs2 = "0.4"
 futures-util = "0.3"
 hex = "0.4.3"
 indicatif = "0.17"

@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    30 Jan 2023, 14:36:13
+//    10 Apr 2023, 11:32:29
 //  Auto updated?
 //    Yes
 // 
@@ -17,7 +17,6 @@ use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fs::{self, DirEntry, File, ReadDir};
 use std::io::{Read, Write};
-use std::os::unix::fs as ufs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -529,7 +528,12 @@ pub fn select(name: String) -> Result<(), Error> {
 
     // Now create the new one
     debug!("Generating new link...");
-    if let Err(err) = ufs::symlink(&dir, &link_path) { return Err(Error::ActiveInstanceCreateError{ path: link_path, target: dir, err }); }
+    #[cfg(unix)]
+    if let Err(err) = std::os::unix::fs::symlink(&dir, &link_path) { return Err(Error::ActiveInstanceCreateError{ path: link_path, target: dir, err }); }
+    #[cfg(windows)]
+    if let Err(err) = std::os::windows::fs::symlink_dir(&dir, &link_path) { return Err(Error::ActiveInstanceCreateError{ path: link_path, target: dir, err }); }
+    #[cfg(not(any(unix, windows)))]
+    compile_error!("Non-Unix, non-Windows OS not supported.");
 
     // Done
     println!("Successfully switched to {}", style(name).bold().cyan());

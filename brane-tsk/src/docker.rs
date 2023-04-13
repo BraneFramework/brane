@@ -4,7 +4,7 @@
 //  Created:
 //    19 Sep 2022, 14:57:17
 //  Last edited:
-//    01 Mar 2023, 10:58:14
+//    13 Apr 2023, 09:53:11
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use base64ct::{Base64, Encoding};
-pub use bollard::{API_DEFAULT_VERSION, ClientVersion, Docker};
+pub use bollard::{API_DEFAULT_VERSION, Docker};
 use bollard::container::{
     Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions, StartContainerOptions,
     WaitContainerOptions
@@ -46,7 +46,7 @@ use specifications::data::AccessKind;
 use specifications::package::Capability;
 
 pub use crate::errors::DockerError as Error;
-use crate::errors::ExecuteError;
+use crate::errors::{ClientVersionParseError, ExecuteError};
 
 
 /***** CONSTANTS *****/
@@ -76,6 +76,40 @@ struct DockerImageManifest {
 
 
 /***** AUXILLARY STRUCTS *****/
+/// Defines a wrapper around ClientVersion that allows it to be parsed.
+#[derive(Clone, Copy, Debug)]
+pub struct ClientVersion(pub bollard::ClientVersion);
+impl FromStr for ClientVersion {
+    type Err = ClientVersionParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Find the dot to split on
+        let dot_pos: usize = match s.find('.') {
+            Some(pos) => pos,
+            None      => { return Err(ClientVersionParseError::MissingDot{ raw: s.into() }); },
+        };
+
+        // Split it
+        let major: &str = &s[..dot_pos];
+        let minor: &str = &s[dot_pos + 1..];
+
+        // Attempt to parse each of them as the appropriate integer type
+        let major: usize = match usize::from_str(major) {
+            Ok(major) => major,
+            Err(err)  => { return Err(ClientVersionParseError::IllegalMajorNumber{ raw: s.into(), err }); },
+        };
+        let minor: usize = match usize::from_str(minor) {
+            Ok(minor) => minor,
+            Err(err)  => { return Err(ClientVersionParseError::IllegalMinorNumber{ raw: s.into(), err }); },
+        };
+
+        // Done, return the value
+        Ok(ClientVersion(bollard::ClientVersion{ major_version: major, minor_version: minor }))
+    }
+}
+
+
+
 /// Defines a serializer for the ImageSource.
 #[derive(Debug)]
 pub struct ImageSourceSerializer<'a> {
@@ -241,6 +275,31 @@ impl From<&Network> for String {
 
 
 
+/// Collects information we need to know to connect to the (local) Docker daemon.
+#[derive(Clone, Debug)]
+pub struct DockerOptions {
+    /// The path to the socket with which we connect.
+    pub socket  : PathBuf,
+    /// The client API version we use.
+    pub version : ClientVersion,
+}
+impl AsRef<DockerOptions> for DockerOptions {
+    #[inline]
+    fn as_ref(&self) -> &Self { self }
+}
+impl AsMut<DockerOptions> for DockerOptions {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self { self }
+}
+impl From<&DockerOptions> for DockerOptions {
+    #[inline]
+    fn from(value: &DockerOptions) -> Self { value.clone() }
+}
+impl From<&mut DockerOptions> for DockerOptions {
+    #[inline]
+    fn from(value: &mut DockerOptions) -> Self { value.clone() }
+}
+
 /// Collects information we need to perform a container call.
 #[derive(Clone, Debug)]
 pub struct ExecuteInfo {
@@ -260,7 +319,6 @@ pub struct ExecuteInfo {
     /// The netwok to connect the container to.
     pub network      : Network,
 }
-
 impl ExecuteInfo {
     /// Constructor for the ExecuteInfo.
     ///
@@ -633,22 +691,29 @@ async fn pull_image(docker: &Docker, image: impl Into<Image>, source: impl Into<
 /// Creates a new connection to the local Docker daemon.
 /// 
 /// # Arguments
-/// - `path`: The path to the Docker socket to connect to.
-/// - `version`: The version of the client we use to connect to the daemon.
+/// - `opts`: The DockerOptions that contains information on how we can connect to the local daemon.
 /// 
 /// # Returns
 /// A new `Docker`-instance that may be used in some of the other functions in this module.
 /// 
 /// # Errors
 /// This function errors if we could not connect to the local daemon.
-pub fn connect_local(path: impl AsRef<Path>, version: ClientVersion) -> Result<Docker, Error> {
-    let path: &Path = path.as_ref();
+pub fn connect_local(opts: impl AsRef<DockerOptions>) -> Result<Docker, Error> {
+    let opts: &DockerOptions = opts.as_ref();
 
     // Connect to docker
-    match Docker::connect_with_unix(&path.to_string_lossy(), 900, &version) {
+    #[cfg(unix)]
+    match Docker::connect_with_unix(&opts.socket.to_string_lossy(), 900, &opts.version.0) {
         Ok(res)     => Ok(res),
-        Err(reason) => Err(Error::ConnectionError{ path: path.into(), version, err: reason }),
+        Err(reason) => Err(Error::ConnectionError{ path: opts.socket.clone(), version: opts.version.0, err: reason }),
     }
+    #[cfg(windows)]
+    match Docker::connect_with_named_pipe(&opts.socket.to_string_lossy(), 900, &opts.version.0) {
+        Ok(res)     => Ok(res),
+        Err(reason) => Err(Error::ConnectionError { path: opts.socket.clone(), version: opts.version.0, err: reason }),
+    }
+    #[cfg(not(any(unix, windows)))]
+    compile_error!("Non-Unix, non-Windows OS not supported.");
 }
 
 /// Helps any VM aiming to use Docker by preprocessing the given list of arguments and function result into a list of bindings (and resolving the the arguments while at it).
@@ -928,18 +993,17 @@ pub async fn save_image(docker: &Docker, image: impl Into<Image>, target: impl A
 /// Note that this function makes its own connection to the local Docker daemon.
 ///
 /// # Arguments
+/// - `opts`: The DockerOptions that contains information on how we can connect to the local daemon.
 /// - `exec`: The ExecuteInfo that describes the job to launch.
-/// - `path`: The path to the Docker socket to connect to.
-/// - `version`: The version of the client we use to connect to the daemon.
 /// 
 /// # Returns
 /// The name of the container such that it can be waited on later.
 /// 
 /// # Errors
 /// This function errors for many reasons, some of which include not being able to connect to Docker or the container failing (to start).
-pub async fn launch(exec: ExecuteInfo, path: impl AsRef<Path>, version: ClientVersion) -> Result<String, Error> {
+pub async fn launch(opts: impl AsRef<DockerOptions>, exec: ExecuteInfo) -> Result<String, Error> {
     // Connect to docker
-    let docker: Docker = connect_local(path, version)?;
+    let docker: Docker = connect_local(opts)?;
 
     // Either import or pull image, if not already present
     ensure_image(&docker, &exec.image, &exec.image_source).await?;
@@ -951,9 +1015,8 @@ pub async fn launch(exec: ExecuteInfo, path: impl AsRef<Path>, version: ClientVe
 /// Joins the container with the given name, i.e., waits for it to complete and returns its results.
 /// 
 /// # Arguments
+/// - `opts`: The DockerOptions that contains information on how we can connect to the local daemon.
 /// - `name`: The name of the container to wait for.
-/// - `path`: The path to the Docker socket to connect to.
-/// - `version`: The version of the client we use to connect to the daemon.
 /// - `keep_container`: If true, then will not remove the container after it has been launched. This is very useful for debugging.
 /// 
 /// # Returns
@@ -961,11 +1024,11 @@ pub async fn launch(exec: ExecuteInfo, path: impl AsRef<Path>, version: ClientVe
 /// 
 /// # Errors
 /// This function may error for many reasons, which usually means that the container is unknown or the Docker engine is unreachable.
-pub async fn join(name: impl AsRef<str>, path: impl AsRef<Path>, version: ClientVersion, keep_container: bool) -> Result<(i32, String, String), Error> {
+pub async fn join(opts: impl AsRef<DockerOptions>, name: impl AsRef<str>, keep_container: bool) -> Result<(i32, String, String), Error> {
     let name : &str  = name.as_ref();
 
     // Connect to docker
-    let docker: Docker = connect_local(path, version)?;
+    let docker: Docker = connect_local(opts)?;
 
     // And now wait for it
     join_container(&docker, name, keep_container).await
@@ -976,6 +1039,7 @@ pub async fn join(name: impl AsRef<str>, path: impl AsRef<Path>, version: Client
 /// Note that this function makes its own connection to the local Docker daemon.
 ///
 /// # Arguments
+/// - `opts`: The DockerOptions that contains information on how we can connect to the local daemon.
 /// - `exec`: The ExecuteInfo describing what to launch and how.
 /// - `keep_container`: If true, then will not remove the container after it has been launched. This is very useful for debugging.
 /// 
@@ -984,10 +1048,10 @@ pub async fn join(name: impl AsRef<str>, path: impl AsRef<Path>, version: Client
 /// 
 /// # Errors
 /// This function errors for many reasons, some of which include not being able to connect to Docker or the container failing.
-pub async fn run_and_wait(exec: ExecuteInfo, keep_container: bool) -> Result<(i32, String, String), Error> {
+pub async fn run_and_wait(opts: impl AsRef<DockerOptions>, exec: ExecuteInfo, keep_container: bool) -> Result<(i32, String, String), Error> {
     // This next bit's basically launch but copied so that we have a docker connection of our own.
     // Connect to docker
-    let docker: Docker = connect_local("/var/run/docker.sock", *API_DEFAULT_VERSION)?;
+    let docker: Docker = connect_local(opts)?;
 
     // Either import or pull image, if not already present
     ensure_image(&docker, &exec.image, &exec.image_source).await?;
@@ -1004,15 +1068,16 @@ pub async fn run_and_wait(exec: ExecuteInfo, keep_container: bool) -> Result<(i3
 /// Note that this function makes a separate connection to the local Docker instance.
 /// 
 /// # Arguments
+/// - `opts`: The DockerOptions that contains information on how we can connect to the local daemon.
 /// - `name`: The name of the container to fetch the address of.
 /// 
 /// # Returns
 /// The address of the container as a string on success, or an ExecutorError otherwise.
-pub async fn get_container_address(name: impl AsRef<str>) -> Result<String, Error> {
+pub async fn get_container_address(opts: impl AsRef<DockerOptions>, name: impl AsRef<str>) -> Result<String, Error> {
     let name: &str = name.as_ref();
 
     // Try to connect to the local instance
-    let docker: Docker = connect_local("/var/run/docker.sock", *API_DEFAULT_VERSION)?;
+    let docker: Docker = connect_local(opts)?;
 
     // Try to inspect the container in question
     let container = match docker.inspect_container(name.as_ref(), None).await {
@@ -1044,13 +1109,14 @@ pub async fn get_container_address(name: impl AsRef<str>) -> Result<String, Erro
 /// Note that this function makes a separate connection to the local Docker instance.
 /// 
 /// # Arguments
+/// - `opts`: The DockerOptions that contains information on how we can connect to the local daemon.
 /// - `name`: The name of the image to remove.
 /// 
 /// # Errors
 /// This function errors if removing the image failed. Reasons for this may be if the image did not exist, the Docker engine was not reachable, or ...
-pub async fn remove_image(image: &Image) -> Result<(), Error> {
+pub async fn remove_image(opts: impl AsRef<DockerOptions>, image: &Image) -> Result<(), Error> {
     // Try to connect to the local instance
-    let docker: Docker = connect_local("/var/run/docker.sock", *API_DEFAULT_VERSION)?;
+    let docker: Docker = connect_local(opts)?;
 
     // Check if the image still exists
     let info = docker.inspect_image(&image.name()).await;

@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    28 Mar 2023, 10:40:26
+//    13 Apr 2023, 10:06:17
 //  Auto updated?
 //    Yes
 // 
@@ -40,100 +40,57 @@ lazy_static::lazy_static!{
 
 
 /***** AUXILLARY *****/
-/// A formatter for architectures that writes it in a way that Brane understands.
-#[derive(Debug)]
-pub struct ArchBraneFormatter<'a> {
-    /// The architecture to format.
-    arch : &'a Arch,
-}
-impl<'a> Display for ArchBraneFormatter<'a> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        match self.arch {
-            Arch::X86_64  => write!(f, "x86_64"),
-            Arch::Aarch64 => write!(f, "aarch64"),
-        }
-    }
-}
+// /// A formatter for architectures that writes it in a way that Brane understands.
+// #[derive(Debug)]
+// pub struct ArchBraneFormatter<'a> {
+//     /// The architecture to format.
+//     arch : &'a Arch,
+// }
+// impl<'a> Display for ArchBraneFormatter<'a> {
+//     #[inline]
+//     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+//         match self.arch {
+//             Arch::X86_64  => write!(f, "x86_64"),
+//             Arch::Aarch64 => write!(f, "aarch64"),
+//         }
+//     }
+// }
 
-/// Defines the possible architectures for which we can download images.
-#[derive(Clone, Copy, Debug, EnumDebug)]
-pub enum Arch {
-    /// Typical Intel/AMD machines.
-    X86_64,
-    /// Apple ARM
-    Aarch64,
-}
-impl Arch {
-    /// Returns a formatter that writes the architecture in a Brane-friendly way.
-    #[inline]
-    pub fn brane(&self) -> ArchBraneFormatter { ArchBraneFormatter{ arch: self } }
-}
-impl FromStr for Arch {
-    type Err = ArchParseError;
+// /// Defines the possible architectures for which we can download images.
+// #[derive(Clone, Copy, Debug, EnumDebug)]
+// pub enum Arch {
+//     /// Typical Intel/AMD machines.
+//     X86_64,
+//     /// Apple ARM
+//     Aarch64,
+// }
+// impl Arch {
+//     /// Returns a formatter that writes the architecture in a Brane-friendly way.
+//     #[inline]
+//     pub fn brane(&self) -> ArchBraneFormatter { ArchBraneFormatter{ arch: self } }
+// }
+// impl FromStr for Arch {
+//     type Err = ArchParseError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            // User-specified ones
-            "x86_64"  | "amd64" => Ok(Self::X86_64),
-            "aarch64" | "arm64" => Ok(Self::Aarch64),
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         match s {
+//             // User-specified ones
+//             "x86_64"  | "amd64" => Ok(Self::X86_64),
+//             "aarch64" | "arm64" => Ok(Self::Aarch64),
 
-            // Meta-argument for resolving the local architecture
-            "$LOCAL" => {
-                // Prepare our magic command to run (`uname -m`)
-                let mut cmd: Command = Command::new("uname");
-                cmd.arg("-m");
+//             // Meta-argument for resolving the local architecture
+//             #[cfg(target_arch = "x86_64")]
+//             "$LOCAL" => Ok(Self::X86_64),
+//             #[cfg(target_arch = "aarch64")]
+//             "$LOCAL" => Ok(Self::Aarch64),
+//             #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+//             "$LOCAL" => { compile_error!("Non-x86/64, non-aarch64 processor architecture not supported"); },
 
-                // Call it
-                let res: Output = match cmd.output() {
-                    Ok(res)  => res,
-                    Err(err) => { return Err(ArchParseError::SpawnError{ command: cmd, err }); },
-                };
-                if !res.status.success() { return Err(ArchParseError::SpawnFailure { command: cmd, status: res.status, err: String::from_utf8_lossy(&res.stderr).into() }); }
-
-                // Attempt to parse the default output again
-                Self::from_str(String::from_utf8_lossy(&res.stdout).trim())
-            },
-
-            // Any other is a failure
-            _ => Err(ArchParseError::UnknownArch{ raw: s.into() }),
-        }
-    }
-}
-
-
-
-/// Defines a wrapper around ClientVersion that allows it to be parsed.
-#[derive(Clone, Copy, Debug)]
-pub struct DockerClientVersion(pub ClientVersion);
-impl FromStr for DockerClientVersion {
-    type Err = DockerClientVersionParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Find the dot to split on
-        let dot_pos: usize = match s.find('.') {
-            Some(pos) => pos,
-            None      => { return Err(DockerClientVersionParseError::MissingDot{ raw: s.into() }); },
-        };
-
-        // Split it
-        let major: &str = &s[..dot_pos];
-        let minor: &str = &s[dot_pos + 1..];
-
-        // Attempt to parse each of them as the appropriate integer type
-        let major: usize = match usize::from_str(major) {
-            Ok(major) => major,
-            Err(err)  => { return Err(DockerClientVersionParseError::IllegalMajorNumber{ raw: s.into(), err }); },
-        };
-        let minor: usize = match usize::from_str(minor) {
-            Ok(minor) => minor,
-            Err(err)  => { return Err(DockerClientVersionParseError::IllegalMinorNumber{ raw: s.into(), err }); },
-        };
-
-        // Done, return the value
-        Ok(DockerClientVersion(ClientVersion{ major_version: major, minor_version: minor }))
-    }
-}
+//             // Any other is a failure
+//             _ => Err(ArchParseError::UnknownArch{ raw: s.into() }),
+//         }
+//     }
+// }
 
 
 
@@ -241,7 +198,7 @@ pub struct StartDockerOpts {
     /// The location of the Docker socket with which to connect.
     pub socket  : PathBuf,
     /// The client version with which to connect.
-    pub version : DockerClientVersion, 
+    pub version : ClientVersion, 
 }
 
 /// Defines a collection of options to pass to the `start`-subcommand handler.
@@ -281,7 +238,7 @@ pub enum DownloadServicesSubcommand {
         socket         : PathBuf,
         /// The client version to connect with.
         #[clap(short, long, default_value=API_DEFAULT_VERSION.as_str(), help="The client version to connect to the Docker instance with.")]
-        client_version : DockerClientVersion,
+        client_version : ClientVersion,
     },
 }
 
@@ -515,7 +472,7 @@ pub enum GenerateBackendSubcommand {
         socket         : PathBuf,
         /// The client version to connect to the local Docker daemon with.
         #[clap(short, long, help = "If given, fixes the Docker client version to the given one.")]
-        client_version : Option<DockerClientVersion>,
+        client_version : Option<ClientVersion>,
     },
 }
 

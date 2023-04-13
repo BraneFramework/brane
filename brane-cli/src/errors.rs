@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    01 Mar 2023, 11:14:19
+//    11 Apr 2023, 14:54:32
 //  Auto updated?
 //    Yes
 // 
@@ -122,12 +122,14 @@ pub enum BuildError {
     /// Could not properly convert the OpenAPI document into a PackageInfo
     PackageInfoFromOpenAPIError{ err: anyhow::Error },
 
-    /// A lock file exists for the current building package, so wait
-    LockFileExists{ path: PathBuf },
-    /// Could not create a file lock for system reasons
-    LockCreateError{ path: PathBuf, err: std::io::Error },
-    /// Failed to cleanup the .lock file from the build directory after a successfull build.
-    LockCleanupError{ path: PathBuf, err: std::io::Error },
+    // /// A lock file exists for the current building package, so wait
+    // LockFileExists{ path: PathBuf },
+    // /// Could not create a file lock for system reasons
+    // LockCreateError{ path: PathBuf, err: std::io::Error },
+    // /// Failed to cleanup the .lock file from the build directory after a successfull build.
+    // LockCleanupError{ path: PathBuf, err: std::io::Error },
+    /// Failed to create a LockFile.
+    LockCreateError{ name: String, err: brane_shr::fs::Error },
 
     /// Could not write to the DockerFile string.
     DockerfileStrWriteError{ err: std::fmt::Error },
@@ -242,9 +244,10 @@ impl Display for BuildError {
             VersionParseError{ err }           => write!(f, "Could not parse OAS Document version number: {err}"),
             PackageInfoFromOpenAPIError{ err } => write!(f, "Could not convert the OAS Document into a Package Info file: {err}"),
 
-            LockFileExists{ path }        => write!(f, "The build directory '{}' is busy; try again later (a lock file exists)", path.display()),
-            LockCreateError{ path, err }  => write!(f, "Could not create lock file '{}': {}", path.display(), err),
-            LockCleanupError{ path, err } => write!(f, "Could not clean the lock file ('{}') from build directory: {}", path.display(), err),
+            // LockFileExists{ path }        => write!(f, "The build directory '{}' is busy; try again later (a lock file exists)", path.display()),
+            // LockCreateError{ path, err }  => write!(f, "Could not create lock file '{}': {}", path.display(), err),
+            // LockCleanupError{ path, err } => write!(f, "Could not clean the lock file ('{}') from build directory: {}", path.display(), err),
+            LockCreateError{ name, err } => write!(f, "Failed to create lockfile for package '{name}': {err}"),
 
             DockerfileStrWriteError{ err } => write!(f, "Could not write to the internal DockerFile: {err}"),
             UnsafePath{ path }             => write!(f, "File '{path}' tries to escape package working directory; consider moving Brane's working directory up (using --workdir) and avoid '..'"),
@@ -1259,6 +1262,27 @@ impl Display for UtilError {
     }
 }
 impl Error for UtilError {}
+
+
+
+/// Defines errors that relate to finding our directories.
+#[derive(Debug)]
+pub enum DirError {
+    /// Failed to find a user directory. The `what` hints at the kind of user directory (fill in "<WHAT> directory", e.g., "config", "data", ...)
+    UserDirError{ what: &'static str },
+    /// Failed to read the softlink.
+    SoftlinkReadError{ path: PathBuf, err: std::io::Error },
+}
+impl Display for DirError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use DirError::*;
+        match self {
+            UserDirError{ what }           => write!(f, "Failed to find user {} directory", what),
+            SoftlinkReadError{ path, err } => write!(f, "Failed to read softlink '{}': {}", path.display(), err),
+        }
+    }
+}
+impl Error for DirError {}
 
 
 

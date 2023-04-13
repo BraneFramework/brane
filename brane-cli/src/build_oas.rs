@@ -9,11 +9,12 @@ use brane_oas::{self, build};
 use console::style;
 use openapiv3::OpenAPI;
 
+use brane_shr::fs::FileLock;
 use specifications::arch::Arch;
 use specifications::package::{PackageKind, PackageInfo};
 use specifications::version::Version;
 
-use crate::build_common::{BRANELET_URL, build_docker_image, clean_directory, LockHandle};
+use crate::build_common::{BRANELET_URL, build_docker_image, clean_directory};
 use crate::errors::BuildError;
 use crate::utils::ensure_package_dir;
 
@@ -53,7 +54,10 @@ pub async fn handle(
 
     // Lock the directory, build, unlock the directory
     {
-        let _lock = LockHandle::lock(&package_info.name, package_dir.join(".lock"))?;
+        let _lock = match FileLock::lock(&package_info.name, &package_info.version, package_dir.join(".lock")) {
+            Ok(lock) => lock,
+            Err(err) => { return Err(BuildError::LockCreateError{ name: package_info.name, err }); },
+        };
         build(arch, document, package_info, &package_dir, branelet_path, keep_files).await?;
     };
 
