@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    01 Mar 2023, 11:21:35
+//    13 Apr 2023, 09:56:58
 //  Auto updated?
 //    Yes
 // 
@@ -518,10 +518,18 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             if node_config.node.kind() != NodeKind::Central { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Central, expected: node_config.node.kind() }); }
 
             // Connect to the Docker client
+            #[cfg(unix)]
             let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
                 Ok(docker) => docker,
                 Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
             };
+            #[cfg(windows)]
+            let docker: Docker = match Docker::connect_with_named_pipe(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
+                Ok(docker) => docker,
+                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
+            };
+            #[cfg(not(any(unix, windows)))]
+            compile_error!("Non-Unix, non-Windows OS not supported");
 
             // Generate hosts file
             let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir)?;
@@ -554,10 +562,18 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             if node_config.node.kind() != NodeKind::Worker  { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Worker, expected: node_config.node.kind() }); }
 
             // Connect to the Docker client
+            #[cfg(unix)]
             let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
                 Ok(docker) => docker,
                 Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
             };
+            #[cfg(windows)]
+            let docker: Docker = match Docker::connect_with_named_pipe(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
+                Ok(docker) => docker,
+                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
+            };
+            #[cfg(not(any(unix, windows)))]
+            compile_error!("Non-Unix, non-Windows OS not supported");
 
             // Generate hosts file
             let hostfile: Option<PathBuf> = generate_override_file(node_config.node.kind(), &node_config.hostnames, opts.profile_dir)?;

@@ -4,7 +4,7 @@
 //  Created:
 //    19 Sep 2022, 14:57:17
 //  Last edited:
-//    12 Apr 2023, 13:01:18
+//    13 Apr 2023, 09:53:11
 //  Auto updated?
 //    Yes
 // 
@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use base64ct::{Base64, Encoding};
-pub use bollard::Docker;
+pub use bollard::{API_DEFAULT_VERSION, Docker};
 use bollard::container::{
     Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions, StartContainerOptions,
     WaitContainerOptions

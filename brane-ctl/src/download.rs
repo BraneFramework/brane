@@ -4,7 +4,7 @@
 //  Created:
 //    20 Feb 2023, 14:59:16
 //  Last edited:
-//    01 Mar 2023, 11:26:21
+//    13 Apr 2023, 09:56:02
 //  Auto updated?
 //    Yes
 // 
@@ -20,15 +20,16 @@ use std::path::{Path, PathBuf};
 use console::{style, Style};
 use enum_debug::EnumDebug as _;
 use log::{debug, info, warn};
-use specifications::version::Version;
 use tempfile::TempDir;
 
 use brane_shr::fs::{download_file_async, move_path_async, unarchive_async, DownloadSecurity};
-use brane_tsk::docker::{connect_local, ensure_image, save_image, Docker, ImageSource};
+use brane_tsk::docker::{connect_local, ensure_image, save_image, Docker, DockerOptions, ImageSource};
+use specifications::arch::Arch;
 use specifications::container::Image;
+use specifications::version::Version;
 
 pub use crate::errors::DownloadError as Error;
-use crate::spec::{Arch, DownloadServicesSubcommand};
+use crate::spec::DownloadServicesSubcommand;
 
 
 /***** CONSTANTS *****/
@@ -212,7 +213,7 @@ pub async fn services(fix_dirs: bool, path: impl AsRef<Path>, arch: Arch, versio
 
         DownloadServicesSubcommand::Auxillary{ socket, client_version } => {
             // Attempt to connect to the local Docker daemon.
-            let docker: Docker = match connect_local(socket, client_version.0) {
+            let docker: Docker = match connect_local(DockerOptions{ socket: socket.clone(), version: *client_version }) {
                 Ok(docker) => docker,
                 Err(err)   => { return Err(Error::DockerConnectError{ err }); },
             };
