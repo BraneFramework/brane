@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 16:23:37
 //  Last edited:
-//    12 Apr 2023, 10:12:10
+//    13 Apr 2023, 10:29:30
 //  Auto updated?
 //    Yes
 // 
@@ -27,13 +27,13 @@ use brane_ast::{DataType, ParserOptions};
 use brane_ast::spec::BuiltinClasses;
 use brane_ast::ast::{ClassDef, VarDef};
 use brane_exe::FullValue;
+use brane_tsk::docker::DockerOptions;
 use specifications::common::Function;
 use specifications::data::DataIndex;
 use specifications::package::PackageInfo;
 use specifications::version::Version;
 
 use crate::errors::TestError;
-use crate::spec::DockerOpts;
 use crate::utils::{ensure_datasets_dir, ensure_package_dir};
 use crate::run::{initialize_offline_vm, run_offline_vm, OfflineVmState};
 
@@ -371,7 +371,7 @@ fn write_value(value: FullValue) -> String {
 /// 
 /// # Errors
 /// This function errors if any part of that dance failed.
-pub async fn handle(name: impl Into<String>, version: Version, show_result: Option<PathBuf>, docker_opts: DockerOpts) -> Result<(), TestError> {
+pub async fn handle(name: impl Into<String>, version: Version, show_result: Option<PathBuf>, docker_opts: DockerOptions) -> Result<(), TestError> {
     let name: String = name.into();
 
     // Read the package info of the given package
@@ -403,7 +403,7 @@ pub async fn handle(name: impl Into<String>, version: Version, show_result: Opti
 /// 
 /// # Returns
 /// The value of the chosen function in that package (which may be Void this time).
-pub async fn test_generic(info: PackageInfo, show_result: Option<PathBuf>, docker_opts: DockerOpts) -> Result<FullValue, TestError> {
+pub async fn test_generic(info: PackageInfo, show_result: Option<PathBuf>, docker_opts: DockerOptions) -> Result<FullValue, TestError> {
     // Query the user what they'd like to do (we quickly convert the common Type to a ClassDef)
     let (function, mut args) = prompt_for_input(&info.name, &info.version, &info.functions, info.types.iter().map(|(n, t)| (n.clone(), ClassDef {
         name    : t.name.clone(),

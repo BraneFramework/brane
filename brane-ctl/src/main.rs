@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    13 Apr 2023, 10:00:05
+//    13 Apr 2023, 10:32:55
 //  Auto updated?
 //    Yes
 // 
@@ -21,11 +21,13 @@ use humanlog::{DebugMode, HumanLogger};
 use log::error;
 
 use brane_cfg::proxy::{ForwardConfig, ProxyProtocol};
+use brane_tsk::docker::{ClientVersion, DockerOptions};
 use specifications::address::Address;
+use specifications::arch::Arch;
 use specifications::package::Capability;
 use specifications::version::Version;
 
-use brane_ctl::spec::{API_DEFAULT_VERSION, Arch, DockerClientVersion, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, InclusiveRange, Pair, ResolvableNodeKind, StartDockerOpts, StartOpts, StartSubcommand};
+use brane_ctl::spec::{API_DEFAULT_VERSION, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, InclusiveRange, Pair, ResolvableNodeKind, StartOpts, StartSubcommand};
 use brane_ctl::{download, generate, lifetime, packages, unpack};
 
 
@@ -69,7 +71,7 @@ enum CtlSubcommand {
         #[clap(short = 'S', long, default_value = "/var/run/docker.sock", help = "The path of the Docker socket to connect to.")]
         docker_socket  : PathBuf,
         #[clap(short = 'V', long, default_value = API_DEFAULT_VERSION.as_str(), help = "The version of the Docker client API that we use to connect to the engine.")]
-        docker_version : DockerClientVersion,
+        docker_version : ClientVersion,
         /// The docker-compose command we run.
         #[clap(short, global=true, long, default_value = "docker compose", help = "The command to use to run Docker Compose.")]
         exe            : String,
@@ -341,7 +343,7 @@ async fn main() {
     // }
 
     // Initialize the logger
-    if let Err(err) = HumanLogger::terminal(if args.trace { DebugMode::Full } else if args.debug { DebugMode::Debug } else { DebugMode::Friendly }).init() {
+    if let Err(err) = HumanLogger::terminal(if args.trace { DebugMode::Full } else if args.debug { DebugMode::Debug } else { DebugMode::HumanFriendly }).init() {
         eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
     }
 
@@ -410,7 +412,7 @@ async fn main() {
         },
 
         CtlSubcommand::Start{ exe, file, docker_socket, docker_version, version, image_dir, local_aux, skip_import, profile_dir, kind, } => {
-            if let Err(err) = lifetime::start(exe, file, args.node_config, StartDockerOpts{ socket: docker_socket, version: docker_version }, StartOpts{ compose_verbose: args.debug || args.trace, version, image_dir, local_aux, skip_import, profile_dir }, *kind).await { error!("{}", err); std::process::exit(1); }
+            if let Err(err) = lifetime::start(exe, file, args.node_config, DockerOptions{ socket: docker_socket, version: docker_version }, StartOpts{ compose_verbose: args.debug || args.trace, version, image_dir, local_aux, skip_import, profile_dir }, *kind).await { error!("{}", err); std::process::exit(1); }
         },
         CtlSubcommand::Stop{ exe, file } => {
             if let Err(err) = lifetime::stop(args.debug || args.trace, exe, file, args.node_config) { error!("{}", err); std::process::exit(1); }

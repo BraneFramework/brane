@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    12 Apr 2023, 12:02:04
+//    13 Apr 2023, 10:31:15
 //  Auto updated?
 //    Yes
 // 
@@ -28,13 +28,13 @@ use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_exe::dummy::{DummyVm, Error as DummyVmError};
 use brane_tsk::spec::{LOCALHOST, AppId};
+use brane_tsk::docker::DockerOptions;
 use specifications::data::{AccessKind, DataIndex, DataInfo};
 use specifications::driving::{CreateSessionRequest, DriverServiceClient, ExecuteRequest};
 use specifications::package::PackageIndex;
 
 pub use crate::errors::RunError as Error;
 use crate::errors::OfflineVmError;
-use crate::spec::DockerOpts;
 use crate::data;
 use crate::utils::{ensure_datasets_dir, ensure_packages_dir, get_datasets_dir, get_packages_dir};
 use crate::vm::OfflineVm;
@@ -235,7 +235,7 @@ pub fn initialize_dummy_vm(options: ParserOptions) -> Result<DummyVmState, Error
 /// 
 /// # Errors
 /// This function errors if we failed to get the new package indices or other information.
-pub fn initialize_offline_vm(parse_opts: ParserOptions, docker_opts: impl Into<DockerOpts>) -> Result<OfflineVmState, Error> {
+pub fn initialize_offline_vm(parse_opts: ParserOptions, docker_opts: DockerOptions) -> Result<OfflineVmState, Error> {
     // Get the directory with the packages
     let packages_dir = match ensure_packages_dir(false) {
         Ok(dir)  => dir,
@@ -721,7 +721,7 @@ pub async fn process_instance_result(api_endpoint: impl AsRef<str>, proxy_addr: 
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-pub async fn handle(proxy_addr: Option<String>, language: Language, file: PathBuf, dummy: bool, remote: bool, profile: bool, docker_opts: impl Into<DockerOpts>) -> Result<(), Error> {
+pub async fn handle(proxy_addr: Option<String>, language: Language, file: PathBuf, dummy: bool, remote: bool, profile: bool, docker_opts: DockerOptions) -> Result<(), Error> {
     // Either read the file or read stdin
     let (what, source_code): (Cow<str>, String) = if file == PathBuf::from("-") {
         let mut result: String = String::new();
@@ -792,7 +792,7 @@ async fn dummy_run(options: ParserOptions, what: impl AsRef<str>, source: impl A
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-async fn local_run(parse_opts: ParserOptions, docker_opts: impl Into<DockerOpts>, what: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), Error> {
+async fn local_run(parse_opts: ParserOptions, docker_opts: DockerOptions, what: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), Error> {
     let what      : &str  = what.as_ref();
     let source    : &str  = source.as_ref();
 

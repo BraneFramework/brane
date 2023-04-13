@@ -32,7 +32,7 @@ All notable changes to the Brane framework will be documented in this file.
 - The general layout of `node.yml` to be more sensible (it focusses on services rather than names, ports, etc) [**breaking change**]
 - The `socksx` dependency to use [our own fork](https://github.com/epi-project/socksx) instead of [Onno's repository](https://github.com/onnovalkering/socksx) to achieve Windows compatibility for the `brane` CLI (see above).
 - `main.py`'s output directory for `aux-xenon` now respects the build mode (i.e., release or `--dev`).
-- The `-m`/`--mode` option in `branectl` to `--image-dir`, for a more sensible mode.
+- The `-m`/`--mode` option in `branectl` to `--image-dir`, for a more sensible interface.
 
 ### Fixed
 - The previous version not making it through the tests.

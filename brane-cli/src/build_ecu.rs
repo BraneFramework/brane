@@ -1,10 +1,12 @@
+use std::fmt::Write as FmtWrite;
 use std::fs::{self, File};
-use std::io::{BufReader, Write};
-use std::path::PathBuf;
+use std::io::{BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::{fmt::Write as FmtWrite, path::Path};
+use std::str;
 
 use console::style;
+use dialoguer::Confirm;
 use fs_extra::dir::CopyOptions;
 use path_clean::clean as clean_path;
 
@@ -25,6 +27,7 @@ use crate::utils::ensure_package_dir;
 ///  - `file`: Path to the package's main file (a container file, in this case).
 ///  - `branelet_path`: Optional path to a custom branelet executable. If left empty, will pull the standard one from Github instead.
 ///  - `keep_files`: Determines whether or not to keep the build files after building.
+///  - `convert_crlf`: If true, will not ask to convert CRLF files but instead just do it.
 /// 
 /// # Errors
 /// This function may error for many reasons.
@@ -34,6 +37,7 @@ pub async fn handle(
     file: PathBuf,
     branelet_path: Option<PathBuf>,
     keep_files: bool,
+    convert_crlf: bool,
 ) -> Result<(), BuildError> {
     debug!("Building ecu package from container file '{}'...", file.display());
     debug!("Using {} as build context", context.display());
@@ -61,7 +65,7 @@ pub async fn handle(
             Ok(lock) => lock,
             Err(err) => { return Err(BuildError::LockCreateError{ name: document.name, err }); },
         };
-        build(arch, document, context, &package_dir, branelet_path, keep_files).await?;
+        build(arch, document, context, &package_dir, branelet_path, keep_files, convert_crlf).await?;
     };
 
     // Done
@@ -79,6 +83,7 @@ pub async fn handle(
 ///  - `package_dir`: The package directory to use as the build folder.
 ///  - `branelet_path`: Optional path to a custom branelet executable. If left empty, will pull the standard one from Github instead.
 ///  - `keep_files`: Determines whether or not to keep the build files after building.
+///  - `convert_crlf`: If true, will not ask to convert CRLF files but instead just do it.
 /// 
 /// # Errors
 /// This function may error for many reasons.
@@ -89,9 +94,14 @@ async fn build(
     package_dir: &Path,
     branelet_path: Option<PathBuf>,
     keep_files: bool,
+    convert_crlf: bool,
 ) -> Result<(), BuildError> {
+    // Analyse files for Windows line endings
+    let unixify_files: Vec<PathBuf> = find_crlf_files(&document, &context, convert_crlf)?;
+    if !unixify_files.is_empty() { debug!("Files to convert: {}", unixify_files.iter().map(|p| format!("'{}'", p.display())).collect::<Vec<String>>().join(", ")); }
+
     // Prepare the build directory
-    let dockerfile = generate_dockerfile(&document, &context, branelet_path.is_some())?;
+    let dockerfile = generate_dockerfile(&document, &context, unixify_files, branelet_path.is_some())?;
     prepare_directory(
         &document,
         dockerfile,
@@ -159,6 +169,97 @@ async fn build(
     Ok(())
 }
 
+/// Searches the files defined in the given document for any CRLF line endings (since we will have to translate that to Unix line endings if it's a script).
+/// 
+/// # Arguments
+/// - `document`: The ContainerInfo describing which files to check.
+/// - `context`: The directory to copy additional files (executable, working directory files) from.
+/// - `convert_crlf`: If true, will not ask to convert CRLF files but instead just do it.
+/// 
+/// # Returns
+/// A list of paths of files to convert.
+fn find_crlf_files(document: &ContainerInfo, context: impl AsRef<Path>, convert_crlf: bool) -> Result<Vec<PathBuf>, BuildError> {
+    debug!("Searching for files with CRLF line endings...");
+
+    // We only have to do anything if there are files defined
+    if let Some(files) = &document.files {
+        let context: &Path = context.as_ref();
+
+        // Iterate over the available files
+        let mut to_unixify: Vec<PathBuf> = Vec::with_capacity(files.len());
+        'files: for f in files {
+            // Resolve the file's path
+            let file_path: PathBuf = context.join(f);
+            let file_path: PathBuf = match fs::canonicalize(&file_path) {
+                Ok(source) => source,
+                Err(err)   => { return Err(BuildError::WdSourceFileCanonicalizeError{ path: file_path, err }); }
+            };
+
+            // Attempt to open it
+            let mut handle: File = match File::open(&file_path) {
+                Ok(handle) => handle,
+                Err(err)   => { warn!("Failed to open file '{}' to check if it has CRLF line endings: {} (assuming it has none)", file_path.display(), err); continue; },
+            };
+
+            // Read the first 512 bytes, at most
+            let mut buffer: [ u8; 512 ] = [ 0; 512 ];
+            let n_bytes: usize = match handle.read(&mut buffer) {
+                Ok(n_bytes) => n_bytes,
+                Err(err)    => { warn!("Failed to read file '{}' to check if it has CRLF line endings: {} (assuming it has none)", file_path.display(), err); continue; },
+            };
+
+            // Analyse them for either ASCII or UTF-8 validity
+            let sbuffer: &str = match str::from_utf8(&buffer[..n_bytes]) {
+                Ok(text) => text,
+                Err(err) => { warn!("First 512 bytes of file '{}' are not valid UTF-8: {} (assuming it has no CRLF line endings)", file_path.display(), err); continue; },
+            };
+
+            // Now assert we don't see CRLF
+            let mut carriage_return: bool = false;
+            for c in sbuffer.chars() {
+                // Match the character
+                if c == '\r' {
+                    carriage_return = true;
+                } else if c == '\n' && carriage_return {
+                    // It's a CRLF all right!
+                    if convert_crlf {
+                        // We are given permission a-priori, so just add it
+                        info!("Marking file '{}' as having CRLF line-endings", file_path.display());
+                        to_unixify.push(file_path);
+                        continue 'files;
+                    } else {
+                        // We ask the user for permission first
+                        println!("File {} may be written in Windows-style line endings. Do you want to convert it to Unix-style?", style(file_path.display()).bold().cyan());
+                        println!("(You may run into issues if you don't, but it should only be done for text files)");
+                        println!();
+                        let consent: bool = match Confirm::new().interact() {
+                            Ok(consent) => consent,
+                            Err(err)    => { warn!("Failed to ask the user (you!) for consent to convert CRLF to LF: {err}"); continue 'files; }
+                        };
+
+                        // Now only add it if we have it
+                        if consent {
+                            info!("Marking file '{}' as having CRLF line-endings", file_path.display());
+                            to_unixify.push(file_path);
+                        }
+                        continue 'files;
+                    }
+
+                } else {
+                    // It's not a carriage return anymore
+                    carriage_return = false;
+                }
+            }
+        }
+
+        // Return the list of found files
+        Ok(to_unixify)
+    } else {
+        // Nothing to do
+        Ok(vec![])
+    }
+}
+
 /// **Edited: now returning BuildErrors.**
 /// 
 /// Generates a new DockerFile that can be used to build the package into a Docker container.
@@ -166,6 +267,7 @@ async fn build(
 /// **Arguments**
 ///  * `document`: The ContainerInfo describing the package to build.
 ///  * `context`: The directory to find the executable in.
+///  * `unixify_files`: A list of files we have to convert from CRLF to LF before we add it to the Dockerfile.
 ///  * `override_branelet`: Whether or not to override the branelet executable. If so, assumes the new one is copied to the temporary build folder by the time the DockerFile is run.
 /// 
 /// **Returns**  
@@ -173,6 +275,7 @@ async fn build(
 fn generate_dockerfile(
     document: &ContainerInfo,
     context: &Path,
+    unixify_files: Vec<PathBuf>,
     override_branelet: bool,
 ) -> Result<String, BuildError> {
     let mut contents = String::new();

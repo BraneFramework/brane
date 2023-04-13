@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    13 Apr 2023, 10:00:58
+//    13 Apr 2023, 10:28:07
 //  Auto updated?
 //    Yes
 // 
@@ -33,12 +33,12 @@ use serde::{Deserialize, Serialize};
 use brane_cfg::spec::Config as _;
 use brane_cfg::proxy::ProxyConfig;
 use brane_cfg::node::{CentralPaths, CentralServices, NodeConfig, NodeKind, NodeSpecificConfig, PrivateOrExternalService, ProxyPaths, ProxyServices, WorkerPaths, WorkerServices};
-use brane_tsk::docker::{ensure_image, get_digest, ImageSource};
+use brane_tsk::docker::{ensure_image, get_digest, DockerOptions, ImageSource};
 use specifications::container::Image;
 use specifications::version::Version;
 
 pub use crate::errors::LifetimeError as Error;
-use crate::spec::{StartOpts, StartDockerOpts, StartSubcommand};
+use crate::spec::{StartOpts, StartSubcommand};
 
 
 /***** HELPER STRUCTS *****/
@@ -651,7 +651,7 @@ fn run_compose(compose_verbose: bool, exe: (String, Vec<String>), file: impl AsR
 /// - `exe`: The `docker-compose` executable to run.
 /// - `file`: The `docker-compose.yml` file to launch.
 /// - `node_config_path`: The path to the node config file to potentially override.
-/// - `docker_opts`: Configuration for connecting to the local Docker daemon. See `StartDockerOpts` for more information.
+/// - `docker_opts`: Configuration for connecting to the local Docker daemon. See `DockerOptions` for more information.
 /// - `opts`: Miscellaneous configuration for starting the images. See `StartOpts` for more information.
 /// - `command`: The `StartSubcommand` that carries additional information, including which of the node types to launch.
 /// 
@@ -660,7 +660,7 @@ fn run_compose(compose_verbose: bool, exe: (String, Vec<String>), file: impl AsR
 /// 
 /// # Errors
 /// This function errors if we failed to run the `docker-compose` command or if we failed to assert that the given command matches the node kind of the `node.yml` file on disk.
-pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl Into<PathBuf>, docker_opts: StartDockerOpts, opts: StartOpts, command: StartSubcommand) -> Result<(), Error> {
+pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path: impl Into<PathBuf>, docker_opts: DockerOptions, opts: StartOpts, command: StartSubcommand) -> Result<(), Error> {
     let exe              : &str    = exe.as_ref();
     let node_config_path : PathBuf = node_config_path.into();
     info!("Starting node from Docker compose file '{}', defined in '{}'", file.as_ref().map(|f| f.display().to_string()).unwrap_or_else(|| "<baked-in>".into()), node_config_path.display());
@@ -683,18 +683,10 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             if node_config.node.kind() != NodeKind::Central { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Central, expected: node_config.node.kind() }); }
 
             // Connect to the Docker client
-            #[cfg(unix)]
-            let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
+            let docker: Docker = match brane_tsk::docker::connect_local(docker_opts) {
                 Ok(docker) => docker,
-                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
+                Err(err)   => { return Err(Error::DockerConnectError{ err }); },
             };
-            #[cfg(windows)]
-            let docker: Docker = match Docker::connect_with_named_pipe(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
-                Ok(docker) => docker,
-                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
-            };
-            #[cfg(not(any(unix, windows)))]
-            compile_error!("Non-Unix, non-Windows OS not supported");
 
             // Generate hosts file
             let overridefile : Option<PathBuf> = generate_override_file(&node_config, &node_config.hostnames, opts.profile_dir)?;
@@ -727,18 +719,10 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             if node_config.node.kind() != NodeKind::Worker  { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Worker, expected: node_config.node.kind() }); }
 
             // Connect to the Docker client
-            #[cfg(unix)]
-            let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
+            let docker: Docker = match brane_tsk::docker::connect_local(docker_opts) {
                 Ok(docker) => docker,
-                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
+                Err(err)   => { return Err(Error::DockerConnectError{ err }); },
             };
-            #[cfg(windows)]
-            let docker: Docker = match Docker::connect_with_named_pipe(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
-                Ok(docker) => docker,
-                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
-            };
-            #[cfg(not(any(unix, windows)))]
-            compile_error!("Non-Unix, non-Windows OS not supported");
 
             // Generate hosts file
             let overridefile : Option<PathBuf> = generate_override_file(&node_config, &node_config.hostnames, opts.profile_dir)?;
@@ -765,9 +749,9 @@ pub async fn start(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path
             if node_config.node.kind() != NodeKind::Proxy  { return Err(Error::UnmatchedNodeKind{ got: NodeKind::Proxy, expected: node_config.node.kind() }); }
 
             // Connect to the Docker client
-            let docker: Docker = match Docker::connect_with_unix(&docker_opts.socket.to_string_lossy(), 120, &docker_opts.version.0) {
+            let docker: Docker = match brane_tsk::docker::connect_local(docker_opts) {
                 Ok(docker) => docker,
-                Err(err)   => { return Err(Error::DockerConnectError{ socket: docker_opts.socket, version: docker_opts.version.0, err }); },
+                Err(err)   => { return Err(Error::DockerConnectError{ err }); },
             };
 
             // Generate hosts file
