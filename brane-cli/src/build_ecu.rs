@@ -305,7 +305,7 @@ fn generate_dockerfile(
         write_build!(contents, "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-change-held-packages --allow-downgrades ")?;
     }
     // Default dependencies
-    write_build!(contents, "fuse iptables ")?;
+    write_build!(contents, "fuse iptables dos2unix ")?;
     // Custom dependencies
     if let Some(dependencies) = &document.dependencies {
         for dependency in dependencies {
@@ -348,6 +348,18 @@ fn generate_dockerfile(
     let entrypoint = context.join(entrypoint);
     if !entrypoint.exists() || !entrypoint.is_file() { return Err(BuildError::MissingExecutable{ path: entrypoint }); }
     writeln_build!(contents, "RUN chmod +x /opt/wd/{}", &document.entrypoint.exec)?;
+
+    // Rework the marked files from CRLF to LF
+    if !unixify_files.is_empty() {
+        let max_i: usize = unixify_files.len() - 1;
+        write_build!(contents, "RUN ")?;
+        for (i, file) in unixify_files.into_iter().enumerate() {
+            if i > 0 { write_build!(contents, " && ")?; }
+            write_build!(contents, "{}", file.display())?;
+            if i < max_i { write_build!(contents, " \\")?; }
+            writeln_build!(contents)?;
+        }
+    }
 
     // Add the post-installation script
     if let Some(install) = &document.unpack {
