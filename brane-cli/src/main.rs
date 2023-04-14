@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 14:34:28
 //  Last edited:
-//    13 Apr 2023, 12:24:47
+//    14 Apr 2023, 15:50:34
 //  Auto updated?
 //    Yes
 // 
@@ -67,6 +67,8 @@ enum SubCommand {
         init: Option<PathBuf>,
         #[clap(long, action, help = "Don't delete build files")]
         keep_files: bool,
+        #[clap(short, long, help = "If given, does not ask permission to convert CRLF (Windows-style line endings) to LF (Unix-style line endings), but just does it.")]
+        crlf_ok : bool,
     },
 
     #[clap(name = "certs", about = "Manage certificates for connecting to remote instances.")]
@@ -97,6 +99,9 @@ enum SubCommand {
         kind: Option<String>,
         #[clap(short, long, help = "Path to the init binary to use (override Brane's binary)")]
         init: Option<PathBuf>,
+
+        #[clap(short, long, help = "If given, does not ask permission to convert CRLF (Windows-style line endings) to LF (Unix-style line endings), but just does it.")]
+        crlf_ok : bool,
     },
 
     #[clap(name = "inspect", about = "Inspect a package")]
@@ -264,9 +269,9 @@ enum SubCommand {
     Test {
         #[clap(name = "NAME", help = "Name of the package")]
         name        : String,
-        #[clap(short, long, default_value = "latest", help = "Version of the package")]
+        #[clap(name = "VERSION", default_value = "latest", help = "Version of the package")]
         version     : SemVersion,
-        #[clap(short, long, help = "If given, prints the intermediate result returned by the tested function (if any). The given path should be relative to the 'result' folder.")]
+        #[clap(short='r', long, help = "If given, prints the intermediate result returned by the tested function (if any). The given path should be relative to the 'result' folder.")]
         show_result : Option<PathBuf>,
 
         /// The Docker socket location.
@@ -558,7 +563,7 @@ async fn main() -> Result<()> {
 async fn run(options: Cli) -> Result<(), CliError> {
     use SubCommand::*;
     match options.sub_command {
-        Build { arch, workdir, file, kind, init, keep_files } => {
+        Build { arch, workdir, file, kind, init, keep_files, crlf_ok } => {
             // Resolve the working directory
             let workdir = match workdir {
                 Some(workdir) => workdir,
@@ -587,7 +592,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
 
             // Build a new package with it
             match kind {
-                PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, keep_files).await.map_err(|err| CliError::BuildError{ err })?,
+                PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, keep_files, crlf_ok).await.map_err(|err| CliError::BuildError{ err })?,
                 PackageKind::Oas => build_oas::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, keep_files).await.map_err(|err| CliError::BuildError{ err })?,
                 _                => eprintln!("Unsupported package kind: {kind}"),
             }
@@ -634,7 +639,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
                 },
             }
         }
-        Import { arch, repo, workdir, file, kind, init } => {
+        Import { arch, repo, workdir, file, kind, init, crlf_ok } => {
             // Prepare the input URL and output directory
             let url = format!("https://github.com/{repo}");
             let dir = match tempdir() {
@@ -688,7 +693,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
 
             // Build a new package with it
             match kind {
-                PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, false).await.map_err(|err| CliError::BuildError{ err })?,
+                PackageKind::Ecu => build_ecu::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, false, crlf_ok).await.map_err(|err| CliError::BuildError{ err })?,
                 PackageKind::Oas => build_oas::handle(arch.unwrap_or(Arch::HOST), workdir, file, init, false).await.map_err(|err| CliError::BuildError{ err })?,
                 _                => eprintln!("Unsupported package kind: {kind}"),
             }

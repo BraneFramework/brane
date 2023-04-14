@@ -250,6 +250,9 @@ fn find_crlf_files(document: &ContainerInfo, context: impl AsRef<Path>, convert_
                     carriage_return = false;
                 }
             }
+
+            // Otherwise, it's not CRLF
+            debug!("Marking file '{}' as having LF line-endings (no action required)", file_path.display());
         }
 
         // Return the list of found files
@@ -399,6 +402,7 @@ fn prepare_directory(
 ) -> Result<(), BuildError> {
     // Write Dockerfile to package directory
     let file_path = package_dir.join("Dockerfile");
+    debug!("Writing Dockerfile to '{}'...", file_path.display());
     match File::create(&file_path) {
         Ok(ref mut handle) => {
             if let Err(err) = write!(handle, "{dockerfile}") {
@@ -426,6 +430,7 @@ fn prepare_directory(
             Err(err)   => { return Err(BuildError::BraneletCanonicalizeError{ path: branelet_path, err }); }
         };
         let target = container_dir.join("branelet");
+        debug!("Copying custom branelet '{}' to '{}'...", source.display(), target.display());
         if let Err(err) = fs::copy(&source, &target) {
             return Err(BuildError::BraneletCopyError{ source, target, err });
         }
@@ -444,6 +449,7 @@ fn prepare_directory(
 
     // Write the local_container.yml to the container directory
     let local_container_path = wd.join("local_container.yml");
+    debug!("Writing local_container.yml '{}'...", local_container_path.display());
     let local_container_info = LocalContainerInfo::from(document);
     if let Err(err) = local_container_info.to_path(&local_container_path) {
         return Err(BuildError::LocalContainerInfoCreateError{ err });
@@ -452,20 +458,25 @@ fn prepare_directory(
     // Copy any other files marked in the ecu document
     if let Some(files) = &document.files {
         for file_path in files {
+            debug!("Preparing file '{file_path}'...");
+
             // Make sure the target path is safe (does not escape the working directory)
             let target = clean_path(file_path);
             if target.contains("..") { return Err(BuildError::UnsafePath{ path: target }) }
             let target = wd.join(target);
+
+            // Create the target folder if it does not exist
+            let target_dir: &Path = target.parent().unwrap_or_else(|| panic!("Target file '{}' for package info file does not have a parent; this should never happen!", target.display()));
+            if !target_dir.exists() {
+                debug!("Creating folder '{}'...", target_dir.display());
+                if let Err(err) = fs::create_dir_all(target_dir) { return Err(BuildError::WdDirCreateError{ path: target_dir.into(), err }); };
+            }
+
+            // Canonicalize the target itself
             let target = match fs::canonicalize(target.parent().unwrap_or_else(|| panic!("Target file '{}' for package info file does not have a parent; this should never happen!", target.display()))) {
                 Ok(target_dir) => target_dir.join(target.file_name().unwrap_or_else(|| panic!("Target file '{}' for package info file does not have a file name; this should never happen!", target.display()))),
                 Err(err)       => { return Err(BuildError::WdSourceFileCanonicalizeError{ path: target, err }); }
             };
-            // Create the target folder if it does not exist
-            if let Some(parent) = target.parent() {
-                if !parent.exists() {
-                    if let Err(err) = fs::create_dir_all(parent) { return Err(BuildError::WdDirCreateError{ path: parent.to_path_buf(), err }); };
-                }
-            }
 
             // Resolve the source folder
             let source = match fs::canonicalize(context.join(file_path)) {
@@ -476,20 +487,22 @@ fn prepare_directory(
             // Switch whether it's a directory or a file
             if source.is_dir() {
                 // Copy everything inside the folder
+                debug!("Copying DIRECTORY '{}' to '{}'...", source.display(), target.display());
                 let mut copy_options = CopyOptions::new();
                 copy_options.copy_inside = true;
                 if let Err(err) = fs_extra::dir::copy(&source, &target, &copy_options) { return Err(BuildError::WdDirCopyError{ source, target, err }); }
             } else {
                 // Copy only the file
+                debug!("Copying FILE '{}' to '{}'...", source.display(), target.display());
                 if let Err(err) = fs::copy(&source, &target) { return Err(BuildError::WdFileCopyError{ source, target, err }); }
             }
 
             // Done
-            debug!("Copied {} to {} in the working directory", source.display(), target.display());
         }
     }
 
     // Archive the working directory
+    debug!("Archiving working directory '{}'...", container_dir.display());
     let mut command = Command::new("tar");
     command.arg("-zcf");
     command.arg("wd.tar.gz");
