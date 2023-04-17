@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    11 Apr 2023, 14:54:32
+//    17 Apr 2023, 16:53:59
 //  Auto updated?
 //    Yes
 // 
@@ -164,10 +164,28 @@ pub enum BuildError {
     WdFileCopyError{ source: PathBuf, target: PathBuf, err: std::io::Error },
     /// Could not copy a directory to the working directory
     WdDirCopyError{ source: PathBuf, target: PathBuf, err: fs_extra::error::Error },
+    /// Could not read a directory's entries.
+    WdDirReadError{ path: PathBuf, err: std::io::Error },
+    /// Could not unwrap an entry in a directory.
+    WdDirEntryError{ path: PathBuf, err: std::io::Error },
+    /// Could not rename a file.
+    WdFileRenameError{ source: PathBuf, target: PathBuf, err: std::io::Error },
+    /// Failed to create a new file.
+    WdFileCreateError{ path: PathBuf, err: std::io::Error },
+    /// Failed to open a file.
+    WdFileOpenError{ path: PathBuf, err: std::io::Error },
+    /// Failed to read a file.
+    WdFileReadError{ path: PathBuf, err: std::io::Error },
+    /// Failed to write to a file.
+    WdFileWriteError{ path: PathBuf, err: std::io::Error },
+    /// Failed to remove a file.
+    WdFileRemoveError{ path: PathBuf, err: std::io::Error },
     /// Could not launch the command to compress the working directory
     WdCompressionLaunchError{ command: String, err: std::io::Error },
     /// Command to compress the working directory returned a non-zero exit code
     WdCompressionError{ command: String, code: i32, stdout: String, stderr: String },
+    /// Failed to ask the user for consent.
+    WdConfirmationError{ err: std::io::Error },
 
     /// Could not serialize the OPenAPI file
     OpenAPISerializeError{ err: serde_yaml::Error },
@@ -264,10 +282,19 @@ impl Display for BuildError {
             WdSourceFileCanonicalizeError{ path, err }          => write!(f, "Could not resolve file '{}' in the package info file: {}", path.display(), err),
             WdTargetFileCanonicalizeError{ path, err }          => write!(f, "Could not resolve file '{}' in the package working directory: {}", path.display(), err),
             WdDirCreateError{ path, err }                       => write!(f, "Could not create directory '{}' in the package working directory: {}", path.display(), err),
-            BuildError::WdFileCopyError{ source, target, err }              => write!(f, "Could not copy file '{}' to '{}' in the package working directory: {}", source.display(), target.display(), err),
+            WdDirEntryError{ path, err }                        => write!(f, "Could not read entry in directory '{}' in the package working directory: {}", path.display(), err),
+            WdDirReadError{ path, err }                         => write!(f, "Could not read directory '{}' in the package working directory: {}", path.display(), err),
+            WdFileCopyError{ source, target, err }              => write!(f, "Could not copy file '{}' to '{}' in the package working directory: {}", source.display(), target.display(), err),
             WdDirCopyError{ source, target, err }               => write!(f, "Could not copy directory '{}' to '{}' in the package working directory: {}", source.display(), target.display(), err),
+            WdFileRenameError{ source, target, err }            => write!(f, "Could not rename file '{}' to '{}' in the package working directory: {}", source.display(), target.display(), err),
+            WdFileCreateError{ path, err }                      => write!(f, "Could not create new file '{}' in the package working directory: {}", path.display(), err),
+            WdFileOpenError{ path, err }                        => write!(f, "Could not open file '{}' in the package working directory: {}", path.display(), err),
+            WdFileReadError{ path, err }                        => write!(f, "Could not read from file '{}' in the package working directory: {}", path.display(), err),
+            WdFileWriteError{ path, err }                       => write!(f, "Could not write to file '{}' in the package working directory: {}", path.display(), err),
+            WdFileRemoveError{ path, err }                      => write!(f, "Could not remove file '{}' in the package working directory: {}", path.display(), err),
             WdCompressionLaunchError{ command, err }            => write!(f, "Could not run command '{command}' to compress working directory: {err}"),
             WdCompressionError{ command, code, stdout, stderr } => write!(f, "Command '{}' to compress working directory returned exit code {}:\n\nstdout:\n{}\n{}\n{}\n\nstderr:\n{}\n{}\n{}\n\n", command, code, *CLI_LINE_SEPARATOR, stdout, *CLI_LINE_SEPARATOR, *CLI_LINE_SEPARATOR, stderr, *CLI_LINE_SEPARATOR),
+            WdConfirmationError{ err }                          => write!(f, "Failed to ask the user (you!) for consent: {err}"),
 
             OpenAPISerializeError{ err }        => write!(f, "Could not re-serialize OpenAPI document: {err}"),
             OpenAPIFileCreateError{ path, err } => write!(f, "Could not create OpenAPI file '{}': {}", path.display(), err),

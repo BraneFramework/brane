@@ -1,6 +1,9 @@
+
+
+
 use std::fmt::Write as FmtWrite;
-use std::fs::{self, File};
-use std::io::{BufReader, Read, Write};
+use std::fs::{self, DirEntry, File, ReadDir};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
@@ -47,8 +50,7 @@ pub async fn handle(
         Ok(handle) => handle,
         Err(err)   => { return Err(BuildError::ContainerInfoOpenError{ file, err }); }
     };
-    let reader = BufReader::new(handle);
-    let document = match ContainerInfo::from_reader(reader) {
+    let document = match ContainerInfo::from_reader(handle) {
         Ok(document) => document,
         Err(err)     => { return Err(BuildError::ContainerInfoParseError{ file, err }); }
     };
@@ -96,18 +98,15 @@ async fn build(
     keep_files: bool,
     convert_crlf: bool,
 ) -> Result<(), BuildError> {
-    // Analyse files for Windows line endings
-    let unixify_files: Vec<PathBuf> = find_crlf_files(&document, &context, convert_crlf)?;
-    if !unixify_files.is_empty() { debug!("Files to convert: {}", unixify_files.iter().map(|p| format!("'{}'", p.display())).collect::<Vec<String>>().join(", ")); }
-
     // Prepare the build directory
-    let dockerfile = generate_dockerfile(&document, &context, unixify_files, branelet_path.is_some())?;
+    let dockerfile = generate_dockerfile(&document, &context, branelet_path.is_some())?;
     prepare_directory(
         &document,
         dockerfile,
         branelet_path,
         &context,
         package_dir,
+        convert_crlf,
     )?;
     debug!("Successfully prepared package directory.");
 
@@ -169,100 +168,6 @@ async fn build(
     Ok(())
 }
 
-/// Searches the files defined in the given document for any CRLF line endings (since we will have to translate that to Unix line endings if it's a script).
-/// 
-/// # Arguments
-/// - `document`: The ContainerInfo describing which files to check.
-/// - `context`: The directory to copy additional files (executable, working directory files) from.
-/// - `convert_crlf`: If true, will not ask to convert CRLF files but instead just do it.
-/// 
-/// # Returns
-/// A list of paths of files to convert.
-fn find_crlf_files(document: &ContainerInfo, context: impl AsRef<Path>, convert_crlf: bool) -> Result<Vec<PathBuf>, BuildError> {
-    debug!("Searching for files with CRLF line endings...");
-
-    // We only have to do anything if there are files defined
-    if let Some(files) = &document.files {
-        let context: &Path = context.as_ref();
-
-        // Iterate over the available files
-        let mut to_unixify: Vec<PathBuf> = Vec::with_capacity(files.len());
-        'files: for f in files {
-            // Resolve the file's path
-            let file_path: PathBuf = context.join(f);
-            let file_path: PathBuf = match fs::canonicalize(&file_path) {
-                Ok(source) => source,
-                Err(err)   => { return Err(BuildError::WdSourceFileCanonicalizeError{ path: file_path, err }); }
-            };
-
-            // Attempt to open it
-            let mut handle: File = match File::open(&file_path) {
-                Ok(handle) => handle,
-                Err(err)   => { warn!("Failed to open file '{}' to check if it has CRLF line endings: {} (assuming it has none)", file_path.display(), err); continue; },
-            };
-
-            // Read the first 512 bytes, at most
-            let mut buffer: [ u8; 512 ] = [ 0; 512 ];
-            let n_bytes: usize = match handle.read(&mut buffer) {
-                Ok(n_bytes) => n_bytes,
-                Err(err)    => { warn!("Failed to read file '{}' to check if it has CRLF line endings: {} (assuming it has none)", file_path.display(), err); continue; },
-            };
-
-            // Analyse them for either ASCII or UTF-8 validity
-            let sbuffer: &str = match str::from_utf8(&buffer[..n_bytes]) {
-                Ok(text) => text,
-                Err(err) => { warn!("First 512 bytes of file '{}' are not valid UTF-8: {} (assuming it has no CRLF line endings)", file_path.display(), err); continue; },
-            };
-
-            // Now assert we don't see CRLF
-            let mut carriage_return: bool = false;
-            for c in sbuffer.chars() {
-                // Match the character
-                if c == '\r' {
-                    carriage_return = true;
-                } else if c == '\n' && carriage_return {
-                    // It's a CRLF all right!
-                    if convert_crlf {
-                        // We are given permission a-priori, so just add it
-                        info!("Marking file '{}' as having CRLF line-endings", file_path.display());
-                        to_unixify.push(file_path);
-                        continue 'files;
-                    } else {
-                        // We ask the user for permission first
-                        println!("File {} may be written in Windows-style line endings. Do you want to convert it to Unix-style?", style(file_path.display()).bold().cyan());
-                        println!("(You may run into issues if you don't, but it should only be done for text files)");
-                        println!();
-                        let consent: bool = match Confirm::new().interact() {
-                            Ok(consent) => consent,
-                            Err(err)    => { warn!("Failed to ask the user (you!) for consent to convert CRLF to LF: {err}"); continue 'files; }
-                        };
-
-                        // Now only add it if we have it
-                        if consent {
-                            info!("Marking file '{}' as having CRLF line-endings", file_path.display());
-                            to_unixify.push(file_path);
-                        }
-                        continue 'files;
-                    }
-
-                } else {
-                    // It's not a carriage return anymore
-                    carriage_return = false;
-                }
-            }
-
-            // Otherwise, it's not CRLF
-            debug!("Marking file '{}' as having LF line-endings (no action required)", file_path.display());
-        }
-
-        // Return the list of found files
-        Ok(to_unixify)
-    } else {
-        // Nothing to do
-        Ok(vec![])
-    }
-}
-
 /// **Edited: now returning BuildErrors.**
 /// 
 /// Generates a new DockerFile that can be used to build the package into a Docker container.
@@ -270,7 +175,6 @@ fn find_crlf_files(document: &ContainerInfo, context: impl AsRef<Path>, convert_
 /// **Arguments**
 ///  * `document`: The ContainerInfo describing the package to build.
 ///  * `context`: The directory to find the executable in.
-///  * `unixify_files`: A list of files we have to convert from CRLF to LF before we add it to the Dockerfile.
 ///  * `override_branelet`: Whether or not to override the branelet executable. If so, assumes the new one is copied to the temporary build folder by the time the DockerFile is run.
 /// 
 /// **Returns**  
@@ -278,7 +182,6 @@ fn find_crlf_files(document: &ContainerInfo, context: impl AsRef<Path>, convert_
 fn generate_dockerfile(
     document: &ContainerInfo,
     context: &Path,
-    unixify_files: Vec<PathBuf>,
     override_branelet: bool,
 ) -> Result<String, BuildError> {
     let mut contents = String::new();
@@ -308,7 +211,7 @@ fn generate_dockerfile(
         write_build!(contents, "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-change-held-packages --allow-downgrades ")?;
     }
     // Default dependencies
-    write_build!(contents, "fuse iptables dos2unix ")?;
+    write_build!(contents, "fuse iptables ")?;
     // Custom dependencies
     if let Some(dependencies) = &document.dependencies {
         for dependency in dependencies {
@@ -352,18 +255,6 @@ fn generate_dockerfile(
     if !entrypoint.exists() || !entrypoint.is_file() { return Err(BuildError::MissingExecutable{ path: entrypoint }); }
     writeln_build!(contents, "RUN chmod +x /opt/wd/{}", &document.entrypoint.exec)?;
 
-    // Rework the marked files from CRLF to LF
-    if !unixify_files.is_empty() {
-        let max_i: usize = unixify_files.len() - 1;
-        write_build!(contents, "RUN ")?;
-        for (i, file) in unixify_files.into_iter().enumerate() {
-            if i > 0 { write_build!(contents, " && ")?; }
-            write_build!(contents, "{}", file.display())?;
-            if i < max_i { write_build!(contents, " \\")?; }
-            writeln_build!(contents)?;
-        }
-    }
-
     // Add the post-installation script
     if let Some(install) = &document.unpack {
         for line in install {
@@ -390,6 +281,7 @@ fn generate_dockerfile(
 ///  * `context`: The directory to copy additional files (executable, working directory files) from.
 ///  * `package_info`: The generated PackageInfo from the ContainerInfo document.
 ///  * `package_dir`: The directory where we can build the package and store it once done.
+/// - `convert_crlf`: If true, will not ask to convert CRLF files but instead just do it.
 /// 
 /// **Returns**  
 /// Nothing if the directory was created successfully, or a BuildError otherwise.
@@ -399,6 +291,7 @@ fn prepare_directory(
     branelet_path: Option<PathBuf>,
     context: &Path,
     package_dir: &Path,
+    convert_crlf: bool,
 ) -> Result<(), BuildError> {
     // Write Dockerfile to package directory
     let file_path = package_dir.join("Dockerfile");
@@ -411,8 +304,6 @@ fn prepare_directory(
         },
         Err(err)   => { return Err(BuildError::DockerfileCreateError{ path: file_path, err }); }
     };
-
-
 
     // Create the container directory
     let container_dir = package_dir.join("container");
@@ -456,12 +347,10 @@ fn prepare_directory(
     }
 
     // Copy any other files marked in the ecu document
-    if let Some(files) = &document.files {
-        for file_path in files {
-            debug!("Preparing file '{file_path}'...");
-
+    if let Some(mut files) = document.files.as_ref().map(|files| files.iter().map(|f| PathBuf::from(f)).collect::<Vec<PathBuf>>()) {
+        while let Some(file) = files.pop() {
             // Make sure the target path is safe (does not escape the working directory)
-            let target = clean_path(file_path);
+            let target = clean_path(&file.to_string_lossy());
             if target.contains("..") { return Err(BuildError::UnsafePath{ path: target }) }
             let target = wd.join(target);
 
@@ -472,14 +361,14 @@ fn prepare_directory(
                 if let Err(err) = fs::create_dir_all(target_dir) { return Err(BuildError::WdDirCreateError{ path: target_dir.into(), err }); };
             }
 
-            // Canonicalize the target itself
+            // Canonicalize the target itself. We do some handwaving with the parent to ensure that the thing we are canonicalizing exists, after which we can add the filename again (which is sure not to escape anymore).
             let target = match fs::canonicalize(target.parent().unwrap_or_else(|| panic!("Target file '{}' for package info file does not have a parent; this should never happen!", target.display()))) {
                 Ok(target_dir) => target_dir.join(target.file_name().unwrap_or_else(|| panic!("Target file '{}' for package info file does not have a file name; this should never happen!", target.display()))),
                 Err(err)       => { return Err(BuildError::WdSourceFileCanonicalizeError{ path: target, err }); }
             };
 
             // Resolve the source folder
-            let source = match fs::canonicalize(context.join(file_path)) {
+            let source = match fs::canonicalize(if file.is_relative() { context.join(file) } else { file }) {
                 Ok(source) => source,
                 Err(err)   => { return Err(BuildError::WdTargetFileCanonicalizeError{ path: target, err }); }
             };
@@ -495,6 +384,99 @@ fn prepare_directory(
                 // Copy only the file
                 debug!("Copying FILE '{}' to '{}'...", source.display(), target.display());
                 if let Err(err) = fs::copy(&source, &target) { return Err(BuildError::WdFileCopyError{ source, target, err }); }
+
+                // Analyse if we have to CRLF-to-LF this file
+                {
+                    let mut lf_path: PathBuf = target.clone(); lf_path.set_file_name(format!("{}.crlf", lf_path.file_name().unwrap_or_else(|| panic!("Unexpected no filename in just-copied file '{}'", lf_path.display())).to_string_lossy()));
+                    {
+                        // Open the file
+                        debug!("Analyzing if '{}' has Windows-style (CRLF) line endings...", target.display());
+                        let mut handle: File = match File::open(&target) {
+                            Ok(handle) => handle,
+                            Err(err)   => { return Err(BuildError::WdFileOpenError{ path: target, err }); },
+                        };
+
+                        // Read the first 512 bytes of a file - but we use a larger buffer to avoid reallocation later on
+                        let mut buffer     : [u8; 16384] = [0; 16384];
+                        let mut buffer_len : usize = match handle.read(&mut buffer[..512]) {
+                            Ok(len)  => len,
+                            Err(err) => { return Err(BuildError::WdFileReadError{ path: target, err }); },
+                        };
+
+                        // Check if it's valid UTF-8
+                        let sbuffer: &str = match std::str::from_utf8(&buffer[..buffer_len]) {
+                            Ok(sbuffer) => sbuffer,
+                            Err(err)    => { debug!("First 512 bytes of file '{}' are not valid UTF-8: {} (assuming it does not need CRLF -> LF conversion)", target.display(), err); continue; },
+                        };
+
+                        // Now search for the \r\n pattern
+                        let mut has_crlf : bool = false;
+                        let mut saw_cr   : bool = false;
+                        for c in sbuffer.chars() {
+                            if c == '\r' { saw_cr = true; }
+                            else if c == '\n' && saw_cr { has_crlf = true; break; }
+                            else { saw_cr = false; }
+                        }
+
+                        // Continue if it was not found
+                        if !has_crlf { debug!("First 512 bytes of file '{}' does not have any CRLF line endings (assuming it does not need CRLF -> LF conversion)", target.display()); continue; }
+                        debug!("Found CRLF line endings in valid UTF-8 file '{}'", target.display());
+
+                        // Ask the user for confirmation, if necessary
+                        if !convert_crlf {
+                            println!("It looks like file {} has Windows-style line endings (CRLF). Do you want to convert it to Unix-style (LF)?", style(source.display()).bold().cyan());
+                            println!("(You want to if this is a text file, but not if it's a raw binary file)");
+                            println!();
+                            match Confirm::new().with_prompt("Convert CRLF to LF?").interact() {
+                                Ok(consent) => if !consent { debug!("Not converting file '{}' from CRLF -> LF because the user (you!) told us not to", target.display()); continue; },
+                                Err(err)    => { return Err(BuildError::WdConfirmationError{ err }); }
+                            };
+                            println!();
+                        }
+
+                        // Otherwise, we open a second file to write the converted version to
+                        debug!("Writing LF version of file '{}' to '{}'...", target.display(), lf_path.display());
+                        let mut lf_handle: File = match File::create(&lf_path) {
+                            Ok(handle) => handle,
+                            Err(err)   => { return Err(BuildError::WdFileCreateError { path: lf_path, err }); },
+                        };
+
+                        // Write the conversion, buffered
+                        let mut lf_buffer     : [u8; 16384] = [0; 16384];
+                        let mut lf_buffer_len : usize       = 0;
+                        while buffer_len > 0 {
+                            // Write the bytes in the input buffer to the output buffer, omitting '\r' in '\r\n' where necessary
+                            saw_cr = false;
+                            for c in &buffer[..buffer_len] {
+                                if *c != '\n' as u8 {
+                                    // Write any old "buffered" carriage return if it is not followed by a newline
+                                    if saw_cr {
+                                        lf_buffer[lf_buffer_len] = '\r' as u8;
+                                        lf_buffer_len += 1;
+                                    }
+                                    saw_cr = *c == '\r' as u8;
+                                } else {
+                                    saw_cr = false;
+                                }
+                            }
+
+                            // Now write the new buffer to the thing
+                            if let Err(err) = lf_handle.write(&lf_buffer[..lf_buffer_len]) { return Err(BuildError::WdFileWriteError { path: lf_path, err }); }
+                            lf_buffer_len = 0;
+
+                            // Refresh the input buffer
+                            buffer_len = match handle.read(&mut buffer) {
+                                Ok(len)  => len,
+                                Err(err) => { return Err(BuildError::WdFileReadError { path: target, err }); },
+                            };
+                        }
+                    }
+
+                    // When we're done, shuffle the files around
+                    debug!("Moving '{}' -> '{}'", lf_path.display(), target.display());
+                    if let Err(err) = fs::remove_file(&target) { return Err(BuildError::WdFileRemoveError { path: target, err }); }
+                    if let Err(err) = fs::rename(&lf_path, &target) { return Err(BuildError::WdFileRenameError { source: lf_path, target, err }); }
+                }
             }
 
             // Done
