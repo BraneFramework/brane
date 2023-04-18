@@ -304,7 +304,7 @@ pub async fn push(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
         //     Ok(file) => file,
         //     Err(err) => { return Err(RegistryError::TempFileError{ err }); }
         // };
-        let temp_path: std::path::PathBuf = std::path::PathBuf::from("/tmp/temp.tar.gz");
+        let temp_path: std::path::PathBuf = std::env::temp_dir().join("temp.tar.gz");
         let temp_file: File = File::create(&temp_path).unwrap();
 
         // We do a nice progressbar while compressing the package

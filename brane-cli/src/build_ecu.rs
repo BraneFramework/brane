@@ -10,7 +10,6 @@ use std::str;
 
 use console::style;
 use dialoguer::Confirm;
-use fs_extra::dir::CopyOptions;
 use path_clean::clean as clean_path;
 
 use brane_shr::fs::FileLock;
@@ -375,14 +374,34 @@ fn prepare_directory(
 
             // Switch whether it's a directory or a file
             if source.is_dir() {
-                // Copy everything inside the folder
-                debug!("Copying DIRECTORY '{}' to '{}'...", source.display(), target.display());
-                let mut copy_options = CopyOptions::new();
-                copy_options.copy_inside = true;
-                if let Err(err) = fs_extra::dir::copy(&source, &target, &copy_options) { return Err(BuildError::WdDirCopyError{ source, target, err }); }
+                // Recurse into the directory
+                debug!("Recursing into directory '{}'...", source.display());
+                let entries: ReadDir = match fs::read_dir(&source) {
+                    Ok(entries) => entries,
+                    Err(err)    => { return Err(BuildError::WdDirReadError { path: source, err }); },
+                };
+
+                // For speedz, reserve as much new files as we know
+                let size_hint: (usize, Option<usize>) = entries.size_hint();
+                files.reserve(size_hint.1.unwrap_or(size_hint.0));
+
+                // Iterate over the entries to add them
+                for entry in entries {
+                    // Unpack the entry
+                    let entry: DirEntry = match entry {
+                        Ok(entry) => entry,
+                        Err(err)  => { return Err(BuildError::WdDirEntryError { path: source, err }); },
+                    };
+
+                    // Add it to the list of todos
+                    files.push(entry.path());
+                }
+
+                // Now continue with the nested entry
+                continue;
             } else {
                 // Copy only the file
-                debug!("Copying FILE '{}' to '{}'...", source.display(), target.display());
+                debug!("Copying file '{}' to '{}'...", source.display(), target.display());
                 if let Err(err) = fs::copy(&source, &target) { return Err(BuildError::WdFileCopyError{ source, target, err }); }
 
                 // Analyse if we have to CRLF-to-LF this file

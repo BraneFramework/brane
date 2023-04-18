@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    10 Apr 2023, 11:32:29
+//    18 Apr 2023, 09:52:31
 //  Auto updated?
 //    Yes
 // 
@@ -35,6 +35,36 @@ use crate::spec::Hostname;
 use crate::utils::{ensure_instance_dir, ensure_instances_dir, get_active_instance_link, get_instance_dir};
 
 
+/***** HELPER FUNCTIONS *****/
+/// Reads the active instance from the special active_instance file.
+/// 
+/// # Returns
+/// The name of the instance in the active_instance file.
+/// 
+/// # Errors
+/// This function errors if, say, the instance link does not exist or was unreadable.
+fn read_active_instance_link() -> Result<String, Error> {
+    // Get the active path
+    let link_path: PathBuf = match get_active_instance_link() {
+        Ok(link_path) => link_path,
+        Err(err)      => { return Err(Error::ActiveInstancePathError{ err }); },
+    };
+
+    // Assert it exists
+    if !link_path.exists() { return Err(Error::NoActiveInstance); }
+    if !link_path.is_file() { return Err(Error::ActiveInstanceNotAFileError{ path: link_path }); }
+
+    // Get the path from it
+    match fs::read_to_string(&link_path) {
+        Ok(name) => Ok(name),
+        Err(err) => Err(Error::ActiveInstanceReadError{ path: link_path, err }),
+    }
+}
+
+
+
+
+
 /***** FILE STRUCTS *****/
 /// Defines the layout of an InstanceInfo, which describes what we remember about each instance.
 /// 
@@ -55,18 +85,25 @@ impl InstanceInfo {
     /// # Errors
     /// This function errors if we failed to get the local path, there is no active instance, if we failed to read the file or if we failed to parse it.
     pub fn from_active_path() -> Result<Self, Error> {
-        // Get the active path
-        let link_path: PathBuf = match get_active_instance_link() {
-            Ok(link_path) => link_path,
-            Err(err)      => { return Err(Error::ActiveInstancePathError{ err }); },
-        };
+        // Get the path
+        let name: String = read_active_instance_link()?;
 
-        // Assert it exists
-        if !link_path.exists() { return Err(Error::NoActiveInstance); }
-        if !link_path.is_symlink() { return Err(Error::ActiveInstanceNotASoftlinkError{ path: link_path }); }
-
-        // Now return the path
-        Self::from_path(link_path.join("info.yml"))
+        // Now return reading from that instance
+        Self::from_default_path(name)
+    }
+    /// Asserts whether there is a selected instance or nay.
+    /// 
+    /// # Returns
+    /// true if there is an active instance link, or false otherwise.
+    /// 
+    /// # Errors
+    /// This function errors if we failed to get the default link path.
+    #[inline]
+    pub fn active_instance_exists() -> Result<bool, Error> {
+        match get_active_instance_link() {
+            Ok(link_path) => Ok(link_path.exists()),
+            Err(err)      => Err(Error::ActiveInstancePathError{ err }),
+        }
     }
 
     /// Reads this InstanceInfo from the default path in the local configuration directory.
@@ -314,14 +351,13 @@ pub fn remove(names: Vec<String>, force: bool) -> Result<(), Error> {
     if !force {
         debug!("Asking for confirmation...");
         println!("Are you sure you want to remove instance{} {}?", if names.len() > 1 { "s" } else { "" }, PrettyListFormatter::new(names.iter().map(|n| style(n).bold().cyan()), "and"));
-        let consent: bool = match Confirm::new().interact() {
-            Ok(consent) => consent,
+        match Confirm::new().interact() {
+            Ok(consent) => if !consent {
+                println!("Aborted.");
+                return Ok(());
+            },
             Err(err)    => { return Err(Error::ConfirmationError{ err }); }
         };
-        if !consent {
-            println!("Aborted.");
-            return Ok(());
-        }
     }
 
     // Now loop through the names to remove them
@@ -343,15 +379,16 @@ pub fn remove(names: Vec<String>, force: bool) -> Result<(), Error> {
         }
 
         // If it's the active link, then de-active it
-        let link_path : PathBuf = match get_active_instance_link() { Ok(path) => path, Err(err) => { return Err(Error::ActiveInstancePathError { err }); } };
-        match fs::read_link(&link_path) {
-            Ok(path) => if path == dir {
-                if let Err(err) = fs::remove_file(&link_path) { return Err(Error::ActiveInstanceRemoveError { path: link_path, err }); }
-            },
-            Err(err) => if err.kind() != std::io::ErrorKind::NotFound {
-                return Err(Error::ActiveInstanceTargetError{ path: link_path, err });
-            },
-        };
+        if InstanceInfo::active_instance_exists()? {
+            // Read the name in the link to find if it is us
+            debug!("Removing active link to instance '{}'...", name);
+            let active_name: String = read_active_instance_link()?;
+            if name == active_name {
+                // Remove the active file
+                let active_path: PathBuf = InstanceInfo::get_default_path(&name)?;
+                if let Err(err) = fs::remove_file(&active_path) { return Err(Error::ActiveInstanceRemoveError { path: active_path, err }); }
+            }
+        }
 
         // Alright done then
         println!("Removed instance {}", style(name).cyan().bold());
@@ -393,6 +430,15 @@ pub async fn list(show_status: bool) -> Result<(), Error> {
         Err(err) => { return Err(Error::InstancesDirError{ err }); },
     };
 
+    // Fetch the active link, if any
+    let active_name: Option<String> = if InstanceInfo::active_instance_exists()? {
+        // Get the name in the link
+        Some(read_active_instance_link()?)
+    } else {
+        // Nothing to get
+        None
+    };
+
     // Open up the ol' directory and iterate over its contents
     debug!("Reading '{}'...", instances_dir.display());
     let entries: ReadDir = match fs::read_dir(&instances_dir) {
@@ -413,17 +459,6 @@ pub async fn list(show_status: bool) -> Result<(), Error> {
             debug!("Skipping entry '{}' (not a directory)", entry_path.display());
             continue;
         }
-
-        // Deduce if it is the active entry
-        let link_path : PathBuf = match get_active_instance_link() { Ok(path) => path, Err(err) => { return Err(Error::ActiveInstancePathError { err }); } };
-        let is_active : bool    = match fs::read_link(&link_path) {
-            Ok(path) => path == entry_path,
-            Err(err) => if err.kind() == std::io::ErrorKind::NotFound {
-                false
-            } else {
-                return Err(Error::ActiveInstanceTargetError{ path: link_path, err });
-            },
-        };
 
         // Deduce its name as the name of the folder
         let name: OsString = entry.file_name();
@@ -449,7 +484,7 @@ pub async fn list(show_status: bool) -> Result<(), Error> {
         };
 
         // Re-style them if active
-        let (name, api, drv): (String, String, String) = if is_active {
+        let (name, api, drv): (String, String, String) = if active_name.is_some() && active_name.as_ref().unwrap() == &name {
             (style(name).bold().to_string(), style(&api_addr).bold().to_string(), style(drv_addr).bold().to_string())
         } else {
             (name.into(), api_addr.clone(), drv_addr)
@@ -513,27 +548,15 @@ pub fn select(name: String) -> Result<(), Error> {
     if !dir.exists() { return Err(Error::UnknownInstance{ name }); }
     if !dir.is_dir() { return Err(Error::InstanceNotADirError{ path: dir }); }
 
-    // Remove any previous softlinks, if any
+    // Get the path of the link file
     let link_path: PathBuf =  match get_active_instance_link() {
         Ok(path) => path,
         Err(err) => { return Err(Error::ActiveInstancePathError{ err }); },
     };
-    // We do the check a bit ambigiously to not check for the file's existance but for the link's
-    let res: Result<_, std::io::Error> = fs::read_link(&link_path);
-    if res.is_ok() || res.unwrap_err().kind() != std::io::ErrorKind::NotFound {
-        debug!("Removing previous active instance links...");
-        if !link_path.is_symlink() { return Err(Error::ActiveInstanceNotASoftlinkError{ path: link_path }); }
-        if let Err(err) = fs::remove_file(&link_path) { return Err(Error::ActiveInstanceRemoveError{ path: link_path, err }); }
-    }
 
-    // Now create the new one
-    debug!("Generating new link...");
-    #[cfg(unix)]
-    if let Err(err) = std::os::unix::fs::symlink(&dir, &link_path) { return Err(Error::ActiveInstanceCreateError{ path: link_path, target: dir, err }); }
-    #[cfg(windows)]
-    if let Err(err) = std::os::windows::fs::symlink_dir(&dir, &link_path) { return Err(Error::ActiveInstanceCreateError{ path: link_path, target: dir, err }); }
-    #[cfg(not(any(unix, windows)))]
-    compile_error!("Non-Unix, non-Windows OS not supported.");
+    // Simply write a new link, which overwrites the previous file
+    debug!("Generating new active link...");
+    if let Err(err) = fs::write(&link_path, &name) { return Err(Error::ActiveInstanceCreateError { path: link_path, target: name, err }) }
 
     // Done
     println!("Successfully switched to {}", style(name).bold().cyan());
@@ -564,15 +587,12 @@ pub fn edit(name: Option<String>, hostname: Option<Hostname>, api_port: Option<u
             Err(err) => Err(Error::InstanceDirError { err }),
         }
     }).unwrap_or_else(|| {
-        // Otherwise, we (attempt to) fetch the active one
-        match get_active_instance_link() {
-            Ok(path) => {
-                // Assert it exists
-                if !path.exists() { return Err(Error::NoActiveInstance) }
-                Ok(path)
-            },
-            Err(err) => Err(Error::ActiveInstancePathError { err }),
-        }
+        // Error if there is no active link
+        if !InstanceInfo::active_instance_exists()? { return Err(Error::NoActiveInstance); }
+        // Read the active link
+        let active_name: String = read_active_instance_link()?;
+        // Return the default path of that name
+        InstanceInfo::get_default_path(active_name)
     })?;
 
     // With the path confirmed, load the info.yml

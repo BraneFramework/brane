@@ -12,7 +12,6 @@
  *   Implements version queriers for the Brane framework.
 **/
 
-use std::path::PathBuf;
 use std::str::FromStr;
 
 use log::debug;
@@ -22,7 +21,6 @@ use specifications::arch::Arch;
 use specifications::version::Version;
 
 use crate::errors::VersionError;
-use crate::utils::get_config_dir;
 use crate::instance::InstanceInfo;
 
 
@@ -186,13 +184,13 @@ pub async fn handle() -> Result<(), VersionError> {
     println!();
 
     // If the registry file exists, then also do the remote
-    let config_file: PathBuf = match get_config_dir() {
-        Ok(dir)  => dir.join("registry.yml"),
-        Err(err) => { return Err(VersionError::ConfigDirError{ err }); }
+    let active_instance_exists: bool = match InstanceInfo::active_instance_exists() {
+        Ok(exists) => exists,
+        Err(err)   => { return Err(VersionError::InstanceInfoExistsError{ err }); }
     };
-    if config_file.exists() {
+    if active_instance_exists {
         // Get the registry file from it
-        let config = match InstanceInfo::from_path(&config_file) {
+        let config = match InstanceInfo::from_active_path() {
             Ok(config) => config,
             Err(err)   => { return Err(VersionError::InstanceInfoError{ err }); }
         };

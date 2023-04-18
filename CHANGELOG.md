@@ -38,6 +38,7 @@ All notable changes to the Brane framework will be documented in this file.
 - The `-m`/`--mode` option in `branectl` to `--image-dir`, for a more sensible interface.
 - `--version` to be come a positional parameter in `brane test` [**breaking change**]
 - `--show-result` to have `-r` as short flag instead of `-s` [**breaking change**]
+- The 'active instance link' to be a regular file containing the name of the instance instead of a softlink (because Windows does not give default symbolic link permissions :/)
 
 ### Fixed
 - The previous version not making it through the tests.

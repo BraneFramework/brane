@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    17 Apr 2023, 16:53:59
+//    18 Apr 2023, 09:57:08
 //  Auto updated?
 //    Yes
 // 
@@ -162,8 +162,6 @@ pub enum BuildError {
     WdDirCreateError{ path: PathBuf, err: std::io::Error },
     /// Could not copy a file to the working directory
     WdFileCopyError{ source: PathBuf, target: PathBuf, err: std::io::Error },
-    /// Could not copy a directory to the working directory
-    WdDirCopyError{ source: PathBuf, target: PathBuf, err: fs_extra::error::Error },
     /// Could not read a directory's entries.
     WdDirReadError{ path: PathBuf, err: std::io::Error },
     /// Could not unwrap an entry in a directory.
@@ -285,7 +283,6 @@ impl Display for BuildError {
             WdDirEntryError{ path, err }                        => write!(f, "Could not read entry in directory '{}' in the package working directory: {}", path.display(), err),
             WdDirReadError{ path, err }                         => write!(f, "Could not read directory '{}' in the package working directory: {}", path.display(), err),
             WdFileCopyError{ source, target, err }              => write!(f, "Could not copy file '{}' to '{}' in the package working directory: {}", source.display(), target.display(), err),
-            WdDirCopyError{ source, target, err }               => write!(f, "Could not copy directory '{}' to '{}' in the package working directory: {}", source.display(), target.display(), err),
             WdFileRenameError{ source, target, err }            => write!(f, "Could not rename file '{}' to '{}' in the package working directory: {}", source.display(), target.display(), err),
             WdFileCreateError{ path, err }                      => write!(f, "Could not create new file '{}' in the package working directory: {}", path.display(), err),
             WdFileOpenError{ path, err }                        => write!(f, "Could not open file '{}' in the package working directory: {}", path.display(), err),
@@ -668,11 +665,13 @@ pub enum InstanceError {
     /// Failed to get the path of the active instance link.
     ActiveInstancePathError{ err: UtilError },
     /// The active instance file exists but is not a softlink.
-    ActiveInstanceNotASoftlinkError{ path: PathBuf },
+    ActiveInstanceNotAFileError{ path: PathBuf },
+    /// Failed to read the active instance link file.
+    ActiveInstanceReadError{ path: PathBuf, err: std::io::Error },
     /// Failed to remove an already existing active instance link.
     ActiveInstanceRemoveError{ path: PathBuf, err: std::io::Error },
     /// Failed to create a new active instance link.
-    ActiveInstanceCreateError{ path: PathBuf, target: PathBuf, err: std::io::Error },
+    ActiveInstanceCreateError{ path: PathBuf, target: String, err: std::io::Error },
 
     /// No instance is active
     NoActiveInstance,
@@ -704,9 +703,10 @@ impl Display for InstanceError {
             UnknownInstance{ name }                        => write!(f, "Unknown instance '{name}'"),
             InstanceNotADirError{ path }                   => write!(f, "Instance directory '{}' exists but is not a directory", path.display()),
             ActiveInstancePathError{ err }                 => write!(f, "Failed to get active instance link path: {err}"),
-            ActiveInstanceNotASoftlinkError{ path }        => write!(f, "Active instance link '{}' exists but is not a symlink", path.display()),
+            ActiveInstanceNotAFileError{ path }            => write!(f, "Active instance link '{}' exists but is not a file", path.display()),
+            ActiveInstanceReadError{ path, err }           => write!(f, "Failed to read active instance link '{}': {}", path.display(), err),
             ActiveInstanceRemoveError{ path, err }         => write!(f, "Failed to remove existing active instance link '{}': {}", path.display(), err),
-            ActiveInstanceCreateError{ path, target, err } => write!(f, "Failed to create active instance link '{}' (points to '{}'): {}", path.display(), target.display(), err),
+            ActiveInstanceCreateError{ path, target, err } => write!(f, "Failed to create active instance link '{}' to '{}': {}", path.display(), target, err),
 
             NoActiveInstance => write!(f, "No active instance is set (run 'brane instance select' first)"),
         }
@@ -1110,8 +1110,8 @@ pub enum VersionError {
     /// Could not parse a Version number.
     VersionParseError{ raw: String, err: specifications::version::ParseError },
 
-    /// Could not get the configuration directory
-    ConfigDirError{ err: UtilError },
+    /// Could not discover if the instance existed.
+    InstanceInfoExistsError{ err: InstanceError },
     /// Could not open the login file
     InstanceInfoError{ err: InstanceError },
     /// Could not perform the request
@@ -1129,11 +1129,11 @@ impl Display for VersionError {
             HostArchError{ err }          => write!(f, "Could not get the host processor architecture: {err}"),
             VersionParseError{ raw, err } => write!(f, "Could parse '{raw}' as Version: {err}"),
 
-            ConfigDirError{ err }         => write!(f, "Could not get the Brane configuration directory: {err}"),
-            InstanceInfoError{ err }      => write!(f, "{err}"),
-            RequestError{ url, err }      => write!(f, "Could not perform request to '{url}': {err}"),
-            RequestFailure{ url, status } => write!(f, "Request to '{}' returned non-zero exit code {} ({})", url, status.as_u16(), status.canonical_reason().unwrap_or("<???>")),
-            RequestBodyError{ url, err }  => write!(f, "Could not get body from response from '{url}': {err}"),
+            InstanceInfoExistsError{ err } => write!(f, "Could not check if active instance exists: {err}"),
+            InstanceInfoError{ err }       => write!(f, "{err}"),
+            RequestError{ url, err }       => write!(f, "Could not perform request to '{url}': {err}"),
+            RequestFailure{ url, status }  => write!(f, "Request to '{}' returned non-zero exit code {} ({})", url, status.as_u16(), status.canonical_reason().unwrap_or("<???>")),
+            RequestBodyError{ url, err }   => write!(f, "Could not get body from response from '{url}': {err}"),
         }
     }
 }
