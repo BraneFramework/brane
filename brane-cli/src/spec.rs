@@ -4,7 +4,7 @@
 //  Created:
 //    28 Nov 2022, 15:56:23
 //  Last edited:
-//    12 Apr 2023, 11:56:23
+//    13 Apr 2023, 12:23:03
 //  Auto updated?
 //    Yes
 // 
@@ -23,6 +23,16 @@ use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 
 use crate::errors::HostnameParseError;
+
+
+/***** STATICS *****/
+lazy_static::lazy_static!{
+    /// The default Docker API version that we're using.
+    pub static ref API_DEFAULT_VERSION: String = format!("{}", brane_tsk::docker::API_DEFAULT_VERSION);
+}
+
+
+
 
 
 /***** LIBRARY *****/

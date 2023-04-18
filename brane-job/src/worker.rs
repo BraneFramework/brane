@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2022, 11:21:14
 //  Last edited:
-//    01 Mar 2023, 11:01:02
+//    13 Apr 2023, 10:52:20
 //  Auto updated?
 //    Yes
 // 
@@ -19,7 +19,7 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use bollard::{API_DEFAULT_VERSION, ClientVersion};
+use bollard::API_DEFAULT_VERSION;
 use chrono::Utc;
 use enum_debug::EnumDebug as _;
 use futures_util::StreamExt;
@@ -47,7 +47,7 @@ use brane_shr::fs::{copy_dir_recursively_async, unarchive_async};
 use brane_tsk::errors::{AuthorizeError, CommitError, ExecuteError, PreprocessError};
 use brane_tsk::spec::JobStatus;
 use brane_tsk::tools::decode_base64;
-use brane_tsk::docker::{self, ExecuteInfo, ImageSource, Network};
+use brane_tsk::docker::{self, ClientVersion, DockerOptions, ExecuteInfo, ImageSource, Network};
 use specifications::container::{Image, VolumeBind};
 use specifications::data::{AccessKind, AssetInfo};
 use specifications::package::{Capability, PackageIndex, PackageInfo, PackageKind};
@@ -119,32 +119,6 @@ async fn update_client(tx: &Sender<Result<ExecuteReply, Status>>, status: JobSta
 
 
 /***** AUXILLARY STRUCTURES *****/
-/// Helper structure for grouping together Docker environment information.
-#[derive(Clone, Debug)]
-pub struct DockerInfo {
-    /// The path to the Docker socket to connect to.
-    pub socket_path    : PathBuf,
-    /// The `bollard::ClientVersion` that we use to connect to the local daemon.
-    pub client_version : ClientVersion,
-}
-impl DockerInfo {
-    /// Constructor for the DockerInfo.
-    /// 
-    /// # Arguments
-    /// - `socket_path`: The path to the Docker socket to connect to.
-    /// - `client_version`: The `bollard::ClientVersion` that we use to connect to the local daemon.
-    /// 
-    /// # Returns
-    /// A new DockerInfo instance.
-    #[inline]
-    pub fn new(socket_path: impl Into<PathBuf>, client_version: ClientVersion) -> Self {
-        Self {
-            socket_path : socket_path.into(),
-            client_version,
-        }
-    }
-}
-
 /// Helper structure for grouping together task-dependent "constants", but that are not part of the task itself.
 #[derive(Clone, Debug)]
 pub struct ControlNodeInfo {
@@ -691,7 +665,7 @@ async fn ensure_container(worker_cfg: &WorkerConfig, proxy: Arc<ProxyClient>, en
 /// 
 /// # Errors
 /// This function errors if the task fails for whatever reason or we didn't even manage to launch it.
-async fn execute_task_local(worker_cfg: &WorkerConfig, dinfo: DockerInfo, tx: &Sender<Result<ExecuteReply, Status>>, container_path: impl AsRef<Path>, tinfo: TaskInfo, keep_container: bool, prof: ProfileScopeHandle<'_>) -> Result<FullValue, JobStatus> {
+async fn execute_task_local(worker_cfg: &WorkerConfig, dinfo: DockerOptions, tx: &Sender<Result<ExecuteReply, Status>>, container_path: impl AsRef<Path>, tinfo: TaskInfo, keep_container: bool, prof: ProfileScopeHandle<'_>) -> Result<FullValue, JobStatus> {
     let container_path : &Path    = container_path.as_ref();
     let mut tinfo      : TaskInfo = tinfo;
     let image          : Image    = tinfo.image.clone().unwrap();
@@ -736,7 +710,7 @@ async fn execute_task_local(worker_cfg: &WorkerConfig, dinfo: DockerInfo, tx: &S
     // Now we can launch the container...
     let exec = prof.nest("execution");
     let total = prof.time("Total");
-    let name: String = match exec.time_fut("spawn overhead", docker::launch(info, &dinfo.socket_path, dinfo.client_version)).await {
+    let name: String = match exec.time_fut("spawn overhead", docker::launch(&dinfo, info)).await {
         Ok(name) => name,
         Err(err) => { return Err(JobStatus::CreationFailed(format!("Failed to spawn container: {err}"))); },
     };
@@ -744,7 +718,7 @@ async fn execute_task_local(worker_cfg: &WorkerConfig, dinfo: DockerInfo, tx: &S
     if let Err(err) = update_client(tx, JobStatus::Started).await { error!("{}", err); }
 
     // ...and wait for it to complete
-    let (code, stdout, stderr): (i32, String, String) = match exec.time_fut("join overhead", docker::join(name, dinfo.socket_path, dinfo.client_version, keep_container)).await {
+    let (code, stdout, stderr): (i32, String, String) = match exec.time_fut("join overhead", docker::join(dinfo, name, keep_container)).await {
         Ok(name) => name,
         Err(err) => { return Err(JobStatus::CompletionFailed(format!("Failed to join container: {err}"))); },
     };
@@ -877,7 +851,10 @@ async fn execute_task(worker_cfg: &WorkerConfig, proxy: Arc<ProxyClient>, tx: Se
     let value: FullValue = match creds.method {
         Credentials::Local { path, version } => {
             // Prepare the DockerInfo
-            let dinfo: DockerInfo = DockerInfo::new(path.unwrap_or_else(|| PathBuf::from("/var/run/docker.sock")), version.map(|(major, minor)| ClientVersion{ major_version: major, minor_version: minor }).unwrap_or(*API_DEFAULT_VERSION));
+            let dinfo: DockerOptions = DockerOptions{
+                socket  : path.unwrap_or_else(|| PathBuf::from("/var/run/docker.sock")),
+                version : ClientVersion(version.map(|(major, minor)| bollard::ClientVersion{ major_version: major, minor_version: minor }).unwrap_or(*API_DEFAULT_VERSION)),
+            };
 
             // Do the call
             match prof.nest_fut("execution (local)", |scope| execute_task_local(worker_cfg, dinfo, &tx, container_path, tinfo, keep_container, scope)).await {

@@ -19,6 +19,9 @@ All notable changes to the Brane framework will be documented in this file.
 - Windows support for the `brane` CLI.
 - The `--local-aux` option to `branectl` such that it becomes easier to use pre-downloaded auxillary images.
 - Docker Buildx cache mounts (`--mount=type=cache`) to the compilation step, which should massively increase speed of repeated release builds.
+- Automatic CRLF detection when adding UTF-8/ASCII files to a container, and a subsequent prompt to deal with it.
+- The `--crlf-ok` flag to indicate no prompt is necessary when encountering CRLF files.
+- `postinstall`, `post-install` and `post_install` as aliases for `unpack` in `container.yml`.
 
 ### Changed
 - Protobuf descriptions to be in pure Rust instead of `.proto` files. This should allow use to re-use Rust structs in a more ergonimic style, as well as get rid of the very annoying `protoc` dependency.
@@ -32,10 +35,14 @@ All notable changes to the Brane framework will be documented in this file.
 - The general layout of `node.yml` to be more sensible (it focusses on services rather than names, ports, etc) [**breaking change**]
 - The `socksx` dependency to use [our own fork](https://github.com/epi-project/socksx) instead of [Onno's repository](https://github.com/onnovalkering/socksx) to achieve Windows compatibility for the `brane` CLI (see above).
 - `main.py`'s output directory for `aux-xenon` now respects the build mode (i.e., release or `--dev`).
-- The `-m`/`--mode` option in `branectl` to `--image-dir`, for a more sensible mode.
+- The `-m`/`--mode` option in `branectl` to `--image-dir`, for a more sensible interface.
+- `--version` to be come a positional parameter in `brane test` [**breaking change**]
+- `--show-result` to have `-r` as short flag instead of `-s` [**breaking change**]
+- The 'active instance link' to be a regular file containing the name of the instance instead of a softlink (because Windows does not give default symbolic link permissions :/)
 
 ### Fixed
 - The previous version not making it through the tests.
+- `brane build` not working when a file was nested from the root.
 
 ## [1.0.0] - 2023-01-06
 **IMPORTANT NOTICE**: From now on, the framework will stick to [semantic versioning](https://semver.org). Because we are still in development, however, we will consider any API-breaking change to be any change relating to the _usage_ of the program, not to any Rust-API the library provides. However, that will likely change once the framework is more mature.

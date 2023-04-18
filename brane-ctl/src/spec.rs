@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    13 Apr 2023, 10:06:17
+//    13 Apr 2023, 10:27:48
 //  Auto updated?
 //    Yes
 // 
@@ -14,7 +14,6 @@
 
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::path::PathBuf;
-use std::process::{Command, Output};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
@@ -26,7 +25,7 @@ use brane_tsk::docker::{ClientVersion, ImageSource};
 use specifications::address::Address;
 use specifications::version::Version;
 
-use crate::errors::{ArchParseError, DockerClientVersionParseError, InclusiveRangeParseError, PairParseError};
+use crate::errors::{InclusiveRangeParseError, PairParseError};
 
 
 /***** STATICS *****/
@@ -192,15 +191,6 @@ impl<K: FromStr, const C: char, V: FromStr> FromStr for Pair<K, C, V> where K::E
 
 
 /***** LIBRARY *****/
-/// Defines a collection of Docker options to pass to the `start`-subcommand handler.
-#[derive(Clone, Debug)]
-pub struct StartDockerOpts {
-    /// The location of the Docker socket with which to connect.
-    pub socket  : PathBuf,
-    /// The client version with which to connect.
-    pub version : ClientVersion, 
-}
-
 /// Defines a collection of options to pass to the `start`-subcommand handler.
 #[derive(Clone, Debug)]
 pub struct StartOpts {

@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:47
 //  Last edited:
-//    12 Apr 2023, 10:13:20
+//    13 Apr 2023, 10:29:53
 //  Auto updated?
 //    Yes
 // 
@@ -28,9 +28,9 @@ use brane_ast::ParserOptions;
 use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_tsk::spec::AppId;
+use brane_tsk::docker::DockerOptions;
 
 pub use crate::errors::ReplError as Error;
-use crate::spec::DockerOpts;
 use crate::utils::{ensure_config_dir, get_history_file};
 use crate::instance::InstanceInfo;
 use crate::run::{initialize_instance_vm, initialize_offline_vm, process_instance_result, process_offline_result, run_instance_vm, run_offline_vm, InstanceVmState, OfflineVmState};
@@ -184,7 +184,7 @@ impl Validator for ReplHelper {
 /// 
 /// # Errors
 /// This function errors if we could not properly read from/write to the terminal. Additionally, it may error if any of the given statements fails for whatever reason.
-pub async fn start(proxy_addr: Option<String>, remote: bool, attach: Option<AppId>, language: Language, clear: bool, profile: bool, docker_opts: DockerOpts) -> Result<(), Error> {
+pub async fn start(proxy_addr: Option<String>, remote: bool, attach: Option<AppId>, language: Language, clear: bool, profile: bool, docker_opts: DockerOptions) -> Result<(), Error> {
     // Build the config for the rustyline REPL.
     let config = Config::builder()
         .history_ignore_space(true)
@@ -336,7 +336,7 @@ async fn remote_repl(rl: &mut Editor<ReplHelper>, api_endpoint: impl AsRef<str>,
 /// 
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
-async fn local_repl(rl: &mut Editor<ReplHelper>, parse_opts: ParserOptions, docker_opts: DockerOpts) -> Result<(), Error> {
+async fn local_repl(rl: &mut Editor<ReplHelper>, parse_opts: ParserOptions, docker_opts: DockerOptions) -> Result<(), Error> {
     // First we initialize the remote thing
     let mut state: OfflineVmState = match initialize_offline_vm(parse_opts, docker_opts) {
         Ok(state) => state,

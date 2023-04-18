@@ -529,6 +529,7 @@ pub struct ContainerInfo {
     /// An extra set of commands that will be run _before_ the workspace is copied over. Useful for non-standard general dependencies.
     pub install      : Option<Vec<String>>,
     /// An extra set of commands that will be run _after_ the workspace is copied over. Useful for preprocessing or unpacking things.
+    #[serde(alias = "postinstall", alias = "post-install", alias = "post_install")]
     pub unpack       : Option<Vec<String>>,
 }
 

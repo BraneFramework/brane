@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    13 Apr 2023, 10:06:52
+//    13 Apr 2023, 10:28:19
 //  Auto updated?
 //    Yes
 // 
@@ -17,7 +17,6 @@ use std::fmt::{Debug, Display, Formatter, Result as FResult};
 use std::path::PathBuf;
 use std::process::{Command, ExitStatus};
 
-use bollard::ClientVersion;
 use console::style;
 use enum_debug::EnumDebug as _;
 
@@ -226,7 +225,7 @@ pub enum LifetimeError {
     /// Failed to load the given node config file.
     NodeConfigLoadError{ err: brane_cfg::spec::YamlError },
     /// Failed to connect to the local Docker daemon.
-    DockerConnectError{ socket: PathBuf, version: ClientVersion, err: bollard::errors::Error },
+    DockerConnectError{ err: brane_tsk::errors::DockerError },
     /// The given start command (got) did not match the one in the `node.yml` file (expected).
     UnmatchedNodeKind{ got: NodeKind, expected: NodeKind },
 
@@ -258,9 +257,9 @@ impl Display for LifetimeError {
             MissingProxyPath    => write!(f, "A path to a 'proxy.yml' file is given, but not a proxy service specification. Specify both if you want to host a proxy service in this node."),
             MissingProxyService => write!(f, "A proxy service specification is given, but not a path to a 'proxy.yml' file. Specify both if you want to host a proxy service in this node."),
 
-            NodeConfigLoadError{ err }                 => write!(f, "Failed to load node.yml file: {err}"),
-            DockerConnectError{ socket, version, err } => write!(f, "Failed to connect to local Docker socket '{}' using API version {}: {}", socket.display(), version, err),
-            UnmatchedNodeKind{ got, expected }         => write!(f, "Got command to start {} node, but 'node.yml' defined a {} node", got.variant(), expected.variant()),
+            NodeConfigLoadError{ err }         => write!(f, "Failed to load node.yml file: {err}"),
+            DockerConnectError{ err }          => write!(f, "Failed to connect to local Docker socket: {}", err),
+            UnmatchedNodeKind{ got, expected } => write!(f, "Got command to start {} node, but 'node.yml' defined a {} node", got.variant(), expected.variant()),
 
             JobLaunchError{ command, err } => write!(f, "Failed to launch command '{command:?}': {err}"),
             JobFailure{ command, status }  => write!(f, "Command '{}' failed with exit code {} (see output above)", style(format!("{command:?}")).bold(), style(status.code().map(|c| c.to_string()).unwrap_or_else(|| "non-zero".into())).bold()),
