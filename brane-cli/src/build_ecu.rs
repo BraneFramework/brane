@@ -448,16 +448,27 @@ fn prepare_directory(
                             // Write the bytes in the input buffer to the output buffer, omitting '\r' in '\r\n' where necessary
                             saw_cr = false;
                             for c in &buffer[..buffer_len] {
-                                if *c != '\n' as u8 {
-                                    // Write any old "buffered" carriage return if it is not followed by a newline
-                                    if saw_cr {
-                                        lf_buffer[lf_buffer_len] = '\r' as u8;
-                                        lf_buffer_len += 1;
-                                    }
-                                    saw_cr = *c == '\r' as u8;
-                                } else {
-                                    saw_cr = false;
+                                let c: char = *c as char;
+
+                                // If we have a buffered carriage return, write it unless it is superceded by a newline
+                                if saw_cr && c != '\n' {
+                                    lf_buffer[lf_buffer_len] = '\r' as u8;
+                                    lf_buffer_len += 1;
                                 }
+                                saw_cr = false;
+
+                                // Write this character always, unless it's a carriage return - buffer it in that case
+                                if c != '\r' {
+                                    lf_buffer[lf_buffer_len] = c as u8;
+                                    lf_buffer_len += 1;
+                                } else {
+                                    saw_cr = true;
+                                }
+                            }
+                            // Write any leftover carriage return
+                            if saw_cr {
+                                lf_buffer[lf_buffer_len] = '\r' as u8;
+                                lf_buffer_len += 1;
                             }
 
                             // Now write the new buffer to the thing
