@@ -4,7 +4,7 @@
 //  Created:
 //    21 Feb 2022, 12:32:28
 //  Last edited:
-//    11 Apr 2023, 13:30:13
+//    19 Apr 2023, 11:19:54
 //  Auto updated?
 //    Yes
 // 
@@ -127,7 +127,7 @@ pub fn build_docker_image<P: AsRef<Path>>(
     command.arg("--platform");
     command.arg(format!("linux/{}", arch.docker()));
     command.arg("--build-arg");
-    command.arg(format!("BRANELET_ARCH={arch}"));
+    command.arg(format!("BRANELET_ARCH={}", arch.brane()));
     command.arg("--build-arg");
     command.arg(format!("JUICEFS_ARCH={}", arch.juicefs()));
     command.arg(".");
