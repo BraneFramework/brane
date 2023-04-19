@@ -4,7 +4,7 @@
 //  Created:
 //    30 Jan 2023, 09:35:00
 //  Last edited:
-//    01 Mar 2023, 11:11:27
+//    19 Apr 2023, 13:09:07
 //  Auto updated?
 //    Yes
 // 
@@ -34,7 +34,8 @@ use brane_cfg::certs::load_all;
 use brane_shr::debug::PrettyListFormatter;
 
 pub use crate::errors::CertsError as Error;
-use crate::utils::{ensure_instances_dir, get_active_instance_link, get_instance_dir};
+use crate::utils::{ensure_instances_dir, get_instance_dir};
+use crate::instance::InstanceInfo;
 
 
 /***** HELPER FUNCTIONS *****/
@@ -55,19 +56,12 @@ fn resolve_instance(name: Option<String>) -> Result<(String, PathBuf), Error> {
             Err(err) => Err(Error::InstanceDirError{ err }),
         }
     } else {
-        match get_active_instance_link() {
-            Ok(path) => match path.exists() {
-                true => {
-                    // Extract the _real_ path from behind this link
-                    let real_path: PathBuf = match fs::read_link(&path) {
-                        Ok(path) => path,
-                        Err(err) => { return Err(Error::ActiveInstanceReadError{ path, err }); },
-                    };
-                    Ok((real_path.file_name().unwrap().to_string_lossy().into(), path))
-                },
-                false => Err(Error::NoActiveInstance),
+        match InstanceInfo::get_active_name() {
+            Ok(name) => match InstanceInfo::get_instance_path(&name) {
+                Ok(path) => Ok((name, path)),
+                Err(err) => Err(Error::InstancePathError{ name, err }),
             },
-            Err(err) => Err(Error::ActiveInstancePathError { err }),
+            Err(err) => Err(Error::ActiveInstanceReadError{ err }),
         }
     }
 }
@@ -132,7 +126,7 @@ fn analyse_cert(cert: &Certificate, path: impl Into<PathBuf>, i: usize) -> Resul
         };
 
         // Extract the real name if any
-        if &name[..7] == "CA for " {
+        if name.len() >= 7 && &name[..7] == "CA for " {
             domain_name = Some(name[7..].into());
         }
     }
@@ -174,17 +168,16 @@ enum CertificateKind {
 /// This function may error if there was no active instance or we failed to get/read its directory.
 pub fn get_active_certs_dir(domain: impl AsRef<Path>) -> Result<PathBuf, Error> {
     // Attempt to get the active link
-    let link_path: PathBuf = match get_active_instance_link() {
-        Ok(path) => path,
-        Err(err) => { return Err(Error::ActiveInstancePathError{ err }); },
+    let active_path: PathBuf = match InstanceInfo::get_active_name() {
+        Ok(name) => match InstanceInfo::get_instance_path(&name) {
+            Ok(path) => path,
+            Err(err) => { return Err(Error::InstancePathError { name, err }); },
+        },
+        Err(err) => { return Err(Error::ActiveInstanceReadError{ err }); },
     };
 
-    // Match valid links
-    if !link_path.exists() { return Err(Error::NoActiveInstance); }
-    if !link_path.is_symlink() { return Err(Error::ActiveInstanceNotASoftlinkError{ path: link_path }); }
-
-    // OK return the thing
-    Ok(link_path.join("certs").join(domain))
+    // Return the path within
+    Ok(active_path.join("certs").join(domain))
 }
 
 

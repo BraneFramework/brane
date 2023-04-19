@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    18 Apr 2023, 09:52:31
+//    19 Apr 2023, 12:52:27
 //  Auto updated?
 //    Yes
 // 
@@ -215,6 +215,29 @@ impl InstanceInfo {
 
 
 
+    /// Computes the name of the active instance and returns it.
+    /// 
+    /// # Returns
+    /// The name of the instance currently set active.
+    /// 
+    /// # Errors
+    /// This function errors if we failed to get the active instance or read the file.
+    #[inline]
+    pub fn get_active_name() -> Result<String, Error> { read_active_instance_link() }
+    /// Computes the active path and returns it.
+    /// 
+    /// This is not the path of the active instance link itself, but rather the instance it points to.
+    /// 
+    /// # Returns
+    /// The path to the active instance.
+    /// 
+    /// # Errors
+    /// This function errors if we failed to get the local path, or there is no active instance.
+    #[inline]
+    pub fn get_active_path() -> Result<PathBuf, Error> {
+        // Read the name, then use the default path to get the actual path itself
+        Self::get_default_path(read_active_instance_link()?)
+    }
     /// Computes the path to which to write this InstanceInfo given the instance's name.
     /// 
     /// Mostly used as a helper function for other functions in this struct.
@@ -222,15 +245,34 @@ impl InstanceInfo {
     /// # Arguments
     /// - `name`: The name for this instance. Will cause errors down the line if it contains characters incompatible for a path on this OS.
     /// 
+    /// # Returns
+    /// The path of the instance with the given name.
+    /// 
     /// # Errors
     /// This function errors if we failed to get the local path.
     #[inline]
     fn get_default_path(name: impl AsRef<str>) -> Result<PathBuf, Error> {
-        let instance_dir: PathBuf = match ensure_instance_dir(&name, true) {
-            Ok(dir)  => dir,
-            Err(err) => { return Err(Error::InstanceDirError{ err }); },
-        };
-        Ok(instance_dir.join("info.yml"))
+        match ensure_instance_dir(&name, true) {
+            Ok(dir)  => Ok(dir.join("info.yml")),
+            Err(err) => Err(Error::InstanceDirError{ err }),
+        }
+    }
+    /// Computes the path to the directory of the instance with the given name.
+    /// 
+    /// # Arguments
+    /// - `name`: The name of the instance to get the directory of.
+    /// 
+    /// # Returns
+    /// The path to this instance's directory.
+    /// 
+    /// # Errors
+    /// This function may error if we failed to get the base config directory, or no such instance exists.
+    #[inline]
+    pub fn get_instance_path(name: impl AsRef<str>) -> Result<PathBuf, Error> {
+        match ensure_instance_dir(&name, false) {
+            Ok(dir)  => Ok(dir),
+            Err(err) => Err(Error::InstanceDirError{ err }),
+        }
     }
 }
 

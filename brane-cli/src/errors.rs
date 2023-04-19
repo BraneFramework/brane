@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    18 Apr 2023, 09:57:08
+//    19 Apr 2023, 13:12:39
 //  Auto updated?
 //    Yes
 // 
@@ -356,12 +356,10 @@ pub enum CertsError {
     InstanceDirError{ err: UtilError },
     /// An unknown instance was given.
     UnknownInstance{ name: String },
-    /// Failed to load the active instance symbol link path.
-    ActiveInstancePathError{ err: UtilError },
-    /// No active instance was present.
-    NoActiveInstance,
     /// Failed to read the directory behind the active instance link.
-    ActiveInstanceReadError{ path: PathBuf, err: std::io::Error },
+    ActiveInstanceReadError{ err: InstanceError },
+    /// Failed to get the path behind an instance name.
+    InstancePathError{ name: String, err: InstanceError },
     /// Did not manage to load (one of) the given PEM files.
     PemLoadError{ path: PathBuf, err: brane_cfg::certs::Error },
     /// No CA certificate was provided.
@@ -405,22 +403,21 @@ impl Display for CertsError {
             CertNoUsageError{ path, i }         => write!(f, "Certificate {} in file '{}' has neither Digital Signature, nor CRL Sign flags set (cannot determine usage)", i, path.display()),
             CertIssuerCaError{ path, i, err }   => write!(f, "Failed to get the CA field in the issuer field of certificate {} in file '{}': {}", i, path.display(), err),
 
-            InstanceDirError{ err }              => write!(f, "Failed to get instance directory: {err}"),
-            UnknownInstance{ name }              => write!(f, "Unknown instance '{name}'"),
-            ActiveInstancePathError{ err }       => write!(f, "Failed to get active instance symlink path: {err}"),
-            NoActiveInstance                     => write!(f, "No active instance is set (run 'brane instance select' first)"),
-            ActiveInstanceReadError{ path, err } => write!(f, "Failed to read active instance link '{}': {}", path.display(), err),
-            PemLoadError{ path, err }            => write!(f, "Failed to load PEM file '{}': {}", path.display(), err),
-            NoCaCert                             => write!(f, "No CA certificate given (specify at least one certificate that has 'CRL Sign' key usage flag set)"),
-            NoClientCert                         => write!(f, "No client certificate given (specify at least one certificate that has 'Digital Signature' key usage flag set)"),
-            NoClientKey                          => write!(f, "No client private key given (specify at least one private key)"),
-            NoDomainName                         => write!(f, "Domain name not specified in certificates; specify the target domain name manually using '--domain'"),
-            ConfirmationError{ err }             => write!(f, "Failed to ask the user (you!) for confirmation: {err} (if you are sure, you can skip this step by using '--force')"),
-            CertsDirNotADir{ path }              => write!(f, "Certificate directory '{}' exists but is not a directory", path.display()),
-            CertsDirRemoveError{ path, err }     => write!(f, "Failed to remove certificate directory '{}': {}", path.display(), err),
-            CertsDirCreateError{ path, err }     => write!(f, "Failed to create certificate directory '{}': {}", path.display(), err),
-            FileOpenError{ what, path, err }     => write!(f, "Failed to open {} file '{}' for appending: {}", what, path.display(), err),
-            FileWriteError{ what, path, err }    => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
+            InstanceDirError{ err }           => write!(f, "Failed to get instance directory: {err}"),
+            UnknownInstance{ name }           => write!(f, "Unknown instance '{name}'"),
+            ActiveInstanceReadError{ err }    => write!(f, "Failed to read active instance: {err}"),
+            InstancePathError{ name, err }    => write!(f, "Failed to get instance path for instance '{name}': {err}"),
+            PemLoadError{ path, err }         => write!(f, "Failed to load PEM file '{}': {}", path.display(), err),
+            NoCaCert                          => write!(f, "No CA certificate given (specify at least one certificate that has 'CRL Sign' key usage flag set)"),
+            NoClientCert                      => write!(f, "No client certificate given (specify at least one certificate that has 'Digital Signature' key usage flag set)"),
+            NoClientKey                       => write!(f, "No client private key given (specify at least one private key)"),
+            NoDomainName                      => write!(f, "Location name not specified in certificates; specify the target location name manually using '--domain'"),
+            ConfirmationError{ err }          => write!(f, "Failed to ask the user (you!) for confirmation: {err} (if you are sure, you can skip this step by using '--force')"),
+            CertsDirNotADir{ path }           => write!(f, "Certificate directory '{}' exists but is not a directory", path.display()),
+            CertsDirRemoveError{ path, err }  => write!(f, "Failed to remove certificate directory '{}': {}", path.display(), err),
+            CertsDirCreateError{ path, err }  => write!(f, "Failed to create certificate directory '{}': {}", path.display(), err),
+            FileOpenError{ what, path, err }  => write!(f, "Failed to open {} file '{}' for appending: {}", what, path.display(), err),
+            FileWriteError{ what, path, err } => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
 
             InstancesDirError{ err }                    => write!(f, "Failed to get instances directory: {err}"),
             DirReadError{ what, path, err }             => write!(f, "Failed to read {} directory '{}': {}", what, path.display(), err),
