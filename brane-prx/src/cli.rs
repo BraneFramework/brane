@@ -6,9 +6,8 @@ use clap::Parser;
 #[derive(Parser)]
 #[clap(name = "brane-prx", version, author)]
 pub(crate) struct Cli {
-    /// Print debug info
-    #[clap(long, action, help = "If given, shows additional logging information.", env = "DEBUG")]
-    pub(crate) debug: bool,
+    #[clap(flatten)]
+    pub(crate) logging: specifications::cli::Tracing,
 
     /// Node environment metadata store.
     #[clap(

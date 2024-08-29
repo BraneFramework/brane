@@ -300,7 +300,7 @@ impl FromStr for Address {
                 IpAddr::V6(ip) => Ok(Self::Ipv6(ip, port)),
             },
             Err(err) => {
-                log::debug!("Parsing '{}' as a hostname, but might be an invalid IP address (parser feedback: {})", address, err);
+                tracing::debug!("Parsing '{}' as a hostname, but might be an invalid IP address (parser feedback: {})", address, err);
                 Ok(Self::Hostname(address.into(), port))
             },
         }

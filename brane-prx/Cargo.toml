@@ -17,9 +17,7 @@ url = "2.5.0"
 anyhow.workspace = true
 clap.workspace = true
 dotenvy.workspace = true
-env_logger.workspace = true
 error-trace.workspace = true
-log.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 rustls.workspace = true
 serde.workspace = true
