@@ -42,6 +42,7 @@ shlex = "1.1.0"
 tempfile = "3.10.1"
 thiserror = "2.0.0"
 tokio = { version = "1.38.0", features = [] }
+tracing = "0.1.40"
 
 # Workspace dependencies
 # Note that this crate needs a root store because it can download from the internet
@@ -52,6 +53,8 @@ brane-shr = { path = "../brane-shr" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
 
+strum = "0.26.3"
+strum_macros = "0.26.4"
 
 [build-dependencies]
 download.workspace = true
