@@ -61,12 +61,6 @@ mod tests {
     /// Tests the traversal by generating symbol tables for every file.
     #[tokio::test]
     async fn test_thread() {
-        // Setup the simple logger
-        #[cfg(feature = "test_logging")]
-        if let Err(err) = humanlog::HumanLogger::terminal(humanlog::DebugMode::Debug).init() {
-            eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
-        }
-
         // Run the tests on all the files
         test_on_dsl_files_async("BraneScript", |path, code| {
             async move {

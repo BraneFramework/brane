@@ -18,7 +18,9 @@
 // Declare submodules
 pub mod address;
 pub mod arch;
+pub mod brane;
 pub mod checking;
+pub mod cli;
 pub mod common;
 pub mod container;
 pub mod data;
@@ -31,6 +33,7 @@ pub mod planning;
 pub mod policy;
 pub mod profiling;
 pub mod registering;
+pub mod tracing;
 pub mod version;
 pub mod wir;
 pub mod working;

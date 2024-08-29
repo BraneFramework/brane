@@ -25,8 +25,8 @@ use brane_let::{exec_ecu, exec_nop};
 use clap::Parser;
 use cli::*;
 use dotenvy::dotenv;
-use log::LevelFilter;
 use serde::de::DeserializeOwned;
+use tracing::level_filters::LevelFilter;
 use tracing::{debug, warn};
 
 
@@ -37,22 +37,21 @@ const OUTPUT_PREFIX_NAME: &str = "ENABLE_STDOUT_PREFIX";
 /// The thing we prefix to the output stdout so the Kubernetes engine can recognize valid output when it sees it.
 const OUTPUT_PREFIX: &str = "[OUTPUT] ";
 /// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: LevelFilter = LevelFilter::INFO;
+/// The environment variable used by env-filter in tracing subscriber
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_LET_LOG";
 
 /***** ENTRYPOINT *****/
 #[tokio::main]
 async fn main() {
     // Parse the arguments
     dotenv().ok();
-    let cli::Cli { proxy_address, debug, sub_command, .. } = cli::Cli::parse();
+    let cli::Cli { logging, proxy_address, sub_command, .. } = cli::Cli::parse();
+
+    let cli_log_level = logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
 
     // Configure logger.
-    let mut logger = env_logger::builder();
-    logger.format_module_path(false);
-    if debug {
-        logger.filter_level(LevelFilter::Debug).init();
-    } else {
-        logger.filter_level(LevelFilter::Info).init();
-    }
     debug!("BRANELET v{}", env!("CARGO_PKG_VERSION"));
     debug!("Initializing...");
 

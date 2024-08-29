@@ -23,6 +23,7 @@ anyhow.workspace = true
 async-trait.workspace = true
 base64.workspace = true
 chrono.workspace = true
+clap.workspace = true
 enum-debug.workspace = true
 futures.workspace = true
 lazy_static.workspace = true
@@ -36,6 +37,7 @@ strum = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tonic.workspace = true
 tracing.workspace = true
+tracing-subscriber.workspace = true
 
 # Brane
 policy-reasoner = { workspace = true, features = ["eflint-haskell-reasoner"] }

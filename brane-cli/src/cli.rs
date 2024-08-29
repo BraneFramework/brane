@@ -12,10 +12,11 @@ use specifications::version::{AliasedFunctionVersion, ConcreteFunctionVersion};
 #[derive(Parser)]
 #[clap(name = "brane", version, about)]
 pub(crate) struct Cli {
-    #[clap(long, global = true, action, help = "Enable debug mode")]
-    pub(crate) debug: bool,
+    #[clap(flatten)]
+    pub logging: specifications::cli::Tracing,
+
     #[clap(long, action, help = "Skip dependencies check")]
-    pub(crate) skip_check: bool,
+    pub(crate) skip_check:  bool,
     #[clap(subcommand)]
     pub(crate) sub_command: SubCommand,
 }
@@ -438,7 +439,7 @@ pub(crate) enum PackageSubcommand {
     Load {
         #[clap(name = "NAME", help = "Name of the package")]
         name:    String,
-        #[clap(short, long, default_value = "latest", help = "Version of the package")]
+        #[clap(long, default_value = "latest", help = "Version of the package")]
         version: AliasedFunctionVersion,
     },
 
@@ -498,7 +499,7 @@ pub(crate) enum PackageSubcommand {
         #[clap(short = 's', long, help = "The path to the Docker socket with which we communicate with the dameon.")]
         docker_socket:  PathBuf,
         /// The Docker client version.
-        #[clap(short='v', long, default_value = API_DEFAULT_VERSION.as_str(), help = "The API version with which we connect.")]
+        #[clap(long, default_value = API_DEFAULT_VERSION.as_str(), help = "The API version with which we connect.")]
         client_version: ClientVersion,
     },
 
@@ -539,7 +540,7 @@ pub(crate) enum PackageSubcommand {
         #[clap(short = 's', long, help = "The path to the Docker socket with which we communicate with the dameon.")]
         docker_socket:   PathBuf,
         /// The Docker client version.
-        #[clap(short='v', long, default_value = API_DEFAULT_VERSION.as_str(), help = "The API version with which we connect.")]
+        #[clap(long, default_value = API_DEFAULT_VERSION.as_str(), help = "The API version with which we connect.")]
         client_version:  ClientVersion,
         /// Whether to keep container after running or not.
         #[clap(short = 'k', long, help = "If given, does not remove containers after execution. This is useful for debugging them.")]
@@ -627,7 +628,7 @@ pub(crate) enum WorkflowSubcommand {
         #[clap(short = 's', long, help = "The path to the Docker socket with which we communicate with the dameon.")]
         docker_socket:   PathBuf,
         /// The Docker client version.
-        #[clap(short='v', long, default_value = API_DEFAULT_VERSION.as_str(), help = "The API version with which we connect.")]
+        #[clap(long, default_value = API_DEFAULT_VERSION.as_str(), help = "The API version with which we connect.")]
         client_version:  ClientVersion,
         /// Whether to keep container after running or not.
         #[clap(short = 'k', long, help = "If given, does not remove containers after execution. This is useful for debugging them.")]
@@ -688,7 +689,7 @@ pub(crate) enum WorkflowSubcommand {
         #[clap(short = 's', long, help = "The path to the Docker socket with which we communicate with the dameon.")]
         docker_socket:   PathBuf,
         /// The Docker client version.
-        #[clap(short='v', long, default_value = API_DEFAULT_VERSION.as_str(), help = "The API version with which we connect.")]
+        #[clap(long, default_value = API_DEFAULT_VERSION.as_str(), help = "The API version with which we connect.")]
         client_version:  ClientVersion,
         /// Whether to keep container after running or not.
         #[clap(short = 'k', long, help = "If given, does not remove containers after execution. This is useful for debugging them.")]
@@ -723,7 +724,6 @@ pub(crate) enum UpgradeSubcommand {
         overwrite: bool,
         /// Fixes the version from which we are converting.
         #[clap(
-            short,
             long,
             default_value = "all",
             help = "Whether to consider only one version when examining a file. Can be any valid BRANE version or 'auto' to use all supported \
