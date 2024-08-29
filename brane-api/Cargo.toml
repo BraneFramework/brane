@@ -34,6 +34,9 @@ tokio-tar = "0.3.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 warp = "0.3.2"
 
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
 brane-cfg      = { path = "../brane-cfg" }
 brane-prx      = { path = "../brane-prx" }
 brane-shr      = { path = "../brane-shr" }
