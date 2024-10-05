@@ -1,9 +1,11 @@
 [package]
 name = "brane-tsk"
-version = { workspace = true }
 edition = "2021"
-authors = [ "Tim Müller" ]
 rust-version = "1.67.1"
+authors = [ "Tim Müller" ]
+version.workspace = true
+repository.workspace = true
+license.workspace = true
 
 
 [dependencies]

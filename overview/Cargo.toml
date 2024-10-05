@@ -1,7 +1,9 @@
 [package]
 name = "overview"
-version = { workspace = true }
-authors = { workspace = true }
 description = "Dummy crate for having a nice entrypoint in the generated docs."
 rust-version = "1.64.0"
 edition = "2021"
+version.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true

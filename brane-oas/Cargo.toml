@@ -1,9 +1,11 @@
 [package]
 name = "brane-oas"
-version = { workspace = true }
-authors = { workspace = true }
 edition = "2018"
 rust-version = "1.67.1"
+version.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true
 
 [dependencies]
 anyhow = "1.0.66"

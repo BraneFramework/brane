@@ -62,12 +62,14 @@ authors = [ "Onno Valkering", "Tim Müller" ]
 description = "The Brane Framework is a workflow execution system that is capable of dealing with sensitive dataset. Created for the [EPI project](https://enablingpersonalizedinterventions.nl)."
 repository = "https://github.com/epi-project/brane"
 documentation = "https://wiki.enablingpersonalizedinterventions.nl"
-
+license = "Apache-2.0"
 
 [package]
 name = "brane-meta"
-version.workspace = true
 edition = "2021"
+version.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lints.clippy]
 result_large_err = { level = "allow", priority = 1 }
