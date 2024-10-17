@@ -12,9 +12,9 @@ base64 = "0.21.0"
 clap = { version = "4.5.6", features = ["derive","env"] }
 deliberation = { git = "https://github.com/epi-project/policy-reasoner" }
 dotenvy = "0.15.0"
-enum-debug.workspace = true
+enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.0.0" }
 env_logger = "0.10.0"
-error-trace.workspace = true
+error-trace = { git = "https://github.com/Lut99/error-trace-rs", tag = "v2.0.0" }
 log = "0.4.22"
 reqwest = "0.11.27"
 rustls = "0.21.6"

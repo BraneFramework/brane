@@ -9,7 +9,7 @@ license.workspace = true
 
 [dependencies]
 bytes = "1.2.0"
-enum-debug.workspace = true
+enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.0.0", features = ["derive"] }
 log = "0.4.22"
 nom = "7.1.0"
 nom_locate = "4.1.0"

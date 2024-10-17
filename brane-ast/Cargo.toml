@@ -9,7 +9,7 @@ license.workspace = true
 
 [dependencies]
 console = "0.15.5"
-enum-debug.workspace = true
+enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.0.0", features = ["derive"] }
 lazy_static = "1.4.0"
 log = "0.4.22"
 rand = "0.8.5"

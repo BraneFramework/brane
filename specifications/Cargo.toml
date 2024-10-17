@@ -14,7 +14,7 @@ base64 = "0.21.0"
 base64ct = { version = "1.6.0", features = ["std"] }
 chrono = { version = "0.4.35", features = ["serde"] }
 const_format = "0.2.22"
-enum-debug.workspace = true
+enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.0.0", features = ["derive"] }
 futures = "0.3.24"
 # lazy_static = "1.4.0"
 jsonwebtoken = "9.2.0"

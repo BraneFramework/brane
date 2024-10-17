@@ -29,8 +29,8 @@ console = "0.15.5"
 dialoguer = "0.11.0"
 dirs = "5.0.1"
 dotenvy = "0.15.0"
-enum-debug.workspace = true
-error-trace.workspace = true
+enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.0.0", features = ["derive"] }
+error-trace = { git = "https://github.com/Lut99/error-trace-rs", tag = "v2.0.0" }
 filetime = "0.2.15"
 flate2 = { version = "1.0.13", features = ["zlib"], default-features = false }
 fs_extra = "1.2.0"
@@ -38,13 +38,13 @@ futures = "0.3.24"
 futures-util = "0.3.30"
 # git2 = { version = "0.17", features = ["vendored-libgit2"] }
 graphql_client = "0.13.0"
-humanlog.workspace = true
+humanlog = { git = "https://github.com/Lut99/humanlog-rs", tag = "v0.1.0" }
 human-panic = "2.0.0"
 hyper = "0.14.29"
 indicatif = "0.17.0"
 lazy_static = "1.4.0"
 log = "0.4.22"
-names.workspace = true
+names = { git = "https://github.com/Lut99/names-rs", tag = "v0.1.0", default-features = false, features = ["rand", "three-lowercase"]}
 openapiv3 = "0.5.0"
 parking_lot = "0.12.1"
 path-clean = "1.0.0"
