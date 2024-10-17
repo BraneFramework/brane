@@ -1,11 +1,9 @@
 [package]
 name = "brane-cfg"
-rust-version = "1.73"
-edition = "2018"
+version = { workspace = true }
 authors = ["Onno Valkering", "Tim Müller"]
-version.workspace = true
-repository.workspace = true
-license.workspace = true
+edition = "2018"
+rust-version = "1.73"
 
 [dependencies]
 async-trait = "0.1.67"

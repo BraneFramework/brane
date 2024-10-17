@@ -1,12 +1,10 @@
 [package]
 name = "brane-ctl"
+version = { workspace = true }
 edition = "2021"
 authors = [ "Tim Müller" ]
 default-run = "branectl"
 rust-version = "1.78"
-version.workspace = true
-repository.workspace = true
-license.workspace = true
 
 [[bin]]
 name = "branectl"

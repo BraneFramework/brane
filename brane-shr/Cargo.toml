@@ -1,11 +1,9 @@
 [package]
 name = "brane-shr"
+version = { workspace = true }
+authors = { workspace = true }
 edition = "2021"
 rust-version = "1.73"
-version.workspace = true
-repository.workspace = true
-authors.workspace = true
-license.workspace = true
 
 [dependencies]
 async-compression = { version = "0.3.15", features = ["tokio","gzip"] }

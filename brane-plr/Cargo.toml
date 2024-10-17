@@ -1,11 +1,9 @@
 [package]
 name = "brane-plr"
+version = { workspace = true }
+authors = { workspace = true }
 edition = "2021"
 rust-version = "1.74"
-version.workspace = true
-repository.workspace = true
-authors.workspace = true
-license.workspace = true
 
 [dependencies]
 async-recursion = "1.0.0"

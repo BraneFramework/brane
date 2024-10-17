@@ -1,11 +1,9 @@
 [package]
 name = "brane-prx"
+version = { workspace = true }
 edition = "2021"
-authors = [ "Tim Müller" ]
+authors = [ "Lut99" ]
 rust-version = "1.74"
-version.workspace = true
-repository.workspace = true
-license.workspace = true
 
 [dependencies]
 anyhow = "1.0.66"

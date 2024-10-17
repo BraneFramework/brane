@@ -1,11 +1,9 @@
 [package]
 name = "brane-ast"
-rust-version = "1.67.1"
+version = { workspace = true }
 edition = "2021"
 authors = [ "Tim Müller" ]
-version.workspace = true
-repository.workspace = true
-license.workspace = true
+rust-version = "1.73"
 
 [dependencies]
 console = "0.15.5"
