@@ -1,0 +1,26 @@
+[package]
+name = "brane-chk"
+edition = "2021"
+rust-version = "1.74"
+version.workspace = true
+repository.workspace = true
+authors = ["Tim Müller", "Bas Kloosterman", "Daniel Voogsgerd"]
+license.workspace = true
+
+
+[dependencies]
+thiserror = "1.0.61"
+tracing = "0.1.40"
+
+enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.1.0" }
+policy-reasoner = { git = "https://github.com/epi-project/policy-reasoner", branch = "lib-refactor", features = ["workflow"] }
+
+brane-ast = { path = "../brane-ast" }
+brane-cfg = { path = "../brane-cfg" }
+brane-exe = { path = "../brane-exe" }
+brane-tsk = { path = "../brane-tsk" }
+specifications = { path = "../specifications" }
+
+
+[features]
+default = []
