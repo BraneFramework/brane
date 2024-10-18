@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    17 Oct 2024, 17:15:04
+//    18 Oct 2024, 11:47:15
 //  Auto updated?
 //    Yes
 //
@@ -14,20 +14,29 @@
 //
 
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
 use std::panic::catch_unwind;
 
+use brane_ast::ast;
 use brane_ast::spec::BuiltinFunctions;
-use brane_ast::{MergeStrategy, ast};
 use brane_exe::pc::{ProgramCounter, ResolvedProgramCounter};
 use enum_debug::EnumDebug as _;
-use policy_reasoner::workflow::{Dataset, Elem, ElemBranch, ElemCall, ElemLoop, ElemParallel, Entity, Workflow};
+use policy_reasoner::workflow::{Dataset, Elem, ElemBranch, ElemCall, ElemLoop, ElemParallel, Entity, Metadata, Workflow};
 use specifications::data::{AvailabilityKind, DataName, PreprocessKind};
 use thiserror::Error;
 use tracing::{Level, debug, trace};
 
-use super::preprocess;
-// use crate::{utils, Metadata};
+use super::{preprocess, utils};
+
+
+/***** CONSTANTS *****/
+/// The name of the special commit call.
+pub const COMMIT_CALL_NAME: &'static str = "__brane_internals::commit";
+
+/// The name of the special identity function call.
+pub const TOPLEVEL_RETURN_CALL_NAME: &'static str = "__brane_internals::toplevel_return";
+
+
+
 
 
 /***** ERRORS *****/
@@ -246,34 +255,35 @@ fn reconstruct_graph(
             };
 
             // Return the elem
-            Ok(Elem::Task(ElemTask {
+            Ok(Elem::Call(ElemCall {
                 id: format!("{}-{}-task", wf_id, pc.resolved(&wir.table)),
-                name: def.function.name.clone(),
-                package: def.package.clone(),
-                version: def.version,
+                task: format!("{}::{}::[{}]", def.function.name, def.package, def.version),
                 input: input
                     .iter()
                     .map(|(name, avail)| Dataset {
-                        name: name.name().into(),
+                        id:   name.name().into(),
                         from: avail.as_ref().and_then(|avail| match avail {
                             AvailabilityKind::Available { how: _ } => None,
                             AvailabilityKind::Unavailable { how: PreprocessKind::TransferRegistryTar { location, dataname: _ } } => {
-                                Some(location.clone())
+                                Some(Entity { id: location.clone() })
                             },
                         }),
                     })
                     .collect(),
-                output: result.as_ref().map(|name| Dataset { name: name.clone(), from: None }),
-                location: at.clone(),
+                output: result.as_ref().map(|name| Dataset { id: name.clone(), from: at.clone().map(|id| Entity { id }) }).into_iter().collect(),
+                at: at.clone().map(|id| Entity { id }),
                 metadata: metadata
                     .iter()
-                    .map(|md| Metadata { owner: md.owner.clone(), tag: md.tag.clone(), signature: md.signature.clone() })
+                    .map(|md| Metadata {
+                        tag: format!("{}:{}", md.owner, md.tag),
+                        signature: md.signature.clone().map(|(entity, sig)| (Entity { id: entity }, sig)),
+                    })
                     .collect(),
                 next: Box::new(reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*next), plug, breakpoint)?),
             }))
         },
 
-        ast::Edge::Stop {} => Ok(Elem::Stop(HashSet::new())),
+        ast::Edge::Stop {} => Ok(Elem::Stop),
 
         ast::Edge::Branch { true_next, false_next, merge } => {
             // Construct the branches first
@@ -284,10 +294,8 @@ fn reconstruct_graph(
             }
 
             // Build the next, if there is any
-            let next: Elem = merge
-                .map(|merge| reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(merge), plug, breakpoint))
-                .transpose()?
-                .unwrap_or(Elem::Stop(HashSet::new()));
+            let next: Elem =
+                merge.map(|merge| reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(merge), plug, breakpoint)).transpose()?.unwrap_or(Elem::Stop);
 
             // Build the elem using those branches and next
             Ok(Elem::Branch(ElemBranch { branches, next: Box::new(next) }))
@@ -305,8 +313,8 @@ fn reconstruct_graph(
                 Some(edge) => edge,
                 None => return Err(Error::ParallelMergeOutOfBounds { pc: pc.resolved(&wir.table), merge: pc.jump(*merge).resolved(&wir.table) }),
             };
-            let (strategy, next): (MergeStrategy, usize) = if let ast::Edge::Join { merge, next } = merge_edge {
-                (*merge, *next)
+            let next: usize = if let ast::Edge::Join { merge: _, next } = merge_edge {
+                *next
             } else {
                 return Err(Error::ParallelWithNonJoin {
                     pc:    pc.resolved(&wir.table),
@@ -319,7 +327,7 @@ fn reconstruct_graph(
             let next: Elem = reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(next), plug, breakpoint)?;
 
             // We have enough to build ourselves
-            Ok(Elem::Parallel(ElemParallel { branches: elem_branches, merge: strategy, next: Box::new(next) }))
+            Ok(Elem::Parallel(ElemParallel { branches: elem_branches, next: Box::new(next) }))
         },
 
         ast::Edge::Join { .. } => Err(Error::StrayJoin { pc: pc.resolved(&wir.table) }),
@@ -332,10 +340,8 @@ fn reconstruct_graph(
             let cond: Elem = reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*cond), body_elems, Some(pc.jump(*body - 1)))?;
 
             // Build the next
-            let next: Elem = next
-                .map(|next| reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(next), plug, breakpoint))
-                .transpose()?
-                .unwrap_or(Elem::Stop(HashSet::new()));
+            let next: Elem =
+                next.map(|next| reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(next), plug, breakpoint)).transpose()?.unwrap_or(Elem::Stop);
 
             // We have enough to build self
             Ok(Elem::Loop(ElemLoop { body: Box::new(cond), next: Box::new(next) }))
@@ -366,7 +372,7 @@ fn reconstruct_graph(
                     }
 
                     // Then create a new Dataset with that
-                    new_input.push(Dataset { name: i.name().into(), from: location });
+                    new_input.push(Dataset { id: i.name().into(), from: location.map(|id| Entity { id }) });
                 }
 
                 // Attempt to fetch the name of the dataset
@@ -387,11 +393,14 @@ fn reconstruct_graph(
                 let next: Elem = reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*next), plug, breakpoint)?;
 
                 // Then we wrap the rest in a commit
-                Ok(Elem::Commit(ElemCommit {
+                let at: Option<Entity> = locs.into_iter().next().map(|id| Entity { id });
+                Ok(Elem::Call(ElemCall {
                     id: format!("{}-{}-commit", wf_id, pc.resolved(&wir.table)),
-                    data_name,
-                    location: locs.into_iter().next(),
+                    task: COMMIT_CALL_NAME.into(),
                     input: new_input,
+                    output: vec![Dataset { id: data_name, from: at.clone() }],
+                    at,
+                    metadata: vec![],
                     next: Box::new(next),
                 }))
             } else if func_def.name == BuiltinFunctions::Print.name()
@@ -405,7 +414,21 @@ fn reconstruct_graph(
             }
         },
 
-        ast::Edge::Return { result } => Ok(Elem::Stop(result.iter().map(|data| Dataset { name: data.name().into(), from: None }).collect())),
+        ast::Edge::Return { result } => {
+            // Compile it as: final transfer, then return
+            Ok(Elem::Call(ElemCall {
+                id: format!("{}-{}-return", wf_id, pc.resolved(&wir.table)),
+                task: TOPLEVEL_RETURN_CALL_NAME.into(),
+                input: result.iter().map(|data| Dataset { id: data.name().into(), from: None }).collect(),
+                output: result
+                    .iter()
+                    .map(|data| Dataset { id: data.name().into(), from: Option::clone(&wir.user).map(|id| Entity { id }) })
+                    .collect(),
+                at: Option::clone(&wir.user).map(|id| Entity { id }),
+                metadata: vec![],
+                next: Box::new(Elem::Stop),
+            }))
+        },
     }
 }
 
@@ -424,7 +447,7 @@ fn reconstruct_graph(
 ///
 /// # Errors
 /// This function can error at any time if the given `wf` is in an invalid shape for compilation.
-fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
+pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
     let mut buf: Vec<u8> = Vec::new();
     brane_ast::traversals::print::ast::do_traversal(&value, &mut buf).unwrap();
     debug!("Compiling workflow:\n\n{}\n", String::from_utf8(buf).unwrap());
@@ -461,8 +484,15 @@ fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
         id:    wf_id,
         start: graph,
 
-        user:      Entity { id: user },
-        metadata:  wir.metadata.iter().map(|md| Metadata { owner: md.owner.clone(), tag: md.tag.clone(), signature: md.signature.clone() }).collect(),
-        signature: "its_signed_i_swear_mom".into(),
+        user:      Entity { id: user.clone() },
+        metadata:  wir
+            .metadata
+            .iter()
+            .map(|md| Metadata {
+                tag: format!("{}:{}", md.owner, md.tag),
+                signature: md.signature.clone().map(|(entity, sig)| (Entity { id: entity }, sig)),
+            })
+            .collect(),
+        signature: Some((Entity { id: user }, "its_signed_i_swear_mom".into())),
     })
 }

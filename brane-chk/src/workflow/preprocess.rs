@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    12 Jun 2024, 17:41:53
+//    18 Oct 2024, 11:14:53
 //  Auto updated?
 //    Yes
 //
@@ -25,9 +25,10 @@ use brane_ast::func_id::FunctionId;
 use brane_ast::spec::BuiltinFunctions;
 use brane_exe::pc::{ProgramCounter, ResolvedProgramCounter};
 use enum_debug::EnumDebug as _;
-use log::{debug, trace};
+use tracing::{debug, trace};
 
 use super::utils;
+
 
 /***** TESTS *****/
 #[cfg(test)]
@@ -207,6 +208,10 @@ mod tests {
     }
 }
 
+
+
+
+
 /***** ERRORS *****/
 /// Defines errors that may occur when preprocessing a [`Workflow`].
 #[derive(Debug)]
@@ -229,6 +234,10 @@ impl Display for Error {
     }
 }
 impl error::Error for Error {}
+
+
+
+
 
 /***** ANALYSIS FUNCTIONS *****/
 /// Checks whether the given stream of instructions would end with a function ID on top of the stack.
@@ -949,6 +958,10 @@ fn inline_funcs_in_body(
     }
 }
 
+
+
+
+
 /***** SIMPLIFICATION FUNCTIONS *****/
 /// Attempts to inline functions in the WIR as much as possible.
 ///
@@ -1049,6 +1062,10 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
     // OK, we did all we could
     wir
 }
+
+
+
+
 
 /***** LIBRARY *****/
 /// Simplifies the given WIR-workflow as much as possible to increase the compatability with checker workflows.
