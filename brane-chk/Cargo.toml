@@ -9,12 +9,14 @@ license.workspace = true
 
 
 [dependencies]
+rand = "0.8.5"
 reqwest = "0.12.8"
 serde = "1.0.204"
 serde_json = "1.0.120"
 thiserror = "1.0.61"
 tracing = "0.1.40"
 
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant" }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.1.0" }
 policy-reasoner = { git = "https://github.com/epi-project/policy-reasoner", branch = "lib-refactor", features = ["workflow"] }
 

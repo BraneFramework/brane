@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    18 Oct 2024, 11:47:15
+//    19 Oct 2024, 11:07:29
 //  Auto updated?
 //    Yes
 //
@@ -257,7 +257,7 @@ fn reconstruct_graph(
             // Return the elem
             Ok(Elem::Call(ElemCall {
                 id: format!("{}-{}-task", wf_id, pc.resolved(&wir.table)),
-                task: format!("{}::{}::[{}]", def.function.name, def.package, def.version),
+                task: format!("{}[{}]::{}", def.package, def.version, def.function.name),
                 input: input
                     .iter()
                     .map(|(name, avail)| Dataset {
