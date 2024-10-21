@@ -1,0 +1,1274 @@
+{
+  "id": "workflow-uEZ3baXS",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "kind": "cmp",
+        "p": "copy_result",
+        "v": "1.1.0",
+        "d": {
+          "n": "copy_result",
+          "a": [
+            {
+              "kind": "res"
+            }
+          ],
+          "r": {
+            "kind": "res"
+          }
+        },
+        "a": [
+          "result"
+        ],
+        "r": []
+      },
+      {
+        "kind": "cmp",
+        "p": "data_test",
+        "v": "1.0.0",
+        "d": {
+          "n": "aggregate",
+          "a": [
+            {
+              "kind": "res"
+            },
+            {
+              "kind": "res"
+            }
+          ],
+          "r": {
+            "kind": "res"
+          }
+        },
+        "a": [
+          "local1",
+          "local2"
+        ],
+        "r": []
+      },
+      {
+        "kind": "cmp",
+        "p": "data_test",
+        "v": "1.0.0",
+        "d": {
+          "n": "run_script",
+          "a": [
+            {
+              "kind": "res"
+            }
+          ],
+          "r": {
+            "kind": "res"
+          }
+        },
+        "a": [
+          "dataset"
+        ],
+        "r": []
+      }
+    ],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [
+      {
+        "n": "data0",
+        "t": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "res1",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "gres1",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "data1",
+        "t": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "res2",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "gres2",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "data2",
+        "t": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "gres3",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "i",
+        "t": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "res3",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "data3",
+        "t": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "gres4",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "i",
+        "t": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "res4",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "data4",
+        "t": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "data12",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "data34",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "data1234",
+        "t": {
+          "kind": "res"
+        }
+      }
+    ],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 0
+        },
+        {
+          "kind": "str",
+          "v": "Test"
+        },
+        {
+          "kind": "ins",
+          "d": 0
+        },
+        {
+          "kind": "vrs",
+          "d": 0
+        },
+        {
+          "kind": "vrd",
+          "d": 1
+        },
+        {
+          "kind": "vrg",
+          "d": 0
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "nod",
+      "t": 2,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"Test\"}": null
+      },
+      "r": "result_run_script_ea9799",
+      "m": [],
+      "n": 2
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 1
+        },
+        {
+          "kind": "vrd",
+          "d": 2
+        },
+        {
+          "kind": "vrg",
+          "d": 1
+        },
+        {
+          "kind": "vrg",
+          "d": 1
+        }
+      ],
+      "n": 3
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"IntermediateResult\":\"result_run_script_ea9799\"}": null
+      },
+      "r": "result_aggregate_fc0e96",
+      "m": [],
+      "n": 4
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 2
+        },
+        {
+          "kind": "vrd",
+          "d": 3
+        },
+        {
+          "kind": "str",
+          "v": "test_data_1"
+        },
+        {
+          "kind": "vrg",
+          "d": 2
+        },
+        {
+          "kind": "fnc",
+          "d": 3
+        }
+      ],
+      "n": 5
+    },
+    {
+      "kind": "cll",
+      "i": [
+        {
+          "IntermediateResult": "result_aggregate_fc0e96"
+        }
+      ],
+      "r": [
+        {
+          "Data": "test_data_1"
+        }
+      ],
+      "n": 6
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 3
+        },
+        {
+          "kind": "vrd",
+          "d": 4
+        },
+        {
+          "kind": "int",
+          "v": 42
+        },
+        {
+          "kind": "int",
+          "v": 32
+        },
+        {
+          "kind": "eq"
+        }
+      ],
+      "n": 7
+    },
+    {
+      "kind": "brc",
+      "t": 8,
+      "f": 12,
+      "m": 16
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 3
+        }
+      ],
+      "n": 9
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 10
+    },
+    {
+      "kind": "nod",
+      "t": 2,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"test_data_1\"}": null
+      },
+      "r": "result_run_script_244f30",
+      "m": [],
+      "n": 11
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 4
+        }
+      ],
+      "n": 16
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 3
+        }
+      ],
+      "n": 13
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 14
+    },
+    {
+      "kind": "nod",
+      "t": 2,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"test_data_1\"}": null
+      },
+      "r": "result_run_script_c20212",
+      "m": [],
+      "n": 15
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 4
+        }
+      ],
+      "n": 16
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 5
+        },
+        {
+          "kind": "vrg",
+          "d": 4
+        },
+        {
+          "kind": "vrg",
+          "d": 4
+        }
+      ],
+      "n": 17
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"IntermediateResult\":\"result_run_script_244f30\"}": null,
+        "{\"IntermediateResult\":\"result_run_script_c20212\"}": null
+      },
+      "r": "result_aggregate_00f051",
+      "m": [],
+      "n": 18
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 5
+        },
+        {
+          "kind": "vrd",
+          "d": 6
+        },
+        {
+          "kind": "str",
+          "v": "test_data_2"
+        },
+        {
+          "kind": "vrg",
+          "d": 5
+        },
+        {
+          "kind": "fnc",
+          "d": 3
+        }
+      ],
+      "n": 19
+    },
+    {
+      "kind": "cll",
+      "i": [
+        {
+          "IntermediateResult": "result_aggregate_00f051"
+        }
+      ],
+      "r": [
+        {
+          "Data": "test_data_2"
+        }
+      ],
+      "n": 20
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 6
+        },
+        {
+          "kind": "vrd",
+          "d": 7
+        },
+        {
+          "kind": "vrd",
+          "d": 8
+        },
+        {
+          "kind": "int",
+          "v": 0
+        },
+        {
+          "kind": "vrs",
+          "d": 8
+        }
+      ],
+      "n": 21
+    },
+    {
+      "kind": "loop",
+      "c": 22,
+      "b": 26,
+      "n": 40
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 8
+        }
+      ],
+      "n": 23
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 10
+        }
+      ],
+      "n": 24
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "lt"
+        }
+      ],
+      "n": 25
+    },
+    {
+      "kind": "brc",
+      "t": 26,
+      "f": 40,
+      "m": 40
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 9
+        }
+      ],
+      "n": 27
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 6
+        }
+      ],
+      "n": 28
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 29
+    },
+    {
+      "kind": "nod",
+      "t": 2,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"test_data_2\"}": null
+      },
+      "r": "result_run_script_ad9678",
+      "m": [],
+      "n": 30
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 9
+        }
+      ],
+      "n": 31
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 9
+        }
+      ],
+      "n": 32
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 9
+        }
+      ],
+      "n": 33
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"IntermediateResult\":\"result_run_script_ad9678\"}": null
+      },
+      "r": "result_aggregate_0c3097",
+      "m": [],
+      "n": 34
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 7
+        }
+      ],
+      "n": 35
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 8
+        }
+      ],
+      "n": 36
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 1
+        }
+      ],
+      "n": 37
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "add"
+        }
+      ],
+      "n": 38
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 8
+        }
+      ],
+      "n": 39
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vru",
+          "d": 9
+        }
+      ],
+      "n": 22
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 10
+        },
+        {
+          "kind": "str",
+          "v": "test_data_3"
+        },
+        {
+          "kind": "vrg",
+          "d": 7
+        },
+        {
+          "kind": "fnc",
+          "d": 3
+        }
+      ],
+      "n": 41
+    },
+    {
+      "kind": "cll",
+      "i": [
+        {
+          "IntermediateResult": "result_aggregate_0c3097"
+        }
+      ],
+      "r": [
+        {
+          "Data": "test_data_3"
+        }
+      ],
+      "n": 42
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 10
+        },
+        {
+          "kind": "vrd",
+          "d": 11
+        },
+        {
+          "kind": "vrg",
+          "d": 10
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 43
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"test_data_3\"}": null
+      },
+      "r": "result_copy_result_822146",
+      "m": [],
+      "n": 44
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 11
+        },
+        {
+          "kind": "vrd",
+          "d": 12
+        },
+        {
+          "kind": "int",
+          "v": 0
+        },
+        {
+          "kind": "vrs",
+          "d": 12
+        }
+      ],
+      "n": 45
+    },
+    {
+      "kind": "loop",
+      "c": 46,
+      "b": 50,
+      "n": 63
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 12
+        }
+      ],
+      "n": 47
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 10
+        }
+      ],
+      "n": 48
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "lt"
+        }
+      ],
+      "n": 49
+    },
+    {
+      "kind": "brc",
+      "t": 50,
+      "f": 63,
+      "m": 63
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 13
+        }
+      ],
+      "n": 51
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 11
+        }
+      ],
+      "n": 52
+    },
+    {
+      "kind": "nod",
+      "t": 2,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"IntermediateResult\":\"result_copy_result_822146\"}": null,
+        "{\"IntermediateResult\":\"result_aggregate_28e9be\"}": null
+      },
+      "r": "result_run_script_78b2bf",
+      "m": [],
+      "n": 53
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 13
+        }
+      ],
+      "n": 54
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 13
+        }
+      ],
+      "n": 55
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 13
+        }
+      ],
+      "n": 56
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"IntermediateResult\":\"result_run_script_78b2bf\"}": null
+      },
+      "r": "result_aggregate_28e9be",
+      "m": [],
+      "n": 57
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 11
+        }
+      ],
+      "n": 58
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 12
+        }
+      ],
+      "n": 59
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 1
+        }
+      ],
+      "n": 60
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "add"
+        }
+      ],
+      "n": 61
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 12
+        }
+      ],
+      "n": 62
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vru",
+          "d": 13
+        }
+      ],
+      "n": 46
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 14
+        },
+        {
+          "kind": "str",
+          "v": "test_data_4"
+        },
+        {
+          "kind": "vrg",
+          "d": 11
+        },
+        {
+          "kind": "fnc",
+          "d": 3
+        }
+      ],
+      "n": 64
+    },
+    {
+      "kind": "cll",
+      "i": [
+        {
+          "IntermediateResult": "result_aggregate_28e9be"
+        },
+        {
+          "IntermediateResult": "result_copy_result_822146"
+        }
+      ],
+      "r": [
+        {
+          "Data": "test_data_4"
+        }
+      ],
+      "n": 65
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 14
+        },
+        {
+          "kind": "vrd",
+          "d": 15
+        },
+        {
+          "kind": "vrg",
+          "d": 3
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        },
+        {
+          "kind": "vrg",
+          "d": 6
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 66
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"test_data_2\"}": null,
+        "{\"Data\":\"test_data_1\"}": null
+      },
+      "r": "result_aggregate_3ace7c",
+      "m": [],
+      "n": 67
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 15
+        },
+        {
+          "kind": "vrd",
+          "d": 16
+        },
+        {
+          "kind": "vrg",
+          "d": 10
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        },
+        {
+          "kind": "vrg",
+          "d": 14
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 68
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"test_data_4\"}": null,
+        "{\"Data\":\"test_data_3\"}": null
+      },
+      "r": "result_aggregate_b49d89",
+      "m": [],
+      "n": 69
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 16
+        },
+        {
+          "kind": "vrd",
+          "d": 17
+        },
+        {
+          "kind": "vrg",
+          "d": 15
+        },
+        {
+          "kind": "vrg",
+          "d": 16
+        }
+      ],
+      "n": 70
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"IntermediateResult\":\"result_aggregate_b49d89\"}": null,
+        "{\"IntermediateResult\":\"result_aggregate_3ace7c\"}": null
+      },
+      "r": "result_aggregate_4b2885",
+      "m": [],
+      "n": 71
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 17
+        },
+        {
+          "kind": "str",
+          "v": "test_data_1234"
+        },
+        {
+          "kind": "vrg",
+          "d": 17
+        },
+        {
+          "kind": "fnc",
+          "d": 3
+        }
+      ],
+      "n": 72
+    },
+    {
+      "kind": "cll",
+      "i": [
+        {
+          "IntermediateResult": "result_aggregate_4b2885"
+        }
+      ],
+      "r": [
+        {
+          "Data": "test_data_1234"
+        }
+      ],
+      "n": 73
+    },
+    {
+      "kind": "ret",
+      "r": [
+        {
+          "Data": "test_data_1234"
+        }
+      ]
+    }
+  ],
+  "funcs": {}
+}

@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    18 Oct 2024, 14:10:29
+//    21 Oct 2024, 13:39:45
 //  Auto updated?
 //    Yes
 //
@@ -15,15 +15,12 @@
 use std::collections::{HashMap, HashSet};
 
 use brane_cfg::node::WorkerUsecase;
-use brane_tsk::api::get_data_index;
 use policy_reasoner::spec::stateresolver::StateResolver;
 use policy_reasoner::workflow::Workflow;
 use policy_reasoner::workflow::visitor::Visitor;
 use reqwest::{Response, StatusCode};
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use specifications::address::Address;
-use specifications::data::DataIndex;
 use thiserror::Error;
 use tracing::{Level, debug, span};
 
@@ -159,8 +156,10 @@ async fn assert_workflow_context(wf: &Workflow, usecase: &str, usecases: &HashMa
     let users: HashSet<String> = send_request::<HashMap<String, Address>>(api).await?.into_keys().collect();
 
     // Check if the users are all found in the system
-    if !users.contains(&wf.user.id) {
-        return Err(Error::UnknownWorkflowUser { workflow: wf.id.clone(), user: wf.user.id.clone() });
+    if let Some(user) = &wf.user {
+        if !users.contains(&user.id) {
+            return Err(Error::UnknownWorkflowUser { workflow: wf.id.clone(), user: user.id.clone() });
+        }
     }
 
     // let dindex: DataIndex = get_data_index(api.to_string()).await.map_err(|err| Error::ResolveData { addr: api.clone(), err })?;

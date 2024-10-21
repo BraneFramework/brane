@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    19 Oct 2024, 11:07:29
+//    21 Oct 2024, 13:37:18
 //  Auto updated?
 //    Yes
 //
@@ -448,19 +448,15 @@ fn reconstruct_graph(
 /// # Errors
 /// This function can error at any time if the given `wf` is in an invalid shape for compilation.
 pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
-    let mut buf: Vec<u8> = Vec::new();
-    brane_ast::traversals::print::ast::do_traversal(&value, &mut buf).unwrap();
-    debug!("Compiling workflow:\n\n{}\n", String::from_utf8(buf).unwrap());
-
-    // First first; check if there is a user, lol
-    let user: String = if let Some(user) = (*value.user).clone() {
-        user
-    } else {
-        return Err(Error::MissingUser);
-    };
+    if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+        let mut buf: Vec<u8> = Vec::new();
+        brane_ast::traversals::print::ast::do_traversal(&value, &mut buf).unwrap();
+        debug!("Compiling workflow:\n\n{}\n", String::from_utf8(buf).unwrap());
+    }
 
     // First, analyse the calls in the workflow as much as possible (and simplify)
     let wf_id: String = value.id.clone();
+    let wf_user: Option<String> = Option::clone(&value.user);
     let (wir, calls): (ast::Workflow, HashMap<ProgramCounter, usize>) = match preprocess::simplify(value) {
         Ok(res) => res,
         Err(err) => return Err(Error::Preprocess { err }),
@@ -484,7 +480,7 @@ pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
         id:    wf_id,
         start: graph,
 
-        user:      Entity { id: user.clone() },
+        user:      wf_user.clone().map(|id| Entity { id }),
         metadata:  wir
             .metadata
             .iter()
@@ -493,6 +489,6 @@ pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
                 signature: md.signature.clone().map(|(entity, sig)| (Entity { id: entity }, sig)),
             })
             .collect(),
-        signature: Some((Entity { id: user }, "its_signed_i_swear_mom".into())),
+        signature: wf_user.map(|id| (Entity { id }, "its_signed_i_swear_mom".into())),
     })
 }

@@ -1,0 +1,703 @@
+{
+  "id": "workflow-Ut3vTgpJ",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [
+      {
+        "n": "value",
+        "t": {
+          "kind": "int"
+        }
+      }
+    ],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 0
+        },
+        {
+          "kind": "int",
+          "v": 42
+        },
+        {
+          "kind": "vrs",
+          "d": 0
+        },
+        {
+          "kind": "vrg",
+          "d": 0
+        },
+        {
+          "kind": "int",
+          "v": 0
+        },
+        {
+          "kind": "gt"
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "brc",
+      "t": 2,
+      "f": 37,
+      "m": 69
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 0
+        }
+      ],
+      "n": 3
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 42
+        }
+      ],
+      "n": 4
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "gt"
+        }
+      ],
+      "n": 5
+    },
+    {
+      "kind": "brc",
+      "t": 6,
+      "f": 25,
+      "m": 36
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 0
+        }
+      ],
+      "n": 7
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 84
+        }
+      ],
+      "n": 8
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "gt"
+        }
+      ],
+      "n": 9
+    },
+    {
+      "kind": "brc",
+      "t": 10,
+      "f": 13,
+      "m": 24
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is more than 84!"
+        }
+      ],
+      "n": 11
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 12
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 24
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 0
+        }
+      ],
+      "n": 14
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 84
+        }
+      ],
+      "n": 15
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "lt"
+        }
+      ],
+      "n": 16
+    },
+    {
+      "kind": "brc",
+      "t": 17,
+      "f": 20,
+      "m": 23
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is less than 84!"
+        }
+      ],
+      "n": 18
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 19
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 23
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is 84!"
+        }
+      ],
+      "n": 21
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 22
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 23
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 24
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 36
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 0
+        }
+      ],
+      "n": 26
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 42
+        }
+      ],
+      "n": 27
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "lt"
+        }
+      ],
+      "n": 28
+    },
+    {
+      "kind": "brc",
+      "t": 29,
+      "f": 32,
+      "m": 35
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is less than 42!"
+        }
+      ],
+      "n": 30
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 31
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 35
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is 42!"
+        }
+      ],
+      "n": 33
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 34
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 35
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 36
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 69
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 0
+        }
+      ],
+      "n": 38
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 0
+        }
+      ],
+      "n": 39
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "lt"
+        }
+      ],
+      "n": 40
+    },
+    {
+      "kind": "brc",
+      "t": 41,
+      "f": 65,
+      "m": 68
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is less than 0!"
+        }
+      ],
+      "n": 42
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 43
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 44
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 0
+        }
+      ],
+      "n": 45
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 42
+        }
+      ],
+      "n": 46
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "neg"
+        }
+      ],
+      "n": 47
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "gt"
+        }
+      ],
+      "n": 48
+    },
+    {
+      "kind": "brc",
+      "t": 49,
+      "f": 52,
+      "m": 64
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is more than -42!"
+        }
+      ],
+      "n": 50
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 51
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 64
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 0
+        }
+      ],
+      "n": 53
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 42
+        }
+      ],
+      "n": 54
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "neg"
+        }
+      ],
+      "n": 55
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "lt"
+        }
+      ],
+      "n": 56
+    },
+    {
+      "kind": "brc",
+      "t": 57,
+      "f": 60,
+      "m": 63
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is less than -42!"
+        }
+      ],
+      "n": 58
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 59
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 63
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is -42!"
+        }
+      ],
+      "n": 61
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 62
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 63
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 64
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 68
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Value is 0!"
+        }
+      ],
+      "n": 66
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 67
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 68
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 69
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 70
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {}
+}

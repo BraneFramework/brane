@@ -1,0 +1,384 @@
+{
+  "id": "workflow-YiM40Idd",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "kind": "cmp",
+        "p": "data_test",
+        "v": "1.0.0",
+        "d": {
+          "n": "run_script",
+          "a": [
+            {
+              "kind": "res"
+            }
+          ],
+          "r": {
+            "kind": "res"
+          }
+        },
+        "a": [
+          "dataset"
+        ],
+        "r": []
+      },
+      {
+        "kind": "cmp",
+        "p": "data_test",
+        "v": "1.0.0",
+        "d": {
+          "n": "aggregate",
+          "a": [
+            {
+              "kind": "res"
+            },
+            {
+              "kind": "res"
+            }
+          ],
+          "r": {
+            "kind": "res"
+          }
+        },
+        "a": [
+          "local1",
+          "local2"
+        ],
+        "r": []
+      }
+    ],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [
+      {
+        "n": "ect_umc",
+        "t": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "ect_sta",
+        "t": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "local",
+        "t": {
+          "kind": "arr",
+          "t": {
+            "kind": "res"
+          }
+        }
+      },
+      {
+        "n": "res",
+        "t": {
+          "kind": "res"
+        }
+      }
+    ],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 0
+        },
+        {
+          "kind": "str",
+          "v": "Test"
+        },
+        {
+          "kind": "ins",
+          "d": 0
+        },
+        {
+          "kind": "vrs",
+          "d": 0
+        },
+        {
+          "kind": "vrd",
+          "d": 1
+        },
+        {
+          "kind": "str",
+          "v": "Test"
+        },
+        {
+          "kind": "ins",
+          "d": 0
+        },
+        {
+          "kind": "vrs",
+          "d": 1
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "par",
+      "b": [
+        2,
+        6
+      ],
+      "m": 10
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 0
+        }
+      ],
+      "n": 3
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 4
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"Test\"}": null
+      },
+      "r": "result_run_script_d2f46f",
+      "m": [],
+      "n": 5
+    },
+    {
+      "kind": "ret",
+      "r": [
+        {
+          "IntermediateResult": "result_run_script_d2f46f"
+        }
+      ]
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 1
+        }
+      ],
+      "n": 7
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 8
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"Test\"}": null
+      },
+      "r": "result_run_script_0d0423",
+      "m": [],
+      "n": 9
+    },
+    {
+      "kind": "ret",
+      "r": [
+        {
+          "IntermediateResult": "result_run_script_0d0423"
+        }
+      ]
+    },
+    {
+      "kind": "join",
+      "m": "All",
+      "n": 11
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 2
+        },
+        {
+          "kind": "vrs",
+          "d": 2
+        },
+        {
+          "kind": "vrd",
+          "d": 3
+        },
+        {
+          "kind": "vrg",
+          "d": 2
+        },
+        {
+          "kind": "int",
+          "v": 0
+        },
+        {
+          "kind": "arx",
+          "t": {
+            "kind": "res"
+          }
+        },
+        {
+          "kind": "vrg",
+          "d": 2
+        },
+        {
+          "kind": "int",
+          "v": 1
+        },
+        {
+          "kind": "arx",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 12
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"IntermediateResult\":\"result_run_script_d2f46f\"}": null,
+        "{\"IntermediateResult\":\"result_run_script_0d0423\"}": null
+      },
+      "r": "result_aggregate_53762c",
+      "m": [],
+      "n": 13
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 3
+        },
+        {
+          "kind": "vrg",
+          "d": 3
+        }
+      ],
+      "n": 14
+    },
+    {
+      "kind": "ret",
+      "r": [
+        {
+          "IntermediateResult": "result_aggregate_53762c"
+        }
+      ]
+    }
+  ],
+  "funcs": {}
+}

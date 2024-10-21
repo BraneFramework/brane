@@ -4,7 +4,7 @@
 //  Created:
 //    19 Oct 2024, 10:21:59
 //  Last edited:
-//    19 Oct 2024, 11:25:12
+//    21 Oct 2024, 13:39:36
 //  Auto updated?
 //    Yes
 //
@@ -227,7 +227,7 @@ struct EFlintCompiler<'w> {
     /// The identifier of the workflow.
     wf_id:   &'w str,
     /// The end user of the workflow.
-    wf_user: &'w Entity,
+    wf_user: &'w Option<Entity>,
     /// The names of loops we've already found.
     names:   &'w HashMap<*const ElemLoop, String>,
     /// The phrases we're compiling to.
@@ -244,7 +244,7 @@ impl<'w> EFlintCompiler<'w> {
     /// # Returns
     /// A new EFlintCompiler struct, ready to compile.
     #[inline]
-    pub fn new(wf_id: &'w str, wf_user: &'w Entity, names: &'w HashMap<*const ElemLoop, String>) -> Self {
+    pub fn new(wf_id: &'w str, wf_user: &'w Option<Entity>, names: &'w HashMap<*const ElemLoop, String>) -> Self {
         Self { wf_id, wf_user, names, phrases: Vec::new() }
     }
 }
@@ -265,16 +265,18 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
         if elem.task == COMMIT_CALL_NAME {
             self.phrases.push(create!(constr_app!("commit", node.clone())));
         } else if elem.task == TOPLEVEL_RETURN_CALL_NAME {
-            // Mark the results as results of the workflow
-            for r in &elem.input {
-                // ```eflint
-                // +workflow-result-recipient(workflow-result(workflow(#wf_id), asset(#r.name)), user(#wf_user.name)).
-                // ```
-                self.phrases.push(create!(constr_app!(
-                    "workflow-result-recipient",
-                    constr_app!("workflow-result", constr_app!("workflow", str_lit!(self.wf_id)), constr_app!("asset", str_lit!(r.id.clone()))),
-                    constr_app!("user", str_lit!(self.wf_user.id.clone())),
-                )));
+            if let Some(wf_user) = self.wf_user {
+                // Mark the results as results of the workflow
+                for r in &elem.input {
+                    // ```eflint
+                    // +workflow-result-recipient(workflow-result(workflow(#wf_id), asset(#r.name)), user(#wf_user.name)).
+                    // ```
+                    self.phrases.push(create!(constr_app!(
+                        "workflow-result-recipient",
+                        constr_app!("workflow-result", constr_app!("workflow", str_lit!(self.wf_id)), constr_app!("asset", str_lit!(r.id.clone()))),
+                        constr_app!("user", str_lit!(wf_user.id.clone())),
+                    )));
+                }
             }
 
             // Continue
@@ -296,7 +298,7 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
         };
         let code_input: Expression = constr_app!("node-input", node.clone(), constr_app!("asset", str_lit!(package)));
         self.phrases.push(create!(code_input.clone()));
-        self.phrases.push(create!(constr_app!("function", code_input.clone(), str_lit!(function.clone()))));
+        self.phrases.push(create!(constr_app!("function", code_input.clone(), str_lit!(function))));
 
         // Add its inputs
         for i in &elem.input {

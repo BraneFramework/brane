@@ -1,0 +1,229 @@
+{
+  "id": "workflow-sGeqOere",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 1
+        },
+        {
+          "kind": "int",
+          "v": 1
+        },
+        {
+          "kind": "add"
+        },
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "int",
+          "v": 2
+        },
+        {
+          "kind": "int",
+          "v": 1
+        },
+        {
+          "kind": "sub"
+        },
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "int",
+          "v": 42
+        },
+        {
+          "kind": "int",
+          "v": 55
+        },
+        {
+          "kind": "mul"
+        },
+        {
+          "kind": "int",
+          "v": 1
+        },
+        {
+          "kind": "add"
+        },
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "int",
+          "v": 33333
+        },
+        {
+          "kind": "int",
+          "v": 33333
+        },
+        {
+          "kind": "mul"
+        },
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "int",
+          "v": 828
+        },
+        {
+          "kind": "int",
+          "v": 12318
+        },
+        {
+          "kind": "int",
+          "v": 123123
+        },
+        {
+          "kind": "mod"
+        },
+        {
+          "kind": "int",
+          "v": 1231231231
+        },
+        {
+          "kind": "div"
+        },
+        {
+          "kind": "add"
+        },
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "rel",
+          "v": 12.0
+        },
+        {
+          "kind": "int",
+          "v": 123123
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "real"
+          }
+        },
+        {
+          "kind": "add"
+        },
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "rel",
+          "v": 777777.777777
+        },
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "rel",
+          "v": 5550000000000.0
+        },
+        {
+          "kind": "pop"
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {}
+}
