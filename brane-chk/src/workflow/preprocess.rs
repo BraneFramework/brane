@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    21 Oct 2024, 13:42:54
+//    22 Oct 2024, 10:28:44
 //  Auto updated?
 //    Yes
 //
@@ -497,133 +497,142 @@ fn find_inlinable_funcs(
     wir: &Workflow,
     calls: &HashMap<ProgramCounter, usize>,
     trace: &mut Vec<usize>,
-    pc: ProgramCounter,
+    mut pc: ProgramCounter,
     breakpoint: Option<ProgramCounter>,
     inlinable: &mut HashMap<usize, Option<HashSet<usize>>>,
 ) -> HashSet<usize> {
-    // Stop on the breakpoint
-    if let Some(breakpoint) = breakpoint {
-        if pc == breakpoint {
-            return HashSet::new();
+    // We shall now mix looping and recursion to lower the stack usage
+    // (Tim TopTip: If you don't, then it turns out workflows with many linear edges are too much for the default stack size)
+    let mut dependencies: HashSet<usize> = HashSet::new();
+    loop {
+        // Stop on the breakpoint
+        if let Some(breakpoint) = breakpoint {
+            if pc == breakpoint {
+                return dependencies;
+            }
         }
-    }
-    // Attempt to get the edge
-    let edge: &Edge = match utils::get_edge(wir, pc) {
-        Some(edge) => edge,
-        None => return HashSet::new(),
-    };
 
-    // Match on its kind
-    trace!("Finding inlinable functions in {} ({:?})", pc.resolved(&wir.table), edge.variant());
-    match edge {
-        Edge::Node { next, .. } | Edge::Linear { next, .. } => {
-            // Doesn't call any functions, so just proceed with the next one
-            find_inlinable_funcs(wir, calls, trace, pc.jump(*next), breakpoint, inlinable)
-        },
+        // Attempt to get the edge
+        let edge: &Edge = match utils::get_edge(wir, pc) {
+            Some(edge) => edge,
+            None => return dependencies,
+        };
 
-        Edge::Stop {} => HashSet::new(),
+        // Match on its kind
+        trace!("Finding inlinable functions in {} ({:?})", pc.resolved(&wir.table), edge.variant());
+        match edge {
+            Edge::Node { next, .. } | Edge::Linear { next, .. } => {
+                // Doesn't call any functions, so just proceed with the next one
+                pc.jump_mut(*next);
+            },
 
-        Edge::Branch { true_next, false_next, merge } => {
-            // Analyse the left branch...
-            let mut dependencies: HashSet<usize> =
-                find_inlinable_funcs(wir, calls, trace, pc.jump(*true_next), merge.map(|merge| pc.jump(merge)), inlinable);
-            // ...the right branch...
-            if let Some(false_next) = false_next {
-                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*false_next), merge.map(|merge| pc.jump(merge)), inlinable));
-            }
-            // ...and the merge!
-            if let Some(merge) = merge {
-                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*merge), breakpoint, inlinable));
-            }
-            dependencies
-        },
+            Edge::Stop {} => return dependencies,
 
-        Edge::Parallel { branches, merge } => {
-            // Collect all the branches
-            let mut dependencies: HashSet<usize> = HashSet::new();
-            for branch in branches {
-                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*branch), Some(pc.jump(*merge)), inlinable));
-            }
-
-            // Run merge and done is Cees
-            dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*merge), breakpoint, inlinable));
-            dependencies
-        },
-
-        Edge::Join { next, .. } => find_inlinable_funcs(wir, calls, trace, pc.jump(*next), breakpoint, inlinable),
-
-        Edge::Loop { cond, body, next } => {
-            // Traverse the condition...
-            let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, pc.jump(*cond), Some(pc.jump(*body - 1)), inlinable);
-            // ...the body...
-            dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*body), Some(pc.jump(*cond)), inlinable));
-            // ...and finally, the next step, if any
-            if let Some(next) = next {
-                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*next), breakpoint, inlinable));
-            }
-            dependencies
-        },
-
-        Edge::Call { next, .. } => {
-            // OK, the exciting point!
-
-            // Resolve the function ID we're calling
-            let func_id: usize = match calls.get(&pc) {
-                Some(id) => *id,
-                None => {
-                    panic!("Encountered unresolved call after running call analysis");
-                },
-            };
-            let def: &FunctionDef = match wir.table.funcs.get(func_id) {
-                Some(def) => def,
-                None => panic!("Failed to get definition of function {func_id} after call analysis"),
-            };
-
-            // Analyse next, since all codepaths do this always
-            let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, pc.jump(*next), None, inlinable);
-            dependencies.insert(func_id);
-
-            // Functions are not inlinable if builtins; if so, return
-            if BuiltinFunctions::is_builtin(&def.name) {
-                trace!("Function {} ('{}') is not inlinable because it is a builtin", func_id, def.name);
-                inlinable.insert(func_id, None);
+            Edge::Branch { true_next, false_next, merge } => {
+                // Analyse the left branch...
+                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*true_next), merge.map(|merge| pc.jump(merge)), inlinable));
+                // ...the right branch...
+                if let Some(false_next) = false_next {
+                    dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*false_next), merge.map(|merge| pc.jump(merge)), inlinable));
+                }
+                // ...and the merge!
+                if let Some(merge) = merge {
+                    // We do the loop recursion here to avoid having to increase stack usage
+                    pc.jump_mut(*merge);
+                    continue;
+                }
                 return dependencies;
-            }
+            },
 
-            // Examine if this call would introduce a recursive problem
-            if trace.contains(&func_id) {
-                // It's been in our callstack before - that means recursion!
-                // Change our minds about its inlinability
-                trace!("Function {} ('{}') is not inlinable because it is recursive", func_id, def.name);
-                inlinable.insert(func_id, None);
+            Edge::Parallel { branches, merge } => {
+                // Collect all the branches
+                for branch in branches {
+                    dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*branch), Some(pc.jump(*merge)), inlinable));
+                }
+
+                // Run merge and done is Cees
+                pc.jump_mut(*merge);
+            },
+
+            Edge::Join { next, .. } => {
+                pc.jump_mut(*next);
+            },
+
+            Edge::Loop { cond, body, next } => {
+                // Traverse the condition...
+                let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, pc.jump(*cond), Some(pc.jump(*body - 1)), inlinable);
+                // ...the body...
+                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*body), Some(pc.jump(*cond)), inlinable));
+                // ...and finally, the next step, if any
+                if let Some(next) = next {
+                    pc.jump_mut(*next);
+                    continue;
+                }
                 return dependencies;
-            }
-            if inlinable.contains_key(&func_id) {
-                // We've already seen this one! However, _don't_ change our mind about its inlinability because it means a repeated function call
-                // NOTE: No need to go into the call body, as we've done this the first time we saw it
-                trace!("Function {} ('{}') is skipped because we have seen it before", func_id, def.name);
-                return dependencies;
-            }
-            trace!("Function {} ('{}') is assumed as inlinable until we see it recursive", func_id, def.name);
+            },
 
-            // For now assume that the function exist with no deps; we inject these later
-            inlinable.insert(func_id, Some(HashSet::new()));
+            Edge::Call { next, .. } => {
+                // OK, the exciting point!
 
-            // If we get this far, recurse into the body
-            trace.push(func_id);
-            let func_deps: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, ProgramCounter::call(func_id), None, inlinable);
-            trace.pop();
+                // Resolve the function ID we're calling
+                let func_id: usize = match calls.get(&pc) {
+                    Some(id) => *id,
+                    None => {
+                        panic!("Encountered unresolved call after running call analysis");
+                    },
+                };
+                let def: &FunctionDef = match wir.table.funcs.get(func_id) {
+                    Some(def) => def,
+                    None => panic!("Failed to get definition of function {func_id} after call analysis"),
+                };
+                // let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, pc.jump(*next), None, inlinable);
+                dependencies.insert(func_id);
 
-            // Now we can inject the entries
-            if let Some(deps) = inlinable.get_mut(&func_id).unwrap() {
-                deps.extend(func_deps);
-            }
+                // Functions are not inlinable if builtins; if so, return
+                if BuiltinFunctions::is_builtin(&def.name) {
+                    trace!("Function {} ('{}') is not inlinable because it is a builtin", func_id, def.name);
+                    inlinable.insert(func_id, None);
+                    pc.jump_mut(*next);
+                    continue;
+                }
 
-            // Return the dependencies in _this_ body.
-            dependencies
-        },
+                // Examine if this call would introduce a recursive problem
+                if trace.contains(&func_id) {
+                    // It's been in our callstack before - that means recursion!
+                    // Change our minds about its inlinability
+                    trace!("Function {} ('{}') is not inlinable because it is recursive", func_id, def.name);
+                    inlinable.insert(func_id, None);
+                    pc.jump_mut(*next);
+                    continue;
+                }
+                if inlinable.contains_key(&func_id) {
+                    // We've already seen this one! However, _don't_ change our mind about its inlinability because it means a repeated function call
+                    // NOTE: No need to go into the call body, as we've done this the first time we saw it
+                    trace!("Function {} ('{}') is skipped because we have seen it before", func_id, def.name);
+                    pc.jump_mut(*next);
+                    continue;
+                }
+                trace!("Function {} ('{}') is assumed as inlinable until we see it recursive", func_id, def.name);
 
-        Edge::Return { result: _ } => HashSet::new(),
+                // For now assume that the function exist with no deps; we inject these later
+                inlinable.insert(func_id, Some(HashSet::new()));
+
+                // If we get this far, recurse into the body
+                trace.push(func_id);
+                let func_deps: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, ProgramCounter::call(func_id), None, inlinable);
+                trace.pop();
+
+                // Now we can inject the entries
+                if let Some(deps) = inlinable.get_mut(&func_id).unwrap() {
+                    deps.extend(func_deps);
+                }
+
+                // Return the dependencies in _this_ body.
+                pc.jump_mut(*next);
+            },
+
+            Edge::Return { result: _ } => return dependencies,
+        }
     }
 }
 

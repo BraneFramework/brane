@@ -1,0 +1,154 @@
++workflow("workflow-Jwm4Zdew").
++tag("cho:baz").
++signature(user(""), "").
++metadata(tag("cho:baz"), signature(user(""), "")).
++workflow-metadata(workflow("workflow-Jwm4Zdew"), metadata(tag("cho:baz"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:0-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:0-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:0-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:0-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++tag("amy:foo").
++signature(user(""), "").
++metadata(tag("amy:foo"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:0-task"), metadata(tag("amy:foo"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:3-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:3-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:3-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("bob:bar").
++signature(user(""), "").
++metadata(tag("bob:bar"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:3-task"), metadata(tag("bob:bar"), signature(user(""), ""))).
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:3-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:6-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:6-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:6-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("bob:bar").
++signature(user(""), "").
++metadata(tag("bob:bar"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:6-task"), metadata(tag("bob:bar"), signature(user(""), ""))).
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:6-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:9-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:9-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:9-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("bob:bar").
++signature(user(""), "").
++metadata(tag("bob:bar"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:9-task"), metadata(tag("bob:bar"), signature(user(""), ""))).
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:9-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:12-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:12-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:12-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("bob:bar").
++signature(user(""), "").
++metadata(tag("bob:bar"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:12-task"), metadata(tag("bob:bar"), signature(user(""), ""))).
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:12-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:15-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:15-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:15-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("bob:bar").
++signature(user(""), "").
++metadata(tag("bob:bar"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:15-task"), metadata(tag("bob:bar"), signature(user(""), ""))).
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:15-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:18-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:18-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:18-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("bob:bar").
++signature(user(""), "").
++metadata(tag("bob:bar"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:18-task"), metadata(tag("bob:bar"), signature(user(""), ""))).
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:18-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:21-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:21-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:21-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:21-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:24-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:24-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:24-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:24-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:27-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:27-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:27-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:27-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++tag("eve:quux").
++signature(user(""), "").
++metadata(tag("eve:quux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:27-task"), metadata(tag("eve:quux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:30-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:30-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:30-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:30-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++tag("eve:quux").
++signature(user(""), "").
++metadata(tag("eve:quux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:30-task"), metadata(tag("eve:quux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:33-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:33-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:33-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("eve:quux").
++signature(user(""), "").
++metadata(tag("eve:quux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:33-task"), metadata(tag("eve:quux"), signature(user(""), ""))).
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:33-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:37-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:37-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:37-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:37-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:40-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:40-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:40-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:40-task"), metadata(tag("dan:qux"), signature(user(""), ""))).
++tag("eve:quux").
++signature(user(""), "").
++metadata(tag("eve:quux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:40-task"), metadata(tag("eve:quux"), signature(user(""), ""))).
++node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:43-task").
++node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:43-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:43-task"), asset("hello_world[1.0.0]")), "hello_world").
++tag("dan:qux").
++signature(user(""), "").
++metadata(tag("dan:qux"), signature(user(""), "")).
++node-metadata(node(workflow("workflow-Jwm4Zdew"), "workflow-Jwm4Zdew-<main>:43-task"), metadata(tag("dan:qux"), signature(user(""), ""))).

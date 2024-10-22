@@ -4,7 +4,7 @@
 //  Created:
 //    21 Oct 2024, 10:47:42
 //  Last edited:
-//    21 Oct 2024, 13:11:19
+//    22 Oct 2024, 10:17:30
 //  Auto updated?
 //    Yes
 //
@@ -22,6 +22,7 @@ use std::str::FromStr;
 use brane_ast::Workflow as Wir;
 use brane_chk::workflow::{compile, to_eflint_json};
 use clap::Parser;
+use eflint_json::DisplayEFlint;
 use eflint_json::spec::auxillary::Version;
 use eflint_json::spec::{Phrase, Request, RequestCommon, RequestPhrases};
 use error_trace::trace;
@@ -83,6 +84,8 @@ enum OutputLanguage {
     Workflow,
     /// It's eFLINT JSON.
     EFlintJson,
+    /// It's eFLINT Itself.
+    EFlint,
 }
 impl Display for OutputLanguage {
     #[inline]
@@ -90,6 +93,7 @@ impl Display for OutputLanguage {
         match self {
             Self::Workflow => write!(f, "Workflow"),
             Self::EFlintJson => write!(f, "eFLINT JSON"),
+            Self::EFlint => write!(f, "eFLINT"),
         }
     }
 }
@@ -101,6 +105,7 @@ impl FromStr for OutputLanguage {
         match s {
             "wf" | "workflow" => Ok(Self::Workflow),
             "eflint-json" => Ok(Self::EFlintJson),
+            "eflint" | "eflint-dsl" => Ok(Self::EFlint),
             raw => Err(UnknownOutputLanguageError(raw.into())),
         }
     }
@@ -138,8 +143,8 @@ struct Arguments {
         short = '2',
         long,
         default_value = "eflint-json",
-        help = "The output language to compile to. Options are 'wf'/'workflow' for the policy reasoner's workflow representation, or 'eflint-json' \
-                for eFLINT JSON Specification."
+        help = "The output language to compile to. Options are 'wf'/'workflow' for the policy reasoner's workflow representation, 'eflint-json' for \
+                eFLINT JSON Specification, or 'eflint'/'eflint-dsl' for the eFLINT DSL."
     )]
     output_lang: OutputLanguage,
 }
@@ -276,6 +281,15 @@ fn workflow_to_output(path: &str, lang: OutputLanguage, workflow: Workflow) {
                     std::process::exit(1);
                 },
             }
+        },
+
+        OutputLanguage::EFlint => {
+            // Compile it to eFLINT, first
+            debug!("Compiling workflow '{}' to eFLINT JSON...", workflow.id);
+            let phrases: Vec<Phrase> = to_eflint_json(&workflow);
+
+            // Serialize that not as JSON but by visualization
+            phrases.into_iter().map(|p| p.display_syntax().to_string()).collect::<String>()
         },
     };
 
