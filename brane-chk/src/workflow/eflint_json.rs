@@ -4,7 +4,7 @@
 //  Created:
 //    19 Oct 2024, 10:21:59
 //  Last edited:
-//    21 Oct 2024, 13:39:36
+//    22 Oct 2024, 11:04:42
 //  Auto updated?
 //    Yes
 //
@@ -18,7 +18,7 @@ use std::convert::Infallible;
 
 use eflint_json::spec::{ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate};
 use policy_reasoner::workflow::visitor::Visitor;
-use policy_reasoner::workflow::{Dataset, ElemBranch, ElemCall, ElemLoop, ElemParallel, Entity, Metadata, Workflow};
+use policy_reasoner::workflow::{Dataset, Elem, ElemBranch, ElemCall, ElemLoop, ElemParallel, Entity, Metadata, Workflow};
 use rand::Rng as _;
 use rand::distributions::Alphanumeric;
 use tracing::{trace, warn};
@@ -115,7 +115,7 @@ impl<'w> LoopNamer<'w> {
 impl<'w> Visitor<'w> for LoopNamer<'w> {
     type Error = Infallible;
 
-    fn visit_loop(&mut self, elem: &'w ElemLoop) -> Result<(), Self::Error> {
+    fn visit_loop(&mut self, elem: &'w ElemLoop) -> Result<Option<&'w Elem>, Self::Error> {
         let ElemLoop { body, next } = elem;
 
         // Generate a name for this loop
@@ -126,7 +126,7 @@ impl<'w> Visitor<'w> for LoopNamer<'w> {
 
         // Continue
         self.visit(body)?;
-        self.visit(next)
+        Ok(Some(next))
     }
 }
 
@@ -155,7 +155,7 @@ impl<'w> DataAnalyzer<'w> {
 impl<'w> Visitor<'w> for DataAnalyzer<'w> {
     type Error = Infallible;
 
-    fn visit_call(&mut self, elem: &'w ElemCall) -> Result<(), Self::Error> {
+    fn visit_call(&mut self, elem: &'w ElemCall) -> Result<Option<&'w Elem>, Self::Error> {
         // Log it's the first if we haven't found any yet
         if self.first.is_empty() {
             self.first.push((elem.id.clone(), elem.input.iter().cloned().collect()));
@@ -164,10 +164,10 @@ impl<'w> Visitor<'w> for DataAnalyzer<'w> {
         self.last.extend(elem.output.iter().cloned());
 
         // Continue
-        self.visit(&elem.next)
+        Ok(Some(&elem.next))
     }
 
-    fn visit_branch(&mut self, elem: &'w ElemBranch) -> Result<(), Self::Error> {
+    fn visit_branch(&mut self, elem: &'w ElemBranch) -> Result<Option<&'w Elem>, Self::Error> {
         // Aggregate the inputs & outputs of the branches
         let add_firsts: bool = !self.first.is_empty();
         self.last.clear();
@@ -181,10 +181,10 @@ impl<'w> Visitor<'w> for DataAnalyzer<'w> {
         }
 
         // OK, continue with the branch's next
-        self.visit(&elem.next)
+        Ok(Some(&elem.next))
     }
 
-    fn visit_parallel(&mut self, elem: &'w ElemParallel) -> Result<(), Self::Error> {
+    fn visit_parallel(&mut self, elem: &'w ElemParallel) -> Result<Option<&'w Elem>, Self::Error> {
         // Aggregate the inputs & outputs of the branches
         let add_firsts: bool = !self.first.is_empty();
         self.last.clear();
@@ -198,10 +198,10 @@ impl<'w> Visitor<'w> for DataAnalyzer<'w> {
         }
 
         // OK, continue with the branch's next
-        self.visit(&elem.next)
+        Ok(Some(&elem.next))
     }
 
-    fn visit_loop(&mut self, elem: &'w ElemLoop) -> Result<(), Self::Error> {
+    fn visit_loop(&mut self, elem: &'w ElemLoop) -> Result<Option<&'w Elem>, Self::Error> {
         // We recurse to find the inputs- and outputs
         let mut analyzer = Self::new(self.names);
         analyzer.visit(&elem.body)?;
@@ -218,7 +218,7 @@ impl<'w> Visitor<'w> for DataAnalyzer<'w> {
         self.last.extend(analyzer.last.into_iter());
 
         // Continue with iteration
-        self.visit(&elem.next)
+        Ok(Some(&elem.next))
     }
 }
 
@@ -252,7 +252,7 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
     type Error = Infallible;
 
     #[inline]
-    fn visit_call(&mut self, elem: &'w ElemCall) -> Result<(), Self::Error> {
+    fn visit_call(&mut self, elem: &'w ElemCall) -> Result<Option<&'w Elem>, Self::Error> {
         trace!("Compiling Elem::Call to eFLINT");
 
         // Define a new task call and make it part of the workflow
@@ -280,7 +280,7 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
             }
 
             // Continue
-            return self.visit(&elem.next);
+            return Ok(Some(&elem.next));
         }
 
         // Link the code input
@@ -376,11 +376,11 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
         }
 
         // OK, move to the next
-        self.visit(&elem.next)
+        Ok(Some(&elem.next))
     }
 
     #[inline]
-    fn visit_loop(&mut self, elem: &'w ElemLoop) -> Result<(), Self::Error> {
+    fn visit_loop(&mut self, elem: &'w ElemLoop) -> Result<Option<&'w Elem>, Self::Error> {
         // Serialize the body phrases first
         self.visit(&elem.body)?;
 
@@ -445,7 +445,7 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
         }
 
         // Done, continue with the next one
-        self.visit(&elem.next)
+        Ok(Some(&elem.next))
     }
 }
 

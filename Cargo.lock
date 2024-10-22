@@ -1584,6 +1584,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "eflint-json-reasoner"
+version = "0.2.0"
+source = "git+https://github.com/epi-project/policy-reasoner?branch=lib-refactor#8ca01dd905da99be4168c20b7eeda2d83a380466"
+dependencies = [
+ "eflint-json",
+ "error-trace 3.1.0",
+ "reqwest 0.12.14",
+ "serde",
+ "serde_json",
+ "specifications 0.2.0",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "eflint-to-json"
 version = "0.1.0"
 source = "git+https://github.com/braneframework/policy-reasoner#a5b56bbdfde789ae1579f37067f81fc7ba8c04d0"
@@ -3376,6 +3391,7 @@ name = "policy-reasoner"
 version = "1.0.0"
 source = "git+https://github.com/epi-project/policy-reasoner?branch=lib-refactor#8ca01dd905da99be4168c20b7eeda2d83a380466"
 dependencies = [
+ "eflint-json-reasoner",
  "specifications 0.2.0",
  "workflow 0.2.0",
 ]
