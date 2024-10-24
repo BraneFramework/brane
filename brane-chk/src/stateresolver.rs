@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    22 Oct 2024, 11:56:22
+//    24 Oct 2024, 17:25:32
 //  Auto updated?
 //    Yes
 //
@@ -13,13 +13,16 @@
 //
 
 use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
+use std::sync::Arc;
 
 use brane_cfg::node::WorkerUsecase;
 use eflint_json::spec::Phrase;
 use policy_reasoner::spec::stateresolver::StateResolver;
 use policy_reasoner::workflow::visitor::Visitor;
 use policy_reasoner::workflow::{Elem, ElemCall, Workflow};
+use policy_store::databases::sqlite::SQLiteDatabase;
 use reqwest::{Response, StatusCode};
 use serde::de::DeserializeOwned;
 use specifications::address::Address;
@@ -244,6 +247,21 @@ async fn assert_workflow_context(wf: &Workflow, usecase: &str, usecases: &HashMa
 
     // Done!
     Ok(())
+}
+
+/// Interacts with the database to get the currently active policy.
+///
+/// # Arguments
+/// - `db`: The [`SQLiteDatabase`] connector that we use to talk to the database.
+///
+/// # Returns
+/// A [`Vec<Phrase>`](Phrase) that represents the active policy.
+///
+/// # Errors
+/// This function errors if we failed to interact with the database, or if no policy was currently active.
+async fn get_activate_policy(db: &SQLiteDatabase<Vec<Phrase>>) -> Result<Vec<Phrase>, Error> {
+    //
+    todo!()
 }
 
 
@@ -555,11 +573,11 @@ impl<'w> Visitor<'w> for CallInputFinder<'w> {
 
 /***** AUXILLARY *****/
 /// Defines the input to the [`StateResolver`]` that will be resolved to concrete info for the reasoner.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Input {
     // Policy-related
-    /// The address of the policy store to retrieve policy from.
-    pub store: Address,
+    /// The database connector we use to connect to t' pool.
+    pub store: Arc<SQLiteDatabase<Vec<Phrase>>>,
 
     // Workflow-related
     /// The usecase that determines the central registry to use.
@@ -614,9 +632,7 @@ impl StateResolver for BraneStateResolver {
 
 
             // First, resolve the policy by calling the store
-            let store: String = format!("{}/version", state.store);
-            debug!("Retrieving active policy from {store:?}...");
-            let policy: Vec<Phrase> = todo!();
+            let policy: Vec<Phrase> = get_activate_policy(&state.store).await?;
 
 
             // Then resolve the workflow and create the appropriate question
