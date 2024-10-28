@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:07:19
 //  Last edited:
-//    22 Oct 2024, 11:36:34
+//    28 Oct 2024, 20:45:03
 //  Auto updated?
 //    Yes
 //
@@ -16,5 +16,6 @@
 
 // Declare modules
 pub mod question;
+pub mod server;
 pub mod stateresolver;
 pub mod workflow;

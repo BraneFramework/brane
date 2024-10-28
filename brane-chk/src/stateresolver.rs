@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    24 Oct 2024, 17:25:32
+//    28 Oct 2024, 20:42:35
 //  Auto updated?
 //    Yes
 //
@@ -12,17 +12,19 @@
 //!   Implements the Brane-specific state resolver.
 //
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use brane_cfg::node::WorkerUsecase;
-use eflint_json::spec::Phrase;
+use eflint_json::spec::{Expression, ExpressionPrimitive, Phrase, PhrasePredicate};
 use policy_reasoner::spec::stateresolver::StateResolver;
 use policy_reasoner::workflow::visitor::Visitor;
 use policy_reasoner::workflow::{Elem, ElemCall, Workflow};
-use policy_store::databases::sqlite::SQLiteDatabase;
+use policy_store::databases::sqlite::{SQLiteConnection, SQLiteDatabase};
+use policy_store::spec::databaseconn::{DatabaseConnection as _, DatabaseConnector as _};
+use policy_store::spec::metadata::User;
 use reqwest::{Response, StatusCode};
 use serde::de::DeserializeOwned;
 use specifications::address::Address;
@@ -30,15 +32,54 @@ use specifications::data::DataInfo;
 use specifications::package::PackageIndex;
 use specifications::version::Version;
 use thiserror::Error;
-use tracing::{Level, debug, span};
+use tracing::{Level, debug, span, warn};
 
 use crate::question::Question;
 use crate::workflow::compile;
 
 
+/***** STATICS *****/
+/// The user used to represent ourselves in the backend.
+static DATABASE_USER: LazyLock<User> = LazyLock::new(|| User { id: "brane".into(), name: "Brane".into() });
+
+/// The special policy that is used when the database doesn't mention any active.
+static DENY_ALL_POLICY: LazyLock<Vec<Phrase>> = LazyLock::new(|| {
+    vec![Phrase::Predicate(PhrasePredicate {
+        name: "contradiction".into(),
+        is_invariant: true,
+        expression: Expression::Primitive(ExpressionPrimitive::Boolean(false)),
+    })]
+});
+
+
+
+
+
 /***** ERRORS *****/
 #[derive(Debug, Error)]
 pub enum Error {
+    /// Failed to connect to the backend database.
+    #[error("Failed to connect to the backend database as user 'brane'")]
+    DatabaseConnect {
+        #[source]
+        err: policy_store::databases::sqlite::DatabaseError,
+    },
+    /// Failed to get the active version from the backend database.
+    #[error("Failed to get the active version from the backend database")]
+    DatabaseGetActiveVersion {
+        #[source]
+        err: policy_store::databases::sqlite::ConnectionError,
+    },
+    /// Failed to get the active version from the backend database.
+    #[error("Failed to get the contents of active version {version} from the backend database")]
+    DatabaseGetActiveVersionContent {
+        version: u64,
+        #[source]
+        err:     policy_store::databases::sqlite::ConnectionError,
+    },
+    /// The active version reported was not found.
+    #[error("Inconsistent database version: version {version} was reported as the active version, but that version is not found")]
+    DatabaseInconsistentActive { version: u64 },
     /// Found too many calls with the same ID.
     #[error("Given call ID {call:?} occurs multiple times in workflow {workflow:?}")]
     DuplicateCallId { workflow: String, call: String },
@@ -259,9 +300,31 @@ async fn assert_workflow_context(wf: &Workflow, usecase: &str, usecases: &HashMa
 ///
 /// # Errors
 /// This function errors if we failed to interact with the database, or if no policy was currently active.
-async fn get_activate_policy(db: &SQLiteDatabase<Vec<Phrase>>) -> Result<Vec<Phrase>, Error> {
-    //
-    todo!()
+async fn get_active_policy(db: &SQLiteDatabase<Vec<Phrase>>) -> Result<Cow<'static, [Phrase]>, Error> {
+    // Time to fetch a connection
+    debug!("Connecting to backend database...");
+    let mut conn: SQLiteConnection<Vec<Phrase>> = match db.connect(&*DATABASE_USER).await {
+        Ok(conn) => conn,
+        Err(err) => return Err(Error::DatabaseConnect { err }),
+    };
+
+    // Get the active policy
+    debug!("Retrieving active policy...");
+    let version: u64 = match conn.get_active_version().await {
+        Ok(Some(pol)) => pol,
+        Ok(None) => {
+            warn!("No active policy set in database; assuming builtin VIOLATION policy");
+            return Ok(Cow::Borrowed(&*DENY_ALL_POLICY));
+        },
+        Err(err) => return Err(Error::DatabaseGetActiveVersion { err }),
+    };
+
+    debug!("Fetching active policy {version}...");
+    match conn.get_version_content(version).await {
+        Ok(Some(version)) => Ok(Cow::Owned(version)),
+        Ok(None) => return Err(Error::DatabaseInconsistentActive { version }),
+        Err(err) => return Err(Error::DatabaseGetActiveVersionContent { version, err }),
+    }
 }
 
 
@@ -610,7 +673,7 @@ pub struct BraneStateResolver {
 impl BraneStateResolver {}
 impl StateResolver for BraneStateResolver {
     type Error = Error;
-    type Resolved = (Vec<Phrase>, Question);
+    type Resolved = (Cow<'static, [Phrase]>, Question);
     type State = Input;
 
     fn resolve<L>(
@@ -632,7 +695,7 @@ impl StateResolver for BraneStateResolver {
 
 
             // First, resolve the policy by calling the store
-            let policy: Vec<Phrase> = get_activate_policy(&state.store).await?;
+            let policy: Cow<[Phrase]> = get_active_policy(&state.store).await?;
 
 
             // Then resolve the workflow and create the appropriate question
