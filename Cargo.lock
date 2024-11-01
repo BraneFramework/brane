@@ -4872,8 +4872,8 @@ dependencies = [
 
 [[package]]
 name = "transform"
-version = "0.1.1"
-source = "git+https://github.com/Lut99/transform-rs#17d06ab4cf1bc2f8f25f2a8276159c2722cdf301"
+version = "0.2.0"
+source = "git+https://github.com/Lut99/transform-rs#ea708962d9a770c1f89c3bce0b9309dfe48656a6"
 
 [[package]]
 name = "try-lock"
