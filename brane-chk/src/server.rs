@@ -4,7 +4,7 @@
 //  Created:
 //    28 Oct 2024, 20:44:52
 //  Last edited:
-//    28 Oct 2024, 21:47:46
+//    04 Nov 2024, 16:49:06
 //  Auto updated?
 //    Yes
 //
@@ -38,7 +38,7 @@ use policy_store::auth::jwk::JwkResolver;
 use policy_store::auth::jwk::keyresolver::KidResolver;
 use policy_store::databases::sqlite::SQLiteDatabase;
 use policy_store::spec::AuthResolver as _;
-use policy_store::spec::authresolver::ClientError;
+use policy_store::spec::authresolver::HttpError;
 use policy_store::spec::metadata::User;
 use rand::Rng;
 use rand::distributions::Alphanumeric;
@@ -70,12 +70,17 @@ enum TempError<E> {
         #[source]
         err: E,
     },
+    #[error("Failed to resolve reasoner input")]
+    ResolveFailed {
+        #[source]
+        err: E,
+    },
 }
-impl<E: 'static + ClientError> ClientError for TempError<E> {
+impl<E: 'static + HttpError> HttpError for TempError<E> {
     #[inline]
     fn status_code(&self) -> StatusCode {
         match self {
-            Self::AuthorizeFailed { err } => err.status_code(),
+            Self::AuthorizeFailed { err } | Self::ResolveFailed { err } => err.status_code(),
         }
     }
 }
@@ -225,7 +230,8 @@ impl<S, P, L> Server<S, P, L> {
 // Paths
 impl<S, P, L> Server<S, P, L>
 where
-    S: 'static + Send + Sync + StateResolver<State = Input, Resolved = P::State>,
+    S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
+    S::Error: HttpError,
     P: 'static + Send + Sync + ReasonerConnector,
     L: 'static + Send + Sync + AuditLogger,
 {
@@ -269,7 +275,8 @@ where
     ///
     /// Out:
     /// - 200 OK with an [`CheckResponse`] detailling the verdict of the reasoner;
-    /// - 404 BAD REQUEST with the reason why we failed to parse the request; or
+    /// - 400 BAD REQUEST with the reason why we failed to parse the request;
+    /// - 404 NOT FOUND if the given use-case was unknown; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     fn check_workflow(
         State(this): State<Arc<Self>>,
@@ -277,8 +284,9 @@ where
         request: Request,
     ) -> impl 'static + Send + Future<Output = (StatusCode, String)> {
         async move {
-            let reference: String = format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect());
-            let _span = span!(Level::INFO, "Server::check_workflow", user = auth.id);
+            let reference: String =
+                format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>());
+            let _span = span!(Level::INFO, "Server::check_workflow", user = auth.id, reference = reference);
 
             // Get the request
             let req: CheckWorkflowRequest = match download_request(request).await {
@@ -289,14 +297,26 @@ where
             // Build the state, then resolve it
             let input: Input =
                 Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input: QuestionInput::ValidateWorkflow };
-            let state: P::State = match this.resolver.resolve(input, &SessionedAuditLogger::new(&reference, this.logger)).await {
-                Ok(state) => state,
+            let (state, question): (P::State, P::Question) =
+                match this.resolver.resolve(input, &SessionedAuditLogger::new(&reference, this.logger)).await {
+                    Ok(state) => state,
+                    Err(err) => {
+                        let err = TempError::ResolveFailed { err };
+                        error!("{}", err.trace());
+                        return (err.status_code(), err.to_string());
+                    },
+                };
+
+            // With that in order, hit the reasoner
+            match this.reasoner.consult(state, question, &mut SessionedAuditLogger::new(&reference, &mut this.logger)).await {
+                Ok(res) => todo!(),
                 Err(err) => {
-                    let err = TempError::ResolveFailed { err };
-                    error!("{}", err.trace());
+                    // let err = TempError::ReasonerFailed { err };
+                    // error!("{}", err.trace());
+                    // (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+                    todo!()
                 },
-            };
-            todo!()
+            }
         }
     }
 
@@ -338,7 +358,8 @@ where
 // Serve
 impl<S, P, L> Server<S, P, L>
 where
-    S: 'static + Send + Sync + StateResolver<State = Input, Resolved = P::State>,
+    S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
+    S::Error: HttpError,
     P: 'static + Send + Sync + ReasonerConnector,
     L: 'static + Send + Sync + AuditLogger,
 {

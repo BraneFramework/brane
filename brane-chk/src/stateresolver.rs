@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    28 Oct 2024, 20:42:35
+//    04 Nov 2024, 15:37:04
 //  Auto updated?
 //    Yes
 //
@@ -23,6 +23,7 @@ use policy_reasoner::spec::stateresolver::StateResolver;
 use policy_reasoner::workflow::visitor::Visitor;
 use policy_reasoner::workflow::{Elem, ElemCall, Workflow};
 use policy_store::databases::sqlite::{SQLiteConnection, SQLiteDatabase};
+use policy_store::spec::authresolver::HttpError;
 use policy_store::spec::databaseconn::{DatabaseConnection as _, DatabaseConnector as _};
 use policy_store::spec::metadata::User;
 use reqwest::{Response, StatusCode};
@@ -86,6 +87,16 @@ pub enum Error {
     /// Found too many inputs in the given call with the same ID.
     #[error("Given input ID {input:?} occurs multiple times in the input to call {call:?} in workflow {workflow:?}")]
     DuplicateInputId { workflow: String, call: String, input: String },
+    /// Found an illegal version string in a task string.
+    #[error("Illegal version identifier {version:?} in task {task:?} in call {call:?} in workflow {workflow:?}")]
+    IllegalVersionFormat {
+        workflow: String,
+        call:     String,
+        task:     String,
+        version:  String,
+        #[source]
+        err:      specifications::version::ParseError,
+    },
     /// Failed to get the package index from the remote registry.
     #[error("Failed to get package index from the central registry at {addr:?}")]
     PackageIndex { addr: String, err: brane_tsk::api::Error },
@@ -160,16 +171,6 @@ pub enum Error {
     /// The usecase submitted with the request was unknown.
     #[error("Unkown usecase '{usecase}'")]
     UnknownUsecase { usecase: String },
-    /// Found an illegal version string in a task string.
-    #[error("Illegal version identifier {version:?} in task {task:?} in call {call:?} in workflow {workflow:?}")]
-    UnknownVersionFormat {
-        workflow: String,
-        call:     String,
-        task:     String,
-        version:  String,
-        #[source]
-        err:      specifications::version::ParseError,
-    },
     /// The workflow user was not found.
     #[error("Unknown workflow user {user:?} in workflow {workflow:?}")]
     UnknownWorkflowUser { workflow: String, user: String },
@@ -179,6 +180,40 @@ pub enum Error {
          ({planned_user:?})"
     )]
     UnplannedOutputUser { workflow: String, call: String, output: String, planned_user: Option<String>, output_user: Option<String> },
+}
+impl HttpError for Error {
+    #[inline]
+    fn status_code(&self) -> StatusCode {
+        use Error::*;
+        match self {
+            DatabaseConnect { .. }
+            | DatabaseGetActiveVersion { .. }
+            | DatabaseGetActiveVersionContent { .. }
+            | DatabaseInconsistentActive { .. }
+            | PackageIndex { .. }
+            | Request { .. }
+            | RequestFailure { .. }
+            | ResolveData { .. }
+            | ResponseDeserialize { .. }
+            | ResponseDownload { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            DuplicateCallId { .. }
+            | DuplicateInputId { .. }
+            | IllegalVersionFormat { .. }
+            | ResolveWorkflow { .. }
+            | UnknownCall { .. }
+            | UnknownFunction { .. }
+            | UnknownInput { .. }
+            | UnknownInputToCall { .. }
+            | UnknownInputUser { .. }
+            | UnknownOwnerUser { .. }
+            | UnknownPackage { .. }
+            | UnknownPlannedUser { .. }
+            | UnknownTaskFormat { .. }
+            | UnknownWorkflowUser { .. }
+            | UnplannedOutputUser { .. } => StatusCode::BAD_REQUEST,
+            UnknownUsecase { .. } => StatusCode::NOT_FOUND,
+        }
+    }
 }
 
 
@@ -456,7 +491,7 @@ impl<'w> Visitor<'w> for AssertPackageExistance<'w> {
         let version: Version = match Version::from_str(version) {
             Ok(ver) => ver,
             Err(err) => {
-                return Err(Error::UnknownVersionFormat {
+                return Err(Error::IllegalVersionFormat {
                     workflow: self.wf_id.into(),
                     call: elem.id.clone(),
                     task: elem.task.clone(),
