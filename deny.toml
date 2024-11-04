@@ -28,8 +28,6 @@ allow = [
     "Zlib",
 ]
 
-copyleft = "deny"
-
 confidence-threshold = 0.8
 
 exceptions = []
