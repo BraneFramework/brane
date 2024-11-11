@@ -4,7 +4,7 @@
 //  Created:
 //    28 Oct 2024, 20:44:52
 //  Last edited:
-//    05 Nov 2024, 11:47:54
+//    11 Nov 2024, 11:36:50
 //  Auto updated?
 //    Yes
 //
@@ -242,7 +242,7 @@ where
     S::Error: HttpError,
     P: 'static + Send + Sync + ReasonerConnector,
     P::Reason: Serialize,
-    L: 'static + Send + Sync + AuditLogger,
+    L: Send + Sync + AuditLogger,
 {
     /// Helper function for handling all three endpoints after the question has been decided.
     ///
@@ -338,7 +338,7 @@ where
         State(this): State<Arc<Self>>,
         Extension(auth): Extension<User>,
         request: Request,
-    ) -> impl 'static + Send + Future<Output = (StatusCode, String)> {
+    ) -> impl Send + Future<Output = (StatusCode, String)> {
         let reference: Arc<String> =
             Arc::new(format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
         let span_ref: Arc<String> = reference.clone();
@@ -372,7 +372,7 @@ where
         State(this): State<Arc<Self>>,
         Extension(auth): Extension<User>,
         request: Request,
-    ) -> impl 'static + Send + Future<Output = (StatusCode, String)> {
+    ) -> impl Send + Future<Output = (StatusCode, String)> {
         let reference: Arc<String> =
             Arc::new(format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
         let span_ref: Arc<String> = reference.clone();
@@ -410,7 +410,7 @@ where
         State(this): State<Arc<Self>>,
         Extension(auth): Extension<User>,
         request: Request,
-    ) -> impl 'static + Send + Future<Output = (StatusCode, String)> {
+    ) -> impl Send + Future<Output = (StatusCode, String)> {
         let reference: Arc<String> =
             Arc::new(format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
         let span_ref: Arc<String> = reference.clone();
@@ -455,7 +455,7 @@ where
     /// # Errors
     /// This function may error if the server failed to listen of if a fatal server errors comes
     /// along as it serves. However, client-side errors should not trigger errors at this level.
-    pub async fn serve(self) -> impl Future<Output = Result<(), Error>> {
+    pub fn serve(self) -> impl Future<Output = Result<(), Error>> {
         let this: Arc<Self> = Arc::new(self);
         async move {
             let span = span!(Level::INFO, "Server::serve", state = "starting", client = Empty);

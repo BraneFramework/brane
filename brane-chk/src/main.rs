@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:13:06
 //  Last edited:
-//    06 Nov 2024, 16:25:42
+//    11 Nov 2024, 11:45:00
 //  Auto updated?
 //    Yes
 //
@@ -49,7 +49,7 @@ struct Arguments {
     #[clap(
         short = 'n',
         long,
-        default_value = "/node.yml",
+        default_value = "./node.yml",
         help = "The path to the node environment configuration. For the checker, this ONLY defines the usecase mapping. The rest is given directly \
                 as arguments (but probably via `branectl`).",
         env = "NODE_CONFIG_PATH"
@@ -143,7 +143,7 @@ async fn main() {
 
 
     /* Step 2: Setup the deliberation & store APIs */
-    let delib: Server<_, _, _> = match Server::new(args.delib_addr, &args.delib_keys, conn.clone(), resolver, reasoner, &logger) {
+    let delib: Server<_, _, _> = match Server::new(args.delib_addr, &args.delib_keys, conn.clone(), resolver, reasoner, logger) {
         Ok(server) => server,
         Err(err) => {
             error!("{}", trace!(("Failed to create deliberation API server"), err));
@@ -151,13 +151,32 @@ async fn main() {
         },
     };
 
-    let store: AxumServer<_, _> = AxumServer::new(args.store_addr, JwkResolver::new("username", KidResolver::new(args.store_keys)), conn);
+    let resolver: KidResolver = match KidResolver::new(&args.store_keys) {
+        Ok(resolver) => resolver,
+        Err(err) => {
+            error!("{}", trace!(("Failed to create KidResolver with file {:?}", args.store_keys.display()), err));
+            std::process::exit(1);
+        },
+    };
+    let store: AxumServer<_, _> = AxumServer::new(args.store_addr, JwkResolver::new("username", resolver), conn);
 
 
 
     /* Step 3: Host them concurrently */
     tokio::select! {
-        res = delib.serve() => {},
-        res = store.serve() => {},
+        res = delib.serve() => match res {
+            Ok(_) => info!("Terminated."),
+            Err(err) => {
+                error!("{}", trace!(("Failed to host deliberation API"), err));
+                std::process::exit(1);
+            }
+        },
+        res = store.serve() => match res {
+            Ok(_) => info!("Terminated."),
+            Err(err) => {
+                error!("{}", trace!(("Failed to host store API"), err));
+                std::process::exit(1);
+            }
+        },
     }
 }

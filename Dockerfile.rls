@@ -11,7 +11,7 @@
 ##### BUILD STAGE #####
 ### This file will act as the bottom for both builder images
 FROM rust:1 AS build-common
-LABEL org.opencontainers.image.source https://github.com/braneframework/brane
+LABEL org.opencontainers.image.source https://github.com/epi-project/brane
 
 # Install build dependencies (that are not in the rust image already)
 RUN apt-get update && apt-get install -y \
@@ -28,7 +28,7 @@ COPY . /build
 
 ### This file does the Brane services
 FROM build-common AS build-brane
-LABEL org.opencontainers.image.source https://github.com/braneframework/brane
+LABEL org.opencontainers.image.source https://github.com/epi-project/brane
 
 # Build optimized binaries
 WORKDIR /build
@@ -37,44 +37,19 @@ RUN --mount=type=cache,id=cargoidx,target=/usr/local/cargo/registry \
     cargo build \
         --release \
         --package brane-api \
+        --package brane-chk \
         --package brane-drv \
         --package brane-job \
         --package brane-prx \
         --package brane-plr \
         --package brane-reg \
     && cp ./target/release/brane-api /brane-api \
+    && cp ./target/release/brane-chk /brane-chk \
     && cp ./target/release/brane-drv /brane-drv \
     && cp ./target/release/brane-job /brane-job \
     && cp ./target/release/brane-prx /brane-prx \
     && cp ./target/release/brane-plr /brane-plr \
     && cp ./target/release/brane-reg /brane-reg
-
-# If ever run, run a shell
-WORKDIR /
-ENTRYPOINT [ "/bin/bash" ]
-
-
-
-### This file does the policy reasoner service
-FROM build-common AS build-policy-reasoner
-LABEL org.opencontainers.image.source https://github.com/braneframework/brane
-
-# Fetch the reasoner code next
-WORKDIR /
-ARG REASONER=eflint
-ARG REASONER_BRANCH=main
-ADD "https://github.com/braneframework/policy-reasoner/zipball/${REASONER_BRANCH}/" /policy-reasoner.zip
-RUN unzip /policy-reasoner.zip && mv /BraneFramework-policy-reasoner* /policy-reasoner
-
-# Touch a `policy.db` into action to avoid the policy reasoner's `build.rs` building it for us (unnecessary)
-RUN mkdir -p /policy-reasoner/data && touch /policy-reasoner/data/policy.db
-
-# Compile it!
-WORKDIR /policy-reasoner
-RUN --mount=type=cache,id=cargoidx,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=reasonercache,target=/policy-reasoner/target \
-    cargo build --release --bin $REASONER --features brane-api-resolver \
- && cp ./target/release/$REASONER /brane-chk
 
 # If ever run, run a shell
 WORKDIR /
@@ -110,7 +85,7 @@ RUN PATH="$PATH:/go/bin" \
 ##### BASE IMAGE #####
 # This image defines the base image for all Brane service images.
 FROM ubuntu:22.04 AS brane-base
-LABEL org.opencontainers.image.source https://github.com/braneframework/brane
+LABEL org.opencontainers.image.source https://github.com/epi-project/brane
 
 # Add the log directory
 RUN mkdir -p /logs/profile
@@ -223,9 +198,9 @@ ENTRYPOINT [ "./brane-reg" ]
 
 ##### BRANE-CHK #####
 # This image contains the policy reasoner / checker!
-FROM ubuntu:22.04 AS brane-chk
+FROM brane-base AS brane-chk
 
-# Install deps
+# Install more deps
 RUN apt-get update && apt-get install -y \
     sqlite3 \
  && rm -rf /var/lib/apt/lists/*
@@ -238,11 +213,8 @@ RUN printf '#!/bin/bash\n# Startup script for the policy reasoner container\n\n#
 # ADD https://github.com/Olaf-Erkemeij/eflint-server/raw/bd3997df89441f13cbc82bd114223646df41540d/eflint-server /eflint-server
 # RUN chmod +x /eflint-server
 
-# Copy some config from the build stage
-COPY --from=build-policy-reasoner /policy-reasoner/examples/config/jwt_resolver.yaml /examples/config/jwt_resolver.yaml
-
 # Copy `policy-reasoner` from build stage
-COPY --from=build-policy-reasoner /brane-chk /brane-chk
+COPY --from=build-brane /brane-chk /brane-chk
 RUN chmod +x /brane-chk
 
 # Copy `eflint-server` from build stage
