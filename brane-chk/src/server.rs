@@ -4,7 +4,7 @@
 //  Created:
 //    28 Oct 2024, 20:44:52
 //  Last edited:
-//    04 Nov 2024, 16:49:06
+//    05 Nov 2024, 11:47:54
 //  Auto updated?
 //    Yes
 //
@@ -27,12 +27,13 @@ use axum::routing::get;
 use axum::{Extension, Router};
 use brane_ast::Workflow;
 use eflint_json::spec::Phrase;
-use error_trace::{ErrorTrace as _, trace};
+use error_trace::{ErrorTrace as _, Trace, trace};
 use futures::StreamExt as _;
 use hyper::body::Incoming;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto::Builder as HyperBuilder;
 use policy_reasoner::spec::auditlogger::SessionedAuditLogger;
+use policy_reasoner::spec::reasonerconn::ReasonerResponse;
 use policy_reasoner::spec::{AuditLogger, ReasonerConnector, StateResolver};
 use policy_store::auth::jwk::JwkResolver;
 use policy_store::auth::jwk::keyresolver::KidResolver;
@@ -48,7 +49,7 @@ use thiserror::Error;
 use tokio::net::{TcpListener, TcpStream};
 use tower_service::Service as _;
 use tracing::field::Empty;
-use tracing::{Level, debug, error, info, span};
+use tracing::{Instrument as _, Level, debug, error, info, span};
 
 use crate::stateresolver::{Input, QuestionInput};
 
@@ -62,38 +63,14 @@ pub const INITIATOR_CLAIM: &'static str = "username";
 
 
 /***** ERRORS *****/
-/// Simple wrapper for erroring and freezing the result.
-#[derive(Debug, Error)]
-enum TempError<E> {
-    #[error("Failed to authorize incoming request")]
-    AuthorizeFailed {
-        #[source]
-        err: E,
-    },
-    #[error("Failed to resolve reasoner input")]
-    ResolveFailed {
-        #[source]
-        err: E,
-    },
-}
-impl<E: 'static + HttpError> HttpError for TempError<E> {
-    #[inline]
-    fn status_code(&self) -> StatusCode {
-        match self {
-            Self::AuthorizeFailed { err } | Self::ResolveFailed { err } => err.status_code(),
-        }
-    }
-}
-
-
-
 /// Defines errors originating from the bowels of the [`Server`].
 #[derive(Debug, Error)]
 pub enum Error {
-    /// Failed to create the KID resolver.
     #[error("Failed to create the KID resolver")]
-    KidResolver { err: policy_store::auth::jwk::keyresolver::kid::ServerError },
-    /// Failed to bind on the given address.
+    KidResolver {
+        #[source]
+        err: policy_store::auth::jwk::keyresolver::kid::ServerError,
+    },
     #[error("Failed to bind server on address '{addr}'")]
     ListenerBind {
         addr: SocketAddr,
@@ -173,6 +150,37 @@ pub struct CheckWorkflowRequest {
     pub workflow: Workflow,
 }
 
+/// Defines the request to send to the [`Server::check_task()`] endpoint.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CheckTaskRequest {
+    /// The usecase that refers to the API to consult for state.
+    pub usecase:  String,
+    /// The workflow we're parsing.
+    pub workflow: Workflow,
+    /// The task in the workflow that we want to check specifically.
+    pub task:     String,
+}
+
+/// Defines the request to send to the [`Server::check_transfer()`] endpoint.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CheckTransferRequest {
+    /// The usecase that refers to the API to consult for state.
+    pub usecase:  String,
+    /// The workflow we're parsing.
+    pub workflow: Workflow,
+    /// The task in the workflow that we want to check specifically.
+    pub task:     String,
+    /// The input in the task that we want to check specifically.
+    pub input:    String,
+}
+
+/// Defines the result of the [`Server::check_workflow()`], [`Server::check_task()`] and [`Server::check_transfer()`] endpoints.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CheckResponse<R> {
+    /// The result
+    pub verdict: ReasonerResponse<R>,
+}
+
 
 
 
@@ -233,8 +241,55 @@ where
     S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
     S::Error: HttpError,
     P: 'static + Send + Sync + ReasonerConnector,
+    P::Reason: Serialize,
     L: 'static + Send + Sync + AuditLogger,
 {
+    /// Helper function for handling all three endpoints after the question has been decided.
+    ///
+    /// # Arguments
+    /// - `this`: `self` but in an [`Arc`].
+    /// - `reference`: The reference for which this request is being done.
+    /// - `input`: The [`Input`] that will be resolved to the reasoner input.
+    ///
+    /// # Returns
+    /// The status code of the response and a message to attach to it.
+    async fn check(this: Arc<Self>, reference: &str, input: Input) -> (StatusCode, String) {
+        // Build the state, then resolve it
+        let (state, question): (P::State, P::Question) = match this.resolver.resolve(input, &SessionedAuditLogger::new(reference, &this.logger)).await
+        {
+            Ok(state) => state,
+            Err(err) => {
+                let status = err.status_code();
+                let err = Trace::from_source("Failed to resolve input to the reasoner", err);
+                error!("{}", err.trace());
+                return (status, err.to_string());
+            },
+        };
+
+        // With that in order, hit the reasoner
+        match this.reasoner.consult(state, question, &SessionedAuditLogger::new(reference, &this.logger)).await {
+            Ok(res) => {
+                // Serialize the response
+                let res: String = match serde_json::to_string(&CheckResponse { verdict: res }) {
+                    Ok(res) => res,
+                    Err(err) => {
+                        let err = Trace::from_source("Failed to serialize reasoner response", err);
+                        error!("{}", err.trace());
+                        return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string());
+                    },
+                };
+
+                // OK
+                (StatusCode::OK, res)
+            },
+            Err(err) => {
+                let err = Trace::from_source("Failed to consult with the reasoner", err);
+                error!("{}", err.trace());
+                (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+            },
+        }
+    }
+
     /// Authorization middle layer for the Server.
     ///
     /// This will read the `Authorization` header in the incoming request for a token that
@@ -247,15 +302,16 @@ where
         let user: User = match context.auth.authorize(request.headers()).await {
             Ok(Ok(user)) => user,
             Ok(Err(err)) => {
-                let err = TempError::AuthorizeFailed { err };
+                let status = err.status_code();
+                let err = Trace::from_source("Failed to authorize incoming request", err);
                 info!("{}", err.trace());
                 let mut res =
                     Response::new(Body::from(serde_json::to_string(&err.freeze()).unwrap_or_else(|err| panic!("Failed to serialize Trace: {err}"))));
-                *res.status_mut() = err.status_code();
+                *res.status_mut() = status;
                 return res;
             },
             Err(err) => {
-                let err = TempError::AuthorizeFailed { err };
+                let err = Trace::from_source("Failed to authorize incoming request", err);
                 error!("{}", err.trace());
                 let mut res = Response::new(Body::from(err.to_string()));
                 *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
@@ -283,41 +339,24 @@ where
         Extension(auth): Extension<User>,
         request: Request,
     ) -> impl 'static + Send + Future<Output = (StatusCode, String)> {
+        let reference: Arc<String> =
+            Arc::new(format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
+        let span_ref: Arc<String> = reference.clone();
         async move {
-            let reference: String =
-                format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>());
-            let _span = span!(Level::INFO, "Server::check_workflow", user = auth.id, reference = reference);
-
             // Get the request
             let req: CheckWorkflowRequest = match download_request(request).await {
                 Ok(req) => req,
                 Err(res) => return res,
             };
 
-            // Build the state, then resolve it
+            // Decide the input
             let input: Input =
                 Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input: QuestionInput::ValidateWorkflow };
-            let (state, question): (P::State, P::Question) =
-                match this.resolver.resolve(input, &SessionedAuditLogger::new(&reference, this.logger)).await {
-                    Ok(state) => state,
-                    Err(err) => {
-                        let err = TempError::ResolveFailed { err };
-                        error!("{}", err.trace());
-                        return (err.status_code(), err.to_string());
-                    },
-                };
 
-            // With that in order, hit the reasoner
-            match this.reasoner.consult(state, question, &mut SessionedAuditLogger::new(&reference, &mut this.logger)).await {
-                Ok(res) => todo!(),
-                Err(err) => {
-                    // let err = TempError::ReasonerFailed { err };
-                    // error!("{}", err.trace());
-                    // (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-                    todo!()
-                },
-            }
+            // Continue with the agnostic function for maintainability
+            Self::check(this, reference.as_str(), input).await
         }
+        .instrument(span!(Level::INFO, "Server::check_workflow", user = auth.id, reference = *span_ref))
     }
 
     /// Handler for `GET /v2/task` (i.e., checking a task in a workflow).
@@ -334,7 +373,28 @@ where
         Extension(auth): Extension<User>,
         request: Request,
     ) -> impl 'static + Send + Future<Output = (StatusCode, String)> {
-        async move { todo!() }
+        let reference: Arc<String> =
+            Arc::new(format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
+        let span_ref: Arc<String> = reference.clone();
+        async move {
+            // Get the request
+            let req: CheckTaskRequest = match download_request(request).await {
+                Ok(req) => req,
+                Err(res) => return res,
+            };
+
+            // Decide the input
+            let input: Input = Input {
+                store:    this.store.clone(),
+                usecase:  req.usecase,
+                workflow: req.workflow,
+                input:    QuestionInput::ExecuteTask { task: req.task },
+            };
+
+            // Continue with the agnostic function for maintainability
+            Self::check(this, reference.as_str(), input).await
+        }
+        .instrument(span!(Level::INFO, "Server::check_task", user = auth.id, reference = *span_ref))
     }
 
     /// Handler for `GET /v2/transfer` (i.e., checking a transfer for a task in a workflow).
@@ -351,7 +411,28 @@ where
         Extension(auth): Extension<User>,
         request: Request,
     ) -> impl 'static + Send + Future<Output = (StatusCode, String)> {
-        async move { todo!() }
+        let reference: Arc<String> =
+            Arc::new(format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
+        let span_ref: Arc<String> = reference.clone();
+        async move {
+            // Get the request
+            let req: CheckTransferRequest = match download_request(request).await {
+                Ok(req) => req,
+                Err(res) => return res,
+            };
+
+            // Decide the input
+            let input: Input = Input {
+                store:    this.store.clone(),
+                usecase:  req.usecase,
+                workflow: req.workflow,
+                input:    QuestionInput::TransferInput { task: req.task, input: req.input },
+            };
+
+            // Continue with the agnostic function for maintainability
+            Self::check(this, reference.as_str(), input).await
+        }
+        .instrument(span!(Level::INFO, "Server::check_transfer", user = auth.id, reference = *span_ref))
     }
 }
 
@@ -361,6 +442,7 @@ where
     S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
     S::Error: HttpError,
     P: 'static + Send + Sync + ReasonerConnector,
+    P::Reason: Serialize,
     L: 'static + Send + Sync + AuditLogger,
 {
     /// Runs this server.

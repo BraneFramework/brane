@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    04 Nov 2024, 15:37:04
+//    06 Nov 2024, 14:58:07
 //  Auto updated?
 //    Yes
 //
@@ -14,11 +14,13 @@
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
 use std::str::FromStr as _;
 use std::sync::{Arc, LazyLock};
 
 use brane_cfg::node::WorkerUsecase;
 use eflint_json::spec::{Expression, ExpressionPrimitive, Phrase, PhrasePredicate};
+use policy_reasoner::spec::auditlogger::{AuditLogger, SessionedAuditLogger};
 use policy_reasoner::spec::stateresolver::StateResolver;
 use policy_reasoner::workflow::visitor::Visitor;
 use policy_reasoner::workflow::{Elem, ElemCall, Workflow};
@@ -705,19 +707,30 @@ pub struct BraneStateResolver {
     /// The use-cases that we use to map use-case ID to Brane central registry.
     pub usecases: HashMap<String, WorkerUsecase>,
 }
-impl BraneStateResolver {}
+impl BraneStateResolver {
+    /// Constructor for the BraneStateResolver.
+    ///
+    /// # Arguments
+    /// - `usecases`: A map of usecase identifiers to information about where we find the
+    ///   appropriate central registry for that usecase.
+    ///
+    /// # Returns
+    /// A new StateResolver, ready to resolve state.
+    #[inline]
+    pub fn new(usecases: impl IntoIterator<Item = (String, WorkerUsecase)>) -> Self { Self { usecases: usecases.into_iter().collect() } }
+}
 impl StateResolver for BraneStateResolver {
     type Error = Error;
     type Resolved = (Cow<'static, [Phrase]>, Question);
     type State = Input;
 
-    fn resolve<L>(
-        &self,
+    fn resolve<'a, L>(
+        &'a self,
         state: Self::State,
-        logger: &policy_reasoner::spec::auditlogger::SessionedAuditLogger<L>,
-    ) -> impl std::future::Future<Output = Result<Self::Resolved, Self::Error>>
+        logger: &'a SessionedAuditLogger<L>,
+    ) -> impl 'a + Send + Future<Output = Result<Self::Resolved, Self::Error>>
     where
-        L: policy_reasoner::spec::AuditLogger,
+        L: Sync + AuditLogger,
     {
         async move {
             let _span = span!(

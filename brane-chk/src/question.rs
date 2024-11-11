@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:10:59
 //  Last edited:
-//    22 Oct 2024, 11:52:38
+//    06 Nov 2024, 14:56:05
 //  Auto updated?
 //    Yes
 //
@@ -16,11 +16,12 @@ use std::convert::Infallible;
 
 use policy_reasoner::reasoners::eflint_json::spec::EFlintable;
 use policy_reasoner::workflow::Workflow;
+use serde::{Deserialize, Serialize};
 
 
 /***** LIBRARY *****/
 /// Defines the question (=request specific input) for the Brane reasoner.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Question {
     /// Checks if this domain agrees with the workflow as a whole.
     ValidateWorkflow {
