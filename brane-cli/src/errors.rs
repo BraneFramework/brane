@@ -681,29 +681,63 @@ impl Error for CheckError {
 #[derive(Debug)]
 pub enum DataError {
     /// Failed to sent the GET-request to fetch the dfelegate.
-    RequestError { what: &'static str, address: String, err: reqwest::Error },
+    RequestError {
+        what:    &'static str,
+        address: String,
+        err:     reqwest::Error,
+    },
     /// The request returned a non-2xx status code.
-    RequestFailure { address: String, code: StatusCode, message: Option<String> },
+    RequestFailure {
+        address: String,
+        code:    StatusCode,
+        message: Option<String>,
+    },
     /// Failed to get the request body properly.
-    ResponseTextError { address: String, err: reqwest::Error },
+    ResponseTextError {
+        address: String,
+        err:     reqwest::Error,
+    },
     // /// Failed to load the keypair.
     // KeypairLoadError{ err: brane_cfg::certs::Error },
     // /// Failed to load the certificate root store.
     // StoreLoadError{ err: brane_cfg::certs::Error },
     /// Failed to open/read a given file.
-    FileReadError { what: &'static str, path: PathBuf, err: std::io::Error },
+    FileReadError {
+        what: &'static str,
+        path: PathBuf,
+        err:  std::io::Error,
+    },
     /// Failed to get the directory of the certificates.
-    CertsDirError { err: CertsError },
+    CertsDirError {
+        err: CertsError,
+    },
     /// Failed to parse an identity file.
-    IdentityFileError { path: PathBuf, err: reqwest::Error },
+    IdentityFileError {
+        path: PathBuf,
+        err:  reqwest::Error,
+    },
     /// Failed to parse a certificate.
-    CertificateError { path: PathBuf, err: reqwest::Error },
+    CertificateError {
+        path: PathBuf,
+        err:  reqwest::Error,
+    },
     /// A directory was not a directory but a file.
-    DirNotADirError { what: &'static str, path: PathBuf },
+    DirNotADirError {
+        what: &'static str,
+        path: PathBuf,
+    },
     /// A directory could not be removed.
-    DirRemoveError { what: &'static str, path: PathBuf, err: std::io::Error },
+    DirRemoveError {
+        what: &'static str,
+        path: PathBuf,
+        err:  std::io::Error,
+    },
     /// A directory could not be created.
-    DirCreateError { what: &'static str, path: PathBuf, err: std::io::Error },
+    DirCreateError {
+        what: &'static str,
+        path: PathBuf,
+        err:  std::io::Error,
+    },
     // /// The given certificate file was empty.
     // EmptyCertFile{ path: PathBuf },
     // /// Failed to parse the given key/cert pair as an IdentityFile.
@@ -711,73 +745,146 @@ pub enum DataError {
     // /// Failed to load the given certificate as PEM root certificate.
     // RootError{ cafile: PathBuf, err: reqwest::Error },
     /// Failed to create a temporary directory.
-    TempDirError { err: std::io::Error },
+    TempDirError {
+        err: std::io::Error,
+    },
     /// Failed to create the dataset directory.
-    DatasetDirError { name: String, err: UtilError },
+    DatasetDirError {
+        name: String,
+        err:  UtilError,
+    },
     /// Failed to create a new reqwest proxy
-    ProxyCreateError { address: String, err: reqwest::Error },
+    ProxyCreateError {
+        address: String,
+        err:     reqwest::Error,
+    },
     /// Failed to create a new reqwest client
-    ClientCreateError { err: reqwest::Error },
+    ClientCreateError {
+        err: reqwest::Error,
+    },
     /// Failed to reach the next chunk of data.
-    DownloadStreamError { address: String, err: reqwest::Error },
+    DownloadStreamError {
+        address: String,
+        err:     reqwest::Error,
+    },
     /// Failed to create the file to which we write the download stream.
-    TarCreateError { path: PathBuf, err: std::io::Error },
+    TarCreateError {
+        path: PathBuf,
+        err:  std::io::Error,
+    },
     // /// Failed to (re-)open the file to which we've written the download stream.
     // TarOpenError{ path: PathBuf, err: std::io::Error },
     /// Failed to write to the file where we write the download stream.
-    TarWriteError { path: PathBuf, err: std::io::Error },
+    TarWriteError {
+        path: PathBuf,
+        err:  std::io::Error,
+    },
     /// Failed to extract the downloaded tar.
     // TarExtractError{ source: PathBuf, target: PathBuf, err: std::io::Error },
-    TarExtractError { err: brane_shr::fs::Error },
+    TarExtractError {
+        err: brane_shr::fs::Error,
+    },
 
     /// Failed to get the datasets folder
-    DatasetsError { err: UtilError },
+    DatasetsError {
+        err: UtilError,
+    },
     /// Failed to fetch the local data index.
-    LocalDataIndexError { err: brane_tsk::local::Error },
+    LocalDataIndexError {
+        err: brane_tsk::local::Error,
+    },
 
     /// Failed to load the given AssetInfo file.
-    AssetFileError { path: PathBuf, err: specifications::data::AssetInfoError },
+    AssetFileError {
+        path: PathBuf,
+        err:  specifications::data::AssetInfoError,
+    },
     /// Could not canonicalize the given (relative) path.
-    FileCanonicalizeError { path: PathBuf, err: std::io::Error },
+    FileCanonicalizeError {
+        path: PathBuf,
+        err:  std::io::Error,
+    },
     /// The given file does not exist
-    FileNotFoundError { path: PathBuf },
+    FileNotFoundError {
+        path: PathBuf,
+    },
     /// The given file is not a file
-    FileNotAFileError { path: PathBuf },
+    FileNotAFileError {
+        path: PathBuf,
+    },
     /// Failed to create the dataset's directory.
-    DatasetDirCreateError { err: UtilError },
+    DatasetDirCreateError {
+        err: UtilError,
+    },
     /// A dataset with the given name already exists.
-    DuplicateDatasetError { name: String },
+    DuplicateDatasetError {
+        name: String,
+    },
     /// Failed to copy the data directory over.
-    DataCopyError { err: brane_shr::fs::Error },
+    DataCopyError {
+        err: brane_shr::fs::Error,
+    },
     /// Failed to write the DataInfo.
-    DataInfoWriteError { err: specifications::data::DataInfoError },
+    DataInfoWriteError {
+        err: specifications::data::DataInfoError,
+    },
 
     /// The given "keypair" was not a keypair at all
-    NoEqualsInKeyPair { raw: String },
+    NoEqualsInKeyPair {
+        raw: String,
+    },
     /// Failed to fetch the login file.
-    InstanceInfoError { err: InstanceError },
+    InstanceInfoError {
+        err: InstanceError,
+    },
     /// Failed to get the path of the active instance.
-    ActiveInstanceReadError { err: InstanceError },
+    ActiveInstanceReadError {
+        err: InstanceError,
+    },
     /// Failed to get the active instance.
-    InstancePathError { name: String, err: InstanceError },
+    InstancePathError {
+        name: String,
+        err:  InstanceError,
+    },
     /// Failed to create the remote data index.
-    RemoteDataIndexError { address: String, err: brane_tsk::errors::ApiError },
+    RemoteDataIndexError {
+        address: String,
+        err:     brane_tsk::errors::ApiError,
+    },
     /// Failed to select the download location in case there are multiple.
-    DataSelectError { err: dialoguer::Error },
+    DataSelectError {
+        err: dialoguer::Error,
+    },
     /// We encountered a location we did not know
-    UnknownLocation { name: String },
+    UnknownLocation {
+        name: String,
+    },
 
     /// The given dataset was unknown to us.
-    UnknownDataset { name: String },
+    UnknownDataset {
+        name: String,
+    },
     /// the given dataset was known but not locally available.
-    UnavailableDataset { name: String, locs: Vec<String> },
+    UnavailableDataset {
+        name: String,
+        locs: Vec<String>,
+    },
 
     // /// Failed to ensure the directory of the given dataset.
     // DatasetDirError{ err: UtilError },
     /// Failed to ask the user for consent before removing the dataset.
-    ConfirmationError { err: dialoguer::Error },
+    ConfirmationError {
+        err: dialoguer::Error,
+    },
     /// Failed to remove the dataset's directory
-    RemoveError { path: PathBuf, err: std::io::Error },
+    RemoveError {
+        path: PathBuf,
+        err:  std::io::Error,
+    },
+    WorkflowSerializeError {
+        context: String,
+        err:     serde_json::Error,
+    },
 }
 impl Display for DataError {
     #[inline]
@@ -851,6 +958,7 @@ impl Display for DataError {
             // DatasetDirError{ .. }   => write!(f, "Failed to get to-be-removed dataset directory: {}", err),
             ConfirmationError { .. } => write!(f, "Failed to ask the user (you) for confirmation before removing a dataset"),
             RemoveError { path, .. } => write!(f, "Failed to remove dataset directory '{}'", path.display()),
+            WorkflowSerializeError { context, .. } => write!(f, "Could not serialize workflow when: {context}"),
         }
     }
 }
@@ -910,6 +1018,7 @@ impl Error for DataError {
             // DatasetDirError{ .. } => None,
             ConfirmationError { .. } => None,
             RemoveError { err, .. } => Some(err),
+            WorkflowSerializeError { err, .. } => Some(err),
         }
     }
 }
@@ -1391,7 +1500,7 @@ pub enum RunError {
     SessionCreateError { address: String, err: tonic::Status },
 
     /// An error occurred while compile the given snippet. It will already have been printed to stdout.
-    CompileError { what: String, errs: Vec<brane_ast::Error> },
+    CompileError(brane_ast::errors::CompileError),
     /// Failed to serialize the compiled workflow.
     WorkflowSerializeError { err: serde_json::Error },
     /// Requesting a command failed

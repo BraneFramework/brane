@@ -193,12 +193,21 @@ pub(crate) enum DataSubcommand {
 
     #[clap(name = "download", about = "Attempts to download one (or more) dataset(s) from the remote instance.")]
     Download {
+        /// A use-case registry to use for downloading the data.
+        #[clap(help = "A use-case registry to use for downloading the data.")]
+        use_case: String,
+
         /// The name of the datasets to download.
         #[clap(name = "DATASETS", help = "The datasets to attempt to download.")]
         names: Vec<String>,
+
+        /// The user that is performing the download
+        #[clap(short, long, help = "The user that is performing the download")]
+        user: Option<String>,
+
         /// The locations where to download each dataset. The user should make this list as long as the names, if any.
         #[clap(short, long, help = "The location identifiers from which we download each dataset, as `name=location` pairs.")]
-        locs:  Vec<String>,
+        locs: Vec<String>,
 
         /// The address to proxy the transfer through.
         #[clap(short, long, help = "If given, proxies the transfer through the given proxy.")]
@@ -578,6 +587,9 @@ pub(crate) enum WorkflowSubcommand {
         #[clap(short, long, value_names = &["address[:port]"], help = "If given, proxies any data transfers to this machine through the proxy at the given address. Irrelevant if not running remotely.")]
         proxy_addr: Option<String>,
 
+        #[clap(name = "use case")]
+        use_case: String,
+
         #[clap(short, long, help = "Create a remote REPL session to the instance you are currently logged-in to (see `brane login`)")]
         remote: bool,
         #[clap(short, long, value_names = &["uid"], help = "Attach to an existing remote session")]
@@ -625,6 +637,9 @@ pub(crate) enum WorkflowSubcommand {
     Run {
         #[clap(short, long, value_names = &["address[:port]"], help = "If given, proxies any data transfers to this machine through the proxy at the given address. Irrelevant if not running remotely.")]
         proxy_addr: Option<String>,
+
+        #[clap(name = "use case", help = "A use-case registry to use for downloading the data.")]
+        use_case: String,
 
         #[clap(short, long, action, help = "Use Bakery instead of BraneScript")]
         bakery: bool,
