@@ -4,7 +4,7 @@
 //  Created:
 //    28 Feb 2023, 10:01:27
 //  Last edited:
-//    07 Mar 2024, 09:52:57
+//    12 Nov 2024, 14:02:34
 //  Auto updated?
 //    Yes
 //
@@ -456,7 +456,7 @@ pub struct WorkerServices {
     pub job: PublicService,
     /// Defines the checker service.
     #[serde(alias = "checker")]
-    pub chk: PrivateService,
+    pub chk: DoublePrivateService,
     /// Defines the proxy service.
     #[serde(alias = "proxy")]
     pub prx: PrivateOrExternalService,
@@ -716,6 +716,15 @@ pub struct PrivateService {
     pub address: Address,
     /// Defines the port (and hostname) to which the Docker container will bind itself.
     pub bind:    SocketAddr,
+}
+
+/// Defines what we need to know for a private service (i.e., a service that is only reachable from within the Docker network, i.e., the node) that has two separate endpoints.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct DoublePrivateService {
+    /// Defines the name of the Docker container.
+    pub name: String,
+    /// Defines how the services on the same node can reach this service (which can be optimized due to the same-Docker-network property).
+    pub host: Address,
 }
 
 /// Defines a service that we do not host, but only use.
