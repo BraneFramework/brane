@@ -19,8 +19,9 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
+use brane_ast::ast::Snippet;
 use brane_ast::state::CompileState;
-use brane_ast::{CompileResult, ParserOptions, Workflow, compile_snippet};
+use brane_ast::{ParserOptions, Workflow};
 use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_exe::dummy::{DummyVm, Error as DummyVmError};
@@ -41,93 +42,6 @@ pub use crate::errors::RunError as Error;
 use crate::instance::InstanceInfo;
 use crate::utils::{ensure_datasets_dir, ensure_packages_dir, get_datasets_dir, get_packages_dir};
 use crate::vm::OfflineVm;
-
-
-/***** HELPER FUNCTIONS *****/
-/// Compiles the given worfklow string to a Workflow.
-///
-/// # Arguments
-/// - `state`: The CompileState to compile with (and to update).
-/// - `source`: The collected source string for now. This will be updated with the new snippet.
-/// - `pindex`: The PackageIndex to resolve package imports with.
-/// - `dindex`: The DataIndex to resolve data instantiations with.
-/// - `user`: If given, then this is some tentative identifier of the user receiving the final workflow result.
-/// - `options`: The ParseOptions to use.
-/// - `what`: A string describing what we're parsing (e.g., a filename, stdin, ...).
-/// - `snippet`: The actual snippet to parse.
-///
-/// # Returns
-/// A new Workflow that is the compiled and executable version of the given snippet.
-///
-/// # Errors
-/// This function errors if the given string was not a valid workflow. If that's the case, it's also pretty-printed to stdout with source context.
-#[allow(clippy::too_many_arguments)]
-fn compile(
-    state: &mut CompileState,
-    source: &mut String,
-    pindex: &PackageIndex,
-    dindex: &DataIndex,
-    user: Option<&str>,
-    options: &ParserOptions,
-    what: impl AsRef<str>,
-    snippet: impl AsRef<str>,
-) -> Result<Workflow, Error> {
-    let what: &str = what.as_ref();
-    let snippet: &str = snippet.as_ref();
-
-    // Append the source with the snippet
-    source.push_str(snippet);
-    source.push('\n');
-
-    // Compile the snippet, possibly fetching new ones while at it
-    let workflow: Workflow = match compile_snippet(state, snippet.as_bytes(), pindex, dindex, options) {
-        CompileResult::Workflow(mut wf, warns) => {
-            // Print any warnings to stdout
-            for w in warns {
-                w.prettyprint(what, &source);
-            }
-
-            // Then, inject the username if any
-            if let Some(user) = user {
-                debug!("Setting user '{user}' as receiver of final result");
-                wf.user = Arc::new(Some(user.into()));
-            }
-
-            // Done
-            wf
-        },
-
-        CompileResult::Eof(err) => {
-            // Prettyprint it
-            err.prettyprint(what, &source);
-            state.offset += 1 + snippet.chars().filter(|c| *c == '\n').count();
-            return Err(Error::CompileError { what: what.into(), errs: vec![err] });
-        },
-        CompileResult::Err(errs) => {
-            // Prettyprint them
-            for e in &errs {
-                e.prettyprint(what, &source);
-            }
-            state.offset += 1 + snippet.chars().filter(|c| *c == '\n').count();
-            return Err(Error::CompileError { what: what.into(), errs });
-        },
-
-        // Any others should not occur
-        _ => {
-            unreachable!();
-        },
-    };
-    debug!("Compiled to workflow:\n\n");
-    if log::max_level() == log::LevelFilter::Debug {
-        brane_ast::traversals::print::ast::do_traversal(&workflow, std::io::stdout()).unwrap();
-    }
-
-    // Return
-    Ok(workflow)
-}
-
-
-
 
 
 /***** AUXILLARY FUNCTIONS *****/
@@ -347,6 +261,8 @@ pub async fn process_instance(
     proxy_addr: &Option<String>,
     certs_dir: impl AsRef<Path>,
     datasets_dir: impl AsRef<Path>,
+    use_case: String,
+    workflow: Workflow,
     result: FullValue,
 ) -> Result<(), Error> {
     let api_endpoint: &str = api_endpoint.as_ref();
@@ -389,7 +305,7 @@ pub async fn process_instance(
                     Some(access) => access.clone(),
                     None => {
                         // Attempt to download it instead
-                        match data::download_data(api_endpoint, proxy_addr, certs_dir, data_dir, &name, &info.access).await {
+                        match data::download_data(api_endpoint, proxy_addr, certs_dir, data_dir, use_case, &name, workflow, &info.access).await {
                             Ok(Some(access)) => access,
                             Ok(None) => {
                                 return Err(Error::UnavailableDataset { name: name.into(), locs: info.access.keys().cloned().collect() });
@@ -412,7 +328,7 @@ pub async fn process_instance(
         }
     }
 
-    // DOne
+    // Done
     Ok(())
 }
 
@@ -698,7 +614,9 @@ pub async fn run_dummy_vm(state: &mut DummyVmState, what: impl AsRef<str>, snipp
     let snippet: &str = snippet.as_ref();
 
     // Compile the workflow
-    let workflow: Workflow = compile(&mut state.state, &mut state.source, &state.pindex, &state.dindex, None, &state.options, what, snippet)?;
+    let workflow: Workflow =
+        Workflow::from_source(&mut state.state, &mut state.source, &state.pindex, &state.dindex, None, &state.options, what, snippet)
+            .map_err(Error::CompileError)?;
 
     // Run it in the local VM (which is a bit ugly do to the need to consume the VM itself)
     let res: (DummyVm, Result<FullValue, DummyVmError>) = state.vm.take().unwrap().exec(workflow).await;
@@ -721,28 +639,22 @@ pub async fn run_dummy_vm(state: &mut DummyVmState, what: impl AsRef<str>, snipp
 /// # Arguments
 /// - `state`: The OfflineVmState that we use to run the local VM.
 /// - `what`: The thing we're running. Either a filename, or something like stdin.
-/// - `snippet`: The snippet (as raw text) to compile and run.
+/// - `snippet`: The snippet to compile and run.
 ///
 /// # Returns
 /// The FullValue that the workflow returned, if any. If there was no value, returns FullValue::Void instead.
 ///
 /// # Errors
 /// This function errors if we failed to compile or run the workflow somehow.
-pub async fn run_offline_vm(state: &mut OfflineVmState, what: impl AsRef<str>, snippet: impl AsRef<str>) -> Result<FullValue, Error> {
-    let what: &str = what.as_ref();
-    let snippet: &str = snippet.as_ref();
-
-    // Compile the workflow
-    let workflow: Workflow = compile(&mut state.state, &mut state.source, &state.pindex, &state.dindex, None, &state.options, what, snippet)?;
-
+pub async fn run_offline_vm(state: &mut OfflineVmState, snippet: Snippet) -> Result<FullValue, Error> {
     // Run it in the local VM (which is a bit ugly do to the need to consume the VM itself)
-    let res: (OfflineVm, Result<FullValue, OfflineVmError>) = state.vm.take().unwrap().exec(workflow).await;
+    let res: (OfflineVm, Result<FullValue, OfflineVmError>) = state.vm.take().unwrap().exec(snippet.snippet).await;
     state.vm = Some(res.0);
     let res: FullValue = match res.1 {
         Ok(res) => res,
         Err(err) => {
             error!("{}", err);
-            state.state.offset += 1 + snippet.chars().filter(|c| *c == '\n').count();
+            state.state.offset += 1 + snippet.lines;
             return Err(Error::ExecError { err: Box::new(err) });
         },
     };
@@ -769,20 +681,11 @@ pub async fn run_offline_vm(state: &mut OfflineVmState, what: impl AsRef<str>, s
 pub async fn run_instance_vm(
     drv_endpoint: impl AsRef<str>,
     state: &mut InstanceVmState<Stdout, Stderr>,
-    what: impl AsRef<str>,
-    snippet: impl AsRef<str>,
+    snippet: &Snippet,
     profile: bool,
 ) -> Result<FullValue, Error> {
-    // Compile the workflow
-    let workflow: Workflow = {
-        // Acquire the locks
-        let pindex: MutexGuard<PackageIndex> = state.pindex.lock();
-        let dindex: MutexGuard<DataIndex> = state.dindex.lock();
-        compile(&mut state.state, &mut state.source, &pindex, &dindex, state.user.as_deref(), &state.options, what, snippet)?
-    };
-
     // Run the thing using the other function
-    run_instance(drv_endpoint, state, &workflow, profile).await
+    run_instance(drv_endpoint, state, &snippet.snippet, profile).await
 }
 
 
@@ -901,30 +804,21 @@ pub fn process_offline_result(result: FullValue) -> Result<(), Error> {
 ///
 /// # Errors
 /// This function may error if the given result was a dataset and we failed to retrieve it.
-pub async fn process_instance_result(api_endpoint: impl AsRef<str>, proxy_addr: &Option<String>, result: FullValue) -> Result<(), Error> {
-    let api_endpoint: &str = api_endpoint.as_ref();
+pub async fn process_instance_result(
+    api_endpoint: impl AsRef<str>,
+    proxy_addr: &Option<String>,
+    use_case: String,
+    workflow: Workflow,
+    result: FullValue,
+) -> Result<(), Error> {
+    let instance_name = InstanceInfo::get_active_name().map_err(|err| Error::ActiveInstanceReadError { err })?;
+    let certs_dir =
+        InstanceInfo::get_instance_path(&instance_name).map_err(|err| Error::InstancePathError { name: instance_name, err })?.join("certs");
 
-    // Fetch the certificae & data directories
-    let certs_dir: PathBuf = match InstanceInfo::get_active_name() {
-        Ok(name) => match InstanceInfo::get_instance_path(&name) {
-            Ok(path) => path.join("certs"),
-            Err(err) => {
-                return Err(Error::InstancePathError { name, err });
-            },
-        },
-        Err(err) => {
-            return Err(Error::ActiveInstanceReadError { err });
-        },
-    };
-    let datasets_dir: PathBuf = match ensure_datasets_dir(true) {
-        Ok(datas_dir) => datas_dir,
-        Err(err) => {
-            return Err(Error::DatasetsDirError { err });
-        },
-    };
+    let datasets_dir = ensure_datasets_dir(true).map_err(|err| Error::DatasetsDirError { err })?;
 
     // Run the instance function
-    process_instance(api_endpoint, proxy_addr, certs_dir, datasets_dir, result).await
+    process_instance(api_endpoint, proxy_addr, certs_dir, datasets_dir, use_case, workflow, result).await
 }
 
 
@@ -932,7 +826,7 @@ pub async fn process_instance_result(api_endpoint: impl AsRef<str>, proxy_addr: 
 
 
 /***** LIBRARY *****/
-/// Runs the given file with the given, optional data folder to resolve data declarations in.
+/// Runs the given workflow file with the given, optional data folder to resolve data declarations in.
 ///
 /// # Arguments
 /// - `certs_dir`: The directory with certificates proving our identity.
@@ -940,7 +834,7 @@ pub async fn process_instance_result(api_endpoint: impl AsRef<str>, proxy_addr: 
 /// - `dummy`: If given, uses a Dummy VM as backend instead of actually running any jobs.
 /// - `remote`: Whether to run on an remote Brane instance instead.
 /// - `language`: The language with which to compile the file.
-/// - `file`: The file to read and run. Can also be '-', in which case it is read from stdin instead.
+/// - `file`: The workflow file to read and run. Can also be '-', in which case it is read from stdin instead.
 /// - `profile`: If given, prints the profile timings to stdout if available.
 /// - `docker_opts`: The options with which we connect to the local Docker daemon.
 /// - `keep_containers`: Whether to keep containers after execution or not.
@@ -951,6 +845,7 @@ pub async fn process_instance_result(api_endpoint: impl AsRef<str>, proxy_addr: 
 pub async fn handle(
     proxy_addr: Option<String>,
     language: Language,
+    use_case: String,
     file: PathBuf,
     dummy: bool,
     remote: bool,
@@ -959,7 +854,7 @@ pub async fn handle(
     keep_containers: bool,
 ) -> Result<(), Error> {
     // Either read the file or read stdin
-    let (what, source_code): (Cow<str>, String) = if file == PathBuf::from("-") {
+    let (source, source_code): (Cow<str>, String) = if file == PathBuf::from("-") {
         let mut result: String = String::new();
         if let Err(err) = std::io::stdin().read_to_string(&mut result) {
             return Err(Error::StdinReadError { err });
@@ -989,12 +884,12 @@ pub async fn handle(
             };
 
             // Run the thing
-            remote_run(info, proxy_addr, options, what, source_code, profile).await
+            remote_run(info, use_case, proxy_addr, options, source, source_code, profile).await
         } else {
-            local_run(options, docker_opts, what, source_code, keep_containers).await
+            local_run(options, docker_opts, source, source_code, keep_containers).await
         }
     } else {
-        dummy_run(options, what, source_code).await
+        dummy_run(options, source, source_code).await
     }
 }
 
@@ -1047,8 +942,16 @@ async fn local_run(
 
     // First we initialize the remote thing
     let mut state: OfflineVmState = initialize_offline_vm(parse_opts, docker_opts, keep_containers)?;
+
+    // Compile the workflow
+    let workflow = Workflow::from_source(&mut state.state, &mut state.source, &state.pindex, &state.dindex, None, &state.options, what, source)
+        .map_err(Error::CompileError)?;
+
+    let snippet = Snippet { lines: source.lines().count(), snippet: workflow };
+
     // Next, we run the VM (one snippet only ayway)
-    let res: FullValue = run_offline_vm(&mut state, what, source).await?;
+    let res: FullValue = run_offline_vm(&mut state, snippet).await?;
+
     // Then, we collect and process the result
     process_offline_result(res)?;
 
@@ -1062,32 +965,50 @@ async fn local_run(
 /// - `info`: Information about the remote instance, including as who we're logged-in.
 /// - `proxy_addr`: The address to proxy any data transfers through if they occur.
 /// - `options`: The ParseOptions that specify how to parse the incoming source.
-/// - `what`: A description of the source we're reading (e.g., the filename or stdin)
-/// - `source`: The source code to read.
+/// - `source`: A description of the source we're reading (e.g., the filename or stdin)
+/// - `workflow_content`: The source code to read.
 /// - `profile`: If given, prints the profile timings to stdout if reported by the remote.
 ///
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
 async fn remote_run(
     info: InstanceInfo,
+    use_case: String,
     proxy_addr: Option<String>,
     options: ParserOptions,
-    what: impl AsRef<str>,
     source: impl AsRef<str>,
+    workflow_content: impl AsRef<str>,
     profile: bool,
 ) -> Result<(), Error> {
     let api_endpoint: String = info.api.to_string();
     let drv_endpoint: String = info.drv.to_string();
-    let what: &str = what.as_ref();
     let source: &str = source.as_ref();
+    let workflow_content: &str = workflow_content.as_ref();
+    println!("Gonna do stuff");
 
     // First we initialize the remote thing
     let mut state: InstanceVmState<Stdout, Stderr> =
         initialize_instance_vm(&api_endpoint, &drv_endpoint, Some(info.user.clone()), None, options).await?;
+
+    // Compile the workflow
+    let workflow: Workflow = {
+        // Acquire the locks
+        let pindex: MutexGuard<PackageIndex> = state.pindex.lock();
+        let dindex: MutexGuard<DataIndex> = state.dindex.lock();
+        Workflow::from_source(&mut state.state, &mut state.source, &pindex, &dindex, state.user.as_deref(), &state.options, source, workflow_content)
+            .map_err(Error::CompileError)?
+    };
+
+    println!("workflow-content: {:?}", workflow_content);
+    println!("workflow: {:#?}", workflow);
+
+    let snippet = Snippet { lines: source.lines().count(), snippet: workflow.clone() };
+
     // Next, we run the VM (one snippet only ayway)
-    let res: FullValue = run_instance_vm(drv_endpoint, &mut state, what, source, profile).await?;
+    let res: FullValue = run_instance_vm(drv_endpoint, &mut state, &snippet, profile).await?;
+
     // Then, we collect and process the result
-    process_instance_result(api_endpoint, &proxy_addr, res).await?;
+    process_instance_result(api_endpoint, &proxy_addr, use_case, workflow, res).await?;
 
     // Done
     Ok(())

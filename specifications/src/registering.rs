@@ -23,13 +23,15 @@ use serde_json::Value;
 pub struct DownloadAssetRequest {
     /// The use-case for which we're checking (determines which API registry to use).
     pub use_case: String,
+
     /// The workflow that we're checking.
     ///
     /// Note that we leave it open, as this would require importing `brane-ast` (and that would be a cycling dependency).
     pub workflow: Value,
+
     /// The task within the workflow that acts as the context in which the download occurs. If omitted, then it should be interpreted as the data being accessed to download the final result of the workflow.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub task:     Option<(Option<u64>, u64)>,
+    pub task: Option<(Option<u64>, u64)>,
 }
 
 

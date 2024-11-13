@@ -83,6 +83,7 @@ pub struct InstanceInfo {
     /// A username to send with workflow requests as receiver of the final result.
     pub user: String,
 }
+
 impl InstanceInfo {
     /// Reads this InstanceInfo from the active instance's directory in the local configuration directory.
     ///

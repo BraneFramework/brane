@@ -393,11 +393,17 @@ fn prettywrite_err_reasons(
 pub enum AstError {
     // Toplevel errors
     /// We could not read from the given parser.
-    ReaderReadError { err: std::io::Error },
+    ReaderReadError {
+        err: std::io::Error,
+    },
     /// The parser failed.
-    ParseError { err: brane_dsl::Error },
+    ParseError {
+        err: brane_dsl::Error,
+    },
     /// Failed to write to the given writer.
-    WriteError { err: std::io::Error },
+    WriteError {
+        err: std::io::Error,
+    },
 
     // Nested errors
     /// An error has occurred while resolving enum variants.
@@ -414,6 +420,7 @@ pub enum AstError {
     PruneError(PruneError),
     /// An error has occurred while flattening the AST's symbol tables.
     FlattenError(FlattenError),
+    CompileError(CompileError),
 }
 
 impl AstError {
@@ -455,6 +462,7 @@ impl AstError {
             LocationError(err) => err.prettywrite(writer, file, source),
             PruneError(err) => err.prettywrite(writer, file, source),
             FlattenError(err) => err.prettywrite(writer, file, source),
+            CompileError(err) => err.prettywrite(writer, file, source),
         }
     }
 }
@@ -504,6 +512,7 @@ impl Display for AstError {
             LocationError(err) => write!(f, "{err}"),
             PruneError(err) => write!(f, "{err}"),
             FlattenError(err) => write!(f, "{err}"),
+            CompileError(err) => write!(f, "Compile error\n: Error: {err}"),
         }
     }
 }
@@ -1077,3 +1086,25 @@ impl Display for FlattenError {
 }
 
 impl Error for FlattenError {}
+
+#[derive(Debug)]
+pub enum CompileError {
+    AstError { what: String, errs: Vec<AstError> },
+}
+
+impl Error for CompileError {}
+
+impl Display for CompileError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use CompileError::*;
+        match self {
+            AstError { what, errs: _ } => write!(f, "Something went wrong during compilation of the workflow: {what}"),
+        }
+    }
+}
+
+impl CompileError {
+    pub fn prettywrite(&self, writer: impl Write, file: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), std::io::Error> {
+        prettywrite_err(writer, file, source, self, &TextRange::none())
+    }
+}

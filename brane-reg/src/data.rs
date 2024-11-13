@@ -122,24 +122,20 @@ pub async fn assert_asset_permission(
 
         // Assert that they match with the request
         if client_name != at {
-            return Err(AuthorizeError::AuthorizationUserMismatch {
-                who: format!("task {pc} executor"),
-                authenticated: client_name.into(),
-                workflow: at.clone(),
-            });
+            return Err(AuthorizeError::AuthorizationUserMismatch { who: at.clone(), authenticated: client_name.into(), workflow: workflow.clone() });
         }
         if !input.contains_key(&data_name) {
             return Err(AuthorizeError::AuthorizationDataMismatch { pc, data_name });
         }
     } else {
         // Authenticate the scientist
-        match &*workflow.user {
+        match workflow.user.as_ref() {
             Some(user) => {
                 if client_name != user {
                     return Err(AuthorizeError::AuthorizationUserMismatch {
-                        who: "end user".into(),
+                        who: user.to_string(),
                         authenticated: client_name.into(),
-                        workflow: user.clone(),
+                        workflow: workflow.clone(),
                     });
                 }
             },
@@ -592,7 +588,7 @@ pub async fn download_data(
     }
 }
 
-/// Handles a GET that downloads an intermediate result. This basically emulates a data transfer.
+/// Handles a GET that downloads an intermediate result. This basically *emulates* a data transfer.
 ///
 /// # Arguments
 /// - `cert`: The client certificate by which we may extract some identity. Only clients that are authenticated by the local store may connect.

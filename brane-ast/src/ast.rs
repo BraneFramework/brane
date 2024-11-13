@@ -22,21 +22,26 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use std::hash::Hash;
 use std::sync::Arc;
 
+use brane_dsl::ParserOptions;
 use brane_dsl::spec::MergeStrategy;
 use enum_debug::EnumDebug;
+use log::debug;
 use rand::Rng as _;
 use rand::distr::Alphanumeric;
 use serde::de::{self, Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 use serde_json_any_key::any_key_map;
-use specifications::data::{AvailabilityKind, DataName};
-use specifications::package::Capability;
+use specifications::data::{AvailabilityKind, DataIndex, DataName};
+use specifications::package::{Capability, PackageIndex};
 use specifications::version::Version;
 
 use crate::data_type::DataType;
+use crate::errors::CompileError;
 use crate::func_id::FunctionId;
 use crate::locations::{Location, Locations};
+use crate::state::CompileState;
+use crate::{CompileResult, compile_snippet};
 
 
 /***** CONSTANTS *****/
@@ -60,10 +65,6 @@ lazy_static!(
 fn generate_random_workflow_id() -> String {
     format!("workflow-{}", rand::rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>())
 }
-
-
-
-
 
 /***** TOPLEVEL *****/
 /// Defines a Workflow, which is meant to be an 'executable but reasonable' graph.
@@ -122,6 +123,88 @@ impl Workflow {
         }
     }
 
+    /// Compiles the given worfklow string to a Workflow.
+    ///
+    /// # Arguments
+    /// - `state`: The CompileState to compile with (and to update).
+    /// - `source`: The collected source string for now. This will be updated with the new snippet.
+    /// - `pindex`: The PackageIndex to resolve package imports with.
+    /// - `dindex`: The DataIndex to resolve data instantiations with.
+    /// - `user`: If given, then this is some tentative identifier of the user receiving the final workflow result.
+    /// - `options`: The ParseOptions to use.
+    /// - `what`: A string describing what we're parsing (e.g., a filename, stdin, ...).
+    /// - `snippet`: The actual snippet to parse.
+    ///
+    /// # Returns
+    /// A new Workflow that is the compiled and executable version of the given snippet.
+    ///
+    /// # Errors
+    /// This function errors if the given string was not a valid workflow. If that's the case, it's also pretty-printed to stdout with source context.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_source(
+        state: &mut CompileState,
+        source: &mut String,
+        pindex: &PackageIndex,
+        dindex: &DataIndex,
+        user: Option<&str>,
+        options: &ParserOptions,
+        what: impl AsRef<str>,
+        snippet: impl AsRef<str>,
+    ) -> Result<Self, crate::errors::CompileError> {
+        let what: &str = what.as_ref();
+        let snippet: &str = snippet.as_ref();
+
+        // Append the source with the snippet
+        source.push_str(snippet);
+        source.push('\n');
+
+        // Compile the snippet, possibly fetching new ones while at it
+        let workflow: Workflow = match compile_snippet(state, snippet.as_bytes(), pindex, dindex, options) {
+            CompileResult::Workflow(mut wf, warns) => {
+                // Print any warnings to stdout
+                for w in warns {
+                    w.prettyprint(what, &source);
+                }
+
+                // Then, inject the username if any
+                if let Some(user) = user {
+                    debug!("Setting user '{user}' as receiver of final result");
+                    wf.user = Arc::new(Some(user.into()));
+                }
+
+                // Done
+                wf
+            },
+
+            CompileResult::Eof(err) => {
+                // Prettyprint it
+                err.prettyprint(what, &source);
+                state.offset += 1 + snippet.chars().filter(|c| *c == '\n').count();
+                return Err(CompileError::AstError { what: what.into(), errs: vec![err] });
+            },
+            CompileResult::Err(errs) => {
+                // Prettyprint them
+                for e in &errs {
+                    e.prettyprint(what, &source);
+                }
+                state.offset += 1 + snippet.chars().filter(|c| *c == '\n').count();
+                return Err(CompileError::AstError { what: what.into(), errs });
+            },
+
+            // Any others should not occur
+            _ => {
+                unreachable!();
+            },
+        };
+        debug!("Compiled to workflow:\n\n");
+        if log::max_level() == log::LevelFilter::Debug {
+            crate::traversals::print::ast::do_traversal(&workflow, std::io::stdout()).unwrap();
+        }
+
+        // Return
+        Ok(workflow)
+    }
+
     // /// Returns the edge pointed to by the given PC.
     // ///
     // /// # Arguments
@@ -171,6 +254,11 @@ impl Default for Workflow {
             funcs: Arc::new(HashMap::new()),
         }
     }
+}
+
+pub struct Snippet {
+    pub lines:   usize,
+    pub snippet: Workflow,
 }
 
 
