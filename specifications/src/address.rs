@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:41:51
 //  Last edited:
-//    12 Nov 2024, 14:58:17
+//    13 Nov 2024, 13:28:30
 //  Auto updated?
 //    Yes
 //
@@ -48,6 +48,33 @@ impl Display for HostParseError {
     }
 }
 impl Error for HostParseError {}
+
+/// Errors that relate to parsing [`Address`]es.
+#[derive(Debug)]
+pub enum AddressParseError {
+    /// No input was given.
+    NoInput,
+    /// There wasn't a colon in the input.
+    MissingColon { raw: String },
+}
+impl Display for AddressParseError {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        match self {
+            Self::NoInput => write!(f, "No address given"),
+            Self::MissingColon { raw } => write!(f, "No colon found in input {raw:?}"),
+        }
+    }
+}
+impl Error for AddressParseError {
+    #[inline]
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::NoInput => None,
+            Self::MissingColon { .. } => None,
+        }
+    }
+}
 
 /// Errors that relate to parsing Addresses.
 #[derive(Debug)]
@@ -634,6 +661,56 @@ impl<'a> Display for Address<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "{}:{}", self.host, self.port) }
 }
 // De/Serialization
+impl<'a> Address<'a> {
+    /// Splits the given source string into an address and a port.
+    ///
+    /// # Arguments
+    /// - `s`: The source string to split.
+    ///
+    /// # Returns
+    /// Two string slices, one with the address and one with the port.
+    ///
+    /// # Errors
+    /// This function errors if the input `s`tring did not contain a `:`.
+    fn split_on_colon(s: &str) -> Result<(&str, &str), AddressParseError> {
+        // Assert there is *something*
+        if s.is_empty() {
+            return Err(AddressParseError::NoInput);
+        }
+
+        // Check the split
+        if let Some(pos) = s.find(':') { Ok((&s[..pos], &s[pos + 1..])) } else { Err(AddressParseError::MissingColon { raw: s.into() }) }
+    }
+
+    /// Parses the Host from the given source string.
+    ///
+    /// If the string represents a [hostname](Host::Name), then it is stored by reference instead
+    /// of clone for efficiency. You can perform the clone at any time by calling
+    /// [`Host::into_owned()`].
+    ///
+    /// The [`Host::from_str()`]-implementation does this automatically due to lifetime constraints.
+    ///
+    /// # Arguments
+    /// - `s`: The source string to parse.
+    ///
+    /// # Returns
+    /// A new Host, parsed from the given `s`tring.
+    ///
+    /// # Errors
+    /// This function errors if the given `s`tring is empty, or it consisted of non-legal hostname
+    /// characters. For an overview, see this [this](https://en.wikipedia.org/wiki/Hostname#Syntax)
+    /// list.
+    pub fn parse_str(s: &'a str) -> Result<Host<'a>, HostParseError> {
+        // Try as an IP address first
+        match Self::parse_ip(s) {
+            Some(host) => Ok(host),
+            None => {
+                Self::assert_name_validity(s)?;
+                Ok(Self::Name(Cow::Borrowed(s)))
+            },
+        }
+    }
+}
 impl<'a> Serialize for Address<'a> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
