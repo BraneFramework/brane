@@ -33,8 +33,6 @@ tokio-tar = "0.3.0"
 tokio-util = "0.7.1"
 tonic = "0.12.0"
 uuid = { version = "1.7.0", features = ["v4"] }
-
-brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
 brane-exe = { path = "../brane-exe" }
 brane-shr = { path = "../brane-shr" }

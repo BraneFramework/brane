@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    21 Oct 2024, 13:37:18
+//    14 Nov 2024, 17:50:07
 //  Auto updated?
 //    Yes
 //
@@ -16,12 +16,12 @@
 use std::collections::{HashMap, HashSet};
 use std::panic::catch_unwind;
 
-use brane_ast::ast;
-use brane_ast::spec::BuiltinFunctions;
-use brane_exe::pc::{ProgramCounter, ResolvedProgramCounter};
 use enum_debug::EnumDebug as _;
 use policy_reasoner::workflow::{Dataset, Elem, ElemBranch, ElemCall, ElemLoop, ElemParallel, Entity, Metadata, Workflow};
 use specifications::data::{AvailabilityKind, DataName, PreprocessKind};
+use specifications::pc::{ProgramCounter, ResolvedProgramCounter};
+use specifications::wir as ast;
+use specifications::wir::builtins::BuiltinFunctions;
 use thiserror::Error;
 use tracing::{Level, debug, trace};
 
@@ -256,7 +256,7 @@ fn reconstruct_graph(
 
             // Return the elem
             Ok(Elem::Call(ElemCall {
-                id: format!("{}-{}-task", wf_id, pc.resolved(&wir.table)),
+                id: pc_to_id(&wir, pc),
                 task: format!("{}[{}]::{}", def.package, def.version, def.function.name),
                 input: input
                     .iter()
@@ -437,6 +437,19 @@ fn reconstruct_graph(
 
 
 /***** LIBRARY *****/
+/// Converts any Brane workflow program counter to a string ID used to recognize the same call
+/// post-compilation.
+///
+/// # Arguments
+/// - `wir`: Some [`Workflow`] in which we're pointing.
+/// - `pc`: The [`ProgramCounter`] pointing to the call we're getting an ID of.
+///
+/// # Returns
+/// A [`String`] encoding the target call's automatically generated identifier.
+pub fn pc_to_id(wir: &ast::Workflow, pc: ProgramCounter) -> String { format!("{}-{}-task", wir.id, pc.resolved(&wir.table)) }
+
+
+
 /// Compiles from a Brane [WIR](brane_ast::Workflow) to a policy reasoner [Workflow].
 ///
 /// # Arguments

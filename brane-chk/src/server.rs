@@ -4,7 +4,7 @@
 //  Created:
 //    28 Oct 2024, 20:44:52
 //  Last edited:
-//    11 Nov 2024, 11:36:50
+//    14 Nov 2024, 17:49:50
 //  Auto updated?
 //    Yes
 //
@@ -25,7 +25,6 @@ use axum::middleware::Next;
 use axum::response::Response;
 use axum::routing::get;
 use axum::{Extension, Router};
-use brane_ast::Workflow;
 use eflint_json::spec::Phrase;
 use error_trace::{ErrorTrace as _, Trace, trace};
 use futures::StreamExt as _;
@@ -33,7 +32,6 @@ use hyper::body::Incoming;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto::Builder as HyperBuilder;
 use policy_reasoner::spec::auditlogger::SessionedAuditLogger;
-use policy_reasoner::spec::reasonerconn::ReasonerResponse;
 use policy_reasoner::spec::{AuditLogger, ReasonerConnector, StateResolver};
 use policy_store::auth::jwk::JwkResolver;
 use policy_store::auth::jwk::keyresolver::KidResolver;
@@ -43,8 +41,9 @@ use policy_store::spec::authresolver::HttpError;
 use policy_store::spec::metadata::User;
 use rand::Rng;
 use rand::distributions::Alphanumeric;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use specifications::checking::{CheckResponse, CheckTaskRequest, CheckTransferRequest, CheckWorkflowRequest};
 use thiserror::Error;
 use tokio::net::{TcpListener, TcpStream};
 use tower_service::Service as _;
@@ -52,6 +51,7 @@ use tracing::field::Empty;
 use tracing::{Instrument as _, Level, debug, error, info, span};
 
 use crate::stateresolver::{Input, QuestionInput};
+use crate::workflow::compile::pc_to_id;
 
 
 /***** CONSTANTS *****/
@@ -134,51 +134,6 @@ async fn download_request<T: DeserializeOwned>(request: Request) -> Result<T, (S
             Err((StatusCode::BAD_REQUEST, error))
         },
     }
-}
-
-
-
-
-
-/***** SPECIFICATIONS *****/
-/// Defines the request to send to the [`Server::check_workflow()`] endpoint.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CheckWorkflowRequest {
-    /// The usecase that refers to the API to consult for state.
-    pub usecase:  String,
-    /// The workflow we're parsing.
-    pub workflow: Workflow,
-}
-
-/// Defines the request to send to the [`Server::check_task()`] endpoint.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CheckTaskRequest {
-    /// The usecase that refers to the API to consult for state.
-    pub usecase:  String,
-    /// The workflow we're parsing.
-    pub workflow: Workflow,
-    /// The task in the workflow that we want to check specifically.
-    pub task:     String,
-}
-
-/// Defines the request to send to the [`Server::check_transfer()`] endpoint.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CheckTransferRequest {
-    /// The usecase that refers to the API to consult for state.
-    pub usecase:  String,
-    /// The workflow we're parsing.
-    pub workflow: Workflow,
-    /// The task in the workflow that we want to check specifically.
-    pub task:     String,
-    /// The input in the task that we want to check specifically.
-    pub input:    String,
-}
-
-/// Defines the result of the [`Server::check_workflow()`], [`Server::check_task()`] and [`Server::check_transfer()`] endpoints.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CheckResponse<R> {
-    /// The result
-    pub verdict: ReasonerResponse<R>,
 }
 
 
@@ -384,11 +339,12 @@ where
             };
 
             // Decide the input
+            let task_id: String = pc_to_id(&req.workflow, req.task);
             let input: Input = Input {
                 store:    this.store.clone(),
                 usecase:  req.usecase,
                 workflow: req.workflow,
-                input:    QuestionInput::ExecuteTask { task: req.task },
+                input:    QuestionInput::ExecuteTask { task: task_id },
             };
 
             // Continue with the agnostic function for maintainability
@@ -422,11 +378,12 @@ where
             };
 
             // Decide the input
+            let task_id: String = pc_to_id(&req.workflow, req.task);
             let input: Input = Input {
                 store:    this.store.clone(),
                 usecase:  req.usecase,
                 workflow: req.workflow,
-                input:    QuestionInput::TransferInput { task: req.task, input: req.input },
+                input:    QuestionInput::TransferInput { task: task_id, input: req.input },
             };
 
             // Continue with the agnostic function for maintainability

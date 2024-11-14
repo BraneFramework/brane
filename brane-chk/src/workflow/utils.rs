@@ -4,7 +4,7 @@
 //  Created:
 //    18 Oct 2024, 11:13:13
 //  Last edited:
-//    18 Oct 2024, 11:13:43
+//    14 Nov 2024, 17:51:47
 //  Auto updated?
 //    Yes
 //
@@ -12,7 +12,7 @@
 //!   Defines a few utilities using across compilation modules.
 //
 
-use brane_exe::pc::ProgramCounter;
+use specifications::pc::ProgramCounter;
 
 
 /***** LIBRARY FUNCTIONS *****/
@@ -25,6 +25,6 @@ use brane_exe::pc::ProgramCounter;
 /// # Returns
 /// The edge the `pc` pointed to, or [`None`] if it was out-of-bounds.
 #[inline]
-pub fn get_edge(wir: &brane_ast::Workflow, pc: ProgramCounter) -> Option<&brane_ast::ast::Edge> {
+pub fn get_edge(wir: &specifications::wir::Workflow, pc: ProgramCounter) -> Option<&specifications::wir::Edge> {
     if pc.func_id.is_main() { wir.graph.get(pc.edge_idx) } else { wir.funcs.get(&pc.func_id.id()).and_then(|edges| edges.get(pc.edge_idx)) }
 }

@@ -4,7 +4,7 @@
 //  Created:
 //    05 Sep 2022, 17:36:21
 //  Last edited:
-//    06 Feb 2024, 11:36:49
+//    14 Nov 2024, 17:20:49
 //  Auto updated?
 //    Yes
 //
@@ -17,8 +17,8 @@ use std::cell::Ref;
 use std::collections::HashMap;
 
 use log::debug;
+use specifications::wir::{Edge, SymTable, Workflow};
 
-use crate::ast::{Edge, SymTable, Workflow};
 use crate::ast_unresolved::UnresolvedWorkflow;
 use crate::edgebuffer::{EdgeBuffer, EdgeBufferNode, EdgeBufferNodeLink, EdgeBufferNodePtr};
 use crate::errors::AstError;

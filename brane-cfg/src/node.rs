@@ -4,7 +4,7 @@
 //  Created:
 //    28 Feb 2023, 10:01:27
 //  Last edited:
-//    12 Nov 2024, 14:02:34
+//    14 Nov 2024, 15:11:07
 //  Auto updated?
 //    Yes
 //
@@ -21,7 +21,7 @@ use std::str::FromStr;
 
 use enum_debug::EnumDebug;
 use serde::{Deserialize, Serialize};
-use specifications::address::Address;
+use specifications::address::{Address, Host};
 
 pub use crate::errors::NodeConfigError as Error;
 use crate::errors::NodeKindParseError;
@@ -427,9 +427,9 @@ pub struct WorkerPaths {
     #[serde(alias = "policy_db")]
     pub policy_database: PathBuf,
     /// The path to the secret used for the deliberation endpoint in the checker.
-    pub policy_deliberation_secret: PathBuf,
+    pub policy_delib_secret: PathBuf,
     /// The path to the secret used for the policy expert endpoint in the checker.
-    pub policy_expert_secret: PathBuf,
+    pub policy_store_secret: PathBuf,
     /// The path the (persistent) audit log. Can be omitted to not have a persistent log.
     pub policy_audit_log: Option<PathBuf>,
     /// The path to the proxy file, if applicable. Ignored if no service is present.
@@ -722,9 +722,15 @@ pub struct PrivateService {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DoublePrivateService {
     /// Defines the name of the Docker container.
-    pub name: String,
+    pub name:  String,
     /// Defines how the services on the same node can reach this service (which can be optimized due to the same-Docker-network property).
-    pub host: Address,
+    pub host:  Host,
+    /// The port of the deliberation API.
+    #[serde(alias = "deliberation")]
+    pub delib: u16,
+    /// The port of the storage API.
+    #[serde(alias = "storage")]
+    pub store: u16,
 }
 
 /// Defines a service that we do not host, but only use.

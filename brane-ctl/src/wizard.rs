@@ -4,7 +4,7 @@
 //  Created:
 //    01 Jun 2023, 12:43:20
 //  Last edited:
-//    07 Mar 2024, 09:54:57
+//    14 Nov 2024, 14:58:50
 //  Auto updated?
 //    Yes
 //
@@ -346,9 +346,9 @@ pub fn query_proxy_node_config() -> Result<NodeConfig, Error> {
             services: node::ProxyServices {
                 prx: node::PublicService {
                     name: "brane-prx".into(),
-                    address: Address::Hostname("test.com".into(), 42),
+                    address: Address::hostname("test.com", 42),
                     bind: std::net::SocketAddr::V4(std::net::SocketAddrV4::new(std::net::Ipv4Addr::new(0, 0, 0, 0), 0)),
-                    external_address: Address::Hostname("test.com".into(), 42),
+                    external_address: Address::hostname("test.com", 42),
                 },
             },
         }),

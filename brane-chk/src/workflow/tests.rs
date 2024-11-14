@@ -4,7 +4,7 @@
 //  Created:
 //    18 Oct 2024, 11:08:50
 //  Last edited:
-//    18 Oct 2024, 11:12:28
+//    14 Nov 2024, 17:51:27
 //  Auto updated?
 //    Yes
 //
@@ -17,11 +17,12 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use brane_ast::{CompileResult, ParserOptions, ast, compile_program};
+use brane_ast::{CompileResult, ParserOptions, compile_program};
 use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
 use policy_reasoner::workflow::Workflow;
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
+use specifications::wir as ast;
 use tracing::{Level, debug};
 
 use crate::workflow::compile::compile;

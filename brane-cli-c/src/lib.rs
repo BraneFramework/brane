@@ -4,7 +4,7 @@
 //  Created:
 //    14 Jun 2023, 17:38:09
 //  Last edited:
-//    04 Mar 2024, 13:33:55
+//    14 Nov 2024, 17:59:09
 //  Auto updated?
 //    Yes
 //
@@ -28,7 +28,6 @@ use std::rc::Rc;
 use std::sync::{Arc, Once};
 use std::time::Instant;
 
-use brane_ast::ast::Workflow;
 use brane_ast::state::CompileState;
 use brane_ast::traversals::print::ast;
 use brane_ast::{CompileResult, Error as AstError, ParserOptions, Warning as AstWarning};
@@ -42,6 +41,7 @@ use log::{debug, error, info, trace, warn};
 use parking_lot::{Mutex, MutexGuard};
 use specifications::data::{AccessKind, DataIndex};
 use specifications::package::PackageIndex;
+use specifications::wir::Workflow;
 use tokio::runtime::{Builder, Runtime};
 
 

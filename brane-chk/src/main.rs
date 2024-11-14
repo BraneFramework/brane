@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:13:06
 //  Last edited:
-//    11 Nov 2024, 11:45:00
+//    14 Nov 2024, 15:06:23
 //  Auto updated?
 //    Yes
 //
@@ -57,10 +57,10 @@ struct Arguments {
     node_config_path: PathBuf,
 
     /// The address of the deliberation API on which to serve.
-    #[clap(short = 'a', long, default_value = "127.0.0.1:50053")]
+    #[clap(short = 'a', long, default_value = "127.0.0.1:50053", env = "DELIB_ADDRESS")]
     delib_addr: SocketAddr,
     /// The address of the store API on which to serve.
-    #[clap(short = 'A', long, default_value = "127.0.0.1:50054")]
+    #[clap(short = 'A', long, default_value = "127.0.0.1:50054", env = "STORE_ADDRESS")]
     store_addr: SocketAddr,
 
     /// The path to the deliberation API keystore.

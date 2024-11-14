@@ -588,12 +588,7 @@ dependencies = [
  "enum-debug",
  "lazy_static",
  "log",
- "num-traits",
- "rand 0.9.0",
- "serde",
- "serde_json_any_key",
  "specifications 3.0.0",
- "strum 0.27.1",
  "uuid",
 ]
 
@@ -661,7 +656,6 @@ dependencies = [
  "axum 0.7.9",
  "brane-ast 3.0.0",
  "brane-cfg",
- "brane-exe 3.0.0",
  "brane-shr 3.0.0",
  "brane-tsk",
  "clap",
@@ -807,7 +801,6 @@ name = "brane-drv"
 version = "3.0.0"
 dependencies = [
  "async-trait",
- "brane-ast 3.0.0",
  "brane-cfg",
  "brane-exe 3.0.0",
  "brane-prx",
@@ -820,6 +813,8 @@ dependencies = [
  "env_logger 0.11.7",
  "error-trace 3.0.0",
  "log",
+ "policy-reasoner",
+ "prost 0.12.6",
  "reqwest 0.12.14",
  "serde_json",
  "serde_json_any_key",
@@ -879,7 +874,6 @@ dependencies = [
  "humanlog",
  "lazy_static",
  "log",
- "num-traits",
  "serde",
  "serde_json",
  "specifications 3.0.0",
@@ -915,15 +909,14 @@ version = "3.0.0"
 dependencies = [
  "base64 0.22.1",
  "bollard",
- "brane-ast 3.0.0",
  "brane-cfg",
+ "brane-chk",
  "brane-exe 3.0.0",
  "brane-prx",
  "brane-shr 3.0.0",
  "brane-tsk",
  "chrono",
  "clap",
- "deliberation",
  "dotenvy",
  "enum-debug",
  "env_logger 0.11.7",
@@ -931,8 +924,8 @@ dependencies = [
  "futures-util",
  "hyper 1.6.0",
  "log",
+ "policy-reasoner",
  "reqwest 0.12.14",
- "serde",
  "serde_json",
  "serde_json_any_key",
  "serde_yml",
@@ -948,7 +941,6 @@ version = "3.0.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
- "brane-ast 3.0.0",
  "brane-exe 3.0.0",
  "clap",
  "dotenvy",
@@ -969,7 +961,6 @@ name = "brane-plr"
 version = "3.0.0"
 dependencies = [
  "async-recursion",
- "brane-ast 3.0.0",
  "brane-cfg",
  "brane-prx",
  "brane-tsk",
@@ -979,6 +970,7 @@ dependencies = [
  "humanlog",
  "log",
  "parking_lot",
+ "policy-reasoner",
  "rand 0.9.0",
  "reqwest 0.12.14",
  "serde_json",
@@ -1017,9 +1009,7 @@ dependencies = [
 name = "brane-reg"
 version = "3.0.0"
 dependencies = [
- "brane-ast 3.0.0",
  "brane-cfg",
- "brane-exe 3.0.0",
  "brane-shr 3.0.0",
  "brane-tsk",
  "clap",
@@ -1100,7 +1090,6 @@ dependencies = [
  "base64 0.22.1",
  "base64ct",
  "bollard",
- "brane-ast 3.0.0",
  "brane-cfg",
  "brane-exe 3.0.0",
  "brane-shr 3.0.0",
@@ -4654,13 +4643,18 @@ dependencies = [
  "enum-debug",
  "futures",
  "jsonwebtoken",
+ "lazy_static",
  "log",
+ "num-traits",
  "parking_lot",
+ "policy-reasoner",
  "prost 0.13.5",
+ "rand 0.9.0",
  "reqwest 0.12.14",
  "semver",
  "serde",
  "serde_json",
+ "serde_json_any_key",
  "serde_test",
  "serde_with",
  "serde_yml",
@@ -4803,9 +4797,6 @@ name = "strum"
 version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f64def088c51c9510a8579e3c5d67c65349dcf755e5479ad3d010aa6454e2c32"
-dependencies = [
- "strum_macros 0.27.1",
-]
 
 [[package]]
 name = "strum_macros"

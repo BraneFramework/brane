@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 10:45:50
 //  Last edited:
-//    16 Jan 2024, 15:23:14
+//    14 Nov 2024, 17:21:53
 //  Auto updated?
 //    Yes
 //
@@ -16,12 +16,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use brane_ast::DataType;
-use brane_ast::ast::{SymTable, VarDef};
-use brane_ast::func_id::FunctionId;
+use specifications::pc::ProgramCounter;
+use specifications::wir::data_type::DataType;
+use specifications::wir::func_id::FunctionId;
+use specifications::wir::{SymTable, VarDef};
 
 pub use crate::errors::FrameStackError as Error;
-use crate::pc::ProgramCounter;
 use crate::value::Value;
 
 

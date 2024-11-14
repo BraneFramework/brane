@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    08 Jan 2024, 10:43:17
+//    14 Nov 2024, 14:59:22
 //  Auto updated?
 //    Yes
 //
@@ -728,16 +728,16 @@ pub fn edit(
     if let Some(hostname) = hostname {
         // We replace the addresses. Any new ports will be handled in subsequent if let's
         println!("Updating hostname to {}...", style(&hostname.hostname).cyan().bold());
-        info.api = Address::Hostname(format!("http://{}", hostname.hostname), info.api.port());
-        info.drv = Address::Hostname(format!("grpc://{}", hostname.hostname), info.drv.port());
+        info.api = Address::hostname(format!("http://{}", hostname.hostname), info.api.port);
+        info.drv = Address::hostname(format!("grpc://{}", hostname.hostname), info.drv.port);
     }
     if let Some(port) = api_port {
         println!("Updating API service port to {}...", style(port).cyan().bold());
-        info.api = Address::Hostname(info.api.domain().into(), port);
+        info.api = Address::hostname(info.api.domain(), port);
     }
     if let Some(port) = drv_port {
         println!("Updating driver service port to {}...", style(port).cyan().bold());
-        info.drv = Address::Hostname(info.drv.domain().into(), port);
+        info.drv = Address::hostname(info.drv.domain(), port);
     }
     if let Some(user) = user {
         println!("Updating username to {}...", style(&user).cyan().bold());

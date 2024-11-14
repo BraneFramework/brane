@@ -4,7 +4,7 @@
 //  Created:
 //    05 Sep 2022, 11:08:57
 //  Last edited:
-//    12 Dec 2023, 19:03:43
+//    14 Nov 2024, 17:18:42
 //  Auto updated?
 //    Yes
 //
@@ -18,8 +18,8 @@ use std::collections::{HashMap, HashSet};
 use std::io::Write;
 
 use brane_dsl::DataType;
+use specifications::wir::{Edge, EdgeInstr};
 
-use crate::ast::{Edge, EdgeInstr};
 use crate::ast_unresolved::UnresolvedWorkflow;
 use crate::edgebuffer::{EdgeBuffer, EdgeBufferNode, EdgeBufferNodeLink, EdgeBufferNodePtr};
 pub use crate::errors::AstError as Error;

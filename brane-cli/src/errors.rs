@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    07 Mar 2024, 14:16:08
+//    14 Nov 2024, 14:59:31
 //  Auto updated?
 //    Yes
 //
@@ -981,7 +981,7 @@ pub enum InstanceError {
     /// The given instance name is invalid.
     IllegalInstanceName { raw: String, illegal_char: char },
     /// Failed to parse an address from the hostname (and a little modification).
-    AddressParseError { err: specifications::address::AddressError },
+    AddressParseError { err: specifications::address::AddressParseError },
     /// Failed to send a request to the remote instance.
     RequestError { address: String, err: reqwest::Error },
     /// The remote instance was not alive (at least, API/health was not)

@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    08 Feb 2024, 17:27:11
+//    14 Nov 2024, 18:08:25
 //  Auto updated?
 //    Yes
 //
@@ -14,7 +14,6 @@
 
 
 /***** LIBRARY *****/
-use brane_ast::Workflow;
 use brane_tsk::errors::PlanError;
 use brane_tsk::spec::{AppId, TaskId};
 use log::debug;
@@ -23,6 +22,7 @@ use serde_json::Value;
 use specifications::address::Address;
 use specifications::planning::{PlanningDeniedReply, PlanningReply, PlanningRequest};
 use specifications::profiling::ProfileScopeHandle;
+use specifications::wir::Workflow;
 
 
 /***** LIBRARY *****/

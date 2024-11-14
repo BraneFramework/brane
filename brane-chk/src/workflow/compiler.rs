@@ -4,7 +4,7 @@
 //  Created:
 //    21 Oct 2024, 10:47:42
 //  Last edited:
-//    22 Oct 2024, 10:17:30
+//    14 Nov 2024, 17:52:01
 //  Auto updated?
 //    Yes
 //
@@ -19,7 +19,6 @@ use std::fs;
 use std::io::{Read, Write};
 use std::str::FromStr;
 
-use brane_ast::Workflow as Wir;
 use brane_chk::workflow::{compile, to_eflint_json};
 use clap::Parser;
 use eflint_json::DisplayEFlint;
@@ -27,6 +26,7 @@ use eflint_json::spec::auxillary::Version;
 use eflint_json::spec::{Phrase, Request, RequestCommon, RequestPhrases};
 use error_trace::trace;
 use policy_reasoner::workflow::Workflow;
+use specifications::wir::Workflow as Wir;
 use thiserror::Error;
 use tracing::{Level, debug, error, info};
 

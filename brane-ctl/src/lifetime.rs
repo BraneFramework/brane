@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    07 Mar 2024, 09:55:58
+//    14 Nov 2024, 15:12:14
 //  Auto updated?
 //    Yes
 //
@@ -309,8 +309,8 @@ fn prepare_host(node_config: &NodeConfig) -> Result<(), Error> {
                         packages: _,
                         backend: _,
                         policy_database: _,
-                        policy_deliberation_secret: _,
-                        policy_expert_secret: _,
+                        policy_delib_secret: _,
+                        policy_store_secret: _,
                         policy_audit_log,
                         proxy: _,
                         data: _,
@@ -600,8 +600,8 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
                 packages,
                 backend,
                 policy_database,
-                policy_deliberation_secret,
-                policy_expert_secret,
+                policy_delib_secret,
+                policy_store_secret,
                 // Note: handled by `generate_override_file()`
                 policy_audit_log: _,
                 proxy,
@@ -624,8 +624,8 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
                 // Paths
                 ("BACKEND", canonicalize_join(node_config_dir, backend)?.as_os_str().into()),
                 ("POLICY_DB", canonicalize_join(node_config_dir, policy_database)?.as_os_str().into()),
-                ("POLICY_DELIBERATION_SECRET", canonicalize_join(node_config_dir, policy_deliberation_secret)?.as_os_str().into()),
-                ("POLICY_EXPERT_SECRET", canonicalize_join(node_config_dir, policy_expert_secret)?.as_os_str().into()),
+                ("POLICY_DELIB_KEYS", canonicalize_join(node_config_dir, policy_delib_secret)?.as_os_str().into()),
+                ("POLICY_STORE_KEYS", canonicalize_join(node_config_dir, policy_store_secret)?.as_os_str().into()),
                 ("CERTS", canonicalize_join(node_config_dir, certs)?.as_os_str().into()),
                 ("PACKAGES", canonicalize_join(node_config_dir, packages)?.as_os_str().into()),
                 ("DATA", canonicalize_join(node_config_dir, data)?.as_os_str().into()),
@@ -633,7 +633,8 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
                 ("TEMP_DATA", canonicalize_join(node_config_dir, temp_data)?.as_os_str().into()),
                 ("TEMP_RESULTS", canonicalize_join(node_config_dir, temp_results)?.as_os_str().into()),
                 // Ports
-                ("CHK_PORT", OsString::from(format!("{}", chk.bind.port()))),
+                ("CHK_DELIB_PORT", OsString::from(chk.delib.to_string())),
+                ("CHK_STORE_PORT", OsString::from(chk.store.to_string())),
                 ("REG_PORT", OsString::from(format!("{}", reg.bind.port()))),
                 ("JOB_PORT", OsString::from(format!("{}", job.bind.port()))),
             ]);

@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    07 Mar 2024, 14:14:56
+//    14 Nov 2024, 17:58:41
 //  Auto updated?
 //    Yes
 //
@@ -20,7 +20,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use brane_ast::state::CompileState;
-use brane_ast::{CompileResult, ParserOptions, Workflow, compile_snippet};
+use brane_ast::{CompileResult, ParserOptions, compile_snippet};
 use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_exe::dummy::{DummyVm, Error as DummyVmError};
@@ -32,6 +32,7 @@ use parking_lot::{Mutex, MutexGuard};
 use specifications::data::{AccessKind, DataIndex, DataInfo};
 use specifications::driving::{CreateSessionRequest, DriverServiceClient, ExecuteRequest};
 use specifications::package::PackageIndex;
+use specifications::wir::Workflow;
 use tempfile::{TempDir, tempdir};
 use tonic::Code;
 

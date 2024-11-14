@@ -4,7 +4,7 @@
 //  Created:
 //    10 Jan 2024, 15:57:54
 //  Last edited:
-//    24 Jun 2024, 17:40:43
+//    14 Nov 2024, 17:59:25
 //  Auto updated?
 //    Yes
 //
@@ -244,14 +244,14 @@ fn resolve_token(node_config_path: impl AsRef<Path>, worker: &mut Option<WorkerC
             names::three::lowercase::rand(),
             "branectl",
             Duration::from_secs(60),
-            &worker_cfg.paths.policy_expert_secret,
+            &worker_cfg.paths.policy_store_secret,
         ) {
             Ok(token) => {
                 debug!("Using generated token '{token}'");
                 *worker = Some(worker_cfg);
                 Ok(token)
             },
-            Err(err) => Err(Error::TokenGenerate { secret: worker_cfg.paths.policy_expert_secret, err }),
+            Err(err) => Err(Error::TokenGenerate { secret: worker_cfg.paths.policy_store_secret, err }),
         }
     }
 }
@@ -272,10 +272,10 @@ fn resolve_token(node_config_path: impl AsRef<Path>, worker: &mut Option<WorkerC
 /// This function may error if we have to load a new worker config but fail to do so.
 fn resolve_addr_opt(node_config_path: impl AsRef<Path>, worker: &mut Option<WorkerConfig>, mut address: AddressOpt) -> Result<Address, Error> {
     // Resolve the address port if needed
-    if address.port().is_none() {
+    if address.port.is_none() {
         // Resolve the worker and store the port of the checker
         let worker_cfg: WorkerConfig = resolve_worker_config(&node_config_path, worker.take())?;
-        *address.port_mut() = Some(worker_cfg.services.chk.address.port());
+        address.port = Some(worker_cfg.services.chk.store);
         *worker = Some(worker_cfg);
     }
 

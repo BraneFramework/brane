@@ -4,7 +4,7 @@
 //  Created:
 //    07 Jun 2023, 16:22:04
 //  Last edited:
-//    01 May 2024, 10:11:07
+//    14 Nov 2024, 16:09:37
 //  Auto updated?
 //    Yes
 //
@@ -26,9 +26,11 @@ pub mod driving;
 pub mod errors;
 pub mod os;
 pub mod package;
+pub mod pc;
 pub mod planning;
 pub mod policy;
 pub mod profiling;
 pub mod registering;
 pub mod version;
+pub mod wir;
 pub mod working;

@@ -4,7 +4,7 @@
 //  Created:
 //    31 Jan 2024, 11:45:19
 //  Last edited:
-//    31 Jan 2024, 14:24:26
+//    14 Nov 2024, 17:24:01
 //  Auto updated?
 //    Yes
 //
@@ -18,13 +18,13 @@ use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::time::{Duration, Instant};
 
-use brane_ast::locations::Location;
 use brane_shr::formatters::BlockFormatter;
 use log::debug;
 use num_traits::AsPrimitive;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use reqwest::{Response, StatusCode};
 use specifications::address::Address;
+use specifications::wir::locations::Location;
 
 
 /***** CONSTANTS *****/

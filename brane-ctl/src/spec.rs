@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    08 Feb 2024, 17:08:25
+//    14 Nov 2024, 15:11:54
 //  Auto updated?
 //    Yes
 //
@@ -431,7 +431,7 @@ pub enum GenerateNodeSubcommand {
             help = "The location of the `policy_deliberation_secret.json` file that is used to verify authentication on the deliberation endpoint \
                     in the checker. Use '$CONFIG' to reference the value given by --config-path."
         )]
-        policy_deliberation_secret: PathBuf,
+        policy_delib_secret: PathBuf,
         /// Custom hash file path.
         #[clap(
             long,
@@ -439,7 +439,7 @@ pub enum GenerateNodeSubcommand {
             help = "The location of the `policy_expert_secret.json` file that is used to verify authentication on the policy expert endpoint in the \
                     checker. Use '$CONFIG' to reference the value given by --config-path."
         )]
-        policy_expert_secret: PathBuf,
+        policy_store_secret: PathBuf,
         /// Custom audit log path (optional)
         #[clap(
             long,
@@ -520,7 +520,10 @@ pub enum GenerateNodeSubcommand {
         job_port: u16,
         /// The address on which to launch the checker service.
         #[clap(long, default_value = "50053", help = "The port on which the local checker service is available.")]
-        chk_port: u16,
+        chk_delib_port: u16,
+        /// The address on which to launch the checker service's storage API.
+        #[clap(long, default_value = "50054", help = "The port on which the storage API of the local checker service is available.")]
+        chk_store_port: u16,
         /// The port of the proxy service.
         #[clap(short, long, default_value = "50050", help = "The port on which the local proxy service is available.")]
         prx_port: u16,

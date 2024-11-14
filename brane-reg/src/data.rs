@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:40:40
 //  Last edited:
-//    07 Feb 2024, 14:19:12
+//    14 Nov 2024, 18:14:02
 //  Auto updated?
 //    Yes
 //
@@ -18,13 +18,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use brane_ast::Workflow;
-use brane_ast::ast::Edge;
-use brane_ast::func_id::FunctionId;
 use brane_cfg::certs::extract_client_name;
 use brane_cfg::info::Info as _;
 use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
-use brane_exe::pc::ProgramCounter;
 use brane_shr::formatters::BlockFormatter;
 use brane_shr::fs::archive_async;
 use brane_tsk::errors::AuthorizeError;
@@ -37,8 +33,11 @@ use rustls::Certificate;
 use serde::{Deserialize, Serialize};
 use specifications::checking::DELIBERATION_API_TRANSFER_DATA;
 use specifications::data::{AccessKind, AssetInfo, DataName};
+use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileReport;
 use specifications::registering::DownloadAssetRequest;
+use specifications::wir::func_id::FunctionId;
+use specifications::wir::{Edge, Workflow};
 use tempfile::TempDir;
 use tokio::fs as tfs;
 use tokio::io::AsyncReadExt;
@@ -82,7 +81,7 @@ pub async fn assert_asset_permission(
         "Checking data access of '{}'{} permission with checker '{}'...",
         data_name,
         if let Some(call) = call { format!(" (in the context of {})", call) } else { String::new() },
-        worker_cfg.services.chk.address
+        worker_cfg.services.chk.host
     );
 
     // Check if the authenticated name checks out
@@ -158,10 +157,10 @@ pub async fn assert_asset_permission(
         if let Some(user) = &*workflow.user { user.as_str() } else { "UNKNOWN" },
         &worker_cfg.name,
         Duration::from_secs(60),
-        &worker_cfg.paths.policy_deliberation_secret,
+        &worker_cfg.paths.policy_delib_secret,
     ) {
         Ok(token) => token,
-        Err(err) => return Err(AuthorizeError::TokenGenerate { secret: worker_cfg.paths.policy_deliberation_secret.clone(), err }),
+        Err(err) => return Err(AuthorizeError::TokenGenerate { secret: worker_cfg.paths.policy_delib_secret.clone(), err }),
     };
 
     // Prepare the request to send
@@ -169,7 +168,7 @@ pub async fn assert_asset_permission(
         Ok(client) => client,
         Err(err) => return Err(AuthorizeError::ClientBuild { err }),
     };
-    let addr: String = format!("{}/{}", worker_cfg.services.chk.address, DELIBERATION_API_TRANSFER_DATA.1);
+    let addr: String = format!("http://{}:{}/{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, DELIBERATION_API_TRANSFER_DATA.1);
     let req: reqwest::Request =
         match client.request(DELIBERATION_API_TRANSFER_DATA.0, &addr).header(header::AUTHORIZATION, format!("Bearer {jwt}")).json(&body).build() {
             Ok(req) => req,

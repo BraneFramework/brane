@@ -33,15 +33,17 @@ services:
     container_name: ${CHK_NAME:-brane-chk}
     command: -s "node-file-path=/node.yml"
     ports:
-    - "0.0.0.0:${CHK_PORT}:${CHK_PORT}"
+    - "0.0.0.0:${CHK_DELIB_PORT}:50053"
+    - "0.0.0.0:${CHK_STORE_PORT}:50054"
     restart: always
     environment:
-    - ADDRESS=0.0.0.0:${CHK_PORT}
+    - DELIB_ADDRESS=0.0.0.0:50053
+    - STORE_ADDRESS=0.0.0.0:50054
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
-    - ${POLICY_DB}:/data/policy.db
-    - ${POLICY_DELIBERATION_SECRET}:/examples/config/jwk_set_delib.json
-    - ${POLICY_EXPERT_SECRET}:/examples/config/jwk_set_expert.json
+    - ${POLICY_DB}:/policy.db
+    - ${POLICY_DELIB_KEYS}:/delib_keys.json
+    - ${POLICY_STORE_KEYS}:/store_keys.json
     extra_hosts:
     - host.docker.internal:host-gateway
 
@@ -57,7 +59,6 @@ services:
     - ${NODE_CONFIG_PATH}:/node.yml
     - ${BACKEND}:${BACKEND}
     - ${CERTS}:${CERTS}
-    - ${POLICY_DELIBERATION_SECRET}:${POLICY_DELIBERATION_SECRET}
     - ${DATA}:${DATA}
     - ${RESULTS}:${RESULTS}
     extra_hosts:
@@ -75,7 +76,6 @@ services:
     - ${NODE_CONFIG_PATH}:/node.yml
     - ${BACKEND}:${BACKEND}
     - ${CERTS}:${CERTS}
-    - ${POLICY_DELIBERATION_SECRET}:${POLICY_DELIBERATION_SECRET}
     - ${PACKAGES}:${PACKAGES}
     - ${DATA}:${DATA}
     - ${RESULTS}:${RESULTS}

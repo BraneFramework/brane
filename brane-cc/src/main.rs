@@ -4,7 +4,7 @@
 //  Created:
 //    18 Nov 2022, 14:36:55
 //  Last edited:
-//    13 Jun 2024, 16:21:19
+//    14 Nov 2024, 17:48:52
 //  Auto updated?
 //    Yes
 //
@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 use brane_ast::state::CompileState;
 use brane_ast::traversals::print::ast;
-use brane_ast::{CompileResult, ParserOptions, Workflow, compile_snippet};
+use brane_ast::{CompileResult, ParserOptions, compile_snippet};
 use brane_cc::errors::CompileError;
 use brane_cc::spec::IndexLocation;
 use brane_dsl::Language;
@@ -32,6 +32,7 @@ use humanlog::{DebugMode, HumanLogger};
 use log::{debug, error, info, warn};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
+use specifications::wir::Workflow;
 
 
 /***** ARGUMENTS *****/

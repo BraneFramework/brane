@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 17:41:33
 //  Last edited:
-//    12 Dec 2023, 17:20:22
+//    14 Nov 2024, 17:23:15
 //  Auto updated?
 //    Yes
 //
@@ -16,8 +16,8 @@
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
-use brane_ast::{SymTable, Workflow};
 use specifications::profiling::ProfileScopeHandle;
+use specifications::wir::{SymTable, Workflow};
 
 use crate::errors::VmError;
 use crate::spec::{CustomGlobalState, CustomLocalState, RunState, VmPlugin};

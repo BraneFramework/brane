@@ -24,10 +24,7 @@ tempfile = "3.10.1"
 tokio = { version = "1.38.0", features = ["rt","rt-multi-thread","macros","io-util", "signal"] }
 tokio-rustls = "0.24.0"
 warp = "0.3.2"
-
-brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
-brane-exe = { path = "../brane-exe" }
 brane-shr = { path = "../brane-shr" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }

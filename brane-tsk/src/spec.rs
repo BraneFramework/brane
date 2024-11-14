@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 16:42:17
 //  Last edited:
-//    12 Apr 2023, 12:57:54
+//    14 Nov 2024, 17:23:56
 //  Auto updated?
 //    Yes
 //
@@ -15,9 +15,9 @@
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::str::FromStr;
 
-use brane_ast::Workflow;
 use brane_exe::FullValue;
 use log::warn;
+use specifications::wir::Workflow;
 use specifications::working::TaskStatus;
 use uuid::Uuid;
 

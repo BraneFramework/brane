@@ -1,42 +1,51 @@
-//  AST.rs
+//  MOD.rs
 //    by Lut99
 //
 //  Created:
-//    30 Aug 2022, 11:55:49
+//    14 Nov 2024, 15:43:22
 //  Last edited:
-//    06 Feb 2024, 11:38:29
+//    14 Nov 2024, 17:39:45
 //  Auto updated?
 //    Yes
 //
 //  Description:
-//!   Defines the `brane-ast`  AST, which is defined as an acyclic* graph
-//!   where the nodes are external, orchestratable and policy-sensitive
-//!   tasks (e.g., compute tasks or transfer tasks), and the edges are
-//!   'control flow' that are small pieces of BraneScript that decide
-//!   which task to compute next. Can be thought of as a graph with
-//!   intelligent edges.
+//!   Defines the Brane Workflow Intermediate Representation (WIR).
+//!
+//!   See
+//!   <https://wiki.enablingpersonalizedinterventions.nl/specification/spec/wir/introduction.html>
+//!   for more information.
 //
 
+// Declare the modules
+pub mod builtins;
+pub mod data_type;
+pub mod func_id;
+pub mod locations;
+pub mod merge_strategy;
+
+// Imports
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use brane_dsl::spec::MergeStrategy;
+use builtins::BuiltinClasses;
+use data_type::DataType;
 use enum_debug::EnumDebug;
+use func_id::FunctionId;
+use lazy_static::lazy_static;
+use locations::{Location, Locations};
+use merge_strategy::MergeStrategy;
 use rand::Rng as _;
 use rand::distr::Alphanumeric;
 use serde::de::{self, Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 use serde_json_any_key::any_key_map;
-use specifications::data::{AvailabilityKind, DataName};
-use specifications::package::Capability;
-use specifications::version::Version;
 
-use crate::data_type::DataType;
-use crate::func_id::FunctionId;
-use crate::locations::{Location, Locations};
+use crate::data::{AvailabilityKind, DataName};
+use crate::package::Capability;
+use crate::version::Version;
 
 
 /***** CONSTANTS *****/
@@ -495,6 +504,34 @@ pub struct ClassDef {
     /// The methods in this class. Note that these are references, since they are actually defined in the class.
     #[serde(rename = "m")]
     pub methods: Vec<usize>,
+}
+impl ClassDef {
+    /// Creates a new [`ClassDef`] from the given builtin class.
+    ///
+    /// # Arguments
+    /// - `value`: The target [`BuiltinClasses`] we want to create a definition of.
+    /// - `funcs`: A list of [`FunctionDef`] that are extended based on this class' definition.
+    ///
+    /// # Returns
+    /// A new ClassDef that represents the given `value.`
+    #[inline]
+    pub fn from_builtin(value: BuiltinClasses, funcs: &mut Vec<FunctionDef>) -> Self {
+        Self {
+            name:    value.name().into(),
+            package: None,
+            version: None,
+            props:   value.props().into_iter().map(|(name, dtype)| VarDef { name: (*name).into(), data_type: dtype.clone() }).collect(),
+            methods: value
+                .methods()
+                .into_iter()
+                .map(|(name, sig)| {
+                    let i: usize = funcs.len();
+                    funcs.push(FunctionDef { name: (*name).into(), args: sig.0.clone(), ret: sig.1.clone() });
+                    i
+                })
+                .collect(),
+        }
+    }
 }
 
 

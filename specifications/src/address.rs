@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:41:51
 //  Last edited:
-//    13 Nov 2024, 13:28:30
+//    14 Nov 2024, 14:49:13
 //  Auto updated?
 //    Yes
 //
@@ -23,7 +23,6 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
 use enum_debug::EnumDebug;
-use log::trace;
 use serde::de::{self, Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
@@ -52,17 +51,26 @@ impl Error for HostParseError {}
 /// Errors that relate to parsing [`Address`]es.
 #[derive(Debug)]
 pub enum AddressParseError {
-    /// No input was given.
-    NoInput,
+    /// Failed to correctly parse the hostname.
+    IllegalHost { raw: String, err: HostParseError },
+    /// Failed to correctly parse the port.
+    IllegalPort { raw: String, err: std::num::ParseIntError },
     /// There wasn't a colon in the input.
     MissingColon { raw: String },
+    /// A given [`AddressOpt`] was missing a port.
+    MissingPort { addr: AddressOpt },
+    /// No input was given.
+    NoInput,
 }
 impl Display for AddressParseError {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
-            Self::NoInput => write!(f, "No address given"),
+            Self::IllegalHost { raw, .. } => write!(f, "Failed to parse {raw:?} as a hostname"),
+            Self::IllegalPort { raw, .. } => write!(f, "Failed to parse {raw:?} as a port number"),
             Self::MissingColon { raw } => write!(f, "No colon found in input {raw:?}"),
+            Self::MissingPort { addr } => write!(f, "Address {addr} has no port defined"),
+            Self::NoInput => write!(f, "No address given"),
         }
     }
 }
@@ -70,39 +78,11 @@ impl Error for AddressParseError {
     #[inline]
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::NoInput => None,
+            Self::IllegalHost { err, .. } => Some(err),
+            Self::IllegalPort { err, .. } => Some(err),
             Self::MissingColon { .. } => None,
-        }
-    }
-}
-
-/// Errors that relate to parsing Addresses.
-#[derive(Debug)]
-pub enum AddressError {
-    /// Invalid port number.
-    IllegalPortNumber { raw: String, err: std::num::ParseIntError },
-    /// Missing the colon separator (':') in the address.
-    MissingColon { raw: String },
-    /// Port not found when translating an [`AddressOpt`] into an [`Address`].
-    MissingPort { addr: AddressOpt },
-}
-impl Display for AddressError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use AddressError::*;
-        match self {
-            IllegalPortNumber { raw, .. } => write!(f, "Illegal port number '{raw}'"),
-            MissingColon { raw } => write!(f, "Missing address/port separator ':' in '{raw}' (did you forget to define a port?)"),
-            MissingPort { addr } => write!(f, "Address '{addr}' does not have a port"),
-        }
-    }
-}
-impl Error for AddressError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        use AddressError::*;
-        match self {
-            IllegalPortNumber { err, .. } => Some(err),
-            MissingColon { .. } => None,
-            MissingPort { .. } => None,
+            Self::MissingPort { .. } => None,
+            Self::NoInput => None,
         }
     }
 }
@@ -119,16 +99,16 @@ impl Error for AddressError {
 ///   internally through a [copy-on-write](Cow) pointer, so if it holds by ownership, this lifetime
 ///   can be `'static`.
 #[derive(Clone, Debug, EnumDebug, Eq, Hash, PartialEq)]
-pub enum Host<'a> {
+pub enum Host {
     /// It's an IPv4 address.
     IPv4(Ipv4Addr),
     /// It's an IPv6 address.
     IPv6(Ipv6Addr),
     /// It's a hostname.
-    Name(Cow<'a, str>),
+    Name(String),
 }
 // Constructors
-impl<'a> Host<'static> {
+impl Host {
     /// Constructor for the Host that initializes it for the given IPv4 address.
     ///
     /// # Arguments
@@ -161,17 +141,6 @@ impl<'a> Host<'static> {
         Self::IPv6(Ipv6Addr::new(b1, b2, b3, b4, b5, b6, b7, b8))
     }
 
-    /// Constructor for the Host that initializes it for the given hostname, by ownership.
-    ///
-    /// # Arguments
-    /// - `name`: The string name by which the host is known.
-    ///
-    /// # Returns
-    /// A new Host that is referred to by DNS name.
-    #[inline]
-    pub const fn new_name_owned(name: String) -> Self { Self::Name(Cow::Owned(name)) }
-}
-impl<'a> Host<'a> {
     /// Constructor for the Host that initializes it for the given hostname.
     ///
     /// # Arguments
@@ -180,10 +149,10 @@ impl<'a> Host<'a> {
     /// # Returns
     /// A new Host that is referred to by DNS name.
     #[inline]
-    pub const fn new_name(name: &'a str) -> Self { Self::Name(Cow::Borrowed(name)) }
+    pub fn new_name(name: impl Into<String>) -> Self { Self::Name(name.into()) }
 }
 // Accessessors
-impl<'a> Host<'a> {
+impl Host {
     /// Checks whether this Host is an IP address ([IPv4](Host::IPv4) or [IPv6](Host::IPv6)).
     ///
     /// # Returns
@@ -285,8 +254,8 @@ impl<'a> Host<'a> {
     /// This function panics if self is actually NOT a [hostname](Host::Name).
     #[inline]
     #[track_caller]
-    pub fn name_mut(&mut self) -> &mut str {
-        if let Self::Name(name) = self { name.to_mut() } else { panic!("Cannot unwrap {:?} as an Host::Name", self.variant()) }
+    pub fn name_mut(&mut self) -> &mut String {
+        if let Self::Name(name) = self { name } else { panic!("Cannot unwrap {:?} as an Host::Name", self.variant()) }
     }
 
     /// Assumes self is an [IPv4 address](Host::IPv4) and returns the inner address.
@@ -324,12 +293,12 @@ impl<'a> Host<'a> {
     /// This function panics if self is actually NOT a [hostname](Host::Name).
     #[inline]
     #[track_caller]
-    pub fn into_name(self) -> Cow<'a, str> {
+    pub fn into_name(self) -> String {
         if let Self::Name(name) = self { name } else { panic!("Cannot unwrap {:?} as an Host::Name", self.variant()) }
     }
 }
 // Formatting
-impl<'a> Display for Host<'a> {
+impl Display for Host {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
             Self::IPv4(addr) => addr.fmt(f),
@@ -339,76 +308,7 @@ impl<'a> Display for Host<'a> {
     }
 }
 // De/Serialization
-impl<'a> Host<'a> {
-    /// Attempts to parse the given source string as an IP address.
-    ///
-    /// # Arguments
-    /// - `s`: The source string to parse.
-    ///
-    /// # Returns
-    /// Either [`Some(Self::IPv4)`](Host::IPv4), [`Some(Self::IPv6)`](Host::IPv6) or [`None`].
-    fn parse_ip(s: &str) -> Option<Self> {
-        match IpAddr::from_str(s) {
-            Ok(IpAddr::V4(addr)) => Some(Self::IPv4(addr)),
-            Ok(IpAddr::V6(addr)) => Some(Self::IPv6(addr)),
-            Err(_) => None,
-        }
-    }
-
-    /// Runs checks on a candidate hostname to see if it's legal.
-    ///
-    /// # Arguments
-    /// - `s`: The source string to check.
-    ///
-    /// # Errors
-    /// This function errors if the input `s`tring was somehow illegal.
-    fn assert_name_validity(s: &str) -> Result<(), HostParseError> {
-        // Assert there is *something*
-        if s.is_empty() {
-            return Err(HostParseError::NoInput);
-        }
-
-        // Assert it's only good
-        for c in s.chars() {
-            if (c < 'a' || c > 'z') && (c < 'A' && c > 'Z') && (c < '0' && c > '9') && c != '-' {
-                return Err(HostParseError::IllegalChar { c, raw: s.into() });
-            }
-        }
-
-        // OK, it's good
-        Ok(())
-    }
-
-    /// Parses the Host from the given source string.
-    ///
-    /// If the string represents a [hostname](Host::Name), then it is stored by reference instead
-    /// of clone for efficiency. You can perform the clone at any time by calling
-    /// [`Host::into_owned()`].
-    ///
-    /// The [`Host::from_str()`]-implementation does this automatically due to lifetime constraints.
-    ///
-    /// # Arguments
-    /// - `s`: The source string to parse.
-    ///
-    /// # Returns
-    /// A new Host, parsed from the given `s`tring.
-    ///
-    /// # Errors
-    /// This function errors if the given `s`tring is empty, or it consisted of non-legal hostname
-    /// characters. For an overview, see this [this](https://en.wikipedia.org/wiki/Hostname#Syntax)
-    /// list.
-    pub fn parse_str(s: &'a str) -> Result<Host<'a>, HostParseError> {
-        // Try as an IP address first
-        match Self::parse_ip(s) {
-            Some(host) => Ok(host),
-            None => {
-                Self::assert_name_validity(s)?;
-                Ok(Self::Name(Cow::Borrowed(s)))
-            },
-        }
-    }
-}
-impl<'de> Deserialize<'de> for Host<'de> {
+impl<'de: 'a, 'a> Deserialize<'de> for Host {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -417,7 +317,7 @@ impl<'de> Deserialize<'de> for Host<'de> {
         /// Visitor for the `Host`.
         pub struct HostVisitor;
         impl<'de> Visitor<'de> for HostVisitor {
-            type Value = Host<'de>;
+            type Value = Host;
 
             #[inline]
             fn expecting(&self, f: &mut Formatter) -> FResult { write!(f, "an IP address or a hostname") }
@@ -427,31 +327,9 @@ impl<'de> Deserialize<'de> for Host<'de> {
             where
                 E: de::Error,
             {
-                match Host::parse_str(v) {
-                    Ok(host) => Ok(host.into_owned()),
+                match Host::from_str(v) {
+                    Ok(host) => Ok(host),
                     Err(err) => Err(E::custom(err)),
-                }
-            }
-
-            #[inline]
-            fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                Host::parse_str(v).map_err(E::custom)
-            }
-
-            #[inline]
-            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                match Host::parse_ip(&v) {
-                    Some(host) => Ok(host),
-                    None => {
-                        Host::assert_name_validity(&v).map_err(E::custom)?;
-                        Ok(Host::Name(Cow::Owned(v)))
-                    },
                 }
             }
         }
@@ -460,7 +338,7 @@ impl<'de> Deserialize<'de> for Host<'de> {
         deserializer.deserialize_string(HostVisitor)
     }
 }
-impl<'a> Serialize for Host<'a> {
+impl Serialize for Host {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -469,32 +347,35 @@ impl<'a> Serialize for Host<'a> {
         serializer.serialize_str(&self.to_string())
     }
 }
-impl FromStr for Host<'static> {
+impl FromStr for Host {
     type Err = HostParseError;
 
     #[inline]
-    fn from_str(s: &str) -> Result<Self, Self::Err> { Host::parse_str(s).map(Host::into_owned) }
-}
-// Lifetime juggling
-impl<'a> Host<'a> {
-    /// Returns an owned version of the Host that does not depend on the source anymore.
-    ///
-    /// If self is a [`Host::Name`], and that name is a reference to the source, this function
-    /// clones the source text to become `'static`. Else, this function is (almost) free.
-    ///
-    /// # Returns
-    /// The same Host, but potentially cloned.
-    #[inline]
-    pub fn into_owned(self) -> Host<'static> {
-        match self {
-            Self::IPv4(addr) => Host::IPv4(addr),
-            Self::IPv6(addr) => Host::IPv6(addr),
-            Self::Name(name) => Host::Name(Cow::Owned(name.into_owned())),
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match IpAddr::from_str(s) {
+            Ok(IpAddr::V4(addr)) => Ok(Self::IPv4(addr)),
+            Ok(IpAddr::V6(addr)) => Ok(Self::IPv6(addr)),
+            Err(_) => {
+                // Assert there is *something*
+                if s.is_empty() {
+                    return Err(HostParseError::NoInput);
+                }
+
+                // Assert it's only good
+                for c in s.chars() {
+                    if (c < 'a' || c > 'z') && (c < 'A' && c > 'Z') && (c < '0' && c > '9') && c != '-' {
+                        return Err(HostParseError::IllegalChar { c, raw: s.into() });
+                    }
+                }
+
+                // OK, it's good
+                Ok(Self::Name(s.into()))
+            },
         }
     }
 }
 // Conversion
-impl From<IpAddr> for Host<'static> {
+impl From<IpAddr> for Host {
     #[inline]
     fn from(value: IpAddr) -> Self {
         match value {
@@ -503,21 +384,21 @@ impl From<IpAddr> for Host<'static> {
         }
     }
 }
-impl From<Ipv4Addr> for Host<'static> {
+impl From<Ipv4Addr> for Host {
     #[inline]
     fn from(value: Ipv4Addr) -> Self { Self::IPv4(value) }
 }
-impl From<Ipv6Addr> for Host<'static> {
+impl From<Ipv6Addr> for Host {
     #[inline]
     fn from(value: Ipv6Addr) -> Self { Self::IPv6(value) }
 }
-impl<'a> From<&'a str> for Host<'a> {
+impl<'a> From<&'a str> for Host {
     #[inline]
-    fn from(value: &'a str) -> Self { Self::Name(Cow::Borrowed(value)) }
+    fn from(value: &'a str) -> Self { Self::Name(value.into()) }
 }
-impl From<String> for Host<'static> {
+impl From<String> for Host {
     #[inline]
-    fn from(value: String) -> Self { Self::Name(Cow::Owned(value)) }
+    fn from(value: String) -> Self { Self::Name(value) }
 }
 
 
@@ -530,14 +411,14 @@ impl From<String> for Host<'static> {
 ///   internally through a [copy-on-write](Cow) pointer, so if it holds by ownership, this lifetime
 ///   can be `'static`.
 #[derive(Clone, Debug)]
-pub struct Address<'a> {
+pub struct Address {
     /// The host-part of the address.
-    pub host: Host<'a>,
+    pub host: Host,
     /// The port-part of the address.
     pub port: u16,
 }
 // Constructors
-impl Address<'static> {
+impl Address {
     /// Constructor for the Address that initializes it for the given IPv4 address.
     ///
     /// # Arguments
@@ -604,10 +485,10 @@ impl Address<'static> {
     /// # Returns
     /// A new Address instance.
     #[inline]
-    pub fn hostname(hostname: impl Into<String>, port: u16) -> Self { Self { host: Host::new_name_owned(hostname.into()), port } }
+    pub fn hostname(hostname: impl Into<String>, port: u16) -> Self { Self { host: Host::new_name(hostname), port } }
 }
 // Accessors
-impl<'a> Address<'a> {
+impl Address {
     /// Returns the domain-part, as a (serialized) string version.
     ///
     /// # Returns
@@ -617,8 +498,7 @@ impl<'a> Address<'a> {
         match &self.host {
             Host::IPv4(addr) => Cow::Owned(addr.to_string()),
             Host::IPv6(addr) => Cow::Owned(addr.to_string()),
-            Host::Name(Cow::Borrowed(name)) => Cow::Borrowed(name),
-            Host::Name(Cow::Owned(name)) => Cow::Owned(name.clone()),
+            Host::Name(name) => Cow::Borrowed(name),
         }
     }
 
@@ -651,67 +531,17 @@ impl<'a> Address<'a> {
     pub const fn is_ipv6(&self) -> bool { self.host.is_ipv6() }
 }
 // Formatting
-impl<'a> Address<'a> {
+impl Address {
     /// Returns a formatter that deterministically and parseably serializes the Address.
     #[inline]
     pub const fn serialize(&self) -> impl '_ + Display { self }
 }
-impl<'a> Display for Address<'a> {
+impl Display for Address {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "{}:{}", self.host, self.port) }
 }
 // De/Serialization
-impl<'a> Address<'a> {
-    /// Splits the given source string into an address and a port.
-    ///
-    /// # Arguments
-    /// - `s`: The source string to split.
-    ///
-    /// # Returns
-    /// Two string slices, one with the address and one with the port.
-    ///
-    /// # Errors
-    /// This function errors if the input `s`tring did not contain a `:`.
-    fn split_on_colon(s: &str) -> Result<(&str, &str), AddressParseError> {
-        // Assert there is *something*
-        if s.is_empty() {
-            return Err(AddressParseError::NoInput);
-        }
-
-        // Check the split
-        if let Some(pos) = s.find(':') { Ok((&s[..pos], &s[pos + 1..])) } else { Err(AddressParseError::MissingColon { raw: s.into() }) }
-    }
-
-    /// Parses the Host from the given source string.
-    ///
-    /// If the string represents a [hostname](Host::Name), then it is stored by reference instead
-    /// of clone for efficiency. You can perform the clone at any time by calling
-    /// [`Host::into_owned()`].
-    ///
-    /// The [`Host::from_str()`]-implementation does this automatically due to lifetime constraints.
-    ///
-    /// # Arguments
-    /// - `s`: The source string to parse.
-    ///
-    /// # Returns
-    /// A new Host, parsed from the given `s`tring.
-    ///
-    /// # Errors
-    /// This function errors if the given `s`tring is empty, or it consisted of non-legal hostname
-    /// characters. For an overview, see this [this](https://en.wikipedia.org/wiki/Hostname#Syntax)
-    /// list.
-    pub fn parse_str(s: &'a str) -> Result<Host<'a>, HostParseError> {
-        // Try as an IP address first
-        match Self::parse_ip(s) {
-            Some(host) => Ok(host),
-            None => {
-                Self::assert_name_validity(s)?;
-                Ok(Self::Name(Cow::Borrowed(s)))
-            },
-        }
-    }
-}
-impl<'a> Serialize for Address<'a> {
+impl Serialize for Address {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -720,7 +550,7 @@ impl<'a> Serialize for Address<'a> {
         serializer.serialize_str(&format!("{}", self.serialize()))
     }
 }
-impl<'de> Deserialize<'de> for Address<'de> {
+impl<'de> Deserialize<'de> for Address {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -729,7 +559,7 @@ impl<'de> Deserialize<'de> for Address<'de> {
         /// Defines the visitor for the Address
         struct AddressVisitor;
         impl<'de> Visitor<'de> for AddressVisitor {
-            type Value = Address<'de>;
+            type Value = Address;
 
             #[inline]
             fn expecting(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "an address:port pair") }
@@ -739,11 +569,7 @@ impl<'de> Deserialize<'de> for Address<'de> {
             where
                 E: de::Error,
             {
-                // Attempt to serialize the incoming string
-                match Address::from_str(v) {
-                    Ok(address) => Ok(address),
-                    Err(err) => Err(E::custom(err)),
-                }
+                Address::from_str(v).map_err(E::custom)
             }
         }
 
@@ -752,39 +578,27 @@ impl<'de> Deserialize<'de> for Address<'de> {
     }
 }
 impl FromStr for Address {
-    type Err = AddressError;
+    type Err = AddressParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Attempt to find the colon first
-        let colon_pos: usize = match s.rfind(':') {
-            Some(pos) => pos,
-            None => {
-                return Err(AddressError::MissingColon { raw: s.into() });
-            },
-        };
-
-        // Split it on that
-        let (address, port): (&str, &str) = (&s[..colon_pos], &s[colon_pos + 1..]);
-
-        // Parse the port
-        let port: u16 = match u16::from_str(port) {
-            Ok(port) => port,
-            Err(err) => {
-                return Err(AddressError::IllegalPortNumber { raw: port.into(), err });
-            },
-        };
-
-        // Resolve the address to a new instance of ourselves
-        match IpAddr::from_str(address) {
-            Ok(address) => match address {
-                IpAddr::V4(ip) => Ok(Self::Ipv4(ip, port)),
-                IpAddr::V6(ip) => Ok(Self::Ipv6(ip, port)),
-            },
-            Err(err) => {
-                trace!("Parsing '{}' as a hostname, but might be an invalid IP address (parser feedback: {})", address, err);
-                Ok(Self::Hostname(address.into(), port))
-            },
+        // Assert there is *something*
+        if s.is_empty() {
+            return Err(AddressParseError::NoInput);
         }
+
+        // Check the split
+        let (host, port): (&str, &str) = if let Some(pos) = s.find(':') {
+            (&s[..pos], &s[pos + 1..])
+        } else {
+            return Err(AddressParseError::MissingColon { raw: s.into() });
+        };
+
+        // Parse the host
+        let host: Host = Host::from_str(host).map_err(|err| AddressParseError::IllegalHost { raw: host.into(), err })?;
+        let port: u16 = u16::from_str(port).map_err(|err| AddressParseError::IllegalPort { raw: port.into(), err })?;
+
+        // OK
+        Ok(Self { host, port })
     }
 }
 // Conversion
@@ -801,50 +615,28 @@ impl From<&mut Address> for Address {
     fn from(value: &mut Address) -> Self { value.clone() }
 }
 impl TryFrom<AddressOpt> for Address {
-    type Error = AddressError;
+    type Error = AddressParseError;
 
     #[inline]
     fn try_from(value: AddressOpt) -> Result<Self, Self::Error> {
-        match value {
-            AddressOpt::Ipv4(host, port_opt) => {
-                if let Some(port) = port_opt {
-                    Ok(Self::Ipv4(host, port))
-                } else {
-                    Err(AddressError::MissingPort { addr: AddressOpt::Ipv4(host, None) })
-                }
-            },
-
-            AddressOpt::Ipv6(host, port_opt) => {
-                if let Some(port) = port_opt {
-                    Ok(Self::Ipv6(host, port))
-                } else {
-                    Err(AddressError::MissingPort { addr: AddressOpt::Ipv6(host, None) })
-                }
-            },
-
-            AddressOpt::Hostname(host, port_opt) => {
-                if let Some(port) = port_opt {
-                    Ok(Self::Hostname(host, port))
-                } else {
-                    Err(AddressError::MissingPort { addr: AddressOpt::Hostname(host, None) })
-                }
-            },
+        match value.port {
+            Some(port) => Ok(Self { host: value.host, port }),
+            None => Err(AddressParseError::MissingPort { addr: value }),
         }
     }
 }
 
 /// Alternative to an [`Address`] that has an optional port part.
-#[derive(Clone, Debug, EnumDebug)]
-pub enum AddressOpt {
-    /// It's an Ipv4 address.
-    Ipv4(Ipv4Addr, Option<u16>),
-    /// It's an Ipv6 address.
-    Ipv6(Ipv6Addr, Option<u16>),
-    /// It's a hostname.
-    Hostname(String, Option<u16>),
+#[derive(Clone, Debug)]
+pub struct AddressOpt {
+    /// The host-part of the address.
+    pub host: Host,
+    /// The port-part of the address.
+    pub port: Option<u16>,
 }
+// Constructors
 impl AddressOpt {
-    /// Constructor for the AddressOpt that initializes it for the given IPv4 address.
+    /// Constructor for the Address that initializes it for the given IPv4 address.
     ///
     /// # Arguments
     /// - `b1`: The first byte of the IPv4 address.
@@ -856,7 +648,7 @@ impl AddressOpt {
     /// # Returns
     /// A new AddressOpt instance.
     #[inline]
-    pub fn ipv4(b1: u8, b2: u8, b3: u8, b4: u8, port: Option<u16>) -> Self { Self::Ipv4(Ipv4Addr::new(b1, b2, b3, b4), port) }
+    pub fn ipv4(b1: u8, b2: u8, b3: u8, b4: u8, port: Option<u16>) -> Self { Self { host: Host::new_ipv4(b1, b2, b3, b4), port } }
 
     /// Constructor for the AddressOpt that initializes it for the given IPv4 address.
     ///
@@ -867,7 +659,7 @@ impl AddressOpt {
     /// # Returns
     /// A new AddressOpt instance.
     #[inline]
-    pub fn from_ipv4(ipv4: impl Into<Ipv4Addr>, port: Option<u16>) -> Self { Self::Ipv4(ipv4.into(), port) }
+    pub fn from_ipv4(ipv4: impl Into<Ipv4Addr>, port: Option<u16>) -> Self { Self { host: Host::IPv4(ipv4.into()), port } }
 
     /// Constructor for the AddressOpt that initializes it for the given IPv6 address.
     ///
@@ -887,7 +679,7 @@ impl AddressOpt {
     #[allow(clippy::too_many_arguments)]
     #[inline]
     pub fn ipv6(b1: u16, b2: u16, b3: u16, b4: u16, b5: u16, b6: u16, b7: u16, b8: u16, port: Option<u16>) -> Self {
-        Self::Ipv6(Ipv6Addr::new(b1, b2, b3, b4, b5, b6, b7, b8), port)
+        Self { host: Host::new_ipv6(b1, b2, b3, b4, b5, b6, b7, b8), port }
     }
 
     /// Constructor for the AddressOpt that initializes it for the given IPv6 address.
@@ -899,58 +691,31 @@ impl AddressOpt {
     /// # Returns
     /// A new AddressOpt instance.
     #[inline]
-    pub fn from_ipv6(ipv6: impl Into<Ipv6Addr>, port: Option<u16>) -> Self { Self::Ipv6(ipv6.into(), port) }
+    pub fn from_ipv6(ipv6: impl Into<Ipv6Addr>, port: Option<u16>) -> Self { Self { host: Host::IPv6(ipv6.into()), port } }
 
     /// Constructor for the AddressOpt that initializes it for the given hostname.
     ///
     /// # Arguments
-    /// - `hostname`: The hostname for this AddressOpt.
-    /// - `port`: The port for this address, if any.
+    /// - `hostname`: The hostname for this Address.
+    /// - `port`: The port for this address.
     ///
     /// # Returns
     /// A new AddressOpt instance.
     #[inline]
-    pub fn hostname(hostname: impl Into<String>, port: Option<u16>) -> Self { Self::Hostname(hostname.into(), port) }
-
+    pub fn hostname(hostname: impl Into<String>, port: Option<u16>) -> Self { Self { host: Host::new_name(hostname), port } }
+}
+// Accessors
+impl AddressOpt {
     /// Returns the domain-part, as a (serialized) string version.
     ///
     /// # Returns
     /// A `Cow<str>` that either contains a reference to the already String hostname, or else a newly created string that is the serialized version of an IP.
     #[inline]
     pub fn domain(&self) -> Cow<'_, str> {
-        use AddressOpt::*;
-        match self {
-            Ipv4(addr, _) => format!("{addr}").into(),
-            Ipv6(addr, _) => format!("{addr}").into(),
-            Hostname(addr, _) => addr.into(),
-        }
-    }
-
-    /// Returns the port-part, as a number.
-    ///
-    /// # Returns
-    /// A `u16` that is the port.
-    #[inline]
-    pub fn port(&self) -> Option<u16> {
-        use AddressOpt::*;
-        match self {
-            Ipv4(_, port) => *port,
-            Ipv6(_, port) => *port,
-            Hostname(_, port) => *port,
-        }
-    }
-
-    /// Returns the port-part as a mutable number.
-    ///
-    /// # Returns
-    /// A mutable reference to the `u16` that is the port.
-    #[inline]
-    pub fn port_mut(&mut self) -> &mut Option<u16> {
-        use AddressOpt::*;
-        match self {
-            Ipv4(_, port) => port,
-            Ipv6(_, port) => port,
-            Hostname(_, port) => port,
+        match &self.host {
+            Host::IPv4(addr) => Cow::Owned(addr.to_string()),
+            Host::IPv6(addr) => Cow::Owned(addr.to_string()),
+            Host::Name(name) => Cow::Borrowed(name),
         }
     }
 
@@ -959,61 +724,41 @@ impl AddressOpt {
     /// # Returns
     /// True if it is, false if it isn't.
     #[inline]
-    pub fn is_hostname(&self) -> bool { matches!(self, Self::Hostname(_, _)) }
+    pub const fn is_hostname(&self) -> bool { self.host.is_name() }
 
     /// Returns if this AddressOpt is an `AddressOpt::Ipv4` or `AddressOpt::Ipv6`.
     ///
     /// # Returns
     /// True if it is, false if it isn't.
     #[inline]
-    pub fn is_ip(&self) -> bool { self.is_ipv4() || self.is_ipv6() }
+    pub const fn is_ip(&self) -> bool { self.host.is_ip() }
 
     /// Returns if this AddressOpt is an `AddressOpt::Ipv4`.
     ///
     /// # Returns
     /// True if it is, false if it isn't.
     #[inline]
-    pub fn is_ipv4(&self) -> bool { matches!(self, Self::Ipv4(_, _)) }
+    pub const fn is_ipv4(&self) -> bool { self.host.is_ipv4() }
 
     /// Returns if this AddressOpt is an `AddressOpt::Ipv6`.
     ///
     /// # Returns
     /// True if it is, false if it isn't.
     #[inline]
-    pub fn is_ipv6(&self) -> bool { matches!(self, Self::Ipv6(_, _)) }
-
+    pub const fn is_ipv6(&self) -> bool { self.host.is_ipv6() }
+}
+// Formatting
+impl AddressOpt {
     /// Returns a formatter that deterministically and parseably serializes the AddressOpt.
     #[inline]
     pub fn serialize(&self) -> impl '_ + Display { self }
 }
 impl Display for AddressOpt {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use AddressOpt::*;
-        match self {
-            Ipv4(addr, port) => {
-                write!(f, "{addr}")?;
-                if let Some(port) = port {
-                    write!(f, ":{port}")?;
-                };
-                Ok(())
-            },
-            Ipv6(addr, port) => {
-                write!(f, "{addr}")?;
-                if let Some(port) = port {
-                    write!(f, ":{port}")?;
-                };
-                Ok(())
-            },
-            Hostname(addr, port) => {
-                write!(f, "{addr}")?;
-                if let Some(port) = port {
-                    write!(f, ":{port}")?;
-                };
-                Ok(())
-            },
-        }
+        if let Some(port) = self.port { write!(f, "{}:{}", self.host, port) } else { write!(f, "{}", self.host) }
     }
 }
+// De/Serialization
 impl Serialize for AddressOpt {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -1043,10 +788,7 @@ impl<'de> Deserialize<'de> for AddressOpt {
                 E: de::Error,
             {
                 // Attempt to serialize the incoming string
-                match AddressOpt::from_str(v) {
-                    Ok(address) => Ok(address),
-                    Err(err) => Err(E::custom(err)),
-                }
+                AddressOpt::from_str(v).map_err(E::custom)
             }
         }
 
@@ -1055,31 +797,30 @@ impl<'de> Deserialize<'de> for AddressOpt {
     }
 }
 impl FromStr for AddressOpt {
-    type Err = AddressError;
+    type Err = AddressParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Attempt to find the colon first and split the string accordingly
-        let (address, port): (&str, Option<&str>) = match s.rfind(':') {
-            Some(pos) => (&s[..pos], Some(&s[pos + 1..])),
-            None => (s, None),
+        // Assert there is *something*
+        if s.is_empty() {
+            return Err(AddressParseError::NoInput);
+        }
+
+        // Check the split
+        let (host, port): (&str, Option<&str>) = if let Some(pos) = s.find(':') { (&s[..pos], Some(&s[pos + 1..])) } else { (s, None) };
+
+        // Parse the host
+        let host: Host = Host::from_str(host).map_err(|err| AddressParseError::IllegalHost { raw: host.into(), err })?;
+        let port: Option<u16> = if let Some(port) = port {
+            Some(u16::from_str(port).map_err(|err| AddressParseError::IllegalPort { raw: port.into(), err })?)
+        } else {
+            None
         };
 
-        // Parse the port, if any
-        let port: Option<u16> = port.map(|p| u16::from_str(p).map_err(|err| AddressError::IllegalPortNumber { raw: p.into(), err })).transpose()?;
-
-        // Resolve the address to a new instance of ourselves
-        match IpAddr::from_str(address) {
-            Ok(address) => match address {
-                IpAddr::V4(ip) => Ok(Self::Ipv4(ip, port)),
-                IpAddr::V6(ip) => Ok(Self::Ipv6(ip, port)),
-            },
-            Err(err) => {
-                trace!("Parsing '{}' as a hostname, but might be an invalid IP address (parser feedback: {})", address, err);
-                Ok(Self::Hostname(address.into(), port))
-            },
-        }
+        // OK
+        Ok(Self { host, port })
     }
 }
+// Conversion
 impl AsRef<AddressOpt> for AddressOpt {
     #[inline]
     fn as_ref(&self) -> &Self { self }
@@ -1094,11 +835,5 @@ impl From<&mut AddressOpt> for AddressOpt {
 }
 impl From<Address> for AddressOpt {
     #[inline]
-    fn from(value: Address) -> Self {
-        match value {
-            Address::Ipv4(host, port) => Self::Ipv4(host, Some(port)),
-            Address::Ipv6(host, port) => Self::Ipv6(host, Some(port)),
-            Address::Hostname(host, port) => Self::Hostname(host, Some(port)),
-        }
-    }
+    fn from(value: Address) -> Self { Self { host: value.host, port: Some(value.port) } }
 }
