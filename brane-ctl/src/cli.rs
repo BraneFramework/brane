@@ -348,14 +348,6 @@ pub(crate) enum GenerateSubcommand {
         /// The path to write to.
         #[clap(short, long, default_value = "./policies.db", help = "The path to write the policy database file to.")]
         path:     PathBuf,
-        /// The branch to pull the migrations from.
-        #[clap(
-            short,
-            long,
-            default_value = "main",
-            help = "The branch of the `https://github.com/braneframework/policy-reasoner` repository from which to pull the Diesel migrations."
-        )]
-        branch:   String,
     },
 
     #[clap(name = "policy_secret", about = "Generates a new JWT key for use in the `brane-chk` service.")]

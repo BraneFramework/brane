@@ -31,7 +31,6 @@ services:
     image: brane-chk:${BRANE_VERSION:-latest}
     init: true
     container_name: ${CHK_NAME:-brane-chk}
-    command: -s "node-file-path=/node.yml"
     ports:
     - "0.0.0.0:${CHK_DELIB_PORT}:50053"
     - "0.0.0.0:${CHK_STORE_PORT}:50054"

@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    14 Nov 2024, 15:11:54
+//    19 Nov 2024, 14:47:45
 //  Auto updated?
 //    Yes
 //
@@ -427,16 +427,16 @@ pub enum GenerateNodeSubcommand {
         /// Custom hash file path.
         #[clap(
             long,
-            default_value = "$CONFIG/policy_deliberation_secret.json",
-            help = "The location of the `policy_deliberation_secret.json` file that is used to verify authentication on the deliberation endpoint \
-                    in the checker. Use '$CONFIG' to reference the value given by --config-path."
+            default_value = "$CONFIG/policy_delib_secret.json",
+            help = "The location of the `policy_delib_secret.json` file that is used to verify authentication on the deliberation endpoint in the \
+                    checker. Use '$CONFIG' to reference the value given by --config-path."
         )]
         policy_delib_secret: PathBuf,
         /// Custom hash file path.
         #[clap(
             long,
-            default_value = "$CONFIG/policy_expert_secret.json",
-            help = "The location of the `policy_expert_secret.json` file that is used to verify authentication on the policy expert endpoint in the \
+            default_value = "$CONFIG/policy_store_secret.json",
+            help = "The location of the `policy_store_secret.json` file that is used to verify authentication on the policy store endpoint in the \
                     checker. Use '$CONFIG' to reference the value given by --config-path."
         )]
         policy_store_secret: PathBuf,

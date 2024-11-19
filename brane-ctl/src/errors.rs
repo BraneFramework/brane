@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    26 Jun 2024, 16:44:55
+//    19 Nov 2024, 14:46:02
 //  Auto updated?
 //    Yes
 //
@@ -190,7 +190,7 @@ pub enum GenerateError {
     /// Failed to find the migrations in the repo.
     MigrationsRetrieve { path: PathBuf, err: diesel_migrations::MigrationError },
     /// Failed to connect to the database file.
-    DatabaseConnect { path: PathBuf, err: diesel::ConnectionError },
+    DatabaseCreate { path: PathBuf, err: policy_store::databases::sqlite::DatabaseError },
     /// Failed to apply a set of mitigations.
     MigrationsApply { path: PathBuf, err: Box<dyn 'static + Error> },
 
@@ -250,7 +250,7 @@ impl Display for GenerateError {
                 write!(f, "Failed to recurse into only directory of unpacked repository archive '{}'", target.display())
             },
             MigrationsRetrieve { path, .. } => write!(f, "Failed to find Diesel migrations in '{}'", path.display()),
-            DatabaseConnect { path, .. } => write!(f, "Failed to connect to SQLite database file '{}'", path.display()),
+            DatabaseCreate { path, .. } => write!(f, "Failed to create SQLite database '{}'", path.display()),
             MigrationsApply { path, .. } => write!(f, "Failed to apply migrations to SQLite database file '{}'", path.display()),
 
             UnsupportedKeyAlgorithm { key_alg } => {
@@ -301,7 +301,7 @@ impl Error for GenerateError {
             RepoUnpackError { err, .. } => Some(err),
             RepoRecurseError { err, .. } => Some(err),
             MigrationsRetrieve { err, .. } => Some(err),
-            DatabaseConnect { err, .. } => Some(err),
+            DatabaseCreate { err, .. } => Some(err),
             MigrationsApply { err, .. } => Some(&**err),
 
             UnsupportedKeyAlgorithm { .. } => None,

@@ -151,9 +151,8 @@ impl Prost<CheckWorkflowRequest> {
     }
 }
 impl Message for Prost<CheckWorkflowRequest> {
-    fn encode_raw<B>(&self, buf: &mut B)
+    fn encode_raw(&self, buf: &mut impl BufMut)
     where
-        B: BufMut,
         Self: Sized,
     {
         // This is copied from the auto-generated prost code but only for the fields in question
@@ -165,13 +164,12 @@ impl Message for Prost<CheckWorkflowRequest> {
         }
     }
 
-    fn merge_field<B>(&mut self, tag: u32, wire_type: WireType, buf: &mut B, ctx: DecodeContext) -> Result<(), DecodeError>
+    fn merge_field(&mut self, tag: u32, wire_type: WireType, buf: &mut impl Buf, ctx: DecodeContext) -> Result<(), DecodeError>
     where
-        B: Buf,
         Self: Sized,
     {
         // This is copied from the auto-generated prost code but only for the fields in question
-        const STRUCT_NAME: &'static str = "CheckWorkflowRequest";
+        const STRUCT_NAME: &str = "CheckWorkflowRequest";
         match tag {
             1u32 => ::prost::encoding::string::merge(wire_type, &mut self.request.usecase, buf, ctx).map_err(|mut error| {
                 error.push(STRUCT_NAME, "usecase");
@@ -262,9 +260,8 @@ impl Prost<CheckTaskRequest> {
     }
 }
 impl Message for Prost<CheckTaskRequest> {
-    fn encode_raw<B>(&self, buf: &mut B)
+    fn encode_raw(&self, buf: &mut impl BufMut)
     where
-        B: BufMut,
         Self: Sized,
     {
         // This is copied from the auto-generated prost code but only for the fields in question
@@ -279,9 +276,8 @@ impl Message for Prost<CheckTaskRequest> {
         }
     }
 
-    fn merge_field<B>(&mut self, tag: u32, wire_type: WireType, buf: &mut B, ctx: DecodeContext) -> Result<(), DecodeError>
+    fn merge_field(&mut self, tag: u32, wire_type: WireType, buf: &mut impl Buf, ctx: DecodeContext) -> Result<(), DecodeError>
     where
-        B: Buf,
         Self: Sized,
     {
         // This is copied from the auto-generated prost code but only for the fields in question
@@ -389,9 +385,8 @@ impl Prost<CheckTransferRequest> {
     }
 }
 impl Message for Prost<CheckTransferRequest> {
-    fn encode_raw<B>(&self, buf: &mut B)
+    fn encode_raw(&self, buf: &mut impl BufMut)
     where
-        B: BufMut,
         Self: Sized,
     {
         // This is copied from the auto-generated prost code but only for the fields in question
@@ -409,9 +404,8 @@ impl Message for Prost<CheckTransferRequest> {
         }
     }
 
-    fn merge_field<B>(&mut self, tag: u32, wire_type: WireType, buf: &mut B, ctx: DecodeContext) -> Result<(), DecodeError>
+    fn merge_field(&mut self, tag: u32, wire_type: WireType, buf: &mut impl Buf, ctx: DecodeContext) -> Result<(), DecodeError>
     where
-        B: Buf,
         Self: Sized,
     {
         // This is copied from the auto-generated prost code but only for the fields in question
@@ -510,9 +504,8 @@ impl Prost<CheckResponse<ManyReason<String>>> {
     }
 }
 impl Message for Prost<CheckResponse<ManyReason<String>>> {
-    fn encode_raw<B>(&self, buf: &mut B)
+    fn encode_raw(&self, buf: &mut impl BufMut)
     where
-        B: BufMut,
         Self: Sized,
     {
         // This is copied from the auto-generated prost code but only for the fields in question
@@ -520,9 +513,8 @@ impl Message for Prost<CheckResponse<ManyReason<String>>> {
         ::prost::encoding::string::encode_repeated(2u32, &self.buffers[1..], buf);
     }
 
-    fn merge_field<B>(&mut self, tag: u32, wire_type: WireType, buf: &mut B, ctx: DecodeContext) -> Result<(), DecodeError>
+    fn merge_field(&mut self, tag: u32, wire_type: WireType, buf: &mut impl Buf, ctx: DecodeContext) -> Result<(), DecodeError>
     where
-        B: Buf,
         Self: Sized,
     {
         // This is copied from the auto-generated prost code but only for the fields in question

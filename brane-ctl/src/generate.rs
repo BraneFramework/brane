@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    14 Nov 2024, 15:11:46
+//    19 Nov 2024, 14:46:15
 //  Auto updated?
 //    Yes
 //
@@ -31,13 +31,12 @@ use brane_cfg::node::{
     PrivateOrExternalService, PrivateService, ProxyPaths, ProxyServices, PublicService, WorkerConfig, WorkerPaths, WorkerServices, WorkerUsecase,
 };
 use brane_cfg::proxy::{self, ForwardConfig};
-use brane_shr::fs::{DownloadSecurity, set_executable};
+use brane_shr::fs::set_executable;
 use console::style;
-use diesel::{Connection as _, SqliteConnection};
-use diesel_migrations::{FileBasedMigrations, MigrationHarness as _};
 use enum_debug::EnumDebug as _;
 use jsonwebtoken::jwk::{self, Jwk, JwkSet, KeyAlgorithm, OctetKeyParameters, OctetKeyType, PublicKeyUse};
 use log::{debug, info, warn};
+use policy_store::databases::sqlite::SQLiteDatabase;
 use rand::distr::Alphanumeric;
 use rand::rngs::OsRng;
 use rand::{Rng as _, TryRngCore};
@@ -45,7 +44,6 @@ use serde::Serialize;
 use specifications::address::{Address, Host};
 use specifications::package::Capability;
 use specifications::policy::generate_policy_token;
-use tempfile::TempDir;
 
 pub use crate::errors::GenerateError as Error;
 use crate::spec::{GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, Pair};
@@ -1320,67 +1318,16 @@ pub fn backend(
 ///
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub async fn policy_database(fix_dirs: bool, path: PathBuf, branch: String) -> Result<(), Error> {
-    info!("Generating policies.db at '{}'...", path.display());
+pub async fn policy_database(fix_dirs: bool, path: PathBuf) -> Result<(), Error> {
+    info!("Generating policies.db at {:?}...", path.display());
 
-    // First, touch the file alive
-    debug!("Creating policy database file '{}'...", path.display());
+    // First, ensure the parent exists
+    debug!("Creating policy database file {:?} parent directory...", path.display());
     ensure_dir_of(&path, fix_dirs)?;
-    if let Err(err) = File::create(&path) {
-        return Err(Error::FileCreateError { what: "policy database", path, err });
-    }
 
-    // Next, fetch the migrations to run
-    debug!("Retrieving up-to-date mitigations from 'https://github.com/braneframework/policy-reasoner ({branch})...");
-    // NOTE: We're not using `_dir`, but keep it to prevent the directory from being removed once the objects gets dropped
-    let (_dir, migrations): (TempDir, FileBasedMigrations) = {
-        // Prepare the input URL and output directory
-        let url = format!("https://api.github.com/repos/braneframework/policy-reasoner/tarball/{branch}");
-        let dir = match TempDir::new() {
-            Ok(dir) => dir,
-            Err(err) => {
-                return Err(Error::TempDirError { err });
-            },
-        };
-
-        // Download the file
-        let tar_path: PathBuf = dir.path().join("repo.tar.gz");
-        let dir_path: PathBuf = dir.path().join("repo");
-        if let Err(err) = brane_shr::fs::download_file_async(&url, &tar_path, DownloadSecurity { checksum: None, https: true }, None).await {
-            return Err(Error::RepoDownloadError { repo: url, target: dir_path, err });
-        }
-        if let Err(err) = brane_shr::fs::unarchive_async(&tar_path, &dir_path).await {
-            return Err(Error::RepoUnpackError { tar: tar_path, target: dir_path, err });
-        }
-        // Resolve that one weird folder in there
-        let dir_path: PathBuf = match brane_shr::fs::recurse_in_only_child_async(&dir_path).await {
-            Ok(path) => path,
-            Err(err) => {
-                return Err(Error::RepoRecurseError { target: dir_path, err });
-            },
-        };
-
-        // Read that as the migrations
-        let migrations: FileBasedMigrations = match FileBasedMigrations::find_migrations_directory_in_path(&dir_path) {
-            Ok(migrations) => migrations,
-            Err(err) => return Err(Error::MigrationsRetrieve { path: dir_path, err }),
-        };
-        (dir, migrations)
-    };
-
-    // Apply that with diesel
-    {
-        // Connect to the database
-        debug!("Applying migrations...");
-        let mut conn: SqliteConnection = match SqliteConnection::establish(&path.display().to_string()) {
-            Ok(conn) => conn,
-            Err(err) => return Err(Error::DatabaseConnect { path, err }),
-        };
-
-        // Attempt to run the migration
-        if let Err(err) = conn.run_pending_migrations(migrations) {
-            return Err(Error::MigrationsApply { path, err });
-        }
+    // Now we touch the file alive by making a brief connection
+    if let Err(err) = SQLiteDatabase::<()>::new_async(&path, policy_store::databases::sqlite::MIGRATIONS).await {
+        return Err(Error::DatabaseCreate { path, err });
     }
 
     // Done
