@@ -1,0 +1,83 @@
+// WORKFLOW ASSERT.eflint
+//   by Lut99
+//
+// Created:
+//   30 Nov 2023, 11:55:00
+// Last edited:
+//   13 Dec 2023, 16:11:25
+// Auto updated?
+//   Yes
+//
+// Description:
+//   Defines assertions that enforce particular assumptions on workflow
+//   predicates.
+//
+
+#require "workflow_base.eflint".
+
+
+// Asserts that users exist when mentioned somewhere.
+Invariant user-exists-workflow When
+    (Forall workflow-result-recipient : workflow-result-recipient.user).
+// Asserts that domains exist when mentioned somewhere.
+Invariant domain-exists-workflow When
+    (Forall task-at : task-at.domain).
+// Asserts that assets exist when mentioned somewhere.
+Invariant asset-exists-workflow When
+    (Forall workflow-result : workflow-result.asset) &&
+    (Forall node-input : node-input.asset) && (Forall node-output : node-output.asset).
+// Asserts that codes exist when mentioned somewhere.
+Invariant code-exists-workflow When
+    (Forall task-code : task-code.code).
+
+// Asserts that workflows exist when mentioned somewhere.
+Invariant workflow-exists When
+    (Forall workflow-result : workflow-result.workflow) && (Forall node : node.workflow).
+// Asserts that workflow-results exist when mentioned somewhere.
+Invariant workflow-result-exists When
+    (Forall workflow-result-recipient : workflow-result-recipient.workflow-result).
+// Asserts that nodes exist when mentioned somewhere.
+Invariant node-exists When
+    (Forall node-input : node-input.node) && (Forall node-output : node-output.node) &&
+    (Forall node-at : node-at.node) &&
+    (Forall task : task.node) && (Forall commit : commit.node) && (Forall loop : loop.node) && (Forall loop-body : loop-body.node).
+// Asserts that loops exist when mentioned somewhere.
+Invariant loop-exists When
+    (Forall loop-body : loop-body.loop).
+// // Asserts that node-depends-ons exist when mentioned somewhere
+// Invariant node-depends-on-exists When
+//     (Forall node-depends-on-ensured : node-depends-on-ensured.node-depends-on).
+// // Asserts that tasks exist when mentioned somewhere
+// Invariant task-exists When
+//     (Forall task-code : task-code.task).
+
+// Asserts that every workflow has at most 1 result that is being received by someone.
+Invariant workflow-at-most-one-result-recipient When
+    (Forall workflow : Count(Foreach asset, user : workflow-result-recipient(workflow-result(workflow, asset), user) When workflow-result-recipient(workflow-result(workflow, asset), user)) <= 1).
+
+// Asserts that every input has exactly one source location.
+Invariant node-input-exactly-one-from When
+    (Forall node-input : Count(Foreach domain : node-input-from(node-input, domain) When node-input-from(node-input, domain)) == 1).
+// Asserts that no node produces its own output.
+Invariant node-not-recursive-input-output When
+    (Forall node : Not(Exists asset : (node-input(node, asset) && node-output(node, asset)))).
+// Asserts that every node has at most 1 output.
+Invariant node-at-most-one-output When
+    (Forall node : Count(Foreach asset : node-output(node, asset) When node-output(node, asset)) <= 1).
+// Asserts that every node has exactly 1 assigned domain.
+Invariant node-exactly-one-at When
+    (Forall node : Count(Foreach domain : node-at(node, domain) When node-at(node, domain)) == 1).
+
+// Asserts that every task has exactly 1 function.
+Invariant task-exactly-one-function When
+    (Forall task : Count(Foreach function : function When (((function.node-input).node) == (task.node))) <= 1).
+// Asserts that every function is only linking code.
+Invariant function-over-code When
+    (Forall function : code((function.node-input).asset)).
+
+// Asserts every loop has exactly one body
+Invariant loop-exactly-one-body When
+    (Forall loop : Count(Foreach node : loop-body(loop, node) When loop-body(loop, node)) == 1).
+// Asserts that the input of a loop matches the first node in the loop's body
+Invariant loop-input-equals-body-input When
+    (Forall loop-body : (Forall asset : (node-input((loop-body.loop).node, asset) && node-input(loop-body.node, asset)) When (node-input((loop-body.loop).node, asset) || node-input(loop-body.node, asset)))).

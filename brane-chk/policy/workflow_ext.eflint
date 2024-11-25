@@ -1,0 +1,64 @@
+// WORKFLOW EXT.eflint
+//   by Lut99
+//
+// Created:
+//   30 Nov 2023, 11:33:50
+// Last edited:
+//   13 Dec 2023, 16:13:19
+// Auto updated?
+//   Yes
+//
+// Description:
+//   Defines Facts that can be derived from every workflow. Not part of the
+//   standard interface, but more like standard library.
+//
+
+#require "workflow_base.eflint".
+
+
+// Automatically derives that a node exists if a task, commit or loop exists.
+Extend Fact node
+    Derived from (Foreach task : task.node)
+    Derived from (Foreach commit : commit.node)
+    Derived from (Foreach loop : loop.node).
+
+// Unifies inputs and outputs of a node.
+Fact node-asset Identified by node * asset
+    Holds when (node-input(node, asset) || node-output(node, asset)).
+// Relates _code_ as what is being executed in a task. Can be at most 1.
+Fact task-code Identified by task * code
+    Derived from (Foreach node-input : task-code(task(node-input.node), code(node-input.asset)) When (task(node-input.node) && code(node-input.asset))).
+
+// Compute the assets on all domains that compute stuff
+Extend Fact asset-access
+    Derived from (Foreach node-input-from : asset-access((node-input-from.node-input).asset, (node-input-from.domain).user))
+    Derived from (Foreach node, asset, domain : asset-access(asset, domain.user) When ((node-asset(node, asset) || (task(node) && task-code(task(node), code(asset)))) && node-at(node, domain))).
+
+// Indicates that the input of the first node \*might\* depend on the output of the second. Whether this is actually the case depends on dynamic control flow.
+Fact node-depends-on Identified by node1 * node2
+    Conditioned by ((node1.workflow) == (node2.workflow))
+    Holds when node1 == node2
+    Holds when (Exists asset : node-input(node1, asset) && node-output(node2, asset))
+    Holds when (Exists node3 : node-depends-on(node1, node3) && node-depends-on(node3, node2)).
+// Derives a concrete relation of all the assets upon which a node \*might\* depend.
+Fact node-depends-on-asset Identified by node * asset
+    Derived from (Foreach node-depends-on, asset :
+        node-depends-on-asset(node-depends-on.node1, asset)
+            When node-input(node-depends-on.node2, asset)
+    ).
+// Derives a concrete relation of all the domains upon which a node \*might\* depend (i.e., where it's executed and gets all its input from).
+Fact node-depends-on-domain Identified by node * domain
+    Derived from (Foreach node-at : node-depends-on-domain(node-at.node, node-at.domain))
+    Derived from (Foreach node-input-from : node-depends-on-domain((node-input-from.node-input).node, node-input-from.domain)).
+
+// Derives all nodes that are dependencies of particular assets
+Fact asset-dependency-of-node Identified by asset * node
+    Derived from (Foreach node-depends-on-asset : asset-dependency-of-node(node-depends-on-asset.asset, node-depends-on-asset.node)).
+// Derives all the domains to which an asset downstreams.
+Fact asset-downstream-domain Identified by asset * domain
+    // An asset touches the domains from which it is downloaded
+    Derived from (Foreach node-input-from : asset-downstream-domain((node-input-from.node-input).asset, node-input-from.domain))
+    // An asset touches the domain of a task it's input or output of
+    Derived from (Foreach node-asset, domain : asset-downstream-domain(node-asset.asset, domain) When node-at(node-asset.node, domain))
+    // An asset touches the domains of all nodes that depend on it (since they need to see (a result of) it somehow)
+    Derived from (Foreach asset-dependency-of-node, domain : asset-downstream-domain(asset-dependency-of-node.asset, domain) When node-at(asset-dependency-of-node.node, domain)).

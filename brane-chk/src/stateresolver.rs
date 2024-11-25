@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    14 Nov 2024, 17:50:48
+//    25 Nov 2024, 12:02:47
 //  Auto updated?
 //    Yes
 //
@@ -27,7 +27,7 @@ use policy_reasoner::workflow::{Elem, ElemCall, Workflow};
 use policy_store::databases::sqlite::{SQLiteConnection, SQLiteDatabase};
 use policy_store::spec::authresolver::HttpError;
 use policy_store::spec::databaseconn::{DatabaseConnection as _, DatabaseConnector as _};
-use policy_store::spec::metadata::User;
+use policy_store::spec::metadata::{Metadata, User};
 use reqwest::{Response, StatusCode};
 use serde::de::DeserializeOwned;
 use specifications::address::Address;
@@ -356,11 +356,18 @@ async fn get_active_policy(db: &SQLiteDatabase<Vec<Phrase>>) -> Result<Cow<'stat
         Err(err) => return Err(Error::DatabaseGetActiveVersion { err }),
     };
 
+    debug!("Fetching active policy {version} metadata...");
+    let md: Metadata = match conn.get_version_metadata(version).await {
+        Ok(Some(md)) => md,
+        Ok(None) => return Err(Error::DatabaseInconsistentActive { version }),
+        Err(err) => return Err(Error::DatabaseGetActiveVersionMetadata { version, err }),
+    };
+
     debug!("Fetching active policy {version}...");
     match conn.get_version_content(version).await {
         Ok(Some(version)) => Ok(Cow::Owned(version)),
-        Ok(None) => return Err(Error::DatabaseInconsistentActive { version }),
-        Err(err) => return Err(Error::DatabaseGetActiveVersionContent { version, err }),
+        Ok(None) => Err(Error::DatabaseInconsistentActive { version }),
+        Err(err) => Err(Error::DatabaseGetActiveVersionContent { version, err }),
     }
 }
 

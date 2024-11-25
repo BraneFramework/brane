@@ -1,0 +1,25 @@
+// QUERIES.eflint
+//   by Lut99
+//
+// Created:
+//   07 Dec 2023, 16:51:58
+// Last edited:
+//   07 Dec 2023, 17:00:50
+// Auto updated?
+//   Yes
+//
+// Description:
+//   Defines the queries that can be asked by the checker to the policy.
+//
+
+#require "workflow_base.eflint"
+
+
+// Asks if a workflow as a whole is OK.
+Fact workflow-to-execute Identified by workflow.
+// Asks if a particular task is authorised by a checker in the context of a workflow.
+Fact task-to-execute Identified by task.
+// Asks if a particular input to a node can be transferred to the domain executing that node.
+Fact dataset-to-transfer Identified by node-input.
+// Asks if the result of a workflow may be transferred to the receiving party.
+Fact result-to-transfer Identified by workflow-result-recipient.
