@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:13:06
 //  Last edited:
-//    14 Nov 2024, 15:06:23
+//    25 Nov 2024, 21:18:09
 //  Auto updated?
 //    Yes
 //
@@ -12,7 +12,6 @@
 //!   The actual service entrypoint for the `brane-chk` service.
 //
 
-use std::borrow::Cow;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -131,7 +130,7 @@ async fn main() {
     let resolver: BraneStateResolver = BraneStateResolver::new(node.usecases);
 
     // Setup the reasoner connector
-    let reasoner: EFlintJsonReasonerConnector<_, Cow<'static, [Phrase]>, Question> =
+    let reasoner: EFlintJsonReasonerConnector<_, Vec<Phrase>, Question> =
         match EFlintJsonReasonerConnector::new_async(args.reasoner_addr, EFlintPrefixedReasonHandler::new(args.prefix), &logger).await {
             Ok(reasoner) => reasoner,
             Err(err) => {

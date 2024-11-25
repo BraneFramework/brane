@@ -4,7 +4,7 @@
 //  Created:
 //    25 Nov 2024, 12:08:33
 //  Last edited:
-//    25 Nov 2024, 12:12:47
+//    25 Nov 2024, 20:53:59
 //  Auto updated?
 //    Yes
 //
@@ -77,7 +77,7 @@ fn main() {
     };
 
     // Mark the input files as source-dependent
-    let interface_dir: PathBuf = src_dir.join("policy").join("eflint").join("interface");
+    let interface_dir: PathBuf = src_dir.join("policy");
     println!("cargo:rerun-if-changed={}", interface_dir.display());
     println!("cargo:rerun-if-env-changed=EFLINT_TO_JSON_PATH");
 

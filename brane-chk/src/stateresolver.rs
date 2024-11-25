@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    25 Nov 2024, 12:02:47
+//    25 Nov 2024, 21:17:42
 //  Auto updated?
 //    Yes
 //
@@ -12,7 +12,6 @@
 //!   Implements the Brane-specific state resolver.
 //
 
-use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::str::FromStr as _;
@@ -45,6 +44,11 @@ use crate::workflow::compile;
 /// The user used to represent ourselves in the backend.
 static DATABASE_USER: LazyLock<User> = LazyLock::new(|| User { id: "brane".into(), name: "Brane".into() });
 
+/// The base policy that it preprended to any given policy.
+static BASE_POLICY: LazyLock<Vec<Phrase>> = LazyLock::new(|| {
+    serde_json::from_str(include_str!(env!("BASE_DEFS_EFLINT_JSON"))).unwrap_or_else(|err| panic!("Failed to deserialize base policy: {err}"))
+});
+
 /// The special policy that is used when the database doesn't mention any active.
 static DENY_ALL_POLICY: LazyLock<Vec<Phrase>> = LazyLock::new(|| {
     vec![Phrase::Predicate(PhrasePredicate {
@@ -61,6 +65,9 @@ static DENY_ALL_POLICY: LazyLock<Vec<Phrase>> = LazyLock::new(|| {
 /***** ERRORS *****/
 #[derive(Debug, Error)]
 pub enum Error {
+    /// The active version in the backend was not suitable for our reasoner.
+    #[error("Active version {version} is not compatible with reasoner (policy is for {got:?}, but expected for {expected:?})")]
+    DatabaseActiveVersionMismatch { version: u64, got: String, expected: String },
     /// Failed to connect to the backend database.
     #[error("Failed to connect to the backend database as user 'brane'")]
     DatabaseConnect {
@@ -76,6 +83,13 @@ pub enum Error {
     /// Failed to get the active version from the backend database.
     #[error("Failed to get the contents of active version {version} from the backend database")]
     DatabaseGetActiveVersionContent {
+        version: u64,
+        #[source]
+        err:     policy_store::databases::sqlite::ConnectionError,
+    },
+    /// Failed to get the metadata of the active version from the backend database.
+    #[error("Failed to get the metadata of active version {version} from the backend database")]
+    DatabaseGetActiveVersionMetadata {
         version: u64,
         #[source]
         err:     policy_store::databases::sqlite::ConnectionError,
@@ -188,9 +202,11 @@ impl HttpError for Error {
     fn status_code(&self) -> StatusCode {
         use Error::*;
         match self {
-            DatabaseConnect { .. }
+            DatabaseActiveVersionMismatch { .. }
+            | DatabaseConnect { .. }
             | DatabaseGetActiveVersion { .. }
             | DatabaseGetActiveVersionContent { .. }
+            | DatabaseGetActiveVersionMetadata { .. }
             | DatabaseInconsistentActive { .. }
             | PackageIndex { .. }
             | Request { .. }
@@ -331,13 +347,12 @@ async fn assert_workflow_context(wf: &Workflow, usecase: &str, usecases: &HashMa
 ///
 /// # Arguments
 /// - `db`: The [`SQLiteDatabase`] connector that we use to talk to the database.
-///
-/// # Returns
-/// A [`Vec<Phrase>`](Phrase) that represents the active policy.
+/// - `res`: Appends the active policy to this list. If there is somehow a disabled policy, the
+///   policy is completely overwritten.
 ///
 /// # Errors
 /// This function errors if we failed to interact with the database, or if no policy was currently active.
-async fn get_active_policy(db: &SQLiteDatabase<Vec<Phrase>>) -> Result<Cow<'static, [Phrase]>, Error> {
+async fn get_active_policy(db: &SQLiteDatabase<Vec<Phrase>>, res: &mut Vec<Phrase>) -> Result<(), Error> {
     // Time to fetch a connection
     debug!("Connecting to backend database...");
     let mut conn: SQLiteConnection<Vec<Phrase>> = match db.connect(&*DATABASE_USER).await {
@@ -351,7 +366,8 @@ async fn get_active_policy(db: &SQLiteDatabase<Vec<Phrase>>) -> Result<Cow<'stat
         Ok(Some(pol)) => pol,
         Ok(None) => {
             warn!("No active policy set in database; assuming builtin VIOLATION policy");
-            return Ok(Cow::Borrowed(&*DENY_ALL_POLICY));
+            *res = DENY_ALL_POLICY.clone();
+            return Ok(());
         },
         Err(err) => return Err(Error::DatabaseGetActiveVersion { err }),
     };
@@ -362,10 +378,22 @@ async fn get_active_policy(db: &SQLiteDatabase<Vec<Phrase>>) -> Result<Cow<'stat
         Ok(None) => return Err(Error::DatabaseInconsistentActive { version }),
         Err(err) => return Err(Error::DatabaseGetActiveVersionMetadata { version, err }),
     };
+    if &md.attached.language.as_bytes()[..12] != b"eflint-json-"
+        || &md.attached.language.as_bytes()[12..] != env!("BASE_DEFS_EFLINT_JSON_HASH").as_bytes()
+    {
+        return Err(Error::DatabaseActiveVersionMismatch {
+            version,
+            got: md.attached.language,
+            expected: format!("eflint-json-{}", env!("BASE_DEFS_EFLINT_JSON_HASH")),
+        });
+    }
 
     debug!("Fetching active policy {version}...");
     match conn.get_version_content(version).await {
-        Ok(Some(version)) => Ok(Cow::Owned(version)),
+        Ok(Some(version)) => {
+            res.extend(version);
+            Ok(())
+        },
         Ok(None) => Err(Error::DatabaseInconsistentActive { version }),
         Err(err) => Err(Error::DatabaseGetActiveVersionContent { version, err }),
     }
@@ -723,12 +751,23 @@ impl BraneStateResolver {
     ///
     /// # Returns
     /// A new StateResolver, ready to resolve state.
+    ///
+    /// # Panics
+    /// This function uses the embedded, compiled eFLINT base code (see the `policy`-directory in
+    /// its manifest directory). Building the state resolver will trigger the first load, if any,
+    /// and this may panic if the input is somehow ill-formed.
     #[inline]
-    pub fn new(usecases: impl IntoIterator<Item = (String, WorkerUsecase)>) -> Self { Self { usecases: usecases.into_iter().collect() } }
+    pub fn new(usecases: impl IntoIterator<Item = (String, WorkerUsecase)>) -> Self {
+        // Trigger loading the embedded file to be sure it's already properly deserialized
+        LazyLock::force(&BASE_POLICY);
+
+        // OK, let's go
+        Self { usecases: usecases.into_iter().collect() }
+    }
 }
 impl StateResolver for BraneStateResolver {
     type Error = Error;
-    type Resolved = (Cow<'static, [Phrase]>, Question);
+    type Resolved = (Vec<Phrase>, Question);
     type State = Input;
 
     fn resolve<'a, L>(
@@ -750,7 +789,8 @@ impl StateResolver for BraneStateResolver {
 
 
             // First, resolve the policy by calling the store
-            let policy: Cow<[Phrase]> = get_active_policy(&state.store).await?;
+            let mut policy: Vec<Phrase> = BASE_POLICY.clone();
+            get_active_policy(&state.store, &mut policy).await?;
 
 
             // Then resolve the workflow and create the appropriate question
