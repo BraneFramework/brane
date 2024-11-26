@@ -25,7 +25,9 @@ use std::{error, mem};
 
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Completion, Confirm, History, Input, Select};
-use log::warn;
+use log::{info, warn};
+
+const HISTORY_CAPACITY: usize = 500;
 
 
 /***** ERRORS *****/
@@ -77,6 +79,20 @@ pub struct FileHistory {
 }
 
 impl FileHistory {
+    /// Create an empty File History
+    ///
+    /// # Arguments
+    /// - `path`: Points to the location of this history's file.
+    ///
+    /// # Returns
+    /// A new FileHistory instance.
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            history: Default::default(),
+        }
+    }
+
     /// Constructor for the FileHistory.
     ///
     /// Attempts to read the history from the given `path`, and writes it back when this struct is dropped (unless [`Self::forget()`] is called). To this end, avoid having two FileHistory's that point to the same file.
@@ -89,22 +105,15 @@ impl FileHistory {
     ///
     /// # Warnings
     /// This function emits warnings using [`warn!()`] when it fails to read the file.
-    pub fn new(path: impl Into<PathBuf>) -> Self {
+    pub fn from_file(path: impl Into<PathBuf>) -> Result<Self, std::io::Error> {
         let path: PathBuf = path.into();
 
         // Attempt to read the file
-        let raw: String = match fs::read_to_string(&path) {
-            Ok(raw) => raw,
-            Err(err) => {
-                warn!("Failed to read history file '{}': {}", path.display(), err);
-                return Self { path, history: VecDeque::new() };
-            },
-        };
+        let raw: String = fs::read_to_string(&path)?;
 
         // Store it as line-separated, and restore escaped characters
         let iter = raw.lines().map(|s| s.to_string());
-        let size_hint = iter.size_hint();
-        let mut history: VecDeque<String> = VecDeque::with_capacity(size_hint.1.unwrap_or(size_hint.0));
+        let mut history: VecDeque<String> = Default::default();
         for line in iter {
             // Deflate the special characters by parsing them
             let mut escaping: bool = false;
@@ -127,7 +136,23 @@ impl FileHistory {
         }
 
         // We can now save the restored history
-        Self { path, history }
+        Ok(Self { path, history })
+    }
+
+    /// Read a file history from disk or create a new instance
+    ///
+    /// # Arguments
+    /// - `path`: Points to the location of this history's file.
+    ///
+    /// # Returns
+    /// A new FileHistory instance.
+    pub fn from_file_or_new(path: impl Into<PathBuf>) -> Self {
+        let path: PathBuf = path.into();
+
+        Self::from_file(path.clone()).unwrap_or_else(|err| {
+            info!("Failed to read history file '{}': {}", path.display(), err);
+            Self::new(path)
+        })
     }
 
     /// Drops this history without saving it.
@@ -171,7 +196,7 @@ impl History<String> for FileHistory {
 
     fn write(&mut self, val: &String) {
         // Pop the front if we don't have the space
-        while self.history.len() >= 500 {
+        while self.history.len() >= HISTORY_CAPACITY {
             self.history.pop_back();
         }
 
@@ -364,6 +389,71 @@ where
         match S::from_str(&res) {
             Ok(res) => {
                 return Ok(res);
+            },
+            Err(err) => {
+                warn!("Failed to parse '{}' as {}: {}", res, std::any::type_name::<S>(), err);
+                prompt = format!("Illegal value for {what}; try again");
+            },
+        }
+    }
+}
+
+// This function is mostly necessary as we cannot implement FromStr for Option<Address>. We could
+// return a String and then parse it later again, but this has the downside that we cannot
+// guarantee using the type system that this is sound, so we would need to unwrap.
+// If somebody thinks of a way to integrate this directly into `input()`. I'm all for it.
+// TODO: Documentation
+pub fn input_option<S, VA>(
+    what: impl Display,
+    prompt: impl ToString,
+    default: Option<impl Into<S>>,
+    validator: Option<VA>,
+    mut history: Option<impl History<String>>,
+) -> Result<Option<S>, Error>
+where
+    S: FromStr + ToString,
+    S::Err: error::Error,
+    VA: dialoguer::InputValidator<String>,
+    VA::Err: ToString,
+{
+    // Preprocess the input
+    let mut prompt: String = prompt.to_string();
+    let default: Option<S> = default.map(|d| d.into());
+
+    // Loop until the user enters a valid value.
+    let theme: ColorfulTheme = ColorfulTheme::default();
+
+    // Construct the prompt
+    let mut input: Input<String> = Input::with_theme(&theme);
+    if let Some(default) = &default {
+        input = input.default(default.to_string());
+    }
+    if let Some(history) = &mut history {
+        input = input.history_with(history);
+    }
+
+    if let Some(validator) = validator {
+        input = input.validate_with(validator);
+    }
+
+    loop {
+        let input = input.clone().with_prompt(&prompt);
+        // Run the prompt
+        let res: String = match input.interact_text() {
+            Ok(res) => res,
+            Err(err) => {
+                return Err(Error::Text { err });
+            },
+        };
+
+        if res.trim().is_empty() {
+            return Ok(None);
+        }
+
+        // Attempt to parse it as S
+        match S::from_str(&res) {
+            Ok(res) => {
+                return Ok(Some(res));
             },
             Err(err) => {
                 warn!("Failed to parse '{}' as {}: {}", res, std::any::type_name::<S>(), err);
@@ -596,6 +686,7 @@ where
 ///
 /// # Errors
 /// This function errors if we failed to interact with the user.
+// TODO: This should be display preferable I would think
 pub fn select<S: ToString>(prompt: impl ToString, options: impl IntoIterator<Item = S>, default: Option<usize>) -> Result<S, Error> {
     // Collect the options
     let mut options: Vec<S> = options.into_iter().collect();
@@ -604,6 +695,36 @@ pub fn select<S: ToString>(prompt: impl ToString, options: impl IntoIterator<Ite
     let theme: ColorfulTheme = ColorfulTheme::default();
     let mut input: Select = Select::with_theme(&theme);
     input = input.with_prompt(prompt.to_string()).default(default.unwrap_or(0)).items(&options).report(true);
+
+    // Run it
+    match input.interact() {
+        Ok(index) => Ok(options.swap_remove(index)),
+        Err(err) => Err(Error::Select { n_opts: options.len(), err }),
+    }
+}
+
+/// Prompts the user to select on the given values.
+///
+/// # Arguments
+/// - `prompt`: The prompt to display to the user.
+/// - `options`: A list of options to select from.
+/// - `default`: If not [`None`], then the select highlights another item than the first.
+///
+/// # Returns
+/// The selected option. If the user aborted the select, [`None`] is returned instead.
+///
+/// # Errors
+/// This function errors if we failed to interact with the user.
+pub fn select_enum<T: Display + PartialEq>(prompt: impl ToString, options: impl IntoIterator<Item = T>, default: Option<T>) -> Result<T, Error> {
+    // Collect the options
+    let mut options: Vec<T> = options.into_iter().collect();
+
+    // Construct the prompt
+    let theme: ColorfulTheme = ColorfulTheme::default();
+    let mut input: Select = Select::with_theme(&theme);
+    let default_index: usize = default.and_then(|item| options.iter().position(|elem| elem == &item)).unwrap_or(0);
+
+    input = input.with_prompt(prompt.to_string()).default(default_index).items(&options).report(true);
 
     // Run it
     match input.interact() {

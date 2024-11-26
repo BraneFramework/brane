@@ -63,7 +63,57 @@ impl Error for AddressError {
 
 
 
+#[derive(Clone, Debug, EnumDebug, Hash, PartialEq, Eq)]
+pub enum Host {
+    Ipv4(Ipv4Addr),
+    Ipv6(Ipv6Addr),
+    Hostname(String),
+}
 
+impl From<Ipv4Addr> for Host {
+    fn from(value: Ipv4Addr) -> Self { Self::Ipv4(value) }
+}
+
+impl From<Ipv6Addr> for Host {
+    fn from(value: Ipv6Addr) -> Self { Self::Ipv6(value) }
+}
+
+impl From<(Host, u16)> for Address {
+    fn from((host, port): (Host, u16)) -> Self {
+        match host {
+            Host::Ipv4(x) => Self::Ipv4(x, port),
+            Host::Ipv6(x) => Self::Ipv6(x, port),
+            Host::Hostname(x) => Self::Hostname(x, port),
+        }
+    }
+}
+
+impl FromStr for Host {
+    type Err = std::convert::Infallible;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if let Ok(value) = value.parse::<Ipv4Addr>() {
+            return Ok(Self::Ipv4(value));
+        }
+
+        if let Ok(value) = value.parse::<Ipv6Addr>() {
+            return Ok(Self::Ipv6(value));
+        }
+
+        Ok(Self::Hostname(value.to_string()))
+    }
+}
+
+impl Display for Host {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use Host::*;
+        match self {
+            Ipv4(addr) => write!(f, "{addr}"),
+            Ipv6(addr) => write!(f, "{addr}"),
+            Hostname(addr) => write!(f, "{addr}"),
+        }
+    }
+}
 
 /***** LIBRARY *****/
 /// Defines a more lenient alternative to a SocketAddr that also accepts hostnames.
@@ -89,6 +139,8 @@ impl Address {
     /// # Returns
     /// A new Address instance.
     #[inline]
+    // TODO: Maybe it is better to just implement From<(Ipv4Addr>, u16)>
+    // Having n+1 constructors seems a bit excessive
     pub fn ipv4(b1: u8, b2: u8, b3: u8, b4: u8, port: u16) -> Self { Self::Ipv4(Ipv4Addr::new(b1, b2, b3, b4), port) }
 
     /// Constructor for the Address that initializes it for the given IPv4 address.

@@ -20,6 +20,7 @@ pub mod address;
 pub mod arch;
 pub mod checking;
 pub mod common;
+pub mod constants;
 pub mod container;
 pub mod data;
 pub mod driving;

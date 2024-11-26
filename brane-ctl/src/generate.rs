@@ -586,7 +586,7 @@ struct CfsslCsrKey {
 
 
 /***** LIBRARY *****/
-/// Handles generating a new `node.yml` config file for a central _or_ worker node.
+/// Handles creating a new `node.yml` config file for a central, worker, _or_ proxy node.
 ///
 /// # Arguments
 /// - `path`: The path to write the central node.yml to.
@@ -600,14 +600,39 @@ struct CfsslCsrKey {
 ///
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub fn node(
+pub fn node (
     path: impl Into<PathBuf>,
     hosts: Vec<Pair<String, ':', IpAddr>>,
     fix_dirs: bool,
     config_path: impl Into<PathBuf>,
     command: GenerateNodeSubcommand,
 ) -> Result<(), Error> {
-    let path: PathBuf = path.into();
+    // TODO: AsRef Path is probably nicer
+    let path = path.into();
+    let node = generate_node(hosts, fix_dirs, config_path, command)?;
+    write_node(node, &path)
+}
+
+/// Handles creating a new NodeConfig object for a central, worker, _or_ proxy node.
+///
+/// # Arguments
+/// - `path`: The path to write the central node.yml to.
+/// - `hosts`: List of additional hostnames to set in the launched containers.
+/// - `fix_dirs`: if true, will generate missing directories instead of complaining.
+/// - `config_path`: The path to the config directory that other paths may use as their base.
+/// - `command`: The GenerateSubcommand that contains the specific values to write, as well as whether to write a central or worker node.
+///
+/// # Returns
+/// A NodeConfig object constructed using the provided parameters
+///
+/// # Errors
+/// This function may error if I/O errors occur while writing the file.
+pub fn generate_node(
+    hosts: Vec<Pair<String, ':', IpAddr>>,
+    fix_dirs: bool,
+    config_path: impl Into<PathBuf>,
+    command: GenerateNodeSubcommand,
+) -> Result<NodeConfig, Error> {
     let config_path: PathBuf = config_path.into();
     info!("Generating node.yml for a {}...", match &command {
         GenerateNodeSubcommand::Central { .. } => {
@@ -654,12 +679,15 @@ pub fn node(
             plr_port,
         } => {
             // Remove any scheme, paths, ports, whatever from the hostname
-            let mut hostname: &str = &hostname;
-            if let Some(pos) = hostname.find("://") {
-                hostname = &hostname[pos + 3..];
-            }
-            hostname = hostname.split(':').next().unwrap();
-            hostname = hostname.split('/').next().unwrap();
+            let hostname = match hostname.split_once("://") {
+                Some((_scheme, hostname)) => hostname,
+                None => &hostname
+            };
+
+            let hostname = match hostname.split_once([':', '/']) {
+                Some((hostname, _port_uri)) => hostname,
+                None => hostname,
+            };
 
             // Resolve any path depending on the '$CONFIG'
             let infra: PathBuf = resolve_config_path(infra, &config_path);
@@ -667,6 +695,8 @@ pub fn node(
             let certs: PathBuf = resolve_config_path(certs, &config_path);
 
             // Ensure the directory structure is there
+            // TODO: Does not really seem like the responsibility of generating a node as if these
+            // dont exist we probably have bigger problems.
             ensure_dir_of(&infra, fix_dirs)?;
             ensure_dir_of(&proxy, fix_dirs)?;
             ensure_dir(&certs, fix_dirs)?;
@@ -754,12 +784,15 @@ pub fn node(
             chk_port,
         } => {
             // Remove any scheme, paths, ports, whatever from the hostname
-            let mut hostname: &str = &hostname;
-            if let Some(pos) = hostname.find("://") {
-                hostname = &hostname[pos + 3..];
-            }
-            hostname = hostname.split(':').next().unwrap();
-            hostname = hostname.split('/').next().unwrap();
+            let hostname = match hostname.split_once("://") {
+                Some((_scheme, hostname)) => hostname,
+                None => &hostname
+            };
+
+            let hostname = match hostname.split_once([':', '/']) {
+                Some((hostname, _port_uri)) => hostname,
+                None => hostname,
+            };
 
             // Resolve the service names
             let prx_name: String = prx_name.replace("$LOCATION", &location_id);
@@ -855,12 +888,15 @@ pub fn node(
         // Generate the proxy node
         GenerateNodeSubcommand::Proxy { hostname, proxy, certs, prx_name, prx_port } => {
             // Remove any scheme, paths, ports, whatever from the hostname
-            let mut hostname: &str = &hostname;
-            if let Some(pos) = hostname.find("://") {
-                hostname = &hostname[pos + 3..];
-            }
-            hostname = hostname.split(':').next().unwrap();
-            hostname = hostname.split('/').next().unwrap();
+            let hostname = match hostname.split_once("://") {
+                Some((_scheme, hostname)) => hostname,
+                None => &hostname
+            };
+
+            let hostname = match hostname.split_once([':', '/']) {
+                Some((hostname, _port_uri)) => hostname,
+                None => hostname,
+            };
 
             // Resolve any path depending on the '$CONFIG'
             let proxy: PathBuf = resolve_config_path(proxy, &config_path);
@@ -892,26 +928,29 @@ pub fn node(
         },
     };
 
+    // Done
+    Ok(node_config)
+}
+
+/// Writes a node config to a file. Appends stuff like a header.
+/// TODO: This needs to be a method on NodeConfig
+fn write_node(node: NodeConfig, path: impl AsRef<Path>) -> Result<(), Error> {
+    let path = path.as_ref();
     // Open the file and write a header to it
     debug!("Writing to '{}'...", path.display());
-    let mut handle: File = match File::create(&path) {
-        Ok(handle) => handle,
-        Err(err) => {
-            return Err(Error::FileCreateError { what: "node.yml", path, err });
-        },
-    };
+    let mut handle = File::create(&path)
+        .map_err(|err| Error::FileCreateError { what: "node.yml", path: path.to_owned(), err })?;
 
     // Write the top comment header thingy
-    if let Err(err) = write_node_header(&mut handle) {
-        return Err(Error::FileHeaderWriteError { what: "infra.yml", path, err });
-    }
-    // Write the file itself
-    if let Err(err) = node_config.to_writer(handle, true) {
-        return Err(Error::FileBodyWriteError { what: "infra.yml", path, err });
-    }
+    write_node_header(&mut handle)
+        .map_err(|err| Error::FileHeaderWriteError { what: "infra.yml", path: path.to_owned(), err })?;
 
-    // Done
+    // Write the file itself
+    node.to_writer(handle, true)
+        .map_err(|err| Error::FileBodyWriteError { what: "infra.yml", path: path.to_owned(), err })?;
+
     println!("Successfully generated {}", style(path.display().to_string()).bold().green());
+
     Ok(())
 }
 
@@ -1176,7 +1215,7 @@ pub fn infra(
     job_ports: Vec<Pair<String, '=', u16>>,
 ) -> Result<(), Error> {
     let path: PathBuf = path.into();
-    info!("Generating creds.yml...");
+    info!("Generating infra.yml...");
 
     // Create the locations
     debug!("Generating infrastructure information...");
@@ -1320,7 +1359,7 @@ pub fn backend(
 ///
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub async fn policy_database(fix_dirs: bool, path: PathBuf, branch: String) -> Result<(), Error> {
+pub async fn policy_database(fix_dirs: bool, path: PathBuf, branch: &str) -> Result<(), Error> {
     info!("Generating policies.db at '{}'...", path.display());
 
     // First, touch the file alive
@@ -1336,35 +1375,31 @@ pub async fn policy_database(fix_dirs: bool, path: PathBuf, branch: String) -> R
     let (_dir, migrations): (TempDir, FileBasedMigrations) = {
         // Prepare the input URL and output directory
         let url = format!("https://api.github.com/repos/epi-project/policy-reasoner/tarball/{branch}");
-        let dir = match TempDir::new() {
-            Ok(dir) => dir,
-            Err(err) => {
-                return Err(Error::TempDirError { err });
-            },
-        };
+
+        let dir = TempDir::new().map_err(|err| Error::TempDirError { err })?;
 
         // Download the file
         let tar_path: PathBuf = dir.path().join("repo.tar.gz");
         let dir_path: PathBuf = dir.path().join("repo");
-        if let Err(err) = brane_shr::fs::download_file_async(&url, &tar_path, DownloadSecurity { checksum: None, https: true }, None).await {
-            return Err(Error::RepoDownloadError { repo: url, target: dir_path, err });
-        }
-        if let Err(err) = brane_shr::fs::unarchive_async(&tar_path, &dir_path).await {
-            return Err(Error::RepoUnpackError { tar: tar_path, target: dir_path, err });
-        }
+
+        brane_shr::fs::download_file_async(&url, &tar_path, DownloadSecurity { checksum: None, https: true }, None)
+            .await
+            .map_err(|err| Error::RepoDownloadError { repo: url, target: dir_path.clone(), err })?;
+
+        brane_shr::fs::unarchive_async(&tar_path, &dir_path).await.map_err(|err| Error::RepoUnpackError {
+            tar: tar_path,
+            target: dir_path.clone(),
+            err,
+        })?;
+
         // Resolve that one weird folder in there
-        let dir_path: PathBuf = match brane_shr::fs::recurse_in_only_child_async(&dir_path).await {
-            Ok(path) => path,
-            Err(err) => {
-                return Err(Error::RepoRecurseError { target: dir_path, err });
-            },
-        };
+        let dir_path: PathBuf =
+            brane_shr::fs::recurse_in_only_child_async(&dir_path).await.map_err(|err| Error::RepoRecurseError { target: dir_path, err })?;
 
         // Read that as the migrations
-        let migrations: FileBasedMigrations = match FileBasedMigrations::find_migrations_directory_in_path(&dir_path) {
-            Ok(migrations) => migrations,
-            Err(err) => return Err(Error::MigrationsRetrieve { path: dir_path, err }),
-        };
+        let migrations: FileBasedMigrations =
+            FileBasedMigrations::find_migrations_directory_in_path(&dir_path).map_err(|err| Error::MigrationsRetrieve { path: dir_path, err })?;
+
         (dir, migrations)
     };
 

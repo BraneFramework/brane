@@ -98,7 +98,7 @@ async fn main() {
 
             GenerateSubcommand::PolicyDatabase { fix_dirs, path, branch } => {
                 // Call the thing
-                if let Err(err) = generate::policy_database(fix_dirs, path, branch).await {
+                if let Err(err) = generate::policy_database(fix_dirs, path, &branch).await {
                     error!("{}", err.trace());
                     std::process::exit(1);
                 }
@@ -150,7 +150,7 @@ async fn main() {
         },
         CtlSubcommand::Wizard(subcommand) => match *subcommand {
             WizardSubcommand::Setup {} => {
-                if let Err(err) = wizard::setup() {
+                if let Err(err) = wizard::Wizard::run().await {
                     error!("{}", err.trace());
                     std::process::exit(1);
                 }

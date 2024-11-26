@@ -164,3 +164,42 @@ where
         }
     }
 }
+
+/// Implenents a validator for optional fields. This either inputs that are valid for the wrapped
+/// validator or empty string (and whitespace characters)
+// Unfortunately, due to the orphan rule we cannot simply implement this for Option<V>, so we have
+// to wrap it.
+pub struct OptionValidator<T, V>
+where
+    T: std::str::FromStr,
+    V: InputValidator<T>,
+{
+    pub validator: V,
+    _fd: std::marker::PhantomData<T>,
+}
+
+impl<T, V> InputValidator<T> for OptionValidator<T, V>
+where
+    V: InputValidator<T>,
+    T: ToString,
+    T: std::str::FromStr,
+{
+    type Err = V::Err;
+
+    fn validate(&mut self, input: &T) -> Result<(), Self::Err> {
+        if input.to_string().trim().is_empty() {
+            return Ok(());
+        }
+
+        return self.validator.validate(input);
+    }
+}
+
+impl<T, V> Default for OptionValidator<T, V>
+where
+    T: std::str::FromStr,
+    V: InputValidator<T>,
+    V: Default,
+{
+    fn default() -> Self { Self { validator: Default::default(), _fd: std::marker::PhantomData } }
+}

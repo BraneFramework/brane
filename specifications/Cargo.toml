@@ -16,6 +16,7 @@ chrono = { version = "0.4.35", features = ["serde"] }
 const_format = "0.2.22"
 enum-debug.workspace = true
 futures = "0.3.24"
+indoc = "2.0.5"
 # lazy_static = "1.4.0"
 jsonwebtoken = "9.2.0"
 log = "0.4.22"

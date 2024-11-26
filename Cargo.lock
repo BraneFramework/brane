@@ -685,10 +685,12 @@ dependencies = [
  "eflint-to-json",
  "enum-debug",
  "error-trace",
+ "gethostname",
  "hex-literal",
  "human-panic 2.0.2",
  "humanlog",
  "humantime",
+ "indoc",
  "jsonwebtoken",
  "lazy_static",
  "log",
@@ -1885,6 +1887,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gethostname"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc3655aa6818d65bc620d6911f05aa7b6aeb596291e1e9f79e52df85583d1e30"
+dependencies = [
+ "rustix",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2582,6 +2594,12 @@ dependencies = [
  "portable-atomic",
  "unicode-width",
 ]
+
+[[package]]
+name = "indoc"
+version = "2.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b248f5224d1d606005e02c97f5aa4e88eeb230488bcc03bc9ca4d7991399f2b5"
 
 [[package]]
 name = "instant"
@@ -4193,6 +4211,7 @@ dependencies = [
  "const_format",
  "enum-debug",
  "futures",
+ "indoc",
  "jsonwebtoken",
  "log",
  "num-traits",
