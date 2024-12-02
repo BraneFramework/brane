@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:13:06
 //  Last edited:
-//    25 Nov 2024, 21:18:09
+//    02 Dec 2024, 15:28:20
 //  Auto updated?
 //    Yes
 //
@@ -16,10 +16,11 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use axum::Router;
 use brane_cfg::info::Info;
 use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
+use brane_chk::apis::{Deliberation, inject_reasoner_api};
 use brane_chk::question::Question;
-use brane_chk::server::Server;
 use brane_chk::stateresolver::BraneStateResolver;
 use clap::Parser;
 use eflint_json::spec::Phrase;
@@ -32,7 +33,6 @@ use policy_store::auth::jwk::JwkResolver;
 use policy_store::auth::jwk::keyresolver::KidResolver;
 use policy_store::databases::sqlite::SQLiteDatabase;
 use policy_store::servers::axum::AxumServer;
-use policy_store::spec::Server as _;
 use tracing::{Level, error, info};
 
 
@@ -64,10 +64,13 @@ struct Arguments {
 
     /// The path to the deliberation API keystore.
     #[clap(short = 'k', long, default_value = "./delib_keys.json")]
-    delib_keys: PathBuf,
+    delib_keys:    PathBuf,
     /// The path to the store API keystore.
     #[clap(short = 'K', long, default_value = "./store_keys.json")]
-    store_keys: PathBuf,
+    store_keys:    PathBuf,
+    /// The path to the reasoner API keystore.
+    #[clap(short = 'r', long, default_value = "./reasoner_keys.json")]
+    reasoner_keys: PathBuf,
 
     /// The path to the output log file.
     #[clap(short = 'l', long, default_value = "./checker.log")]
@@ -76,8 +79,8 @@ struct Arguments {
     #[clap(short = 'd', long, default_value = "./policies.db")]
     database_path: PathBuf,
     /// The address of the eFLINT reasoner to connect to.
-    #[clap(short = 'r', long, default_value = "localhost:8080")]
-    reasoner_addr: String,
+    #[clap(short = 'b', long, default_value = "localhost:8080")]
+    backend_addr: String,
     /// Any prefix that, when given, reveals certain violations.
     #[clap(short = 'p', long, default_value = "pub-")]
     prefix: String,
@@ -130,9 +133,9 @@ async fn main() {
     let resolver: BraneStateResolver = BraneStateResolver::new(node.usecases);
 
     // Setup the reasoner connector
-    let reasoner: EFlintJsonReasonerConnector<_, Vec<Phrase>, Question> =
-        match EFlintJsonReasonerConnector::new_async(args.reasoner_addr, EFlintPrefixedReasonHandler::new(args.prefix), &logger).await {
-            Ok(reasoner) => reasoner,
+    let reasoner: Arc<EFlintJsonReasonerConnector<_, Vec<Phrase>, Question>> =
+        match EFlintJsonReasonerConnector::new_async(args.backend_addr, EFlintPrefixedReasonHandler::new(args.prefix), &logger).await {
+            Ok(reasoner) => Arc::new(reasoner),
             Err(err) => {
                 error!("{}", trace!(("Failed to create EFlintJsonReasonerConnector"), err));
                 std::process::exit(1);
@@ -142,7 +145,8 @@ async fn main() {
 
 
     /* Step 2: Setup the deliberation & store APIs */
-    let delib: Server<_, _, _> = match Server::new(args.delib_addr, &args.delib_keys, conn.clone(), resolver, reasoner, logger) {
+    // Deliberation
+    let delib: Deliberation<_, _, _> = match Deliberation::new(args.delib_addr, &args.delib_keys, conn.clone(), resolver, reasoner.clone(), logger) {
         Ok(server) => server,
         Err(err) => {
             error!("{}", trace!(("Failed to create deliberation API server"), err));
@@ -150,6 +154,7 @@ async fn main() {
         },
     };
 
+    // Store
     let resolver: KidResolver = match KidResolver::new(&args.store_keys) {
         Ok(resolver) => resolver,
         Err(err) => {
@@ -157,7 +162,10 @@ async fn main() {
             std::process::exit(1);
         },
     };
-    let store: AxumServer<_, _> = AxumServer::new(args.store_addr, JwkResolver::new("username", resolver), conn);
+    let store: Arc<AxumServer<_, _>> = Arc::new(AxumServer::new(args.store_addr, JwkResolver::new("username", resolver), conn));
+
+    // Also inject the reasoner context endpoint
+    let paths: Router<()> = inject_reasoner_api(store.clone(), reasoner, AxumServer::routes(store.clone()));
 
 
 
@@ -170,7 +178,7 @@ async fn main() {
                 std::process::exit(1);
             }
         },
-        res = store.serve() => match res {
+        res = AxumServer::serve_router(store, paths) => match res {
             Ok(_) => info!("Terminated."),
             Err(err) => {
                 error!("{}", trace!(("Failed to host store API"), err));

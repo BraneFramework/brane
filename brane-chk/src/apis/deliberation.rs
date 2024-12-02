@@ -4,7 +4,7 @@
 //  Created:
 //    28 Oct 2024, 20:44:52
 //  Last edited:
-//    14 Nov 2024, 17:49:50
+//    02 Dec 2024, 14:39:49
 //  Auto updated?
 //    Yes
 //
@@ -63,7 +63,7 @@ pub const INITIATOR_CLAIM: &'static str = "username";
 
 
 /***** ERRORS *****/
-/// Defines errors originating from the bowels of the [`Server`].
+/// Defines errors originating from the bowels of the [`Deliberation`].
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to create the KID resolver")]
@@ -141,8 +141,8 @@ async fn download_request<T: DeserializeOwned>(request: Request) -> Result<T, (S
 
 
 /***** LIBRARY *****/
-/// Defines a Brane-compliant Checker API server.
-pub struct Server<S, P, L> {
+/// Defines a Brane-compliant deliberation API server.
+pub struct Deliberation<S, P, L> {
     /// The address on which to bind the server.
     addr:     SocketAddr,
     /// The auth resolver for resolving auth.
@@ -152,15 +152,15 @@ pub struct Server<S, P, L> {
     /// The state resolver for resolving state.
     resolver: S,
     /// The reasoner connector for connecting to reasoners.
-    reasoner: P,
+    reasoner: Arc<P>,
     /// The logger for logging!
     logger:   L,
 }
-impl<S, P, L> Server<S, P, L> {
-    /// Constructor for the Server.
+impl<S, P, L> Deliberation<S, P, L> {
+    /// Constructor for the Deliberation.
     ///
     /// # Arguments
-    /// - `addr`: The address on which to listen once [`serve()`](Server::serve())ing.
+    /// - `addr`: The address on which to listen once [`serve()`](Deliberation::serve())ing.
     /// - `keystore_path`: The path to the keystore file that maps KIDs to the key used for
     ///   encrypting/decrypting login JWTs.
     /// - `store`: A shared ownership of the [`SQLiteDatabase`] that we use for accessing policies.
@@ -169,14 +169,14 @@ impl<S, P, L> Server<S, P, L> {
     /// - `logger`: The [`AuditLogger`] that will log what the reasoner is doing.
     ///
     /// # Returns
-    /// A new Server, ready to handle requests or something.
+    /// A new Deliberation, ready to handle requests or something.
     #[inline]
     pub fn new(
         addr: impl Into<SocketAddr>,
         keystore_path: impl AsRef<Path>,
         store: Arc<SQLiteDatabase<Vec<Phrase>>>,
         resolver: S,
-        reasoner: P,
+        reasoner: Arc<P>,
         logger: L,
     ) -> Result<Self, Error> {
         // Attempt to create the KidResolver
@@ -191,7 +191,7 @@ impl<S, P, L> Server<S, P, L> {
 }
 
 // Paths
-impl<S, P, L> Server<S, P, L>
+impl<S, P, L> Deliberation<S, P, L>
 where
     S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
     S::Error: HttpError,
@@ -245,13 +245,13 @@ where
         }
     }
 
-    /// Authorization middle layer for the Server.
+    /// Authorization middle layer for the Deliberation.
     ///
     /// This will read the `Authorization` header in the incoming request for a token that
     /// identifies the user. The request will be interrupted if the token is missing, invalid or
     /// not (properly) signed.
     async fn authorize(State(context): State<Arc<Self>>, ConnectInfo(client): ConnectInfo<SocketAddr>, mut request: Request, next: Next) -> Response {
-        let _span = span!(Level::INFO, "Server::authorize", client = client.to_string());
+        let _span = span!(Level::INFO, "Deliberation::authorize", client = client.to_string());
 
         // Do the auth thingy
         let user: User = match context.auth.authorize(request.headers()).await {
@@ -311,7 +311,7 @@ where
             // Continue with the agnostic function for maintainability
             Self::check(this, reference.as_str(), input).await
         }
-        .instrument(span!(Level::INFO, "Server::check_workflow", user = auth.id, reference = *span_ref))
+        .instrument(span!(Level::INFO, "Deliberation::check_workflow", user = auth.id, reference = *span_ref))
     }
 
     /// Handler for `GET /v2/task` (i.e., checking a task in a workflow).
@@ -350,7 +350,7 @@ where
             // Continue with the agnostic function for maintainability
             Self::check(this, reference.as_str(), input).await
         }
-        .instrument(span!(Level::INFO, "Server::check_task", user = auth.id, reference = *span_ref))
+        .instrument(span!(Level::INFO, "Deliberation::check_task", user = auth.id, reference = *span_ref))
     }
 
     /// Handler for `GET /v2/transfer` (i.e., checking a transfer for a task in a workflow).
@@ -389,12 +389,12 @@ where
             // Continue with the agnostic function for maintainability
             Self::check(this, reference.as_str(), input).await
         }
-        .instrument(span!(Level::INFO, "Server::check_transfer", user = auth.id, reference = *span_ref))
+        .instrument(span!(Level::INFO, "Deliberation::check_transfer", user = auth.id, reference = *span_ref))
     }
 }
 
 // Serve
-impl<S, P, L> Server<S, P, L>
+impl<S, P, L> Deliberation<S, P, L>
 where
     S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
     S::Error: HttpError,
@@ -415,7 +415,7 @@ where
     pub fn serve(self) -> impl Future<Output = Result<(), Error>> {
         let this: Arc<Self> = Arc::new(self);
         async move {
-            let span = span!(Level::INFO, "Server::serve", state = "starting", client = Empty);
+            let span = span!(Level::INFO, "Deliberation::serve", state = "starting", client = Empty);
 
             // First, define the axum paths
             debug!("Building axum paths...");

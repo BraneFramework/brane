@@ -4,7 +4,7 @@
 //  Created:
 //    07 Feb 2024, 11:54:14
 //  Last edited:
-//    14 Nov 2024, 17:09:12
+//    02 Dec 2024, 14:40:38
 //  Auto updated?
 //    Yes
 //
@@ -46,6 +46,9 @@ pub const DELIBERATION_API_WORKFLOW: (Method, &str) = (Method::GET, "v2/workflow
 pub const DELIBERATION_API_EXECUTE_TASK: (Method, &str) = (Method::GET, "v2/task");
 /// Defines the API path to check if a dataset in a workflow is permitted to be transferred.
 pub const DELIBERATION_API_TRANSFER_DATA: (Method, &str) = (Method::GET, "v2/transfer");
+
+/// Defines the API path to retrieve the reasoner context.
+pub const REASONER_API_GET_CONTEXT: (Method, &str) = (Method::GET, "v2/context");
 
 
 
@@ -557,4 +560,16 @@ impl Message for Prost<CheckResponse<ManyReason<String>>> {
         self.buffers[0].clear();
         self.buffers.truncate(1);
     }
+}
+
+
+
+/// Defines the response of getting the reasoner context.
+///
+/// # Generics
+/// - `C`: The context of the corresponding reasoner backend.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ContextResponse<C> {
+    /// The context as returned by the reasoner
+    pub context: C,
 }
