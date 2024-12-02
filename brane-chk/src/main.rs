@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:13:06
 //  Last edited:
-//    02 Dec 2024, 15:28:20
+//    02 Dec 2024, 15:59:40
 //  Auto updated?
 //    Yes
 //
@@ -20,14 +20,12 @@ use axum::Router;
 use brane_cfg::info::Info;
 use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
 use brane_chk::apis::{Deliberation, inject_reasoner_api};
-use brane_chk::question::Question;
+use brane_chk::reasonerconn::EFlintJsonReasonerConnectorWithInterface;
 use brane_chk::stateresolver::BraneStateResolver;
 use clap::Parser;
-use eflint_json::spec::Phrase;
 use enum_debug::EnumDebug as _;
 use error_trace::trace;
 use policy_reasoner::loggers::file::FileLogger;
-use policy_reasoner::reasoners::eflint_json::EFlintJsonReasonerConnector;
 use policy_reasoner::reasoners::eflint_json::reasons::EFlintPrefixedReasonHandler;
 use policy_store::auth::jwk::JwkResolver;
 use policy_store::auth::jwk::keyresolver::KidResolver;
@@ -133,8 +131,8 @@ async fn main() {
     let resolver: BraneStateResolver = BraneStateResolver::new(node.usecases);
 
     // Setup the reasoner connector
-    let reasoner: Arc<EFlintJsonReasonerConnector<_, Vec<Phrase>, Question>> =
-        match EFlintJsonReasonerConnector::new_async(args.backend_addr, EFlintPrefixedReasonHandler::new(args.prefix), &logger).await {
+    let reasoner: Arc<EFlintJsonReasonerConnectorWithInterface> =
+        match EFlintJsonReasonerConnectorWithInterface::new_async(args.backend_addr, EFlintPrefixedReasonHandler::new(args.prefix), &logger).await {
             Ok(reasoner) => Arc::new(reasoner),
             Err(err) => {
                 error!("{}", trace!(("Failed to create EFlintJsonReasonerConnector"), err));

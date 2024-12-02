@@ -4,7 +4,7 @@
 //  Created:
 //    02 Dec 2024, 14:00:06
 //  Last edited:
-//    02 Dec 2024, 15:26:33
+//    02 Dec 2024, 15:55:00
 //  Auto updated?
 //    Yes
 //
@@ -26,7 +26,7 @@ use policy_reasoner::spec::ReasonerConnector;
 use policy_store::servers::axum::AxumServer;
 use policy_store::spec::AuthResolver;
 use policy_store::spec::metadata::User;
-use specifications::checking::ContextResponse;
+use specifications::checking::{ContextResponse, EFlintJsonReasonerWithInterfaceContext};
 use thiserror::Error;
 use tracing::{Instrument as _, Level, debug, error, span};
 
@@ -56,15 +56,15 @@ pub enum Error {
 /// Handler for `GET /v2/context` (i.e., retrieving reasoner context).
 ///
 /// Out:
-/// - 200 OK with a [`ContextResponse<R::Context>`](ContextResponse) detailling the relevant reasoner information; or
+/// - 200 OK with a [`ContextResponse`] detailling the relevant reasoner information; or
 /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
 pub fn get_context<R>(State(this): State<Arc<R>>, Extension(auth): Extension<User>) -> impl Send + Future<Output = (StatusCode, String)>
 where
-    R: Send + Sync + ReasonerConnector,
+    R: Send + Sync + ReasonerConnector<Context = EFlintJsonReasonerWithInterfaceContext>,
 {
     async move {
         // Generate the context
-        let res: ContextResponse<R::Context> = ContextResponse { context: this.context() };
+        let res: ContextResponse = ContextResponse { context: this.context() };
 
         // Serialize and send back
         match serde_json::to_string(&res) {
@@ -96,7 +96,7 @@ where
     A::ClientError: 'static,
     A::ServerError: 'static,
     D: 'static + Send + Sync,
-    R: 'static + Send + Sync + ReasonerConnector,
+    R: 'static + Send + Sync + ReasonerConnector<Context = EFlintJsonReasonerWithInterfaceContext>,
 {
     let _span = span!(Level::INFO, "inject_reasoner_api()");
 

@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    25 Nov 2024, 21:17:42
+//    02 Dec 2024, 15:42:22
 //  Auto updated?
 //    Yes
 //
@@ -43,11 +43,6 @@ use crate::workflow::compile;
 /***** STATICS *****/
 /// The user used to represent ourselves in the backend.
 static DATABASE_USER: LazyLock<User> = LazyLock::new(|| User { id: "brane".into(), name: "Brane".into() });
-
-/// The base policy that it preprended to any given policy.
-static BASE_POLICY: LazyLock<Vec<Phrase>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!(env!("BASE_DEFS_EFLINT_JSON"))).unwrap_or_else(|err| panic!("Failed to deserialize base policy: {err}"))
-});
 
 /// The special policy that is used when the database doesn't mention any active.
 static DENY_ALL_POLICY: LazyLock<Vec<Phrase>> = LazyLock::new(|| {
@@ -751,19 +746,8 @@ impl BraneStateResolver {
     ///
     /// # Returns
     /// A new StateResolver, ready to resolve state.
-    ///
-    /// # Panics
-    /// This function uses the embedded, compiled eFLINT base code (see the `policy`-directory in
-    /// its manifest directory). Building the state resolver will trigger the first load, if any,
-    /// and this may panic if the input is somehow ill-formed.
     #[inline]
-    pub fn new(usecases: impl IntoIterator<Item = (String, WorkerUsecase)>) -> Self {
-        // Trigger loading the embedded file to be sure it's already properly deserialized
-        LazyLock::force(&BASE_POLICY);
-
-        // OK, let's go
-        Self { usecases: usecases.into_iter().collect() }
-    }
+    pub fn new(usecases: impl IntoIterator<Item = (String, WorkerUsecase)>) -> Self { Self { usecases: usecases.into_iter().collect() } }
 }
 impl StateResolver for BraneStateResolver {
     type Error = Error;
@@ -789,7 +773,7 @@ impl StateResolver for BraneStateResolver {
 
 
             // First, resolve the policy by calling the store
-            let mut policy: Vec<Phrase> = BASE_POLICY.clone();
+            let mut policy: Vec<Phrase> = Vec::new();
             get_active_policy(&state.store, &mut policy).await?;
 
 

@@ -4,7 +4,7 @@
 //  Created:
 //    07 Feb 2024, 11:54:14
 //  Last edited:
-//    02 Dec 2024, 14:40:38
+//    02 Dec 2024, 16:33:34
 //  Auto updated?
 //    Yes
 //
@@ -13,10 +13,12 @@
 //!   with the `policy-reasoner`.
 //
 
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 
-use policy_reasoner::spec::reasonerconn::ReasonerResponse;
+use policy_reasoner::reasoners::eflint_json::EFlintJsonReasonerContext;
+use policy_reasoner::spec::reasonerconn::{ReasonerContext, ReasonerResponse};
 use policy_reasoner::spec::reasons::ManyReason;
 use prost::bytes::{Buf, BufMut};
 use prost::encoding::{DecodeContext, WireType};
@@ -39,6 +41,8 @@ pub const POLICY_API_SET_ACTIVE_VERSION: (Method, &str) = (Method::PUT, "v2/poli
 pub const POLICY_API_ADD_VERSION: (Method, &str) = (Method::POST, "v2/policies");
 /// Defines the API path to fetch a policy's body from a checker.
 pub const POLICY_API_GET_VERSION: (Method, fn(i64) -> String) = (Method::GET, |version: i64| format!("v2/policies/{version}/content"));
+/// Defines the API path to retrieve the reasoner context.
+pub const POLICY_API_GET_CONTEXT: (Method, &str) = (Method::GET, "v2/context");
 
 /// Defines the API path to check if a workflow as a whole is permitted to be executed.
 pub const DELIBERATION_API_WORKFLOW: (Method, &str) = (Method::GET, "v2/workflow");
@@ -46,9 +50,6 @@ pub const DELIBERATION_API_WORKFLOW: (Method, &str) = (Method::GET, "v2/workflow
 pub const DELIBERATION_API_EXECUTE_TASK: (Method, &str) = (Method::GET, "v2/task");
 /// Defines the API path to check if a dataset in a workflow is permitted to be transferred.
 pub const DELIBERATION_API_TRANSFER_DATA: (Method, &str) = (Method::GET, "v2/transfer");
-
-/// Defines the API path to retrieve the reasoner context.
-pub const REASONER_API_GET_CONTEXT: (Method, &str) = (Method::GET, "v2/context");
 
 
 
@@ -565,11 +566,29 @@ impl Message for Prost<CheckResponse<ManyReason<String>>> {
 
 
 /// Defines the response of getting the reasoner context.
-///
-/// # Generics
-/// - `C`: The context of the corresponding reasoner backend.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ContextResponse<C> {
+pub struct ContextResponse {
     /// The context as returned by the reasoner
-    pub context: C,
+    pub context: EFlintJsonReasonerWithInterfaceContext,
+}
+
+/// Defines the context for the eFLINT reasoner.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct EFlintJsonReasonerWithInterfaceContext {
+    /// The context of the
+    /// [`EFlintJsonReasonerConnector`](policy_reasoner::reasoners::eflint_json::EFlintJsonReasonerConnector)
+    /// itself.
+    pub context: EFlintJsonReasonerContext,
+    /// The hash of the base policy used.
+    pub hash:    String,
+}
+impl ReasonerContext for EFlintJsonReasonerWithInterfaceContext {
+    #[inline]
+    fn version(&self) -> Cow<str> { Cow::Borrowed(&self.context.version) }
+
+    #[inline]
+    fn language(&self) -> Cow<str> { Cow::Borrowed(&self.context.language) }
+
+    #[inline]
+    fn language_version(&self) -> Cow<str> { Cow::Borrowed(&self.context.language_version) }
 }
