@@ -55,7 +55,7 @@ serde_json = "1.0.120"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
 tar = "0.4.21"
 tempfile = "3.10.1"
-tokio = { version = "1.38.0", features = ["full"] }
+tokio = { version = "1.42.0", features = ["full"] }
 tokio-stream = "0.1.6"
 tokio-util = { version = "0.7.1", features = ["codec"] }
 tonic = "0.12.0"

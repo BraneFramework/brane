@@ -4,7 +4,7 @@
 //  Created:
 //    28 Oct 2024, 20:44:52
 //  Last edited:
-//    02 Dec 2024, 14:39:49
+//    06 Dec 2024, 18:35:55
 //  Auto updated?
 //    Yes
 //
@@ -43,7 +43,7 @@ use rand::Rng;
 use rand::distributions::Alphanumeric;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use specifications::checking::{CheckResponse, CheckTaskRequest, CheckTransferRequest, CheckWorkflowRequest};
+use specifications::checking::deliberation::{CheckResponse, CheckTaskRequest, CheckTransferRequest, CheckWorkflowRequest};
 use thiserror::Error;
 use tokio::net::{TcpListener, TcpStream};
 use tower_service::Service as _;

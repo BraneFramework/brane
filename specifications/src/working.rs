@@ -4,7 +4,7 @@
 //  Created:
 //    06 Jan 2023, 15:01:17
 //  Last edited:
-//    14 Nov 2024, 17:08:50
+//    06 Dec 2024, 18:16:14
 //  Auto updated?
 //    Yes
 //
@@ -31,7 +31,7 @@ use tonic::server::{Grpc as GrpcServer, NamedService, ServerStreamingService, Un
 use tonic::transport::{Channel, Endpoint};
 use tonic::{Code, Request, Response, Status};
 
-use crate::checking::{CheckResponse, CheckTaskRequest, CheckWorkflowRequest, Prost};
+use crate::checking::deliberation::{CheckResponse, CheckTaskRequest, CheckWorkflowRequest, Prost};
 
 
 /***** ERRORS *****/

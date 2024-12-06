@@ -4,7 +4,7 @@
 //  Created:
 //    02 Dec 2024, 15:35:46
 //  Last edited:
-//    02 Dec 2024, 16:30:27
+//    06 Dec 2024, 18:20:45
 //  Auto updated?
 //    Yes
 //
@@ -23,7 +23,7 @@ use policy_reasoner::reasoners::eflint_json::{EFlintJsonReasonerConnector, EFlin
 use policy_reasoner::spec::auditlogger::SessionedAuditLogger;
 use policy_reasoner::spec::reasonerconn::ReasonerResponse;
 use policy_reasoner::spec::{AuditLogger, ReasonerConnector};
-use specifications::checking::EFlintJsonReasonerWithInterfaceContext;
+use specifications::checking::store::EFlintJsonReasonerWithInterfaceContext;
 use tracing::{Instrument as _, Level, span};
 
 use crate::question::Question;

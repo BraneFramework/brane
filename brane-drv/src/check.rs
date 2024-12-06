@@ -4,7 +4,7 @@
 //  Created:
 //    06 Feb 2024, 11:46:14
 //  Last edited:
-//    14 Nov 2024, 18:09:49
+//    06 Dec 2024, 18:16:36
 //  Auto updated?
 //    Yes
 //
@@ -23,7 +23,7 @@ use policy_reasoner::spec::reasonerconn::ReasonerResponse;
 use policy_reasoner::spec::reasons::ManyReason;
 use reqwest::{Client, Request, Response, StatusCode};
 use specifications::address::Address;
-use specifications::checking::{CheckResponse, CheckTaskRequest, CheckTransferRequest, CheckWorkflowRequest, Prost};
+use specifications::checking::deliberation::{CheckResponse, CheckTaskRequest, CheckTransferRequest, CheckWorkflowRequest, Prost};
 use specifications::data::{AvailabilityKind, DataName, PreprocessKind};
 use specifications::pc::ProgramCounter;
 use specifications::wir::func_id::FunctionId;

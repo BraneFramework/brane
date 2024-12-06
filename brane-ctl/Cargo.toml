@@ -26,7 +26,7 @@ dialoguer = "0.11.0"
 diesel_migrations = "2.2.0"
 dirs = "6.0.0"
 dotenvy = "0.15.0"
-eflint-to-json = { git = "https://github.com/braneframework/policy-reasoner" }
+# eflint-to-json = { git = "https://github.com/braneframework/policy-reasoner" }
 enum-debug.workspace = true
 error-trace.workspace = true
 humanlog.workspace = true
@@ -36,8 +36,8 @@ jsonwebtoken = "9.2.0"
 lazy_static = "1.4.0"
 log = "0.4.22"
 names.workspace = true
-policy = { git = "https://github.com/braneframework/policy-reasoner" }
-srv = { git = "https://github.com/braneframework/policy-reasoner" }
+# policy = { git = "https://github.com/braneframework/policy-reasoner" }
+# srv = { git = "https://github.com/braneframework/policy-reasoner" }
 rand = "0.9.0"
 reqwest = { version = "0.12.0" }
 serde = { version = "1.0.204", features = ["derive"] }
@@ -45,8 +45,9 @@ serde_json = "1.0.120"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
 shlex = "1.1.0"
 tempfile = "3.10.1"
-tokio = { version = "1.38.0", features = [] }
+tokio = { version = "1.42.0", features = [] }
 
+eflint-to-json = { git = "https://gitlab.com/eflint/eflint-to-json-rs", features = ["async-tokio"] }
 policy-store = { git = "https://github.com/epi-project/policy-store", features = ["sqlite-database", "sqlite-database-embedded-migrations"] }
 
 brane-cfg = { path = "../brane-cfg" }

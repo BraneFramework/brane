@@ -18,7 +18,7 @@ enum-debug.workspace = true
 humanlog.workspace = true
 human-panic = "2.0.0"
 log = "0.4.22"
-tokio = { version = "1.38.0", features = ["rt","macros"] }
+tokio = { version = "1.42.0", features = ["rt","macros"] }
 url = "2.5.0"
 
 brane-ast = { path = "../brane-ast" }

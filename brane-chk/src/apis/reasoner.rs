@@ -4,7 +4,7 @@
 //  Created:
 //    02 Dec 2024, 14:00:06
 //  Last edited:
-//    02 Dec 2024, 15:55:00
+//    06 Dec 2024, 18:20:50
 //  Auto updated?
 //    Yes
 //
@@ -26,7 +26,7 @@ use policy_reasoner::spec::ReasonerConnector;
 use policy_store::servers::axum::AxumServer;
 use policy_store::spec::AuthResolver;
 use policy_store::spec::metadata::User;
-use specifications::checking::{ContextResponse, EFlintJsonReasonerWithInterfaceContext};
+use specifications::checking::store::{EFlintJsonReasonerWithInterfaceContext, GetContextResponse};
 use thiserror::Error;
 use tracing::{Instrument as _, Level, debug, error, span};
 
@@ -64,7 +64,7 @@ where
 {
     async move {
         // Generate the context
-        let res: ContextResponse = ContextResponse { context: this.context() };
+        let res: GetContextResponse = GetContextResponse { context: this.context() };
 
         // Serialize and send back
         match serde_json::to_string(&res) {

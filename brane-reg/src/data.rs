@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:40:40
 //  Last edited:
-//    14 Nov 2024, 18:14:02
+//    06 Dec 2024, 18:18:00
 //  Auto updated?
 //    Yes
 //
@@ -31,7 +31,7 @@ use log::{debug, error, info};
 use reqwest::header;
 use rustls::Certificate;
 use serde::{Deserialize, Serialize};
-use specifications::checking::DELIBERATION_API_TRANSFER_DATA;
+use specifications::checking::deliberation::CHECK_TRANSFER_PATH;
 use specifications::data::{AccessKind, AssetInfo, DataName};
 use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileReport;
@@ -168,9 +168,9 @@ pub async fn assert_asset_permission(
         Ok(client) => client,
         Err(err) => return Err(AuthorizeError::ClientBuild { err }),
     };
-    let addr: String = format!("http://{}:{}/{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, DELIBERATION_API_TRANSFER_DATA.1);
+    let addr: String = format!("http://{}:{}/{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, CHECK_TRANSFER_PATH.path);
     let req: reqwest::Request =
-        match client.request(DELIBERATION_API_TRANSFER_DATA.0, &addr).header(header::AUTHORIZATION, format!("Bearer {jwt}")).json(&body).build() {
+        match client.request(CHECK_TRANSFER_PATH.method, &addr).header(header::AUTHORIZATION, format!("Bearer {jwt}")).json(&body).build() {
             Ok(req) => req,
             Err(err) => return Err(AuthorizeError::ExecuteRequestBuild { addr, err }),
         };

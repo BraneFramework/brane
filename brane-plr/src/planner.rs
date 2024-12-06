@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    14 Nov 2024, 18:13:12
+//    06 Dec 2024, 18:19:15
 //  Auto updated?
 //    Yes
 //
@@ -34,7 +34,7 @@ use policy_reasoner::spec::reasons::ManyReason;
 use rand::prelude::IteratorRandom;
 use serde_json::Value;
 use specifications::address::Address;
-use specifications::checking::{CheckResponse, CheckWorkflowRequest, Prost};
+use specifications::checking::deliberation::{CheckResponse, CheckWorkflowRequest, Prost};
 use specifications::data::{AccessKind, AvailabilityKind, DataIndex, DataName, PreprocessKind};
 use specifications::package::Capability;
 use specifications::planning::{PlanningDeniedReply, PlanningReply, PlanningRequest};

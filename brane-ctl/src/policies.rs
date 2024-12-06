@@ -4,7 +4,7 @@
 //  Created:
 //    10 Jan 2024, 15:57:54
 //  Last edited:
-//    14 Nov 2024, 17:59:25
+//    06 Dec 2024, 18:41:52
 //  Auto updated?
 //    Yes
 //
@@ -12,6 +12,7 @@
 //!   Implements handlers for subcommands to `branectl policies ...`
 //
 
+use std::collections::HashMap;
 use std::error;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter, Result as FResult};
@@ -26,16 +27,15 @@ use dialoguer::theme::ColorfulTheme;
 use enum_debug::EnumDebug;
 use error_trace::trace;
 use log::{debug, info};
-use policy::{Policy, PolicyVersion};
+use policy_store::servers::axum::spec::{ActivateRequest, GetActiveVersionResponse, GetVersionsResponse};
+use policy_store::spec::metadata::Metadata;
 use rand::Rng;
 use rand::distr::Alphanumeric;
 use reqwest::{Client, Request, Response, StatusCode};
+use serde_json::Value;
 use serde_json::value::RawValue;
 use specifications::address::{Address, AddressOpt};
-use specifications::checking::{
-    POLICY_API_ADD_VERSION, POLICY_API_GET_ACTIVE_VERSION, POLICY_API_GET_VERSION, POLICY_API_LIST_POLICIES, POLICY_API_SET_ACTIVE_VERSION,
-};
-use srv::models::{AddPolicyPostModel, PolicyContentPostModel, SetVersionPostModel};
+use specifications::checking::store::{ACTIVATE_PATH, ADD_VERSION_PATH, GET_ACTIVE_VERSION_PATH, GET_VERSION_CONTENT_PATH, GET_VERSIONS_PATH};
 use tokio::fs::{self as tfs, File as TFile};
 
 use crate::spec::PolicyInputLanguage;
@@ -86,7 +86,7 @@ pub enum Error {
     /// The policy was given on stdout but no language was specified.
     UnspecifiedInputLanguage,
     /// Failed to query the checker about a specific version.
-    VersionGetBody { addr: Address, version: i64, err: Box<Self> },
+    VersionGetBody { addr: Address, version: u64, err: Box<Self> },
     /// Failed to query the user which version to select.
     VersionSelect { err: dialoguer::Error },
     /// Failed to get the versions on the remote checker.
@@ -295,14 +295,14 @@ fn resolve_addr_opt(node_config_path: impl AsRef<Path>, worker: &mut Option<Work
 ///
 /// # Errors
 /// This function may error if we failed to reach the checker, failed to authenticate or failed to download/parse the result.
-async fn get_version_body_from_checker(address: &Address, token: &str, version: i64) -> Result<Policy, Error> {
+async fn get_version_body_from_checker(address: &Address, token: &str, version: u64) -> Result<Value, Error> {
     info!("Retrieving policy '{version}' from checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}/{}", address, POLICY_API_GET_VERSION.1(version));
+    let url: String = format!("http://{}/{}", address, GET_VERSION_CONTENT_PATH.instantiated_path([version]));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
-    let req: Request = match client.request(POLICY_API_GET_VERSION.0, &url).bearer_auth(token).build() {
+    let req: Request = match client.request(GET_VERSION_CONTENT_PATH.method, &url).bearer_auth(token).build() {
         Ok(req) => req,
         Err(err) => return Err(Error::RequestBuild { kind: "GET", addr: url, err }),
     };
@@ -344,14 +344,14 @@ async fn get_version_body_from_checker(address: &Address, token: &str, version: 
 ///
 /// # Errors
 /// This function may error if we failed to reach the checker, failed to authenticate or failed to download/parse the result.
-async fn get_versions_on_checker(address: &Address, token: &str) -> Result<Vec<PolicyVersion>, Error> {
+async fn get_versions_on_checker(address: &Address, token: &str) -> Result<HashMap<u64, Metadata>, Error> {
     info!("Retrieving policies on checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}/{}", address, POLICY_API_LIST_POLICIES.1);
+    let url: String = format!("http://{}/{}", address, GET_VERSIONS_PATH.instantiated_path::<String>(None));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
-    let req: Request = match client.request(POLICY_API_LIST_POLICIES.0, &url).bearer_auth(token).build() {
+    let req: Request = match client.request(GET_VERSIONS_PATH.method, &url).bearer_auth(token).build() {
         Ok(req) => req,
         Err(err) => return Err(Error::RequestBuild { kind: "GET", addr: url, err }),
     };
@@ -373,8 +373,8 @@ async fn get_versions_on_checker(address: &Address, token: &str) -> Result<Vec<P
             // Log the full response first
             debug!("Response:\n{}\n", BlockFormatter::new(&body));
             // Parse it as a [`Policy`]
-            match serde_json::from_str(&body) {
-                Ok(body) => Ok(body),
+            match serde_json::from_str::<GetVersionsResponse>(&body) {
+                Ok(body) => Ok(body.versions),
                 Err(err) => Err(Error::ResponseDeserialize { addr: url, raw: body, err }),
             }
         },
@@ -389,18 +389,18 @@ async fn get_versions_on_checker(address: &Address, token: &str) -> Result<Vec<P
 /// - `token`: The token used for authenticating the checker.
 ///
 /// # Returns
-/// A single [`Policy`] that describes the active policy, or [`None`] is none is active.
+/// A single [`GetActiveVersionResponse`] that describes the active policy, or [`None`] is none is active.
 ///
 /// # Errors
 /// This function may error if we failed to reach the checker, failed to authenticate or failed to download/parse the result.
-async fn get_active_version_on_checker(address: &Address, token: &str) -> Result<Option<Policy>, Error> {
+async fn get_active_version_on_checker(address: &Address, token: &str) -> Result<Option<u64>, Error> {
     info!("Retrieving active policy of checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}/{}", address, POLICY_API_GET_ACTIVE_VERSION.1);
+    let url: String = format!("http://{}/{}", address, GET_ACTIVE_VERSION_PATH.instantiated_path::<String>(None));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
-    let req: Request = match client.request(POLICY_API_GET_ACTIVE_VERSION.0, &url).bearer_auth(token).build() {
+    let req: Request = match client.request(GET_ACTIVE_VERSION_PATH.method, &url).bearer_auth(token).build() {
         Ok(req) => req,
         Err(err) => return Err(Error::RequestBuild { kind: "GET", addr: url, err }),
     };
@@ -425,8 +425,8 @@ async fn get_active_version_on_checker(address: &Address, token: &str) -> Result
             // Log the full response first
             debug!("Response:\n{}\n", BlockFormatter::new(&body));
             // Parse it as a [`Policy`]
-            match serde_json::from_str(&body) {
-                Ok(body) => Ok(body),
+            match serde_json::from_str::<GetActiveVersionResponse>(&body) {
+                Ok(body) => Ok(body.version),
                 Err(err) => Err(Error::ResponseDeserialize { addr: url, raw: body, err }),
             }
         },
@@ -437,46 +437,45 @@ async fn get_active_version_on_checker(address: &Address, token: &str) -> Result
 /// Prompts the user to select one of the given list of versions.
 ///
 /// # Arguments
-/// - `address`: The address (or some other identifier) of the checker/source we retrieved the policy from. Only used for debugging.
 /// - `active_version`: If there is any active version.
 /// - `versions`: The list of versions to select from.
+/// - `exit`: Whether to provide an exit button to the prompt or not.
 ///
 /// # Returns
 /// An index into the given list, which is what the user selected. If `exit` is true, then this may return [`None`] when selected.
 ///
 /// # Errors
 /// This function may error if we failed to query the user.
-fn prompt_user_version(
-    address: impl Into<Address>,
-    active_version: Option<i64>,
-    versions: &[PolicyVersion],
-    exit: bool,
-) -> Result<Option<usize>, Error> {
+fn prompt_user_version(active_version: Option<u64>, versions: &HashMap<u64, Metadata>, exit: bool) -> Result<Option<u64>, Error> {
+    // First: go by order
+    let mut ids: Vec<u64> = versions.keys().cloned().collect();
+    ids.sort();
+
     // Preprocess the versions into neat representations
     let mut sversions: Vec<String> = Vec::with_capacity(versions.len() + 1);
-    for (i, version) in versions.iter().enumerate() {
-        // Discard it if it has no version
-        if version.version.is_none() {
-            return Err(Error::PolicyWithoutVersion { addr: address.into(), which: format!("{i}th") });
-        }
+    for id in &ids {
+        // Get the version for this ID
+        let version: &Metadata = versions.get(id).unwrap();
 
         // See if it's selected to print either bold or not
-        let mut line: String = if version.version == active_version { style("Version ").bold().to_string() } else { "Version ".into() };
-        line.push_str(&style(version.version.unwrap()).bold().green().to_string());
-        if version.version == active_version {
+        let mut line: String = if active_version == Some(version.version) { style("Version ").bold().to_string() } else { "Version ".into() };
+        line.push_str(&style(version.version).bold().green().to_string());
+        if active_version == Some(version.version) {
             line.push_str(
                 &style(format!(
-                    " (created at {}, by {})",
-                    version.created_at.format("%H:%M:%S %d-%m-%Y"),
-                    version.creator.as_deref().unwrap_or("<unknown>")
+                    " (created at {}, by {} ({}))",
+                    version.created.format("%H:%M:%S %d-%m-%Y"),
+                    version.creator.name,
+                    version.creator.id
                 ))
                 .to_string(),
             );
         } else {
             line.push_str(&format!(
-                " (created at {}, by {})",
-                version.created_at.format("%H:%M:%S %d-%m-%Y"),
-                version.creator.as_deref().unwrap_or("<unknown>")
+                " (created at {}, by {} ({}))",
+                version.created.format("%H:%M:%S %d-%m-%Y"),
+                version.creator.name,
+                version.creator.id
             ));
         }
 
@@ -498,7 +497,7 @@ fn prompt_user_version(
         Ok(idx) => {
             if !exit || idx < versions.len() {
                 // Exit wasn't selected
-                Ok(Some(idx))
+                Ok(Some(ids[idx]))
             } else {
                 // Exit was selected
                 Ok(None)
@@ -567,7 +566,7 @@ impl Display for EFlintJsonVersion {
 /// - `version`: The version to activate in the checker. Should do some TUI stuff if not given.
 /// - `address`: The address on which to reach the checker. May be missing a port, to be resolved in the node.yml.
 /// - `token`: A token used for authentication with the remote checker. If omitted, will attempt to generate one based on the secret file in the node.yml file.
-pub async fn activate(node_config_path: PathBuf, version: Option<i64>, address: AddressOpt, token: Option<String>) -> Result<(), Error> {
+pub async fn activate(node_config_path: PathBuf, version: Option<u64>, address: AddressOpt, token: Option<String>) -> Result<(), Error> {
     info!(
         "Activating policy{} on checker of node defined by '{}'",
         if let Some(version) = &version { format!(" version '{version}'") } else { String::new() },
@@ -580,35 +579,34 @@ pub async fn activate(node_config_path: PathBuf, version: Option<i64>, address: 
     let address: Address = resolve_addr_opt(&node_config_path, &mut worker, address)?;
 
     // Now we resolve the version
-    let version: i64 = if let Some(version) = version {
+    let version: u64 = if let Some(version) = version {
         version
     } else {
         // Alrighty; first, pull a list of all available versions from the checker
-        let mut versions: Vec<PolicyVersion> = match get_versions_on_checker(&address, &token).await {
+        let versions: HashMap<u64, Metadata> = match get_versions_on_checker(&address, &token).await {
             Ok(versions) => versions,
             Err(err) => return Err(Error::VersionsGet { addr: address, err: Box::new(err) }),
         };
         // Then fetch the already active version
-        let active_version: Option<i64> = match get_active_version_on_checker(&address, &token).await {
-            Ok(version) => version.and_then(|v| v.version.version),
+        let active_version: Option<u64> = match get_active_version_on_checker(&address, &token).await {
+            Ok(version) => version,
             Err(err) => return Err(Error::ActiveVersionGet { addr: address, err: Box::new(err) }),
         };
 
         // Prompt the user to select it
-        let idx: usize = match prompt_user_version(&address, active_version, &versions, false) {
-            Ok(Some(idx)) => idx,
+        match prompt_user_version(active_version, &versions, false) {
+            Ok(Some(id)) => id,
             Ok(None) => unreachable!(),
             Err(err) => return Err(Error::PromptVersions { err: Box::new(err) }),
-        };
-        versions.swap_remove(idx).version.unwrap()
+        }
     };
     debug!("Activating policy version {version}");
 
     // Now build the request and send it
-    let url: String = format!("http://{}/{}", address, POLICY_API_SET_ACTIVE_VERSION.1);
+    let url: String = format!("http://{}/{}", address, ACTIVATE_PATH.instantiated_path::<String>(None));
     debug!("Building PUT-request to '{url}'...");
     let client: Client = Client::new();
-    let req: Request = match client.request(POLICY_API_SET_ACTIVE_VERSION.0, &url).bearer_auth(token).json(&SetVersionPostModel { version }).build() {
+    let req: Request = match client.request(ACTIVATE_PATH.method, &url).bearer_auth(token).json(&ActivateRequest { version }).build() {
         Ok(req) => req,
         Err(err) => return Err(Error::RequestBuild { kind: "GET", addr: url, err }),
     };
@@ -622,23 +620,6 @@ pub async fn activate(node_config_path: PathBuf, version: Option<i64>, address: 
     debug!("Server responded with {}", res.status());
     if !res.status().is_success() {
         return Err(Error::RequestFailure { addr: url, code: res.status(), response: res.text().await.ok() });
-    }
-
-    // Attempt to parse the result as a Policy
-    let res: Policy = match res.text().await {
-        Ok(body) => {
-            // Log the full response first
-            debug!("Response:\n{}\n", BlockFormatter::new(&body));
-            // Parse it as a [`Policy`]
-            match serde_json::from_str(&body) {
-                Ok(body) => body,
-                Err(err) => return Err(Error::ResponseDeserialize { addr: url, raw: body, err }),
-            }
-        },
-        Err(err) => return Err(Error::ResponseDownload { addr: url, err }),
-    };
-    if res.version.version != Some(version) {
-        return Err(Error::InvalidPolicyActivated { addr: address, got: res.version.version, expected: Some(version) });
     }
 
     // Done!
@@ -753,7 +734,7 @@ pub async fn add(
     };
 
     // Finally, construct a request for the checker
-    let url: String = format!("http://{}/{}", address, POLICY_API_ADD_VERSION.1);
+    let url: String = format!("http://{}/{}", address, ADD_VERSION_PATH.instantiated_path::<String>(None));
     debug!("Building POST-request to '{url}'...");
     let client: Client = Client::new();
     let contents: AddPolicyPostModel = AddPolicyPostModel {
@@ -761,7 +742,7 @@ pub async fn add(
         description: None,
         content: vec![PolicyContentPostModel { reasoner: target_reasoner.id(), reasoner_version: target_reasoner.version(), content: json }],
     };
-    let req: Request = match client.request(POLICY_API_ADD_VERSION.0, &url).bearer_auth(token).json(&contents).build() {
+    let req: Request = match client.request(ADD_VERSION_PATH.method, &url).bearer_auth(token).json(&contents).build() {
         Ok(req) => req,
         Err(err) => return Err(Error::RequestBuild { kind: "POST", addr: url, err }),
     };
@@ -821,28 +802,27 @@ pub async fn list(node_config_path: PathBuf, address: AddressOpt, token: Option<
     let address: Address = resolve_addr_opt(&node_config_path, &mut worker, address)?;
 
     // Send the request to the reasoner to fetch the active versions
-    let mut versions: Vec<PolicyVersion> = match get_versions_on_checker(&address, &token).await {
+    let versions: HashMap<u64, Metadata> = match get_versions_on_checker(&address, &token).await {
         Ok(versions) => versions,
         Err(err) => return Err(Error::VersionsGet { addr: address, err: Box::new(err) }),
     };
     // Then fetch the already active version
-    let active_version: Option<i64> = match get_active_version_on_checker(&address, &token).await {
-        Ok(version) => version.and_then(|v| v.version.version),
+    let active_version: Option<u64> = match get_active_version_on_checker(&address, &token).await {
+        Ok(version) => version,
         Err(err) => return Err(Error::ActiveVersionGet { addr: address, err: Box::new(err) }),
     };
 
     // Enter a loop where we let the user decide for themselves
     loop {
         // Display them to the user, with name, to select the policy they want to see more info about
-        let idx: usize = match prompt_user_version(&address, active_version, &versions, true) {
+        let version: u64 = match prompt_user_version(active_version, &versions, true) {
             Ok(Some(idx)) => idx,
             Ok(None) => break,
             Err(err) => return Err(Error::PromptVersions { err: Box::new(err) }),
         };
-        let version: i64 = versions.swap_remove(idx).version.unwrap();
 
         // Attempt to pull this version from the remote
-        let _version: Policy = match get_version_body_from_checker(&address, &token, version).await {
+        let _version: Value = match get_version_body_from_checker(&address, &token, version).await {
             Ok(version) => version,
             Err(err) => return Err(Error::VersionGetBody { addr: address, version, err: Box::new(err) }),
         };

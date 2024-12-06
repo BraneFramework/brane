@@ -37,6 +37,7 @@ tonic = "0.12.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 
 policy-reasoner = { git = "https://github.com/epi-project/policy-reasoner", branch = "lib-refactor", features = ["eflint-json-reasoner"] }
+policy-store = { git = "https://github.com/epi-project/policy-store", features = ["axum-server-spec"] }
 
 [lints]
 workspace = true
