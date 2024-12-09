@@ -50,7 +50,7 @@ use hyper::body::Bytes;
 use log::{debug, error, info, warn};
 use policy_reasoner::spec::reasonerconn::ReasonerResponse;
 use policy_reasoner::spec::reasons::ManyReason;
-use reqwest::{Method, header};
+use reqwest::Method;
 use serde_json_any_key::json_to_map;
 use specifications::address::Address;
 // use brane_tsk::k8s::{self, K8sOptions};

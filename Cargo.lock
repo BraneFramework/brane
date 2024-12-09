@@ -536,7 +536,7 @@ dependencies = [
  "chrono",
  "clap",
  "dotenvy",
- "enum-debug",
+ "enum-debug 1.1.0",
  "env_logger 0.11.7",
  "error-trace 3.0.0",
  "juniper",
@@ -563,7 +563,7 @@ dependencies = [
  "brane-dsl 3.0.0",
  "brane-shr 3.0.0",
  "console",
- "enum-debug",
+ "enum-debug 1.1.0",
  "lazy_static",
  "log",
  "specifications 3.0.0",
@@ -578,7 +578,7 @@ dependencies = [
  "brane-dsl 3.0.0 (git+https://github.com/epi-project/brane)",
  "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
  "console",
- "enum-debug",
+ "enum-debug 1.1.0",
  "lazy_static",
  "log",
  "num-traits",
@@ -600,7 +600,7 @@ dependencies = [
  "brane-tsk",
  "clap",
  "dotenvy",
- "enum-debug",
+ "enum-debug 1.1.0",
  "expanduser",
  "human-panic 2.0.2",
  "humanlog",
@@ -616,7 +616,7 @@ name = "brane-cfg"
 version = "3.0.0"
 dependencies = [
  "async-trait",
- "enum-debug",
+ "enum-debug 1.1.0",
  "log",
  "rustls 0.21.12",
  "rustls-pemfile 1.0.4",
@@ -638,9 +638,9 @@ dependencies = [
  "brane-shr 3.0.0",
  "brane-tsk",
  "clap",
- "eflint-json",
+ "eflint-json 0.1.0",
  "eflint-to-json 1.1.1 (git+https://gitlab.com/eflint/eflint-to-json-rs?tag=v1.1.1)",
- "enum-debug",
+ "enum-debug 1.1.0",
  "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
  "futures",
  "humanlog",
@@ -683,7 +683,7 @@ dependencies = [
  "dialoguer",
  "dirs 6.0.0",
  "dotenvy",
- "enum-debug",
+ "enum-debug 1.1.0",
  "error-trace 3.0.0",
  "flate2",
  "fs_extra",
@@ -744,6 +744,7 @@ dependencies = [
  "brane-cfg",
  "brane-shr 3.0.0",
  "brane-tsk",
+ "chrono",
  "clap",
  "clap_complete",
  "console",
@@ -752,8 +753,9 @@ dependencies = [
  "dirs 6.0.0",
  "dotenvy",
  "download 0.1.0 (git+https://github.com/Lut99/download-rs?tag=v0.1.0)",
+ "eflint-json 1.0.0",
  "eflint-to-json 1.1.1 (git+https://gitlab.com/eflint/eflint-to-json-rs)",
- "enum-debug",
+ "enum-debug 1.1.0",
  "error-trace 3.0.0",
  "hex-literal 0.4.1",
  "human-panic 2.0.2",
@@ -788,7 +790,7 @@ dependencies = [
  "clap",
  "dashmap 6.1.0",
  "dotenvy",
- "enum-debug",
+ "enum-debug 1.1.0",
  "env_logger 0.11.7",
  "error-trace 3.0.0",
  "log",
@@ -808,7 +810,7 @@ name = "brane-dsl"
 version = "3.0.0"
 dependencies = [
  "brane-shr 3.0.0",
- "enum-debug",
+ "enum-debug 1.1.0",
  "log",
  "nom",
  "nom_locate",
@@ -825,7 +827,7 @@ source = "git+https://github.com/epi-project/brane#7524309001d9ff347c8063747f253
 dependencies = [
  "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
  "bytes",
- "enum-debug",
+ "enum-debug 1.1.0",
  "log",
  "nom",
  "nom_locate",
@@ -848,7 +850,7 @@ dependencies = [
  "brane-ast 3.0.0",
  "brane-shr 3.0.0",
  "console",
- "enum-debug",
+ "enum-debug 1.1.0",
  "futures",
  "humanlog",
  "lazy_static",
@@ -870,7 +872,7 @@ dependencies = [
  "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
  "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
  "console",
- "enum-debug",
+ "enum-debug 1.1.0",
  "futures",
  "lazy_static",
  "log",
@@ -897,7 +899,7 @@ dependencies = [
  "chrono",
  "clap",
  "dotenvy",
- "enum-debug",
+ "enum-debug 1.1.0",
  "env_logger 0.11.7",
  "error-trace 3.0.0",
  "futures-util",
@@ -994,7 +996,7 @@ dependencies = [
  "clap",
  "deliberation",
  "dotenvy",
- "enum-debug",
+ "enum-debug 1.1.0",
  "env_logger 0.11.7",
  "error-trace 3.0.0",
  "log",
@@ -1017,7 +1019,7 @@ dependencies = [
  "async-compression 0.4.20",
  "console",
  "dialoguer",
- "enum-debug",
+ "enum-debug 1.1.0",
  "fs2",
  "hex",
  "humanlog",
@@ -1043,7 +1045,7 @@ dependencies = [
  "async-compression 0.3.15",
  "console",
  "dialoguer",
- "enum-debug",
+ "enum-debug 1.1.0",
  "fs2",
  "futures-util",
  "hex",
@@ -1076,7 +1078,7 @@ dependencies = [
  "clap",
  "console",
  "dialoguer",
- "enum-debug",
+ "enum-debug 1.1.0",
  "futures-util",
  "graphql_client",
  "humanlog",
@@ -1417,7 +1419,7 @@ source = "git+https://github.com/braneframework/policy-reasoner#a5b56bbdfde789ae
 dependencies = [
  "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
  "brane-exe 3.0.0 (git+https://github.com/epi-project/brane)",
- "enum-debug",
+ "enum-debug 1.1.0",
  "log",
  "serde",
  "serde_json",
@@ -1654,9 +1656,20 @@ version = "0.1.0"
 source = "git+https://gitlab.com/eflint/json-spec-rs?branch=incorrect-is-invariant#a77ae8c5050fcbeb36340ec86f353099d6c51182"
 dependencies = [
  "console",
- "enum-debug",
+ "enum-debug 1.1.0",
  "lazy_static",
  "serde",
+]
+
+[[package]]
+name = "eflint-json"
+version = "1.0.0"
+source = "git+https://gitlab.com/eflint/json-spec-rs#f4716c63158b3082a8861416378e5189e01930a3"
+dependencies = [
+ "enum-debug 1.0.0",
+ "serde",
+ "transform",
+ "versioning",
 ]
 
 [[package]]
@@ -1664,7 +1677,7 @@ name = "eflint-json-reasoner"
 version = "0.2.0"
 source = "git+https://github.com/epi-project/policy-reasoner?branch=lib-refactor#8ca01dd905da99be4168c20b7eeda2d83a380466"
 dependencies = [
- "eflint-json",
+ "eflint-json 0.1.0",
  "error-trace 3.1.0",
  "reqwest 0.12.14",
  "serde",
@@ -1728,10 +1741,28 @@ checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 
 [[package]]
 name = "enum-debug"
+version = "1.0.0"
+source = "git+https://github.com/Lut99/enum-debug?tag=v1.0.0#cd67d67d4bd8708eaa3343a6af515bf6ad5a3ce6"
+dependencies = [
+ "enum-debug-derive 1.0.0",
+]
+
+[[package]]
+name = "enum-debug"
 version = "1.1.0"
 source = "git+https://github.com/Lut99/enum-debug?tag=v1.1.0#f535466915f82861b0a2dc9d4e3a106f04d5ace7"
 dependencies = [
- "enum-debug-derive",
+ "enum-debug-derive 1.1.0",
+]
+
+[[package]]
+name = "enum-debug-derive"
+version = "1.0.0"
+source = "git+https://github.com/Lut99/enum-debug?tag=v1.0.0#cd67d67d4bd8708eaa3343a6af515bf6ad5a3ce6"
+dependencies = [
+ "proc-macro-error",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -1861,7 +1892,7 @@ version = "0.2.0"
 source = "git+https://github.com/epi-project/policy-reasoner?branch=lib-refactor#8ca01dd905da99be4168c20b7eeda2d83a380466"
 dependencies = [
  "chrono",
- "enum-debug",
+ "enum-debug 1.1.0",
  "serde",
  "serde_json",
  "specifications 0.2.0",
@@ -3575,6 +3606,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-error"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+dependencies = [
+ "proc-macro-error-attr",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "version_check",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4595,7 +4650,7 @@ dependencies = [
  "base64ct",
  "chrono",
  "const_format",
- "enum-debug",
+ "enum-debug 1.1.0",
  "futures",
  "jsonwebtoken",
  "lazy_static",
@@ -4631,7 +4686,7 @@ dependencies = [
  "base64ct",
  "chrono",
  "const_format",
- "enum-debug",
+ "enum-debug 1.1.0",
  "futures",
  "jsonwebtoken",
  "log",
@@ -5350,6 +5405,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "transform"
+version = "0.2.0"
+source = "git+https://github.com/Lut99/transform-rs#ea708962d9a770c1f89c3bce0b9309dfe48656a6"
+
+[[package]]
 name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5495,6 +5555,17 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "versioning"
+version = "0.2.0"
+source = "git+https://github.com/Lut99/versioning-rs#7ddfcc666e126a053b8c00f0a4eea39df9576d92"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
 
 [[package]]
 name = "want"
@@ -5997,7 +6068,7 @@ name = "workflow"
 version = "0.2.0"
 source = "git+https://github.com/epi-project/policy-reasoner?branch=lib-refactor#8ca01dd905da99be4168c20b7eeda2d83a380466"
 dependencies = [
- "enum-debug",
+ "enum-debug 1.1.0",
  "serde",
 ]
 

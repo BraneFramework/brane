@@ -40,7 +40,6 @@ use tokio::fs::{self as tfs, File as TFile};
 use tokio::io::{self as tio, AsyncReadExt as _, AsyncWriteExt as _};
 use tokio_tar::Archive;
 use tokio_util::codec::{BytesCodec, FramedRead};
-use tonic::transport::Body;
 
 pub use crate::errors::DockerError as Error;
 use crate::errors::{ClientVersionParseError, ExecuteError};

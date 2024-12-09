@@ -4,7 +4,7 @@
 //  Created:
 //    10 Jan 2024, 15:57:54
 //  Last edited:
-//    06 Dec 2024, 18:41:52
+//    09 Dec 2024, 17:33:32
 //  Auto updated?
 //    Yes
 //
@@ -12,6 +12,7 @@
 //!   Implements handlers for subcommands to `branectl policies ...`
 //
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error;
 use std::ffi::OsStr;
@@ -22,20 +23,23 @@ use std::time::Duration;
 use brane_cfg::info::Info;
 use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
 use brane_shr::formatters::BlockFormatter;
+use chrono::{DateTime, Local};
 use console::style;
 use dialoguer::theme::ColorfulTheme;
 use enum_debug::EnumDebug;
 use error_trace::trace;
 use log::{debug, info};
 use policy_store::servers::axum::spec::{ActivateRequest, GetActiveVersionResponse, GetVersionsResponse};
-use policy_store::spec::metadata::Metadata;
+use policy_store::spec::metadata::{AttachedMetadata, Metadata};
 use rand::Rng;
 use rand::distr::Alphanumeric;
 use reqwest::{Client, Request, Response, StatusCode};
 use serde_json::Value;
-use serde_json::value::RawValue;
 use specifications::address::{Address, AddressOpt};
-use specifications::checking::store::{ACTIVATE_PATH, ADD_VERSION_PATH, GET_ACTIVE_VERSION_PATH, GET_VERSION_CONTENT_PATH, GET_VERSIONS_PATH};
+use specifications::checking::store::{
+    ACTIVATE_PATH, ADD_VERSION_PATH, AddVersionRequest, AddVersionResponse, EFlintJsonReasonerWithInterfaceContext, GET_ACTIVE_VERSION_PATH,
+    GET_CONTEXT_PATH, GET_VERSION_CONTENT_PATH, GET_VERSIONS_PATH, GetContextResponse,
+};
 use tokio::fs::{self as tfs, File as TFile};
 
 use crate::spec::PolicyInputLanguage;
@@ -47,12 +51,16 @@ use crate::spec::PolicyInputLanguage;
 pub enum Error {
     /// Failed to get the active version of the policy.
     ActiveVersionGet { addr: Address, err: Box<Self> },
+    /// Given JSON policy was not a phrases request.
+    IllegalInput { path: PathBuf, got: String },
     /// Failed to deserialize the read input file as JSON.
     InputDeserialize { path: PathBuf, raw: String, err: serde_json::Error },
     /// Failed to read the input file.
     InputRead { path: PathBuf, err: std::io::Error },
     /// Failed to compile the input file to eFLINT JSON.
     InputToJson { path: PathBuf, err: eflint_to_json::Error },
+    /// Failed to prompt the user for a string input.
+    InputString { what: &'static str, err: dialoguer::Error },
     /// The wrong policy was activated on the remote checker, somehow.
     InvalidPolicyActivated { addr: Address, got: Option<i64>, expected: Option<i64> },
     /// A policy language was attempted to derive from a path without extension.
@@ -91,16 +99,22 @@ pub enum Error {
     VersionSelect { err: dialoguer::Error },
     /// Failed to get the versions on the remote checker.
     VersionsGet { addr: Address, err: Box<Self> },
+    /// Failed to serialize a given policy version.
+    VersionSerialize { version: u64, err: serde_json::Error },
 }
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Error::*;
         match self {
             ActiveVersionGet { addr, .. } => write!(f, "Failed to get active version of checker '{addr}'"),
+            IllegalInput { path, got } => {
+                write!(f, "eFLINT JSON file {:?} is not a list of phrases or a phrases request (got: {:?})", path.display(), got)
+            },
             InputDeserialize { path, raw, .. } => {
                 write!(f, "Failed to deserialize contents of '{}' to JSON\n\nRaw value:\n{}\n", path.display(), BlockFormatter::new(raw))
             },
             InputRead { path, .. } => write!(f, "Failed to read input file '{}'", path.display()),
+            InputString { what, .. } => write!(f, "Failed to ask you {what}"),
             InputToJson { path, .. } => write!(f, "Failed to compile input file '{}' to eFLINT JSON", path.display()),
             InvalidPolicyActivated { addr, got, expected } => write!(
                 f,
@@ -149,6 +163,7 @@ impl Display for Error {
             VersionGetBody { addr, version, .. } => write!(f, "Failed to get policy body of policy '{version}' stored in checker '{addr}'"),
             VersionSelect { .. } => write!(f, "Failed to ask you which version to make active"),
             VersionsGet { addr, .. } => write!(f, "Failed to get policy versions stored in checker '{addr}'"),
+            VersionSerialize { version, .. } => write!(f, "Failed to serialize policy {version}"),
         }
     }
 }
@@ -157,8 +172,10 @@ impl error::Error for Error {
         use Error::*;
         match self {
             ActiveVersionGet { err, .. } => Some(&**err),
+            IllegalInput { .. } => None,
             InputDeserialize { err, .. } => Some(err),
             InputRead { err, .. } => Some(err),
+            InputString { err, .. } => Some(err),
             InputToJson { err, .. } => Some(err),
             InvalidPolicyActivated { .. } => None,
             MissingExtension { .. } => None,
@@ -179,6 +196,7 @@ impl error::Error for Error {
             VersionGetBody { err, .. } => Some(&**err),
             VersionSelect { err } => Some(err),
             VersionsGet { err, .. } => Some(&**err),
+            VersionSerialize { err, .. } => Some(err),
         }
     }
 }
@@ -283,6 +301,57 @@ fn resolve_addr_opt(node_config_path: impl AsRef<Path>, worker: &mut Option<Work
     Ok(Address::try_from(address).unwrap())
 }
 
+
+
+/// Helper function that pulls the reasoner context from a checker.
+///
+/// # Arguments
+/// - `address`: The address where the checker may be reached.
+/// - `token`: The token used for authenticating the checker.
+///
+/// # Returns
+/// The context, as a parsed [`EFlintJsonReasonerWithInterfaceContext`].
+///
+/// # Errors
+/// This function may error if we failed to reach the checker, failed to authenticate or failed to download/parse the result.
+async fn get_context_from_checker(address: &Address, token: &str) -> Result<EFlintJsonReasonerWithInterfaceContext, Error> {
+    info!("Retrieving policies on checker '{address}'");
+
+    // Prepare the request
+    let url: String = format!("http://{}{}", address, GET_CONTEXT_PATH.instantiated_path::<String>(None));
+    debug!("Building GET-request to '{url}'...");
+    let client: Client = Client::new();
+    let req: Request = match client.request(GET_CONTEXT_PATH.method, &url).bearer_auth(token).build() {
+        Ok(req) => req,
+        Err(err) => return Err(Error::RequestBuild { kind: "GET", addr: url, err }),
+    };
+
+    // Send it
+    debug!("Sending request to '{url}'...");
+    let res: Response = match client.execute(req).await {
+        Ok(res) => res,
+        Err(err) => return Err(Error::RequestSend { kind: "GET", addr: url, err }),
+    };
+    debug!("Server responded with {}", res.status());
+    if !res.status().is_success() {
+        return Err(Error::RequestFailure { addr: url, code: res.status(), response: res.text().await.ok() });
+    }
+
+    // Attempt to parse the result as a list of policy versions
+    match res.text().await {
+        Ok(body) => {
+            // Log the full response first
+            debug!("Response:\n{}\n", BlockFormatter::new(&body));
+            // Parse it as a [`Policy`]
+            match serde_json::from_str::<GetContextResponse>(&body) {
+                Ok(body) => Ok(body.context),
+                Err(err) => Err(Error::ResponseDeserialize { addr: url, raw: body, err }),
+            }
+        },
+        Err(err) => Err(Error::ResponseDownload { addr: url, err }),
+    }
+}
+
 /// Helper function that pulls a specific version's body from a checker.
 ///
 /// # Arguments
@@ -291,7 +360,7 @@ fn resolve_addr_opt(node_config_path: impl AsRef<Path>, worker: &mut Option<Work
 /// - `version`: The policy version to retrieve the body of.
 ///
 /// # Returns
-/// The policy's body, as a parsed [`Policy`].
+/// The policy's body, as a JSON [`Value`].
 ///
 /// # Errors
 /// This function may error if we failed to reach the checker, failed to authenticate or failed to download/parse the result.
@@ -299,7 +368,7 @@ async fn get_version_body_from_checker(address: &Address, token: &str, version: 
     info!("Retrieving policy '{version}' from checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}/{}", address, GET_VERSION_CONTENT_PATH.instantiated_path([version]));
+    let url: String = format!("http://{}{}", address, GET_VERSION_CONTENT_PATH.instantiated_path([version]));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
     let req: Request = match client.request(GET_VERSION_CONTENT_PATH.method, &url).bearer_auth(token).build() {
@@ -340,7 +409,7 @@ async fn get_version_body_from_checker(address: &Address, token: &str, version: 
 /// - `token`: The token used for authenticating the checker.
 ///
 /// # Returns
-/// A list of versions found on the remote checkers.
+/// A map of versions to metadata found on the remote checkers.
 ///
 /// # Errors
 /// This function may error if we failed to reach the checker, failed to authenticate or failed to download/parse the result.
@@ -348,7 +417,7 @@ async fn get_versions_on_checker(address: &Address, token: &str) -> Result<HashM
     info!("Retrieving policies on checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}/{}", address, GET_VERSIONS_PATH.instantiated_path::<String>(None));
+    let url: String = format!("http://{}{}", address, GET_VERSIONS_PATH.instantiated_path::<String>(None));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
     let req: Request = match client.request(GET_VERSIONS_PATH.method, &url).bearer_auth(token).build() {
@@ -389,7 +458,7 @@ async fn get_versions_on_checker(address: &Address, token: &str) -> Result<HashM
 /// - `token`: The token used for authenticating the checker.
 ///
 /// # Returns
-/// A single [`GetActiveVersionResponse`] that describes the active policy, or [`None`] is none is active.
+/// A single version number that describes the active policy, or [`None`] is none is active.
 ///
 /// # Errors
 /// This function may error if we failed to reach the checker, failed to authenticate or failed to download/parse the result.
@@ -397,7 +466,7 @@ async fn get_active_version_on_checker(address: &Address, token: &str) -> Result
     info!("Retrieving active policy of checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}/{}", address, GET_ACTIVE_VERSION_PATH.instantiated_path::<String>(None));
+    let url: String = format!("http://{}{}", address, GET_ACTIVE_VERSION_PATH.instantiated_path::<String>(None));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
     let req: Request = match client.request(GET_ACTIVE_VERSION_PATH.method, &url).bearer_auth(token).build() {
@@ -434,9 +503,37 @@ async fn get_active_version_on_checker(address: &Address, token: &str) -> Result
     }
 }
 
+
+
+/// Prompts to supply a string with an optional value.
+///
+/// # Arguments
+/// - `what`: Some abstract description of what is prompted. Only used for error handling.
+/// - `question`: The question to ask the input of.
+/// - `default`: A default value to give, if any.
+///
+/// # Returns
+/// The information selected by the user. May be the `default` if given and the user selected it.
+///
+/// # Errors
+/// This function may error if we failed to query the user.
+fn prompt_user_string(what: &'static str, question: impl Into<String>, default: Option<&str>) -> Result<String, Error> {
+    // Ask the user using dialoguer, then return that version
+    let theme = ColorfulTheme::default();
+    let mut prompt = dialoguer::Input::with_theme(&theme).with_prompt(question).show_default(default.is_some());
+    if let Some(default) = default {
+        prompt = prompt.default(default.to_string());
+    }
+    match prompt.interact() {
+        Ok(res) => Ok(res),
+        Err(err) => Err(Error::InputString { what, err }),
+    }
+}
+
 /// Prompts the user to select one of the given list of versions.
 ///
 /// # Arguments
+/// - `question`: The question to ask the input of.
 /// - `active_version`: If there is any active version.
 /// - `versions`: The list of versions to select from.
 /// - `exit`: Whether to provide an exit button to the prompt or not.
@@ -446,7 +543,12 @@ async fn get_active_version_on_checker(address: &Address, token: &str) -> Result
 ///
 /// # Errors
 /// This function may error if we failed to query the user.
-fn prompt_user_version(active_version: Option<u64>, versions: &HashMap<u64, Metadata>, exit: bool) -> Result<Option<u64>, Error> {
+fn prompt_user_version(
+    question: impl Into<String>,
+    active_version: Option<u64>,
+    versions: &HashMap<u64, Metadata>,
+    exit: bool,
+) -> Result<Option<u64>, Error> {
     // First: go by order
     let mut ids: Vec<u64> = versions.keys().cloned().collect();
     ids.sort();
@@ -489,11 +591,7 @@ fn prompt_user_version(active_version: Option<u64>, versions: &HashMap<u64, Meta
     }
 
     // Ask the user using dialoguer, then return that version
-    match dialoguer::Select::with_theme(&ColorfulTheme::default())
-        .with_prompt("Which version do you want to make active?")
-        .items(&sversions)
-        .interact()
-    {
+    match dialoguer::Select::with_theme(&ColorfulTheme::default()).with_prompt(question).items(&sversions).interact() {
         Ok(idx) => {
             if !exit || idx < versions.len() {
                 // Exit wasn't selected
@@ -594,7 +692,7 @@ pub async fn activate(node_config_path: PathBuf, version: Option<u64>, address: 
         };
 
         // Prompt the user to select it
-        match prompt_user_version(active_version, &versions, false) {
+        match prompt_user_version("Which version do you want to make active?", active_version, &versions, false) {
             Ok(Some(id)) => id,
             Ok(None) => unreachable!(),
             Err(err) => return Err(Error::PromptVersions { err: Box::new(err) }),
@@ -603,7 +701,7 @@ pub async fn activate(node_config_path: PathBuf, version: Option<u64>, address: 
     debug!("Activating policy version {version}");
 
     // Now build the request and send it
-    let url: String = format!("http://{}/{}", address, ACTIVATE_PATH.instantiated_path::<String>(None));
+    let url: String = format!("http://{}{}", address, ACTIVATE_PATH.instantiated_path::<String>(None));
     debug!("Building PUT-request to '{url}'...");
     let client: Client = Client::new();
     let req: Request = match client.request(ACTIVATE_PATH.method, &url).bearer_auth(token).json(&ActivateRequest { version }).build() {
@@ -676,6 +774,18 @@ pub async fn add(
         (input.into(), false)
     };
 
+    // Query the user for some metadata
+    debug!("Prompting user (you!) for metadata...");
+    let name: String = prompt_user_string(
+        "for a policy name",
+        "Provide a descriptive name of the policy",
+        input.file_name().map(OsStr::to_string_lossy).as_ref().map(Cow::as_ref),
+    )?;
+    debug!("Policy name: {name:?}");
+    let description: String =
+        prompt_user_string("for a policy description", "Provide a short description of the policy", Some("A very dope policy"))?;
+    debug!("Policy description: {description:?}");
+
     // If the language is not given, resolve it from the file extension
     let language: PolicyInputLanguage = if let Some(language) = language {
         debug!("Interpreting input as {language}");
@@ -701,7 +811,7 @@ pub async fn add(
     };
 
     // Read the input file
-    let (json, target_reasoner): (String, TargetReasoner) = match language {
+    let (json, target_reasoner): (Value, TargetReasoner) = match language {
         PolicyInputLanguage::EFlint => {
             // We read it as eFLINT to JSON
             debug!("Compiling eFLINT input file '{}' to eFLINT JSON", input.display());
@@ -710,37 +820,56 @@ pub async fn add(
                 return Err(Error::InputToJson { path: input, err });
             }
 
-            // Serialize it to a string
-            match String::from_utf8(json) {
-                Ok(json) => (json, TargetReasoner::EFlintJson(EFlintJsonVersion::V0_1_0)),
-                Err(err) => panic!("{}", trace!(("eflint_to_json::compile_async() did not return valid UTF-8"), err)),
+            // Parse the request as a whole
+            debug!("Deserializing input...");
+            let req: eflint_json::v0_1_0_srv::RequestPhrases = match serde_json::from_slice(&json) {
+                Ok(eflint_json::v0_1_0_srv::Request::Phrases(req)) => req,
+                Ok(_) => panic!("eflint_to_json::compile_async() did not return a Request::Phrases"),
+                Err(err) => panic!("{}", trace!(("eflint_to_json::compile_async() did not return a valid eFLINT policy"), err)),
+            };
+
+            // Re-serialize it to a value
+            match serde_json::to_value(&req.phrases) {
+                Ok(phrases) => (phrases, TargetReasoner::EFlintJson(EFlintJsonVersion::V0_1_0)),
+                Err(err) => panic!("{}", trace!(("serde_json::from_slice() did not return a serializable policy"), err)),
             }
         },
         PolicyInputLanguage::EFlintJson => {
             // Read the file in one go
             debug!("Reading eFLINT JSON input file '{}'", input.display());
-            match tfs::read_to_string(&input).await {
-                Ok(json) => (json, TargetReasoner::EFlintJson(EFlintJsonVersion::V0_1_0)),
+            let req: eflint_json::v0_1_0_srv::RequestPhrases = match tfs::read_to_string(&input).await {
+                Ok(json) => match serde_json::from_str(&json) {
+                    Ok(eflint_json::v0_1_0_srv::Request::Phrases(req)) => req,
+                    Ok(eflint_json::v0_1_0_srv::Request::Handshake(_)) => return Err(Error::IllegalInput { path: input, got: "handshake".into() }),
+                    Ok(eflint_json::v0_1_0_srv::Request::Ping(_)) => return Err(Error::IllegalInput { path: input, got: "ping".into() }),
+                    Ok(eflint_json::v0_1_0_srv::Request::Inspect(_)) => return Err(Error::IllegalInput { path: input, got: "inspect".into() }),
+                    Err(err) => return Err(Error::InputDeserialize { path: input, raw: json, err }),
+                },
                 Err(err) => return Err(Error::InputRead { path: input, err }),
+            };
+
+            // Re-serialize it to a value
+            match serde_json::to_value(&req.phrases) {
+                Ok(phrases) => (phrases, TargetReasoner::EFlintJson(EFlintJsonVersion::V0_1_0)),
+                Err(err) => panic!("{}", trace!(("serde_json::from_str() did not return a serializable policy"), err)),
             }
         },
     };
 
-    // Ensure it is JSON
-    debug!("Deserializing input as JSON...");
-    let json: Box<RawValue> = match serde_json::from_str(&json) {
-        Ok(json) => json,
-        Err(err) => return Err(Error::InputDeserialize { path: input, raw: json, err }),
-    };
+    // Ask the checker for the reasoner context
+    let context: EFlintJsonReasonerWithInterfaceContext = get_context_from_checker(&address, &token).await?;
 
     // Finally, construct a request for the checker
-    let url: String = format!("http://{}/{}", address, ADD_VERSION_PATH.instantiated_path::<String>(None));
+    let url: String = format!("http://{}{}", address, ADD_VERSION_PATH.instantiated_path::<String>(None));
     debug!("Building POST-request to '{url}'...");
     let client: Client = Client::new();
-    let contents: AddPolicyPostModel = AddPolicyPostModel {
-        version_description: "".into(),
-        description: None,
-        content: vec![PolicyContentPostModel { reasoner: target_reasoner.id(), reasoner_version: target_reasoner.version(), content: json }],
+    let contents: AddVersionRequest<Value> = AddVersionRequest {
+        metadata: AttachedMetadata {
+            name,
+            description,
+            language: format!("{}-v{}-{}", target_reasoner.id(), target_reasoner.version(), context.hash),
+        },
+        contents: json,
     };
     let req: Request = match client.request(ADD_VERSION_PATH.method, &url).bearer_auth(token).json(&contents).build() {
         Ok(req) => req,
@@ -759,7 +888,7 @@ pub async fn add(
     }
 
     // Log the response body
-    let body: Policy = match res.text().await {
+    let body: AddVersionResponse = match res.text().await {
         Ok(body) => {
             // Log the full response first
             debug!("Response:\n{}\n", BlockFormatter::new(&body));
@@ -774,10 +903,10 @@ pub async fn add(
 
     // Done!
     println!(
-        "Successfully added policy {} to checker {}{}.",
+        "Successfully added policy {} to checker {} as version {}.",
         style(if from_stdin { "<stdin>".into() } else { input.display().to_string() }).bold().green(),
         style(address).bold().green(),
-        if let Some(version) = body.version.version { format!(" as version {}", style(version).bold().green()) } else { String::new() }
+        style(body.version).bold().green()
     );
     Ok(())
 }
@@ -815,20 +944,30 @@ pub async fn list(node_config_path: PathBuf, address: AddressOpt, token: Option<
     // Enter a loop where we let the user decide for themselves
     loop {
         // Display them to the user, with name, to select the policy they want to see more info about
-        let version: u64 = match prompt_user_version(active_version, &versions, true) {
+        let version: u64 = match prompt_user_version("Select a version to inspect:", active_version, &versions, true) {
             Ok(Some(idx)) => idx,
-            Ok(None) => break,
+            Ok(None) => return Ok(()),
             Err(err) => return Err(Error::PromptVersions { err: Box::new(err) }),
         };
 
         // Attempt to pull this version from the remote
-        let _version: Value = match get_version_body_from_checker(&address, &token, version).await {
-            Ok(version) => version,
+        let contents: Value = match get_version_body_from_checker(&address, &token, version).await {
+            Ok(contents) => contents,
             Err(err) => return Err(Error::VersionGetBody { addr: address, version, err: Box::new(err) }),
         };
-    }
 
-    // TODO: Finish this. The idea is show a particular version to the user, then re-enter the loop until they quit
-    //       (empty version, as above)
-    todo!();
+        // Render it
+        let md: &Metadata = versions.get(&version).unwrap();
+        println!("Policy {} ({})", style(format!("{:?}", md.attached.name)).bold().green(), style(md.version).bold());
+        println!("  For {}", style(format!("{:?}", md.attached.language)).bold());
+        println!("  By  {} ({})", style(format!("{:?}", md.creator.name)).bold(), style(format!("{:?}", md.creator.id)).bold());
+        println!("  At  {}", style(DateTime::<Local>::from(md.created).format("%Y-%m-%d %H:%M:%S")).bold());
+        println!("  {:?}", md.attached.description);
+        println!("{}", "-".repeat(80));
+        if let Err(err) = serde_json::to_writer_pretty(std::io::stdout(), &contents) {
+            return Err(Error::VersionSerialize { version, err });
+        }
+        println!("{}", "-".repeat(80));
+        println!();
+    }
 }

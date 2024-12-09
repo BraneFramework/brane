@@ -552,7 +552,7 @@ pub(crate) enum PolicySubcommand {
             help = "The version of the policy to activate. Omit to have branectl download the version metadata from the checker and let you choose \
                     interactively."
         )]
-        version: Option<i64>,
+        version: Option<u64>,
 
         /// Address on which to find the checker.
         #[clap(
