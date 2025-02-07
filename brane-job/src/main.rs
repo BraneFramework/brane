@@ -4,7 +4,7 @@
 //  Created:
 //    18 Oct 2022, 13:47:17
 //  Last edited:
-//    14 Jun 2024, 15:14:12
+//    07 Feb 2025, 14:16:59
 //  Auto updated?
 //    Yes
 //
@@ -34,11 +34,14 @@ use tonic::transport::Server;
 #[clap(version = env!("CARGO_PKG_VERSION"))]
 struct Opts {
     /// Print debug info
-    #[clap(long, action, help = "If given, shows additional logging information.", env = "DEBUG")]
+    #[clap(long, help = "If given, shows additional logging information.", env = "DEBUG")]
     debug: bool,
     /// Whether to keep containers after execution or not.
-    #[clap(long, action, help = "If given, will not remove job containers after removing them.", env = "KEEP_CONTAINERS")]
+    #[clap(long, help = "If given, will not remove job containers after removing them.", env = "KEEP_CONTAINERS")]
     keep_containers: bool,
+    /// The token to authenticate ourselves with the checker with.
+    #[clap(long, help = "A token to authenticate to the given Checker service with.", env = "CHECKER_DELIB_TOKEN")]
+    delib_token: String,
 
     /// Node environment metadata store.
     #[clap(
@@ -96,7 +99,12 @@ async fn main() {
     // let xenon_endpoint = utilities::ensure_http_schema(&opts.xenon, !opts.debug)?;
 
     // Start the JobHandler
-    let server = match WorkerServer::new(opts.node_config_path, opts.keep_containers, Arc::new(ProxyClient::new(worker.services.prx.address()))) {
+    let server = match WorkerServer::new(
+        opts.node_config_path,
+        opts.keep_containers,
+        opts.delib_token,
+        Arc::new(ProxyClient::new(worker.services.prx.address())),
+    ) {
         Ok(svr) => svr,
         Err(err) => {
             error!("{}", trace!(("Failed to create WorkerServer"), err));

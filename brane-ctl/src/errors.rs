@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    19 Nov 2024, 14:46:02
+//    07 Feb 2025, 14:25:11
 //  Auto updated?
 //    Yes
 //
@@ -364,6 +364,9 @@ pub enum LifetimeError {
     JobLaunchError { command: Command, err: std::io::Error },
     /// The given job failed.
     JobFailure { command: Command, status: ExitStatus },
+
+    /// Failed to generate a new JWT given the given key.
+    TokenGenerate { key: PathBuf, err: specifications::policy::Error },
 }
 impl Display for LifetimeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -415,6 +418,8 @@ impl Display for LifetimeError {
                 style(format!("{command:?}")).bold(),
                 style(status.code().map(|c| c.to_string()).unwrap_or_else(|| "non-zero".into())).bold()
             ),
+
+            TokenGenerate { key, .. } => write!(f, "Failed to generate a JWT from key {:?}", key.display()),
         }
     }
 }
@@ -449,6 +454,8 @@ impl Error for LifetimeError {
 
             JobLaunchError { err, .. } => Some(err),
             JobFailure { .. } => None,
+
+            TokenGenerate { err, .. } => Some(err),
         }
     }
 }

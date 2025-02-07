@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    14 Nov 2024, 14:59:22
+//    07 Feb 2025, 13:34:34
 //  Auto updated?
 //    Yes
 //
@@ -355,13 +355,13 @@ pub async fn add(
     // Convert the hostname and ports to Addresses
     // Note we do it a bit impractically, but that's to parse the hostname correctly in case it's an IP address.
     debug!("Parsing hostname...");
-    let api: Address = match Address::from_str(&format!("http://{}:{}", hostname.hostname, api_port)) {
+    let api: Address = match Address::from_str(&format!("{}:{}", hostname.hostname, api_port)) {
         Ok(addr) => addr,
         Err(err) => {
             return Err(Error::AddressParseError { err });
         },
     };
-    let drv: Address = match Address::from_str(&format!("grpc://{}:{}", hostname.hostname, drv_port)) {
+    let drv: Address = match Address::from_str(&format!("{}:{}", hostname.hostname, drv_port)) {
         Ok(addr) => addr,
         Err(err) => {
             return Err(Error::AddressParseError { err });
@@ -378,7 +378,7 @@ pub async fn add(
         debug!("Checking instance reachability...");
 
         // Do a simple HTTP call to the health
-        let health_addr: String = format!("{api}/health");
+        let health_addr: String = format!("http://{api}/health");
         let res: reqwest::Response = match reqwest::get(&health_addr).await {
             Ok(res) => res,
             Err(err) => {
@@ -600,7 +600,7 @@ pub async fn list(show_status: bool) -> Result<(), Error> {
             // Get the status
             let status: String = 'reach: {
                 // Do a simple HTTP call to the health and see where we fail
-                let health_addr: String = format!("{api_addr}/health");
+                let health_addr: String = format!("http://{api_addr}/health");
                 let res: reqwest::Response = match reqwest::get(&health_addr).await {
                     Ok(res) => res,
                     Err(_) => {
@@ -728,8 +728,8 @@ pub fn edit(
     if let Some(hostname) = hostname {
         // We replace the addresses. Any new ports will be handled in subsequent if let's
         println!("Updating hostname to {}...", style(&hostname.hostname).cyan().bold());
-        info.api = Address::hostname(format!("http://{}", hostname.hostname), info.api.port);
-        info.drv = Address::hostname(format!("grpc://{}", hostname.hostname), info.drv.port);
+        info.api = Address::hostname(format!("{}", hostname.hostname), info.api.port);
+        info.drv = Address::hostname(format!("{}", hostname.hostname), info.drv.port);
     }
     if let Some(port) = api_port {
         println!("Updating API service port to {}...", style(port).cyan().bold());

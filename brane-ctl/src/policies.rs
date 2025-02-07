@@ -4,7 +4,7 @@
 //  Created:
 //    10 Jan 2024, 15:57:54
 //  Last edited:
-//    09 Dec 2024, 17:33:32
+//    07 Feb 2025, 17:09:06
 //  Auto updated?
 //    Yes
 //
@@ -315,7 +315,7 @@ fn resolve_addr_opt(node_config_path: impl AsRef<Path>, worker: &mut Option<Work
 /// # Errors
 /// This function may error if we failed to reach the checker, failed to authenticate or failed to download/parse the result.
 async fn get_context_from_checker(address: &Address, token: &str) -> Result<EFlintJsonReasonerWithInterfaceContext, Error> {
-    info!("Retrieving policies on checker '{address}'");
+    info!("Retrieving context from checker '{address}'");
 
     // Prepare the request
     let url: String = format!("http://{}{}", address, GET_CONTEXT_PATH.instantiated_path::<String>(None));
@@ -642,12 +642,12 @@ impl TargetReasoner {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum EFlintJsonVersion {
     /// Specification version 0.1.0 (see <https://gitlab.com/eflint/json-specification/-/releases/v0.1.0>).
-    V0_1_0,
+    V0_1_0Srv,
 }
 impl Display for EFlintJsonVersion {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self {
-            Self::V0_1_0 => write!(f, "0.1.0"),
+            Self::V0_1_0Srv => write!(f, "0.1.0-srv"),
         }
     }
 }
@@ -830,7 +830,7 @@ pub async fn add(
 
             // Re-serialize it to a value
             match serde_json::to_value(&req.phrases) {
-                Ok(phrases) => (phrases, TargetReasoner::EFlintJson(EFlintJsonVersion::V0_1_0)),
+                Ok(phrases) => (phrases, TargetReasoner::EFlintJson(EFlintJsonVersion::V0_1_0Srv)),
                 Err(err) => panic!("{}", trace!(("serde_json::from_slice() did not return a serializable policy"), err)),
             }
         },
@@ -850,7 +850,7 @@ pub async fn add(
 
             // Re-serialize it to a value
             match serde_json::to_value(&req.phrases) {
-                Ok(phrases) => (phrases, TargetReasoner::EFlintJson(EFlintJsonVersion::V0_1_0)),
+                Ok(phrases) => (phrases, TargetReasoner::EFlintJson(EFlintJsonVersion::V0_1_0Srv)),
                 Err(err) => panic!("{}", trace!(("serde_json::from_str() did not return a serializable policy"), err)),
             }
         },

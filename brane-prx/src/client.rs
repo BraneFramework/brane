@@ -4,7 +4,7 @@
 //  Created:
 //    25 Nov 2022, 15:09:17
 //  Last edited:
-//    12 Dec 2024, 16:20:35
+//    07 Feb 2025, 12:00:33
 //  Auto updated?
 //    Yes
 //
@@ -121,7 +121,7 @@ impl ProxyClient {
 
         // Parse the address as an endpoint
         let endpoint: Url =
-            Url::from_str(&endpoint.to_string()).unwrap_or_else(|err| panic!("Cannot parse given address '{endpoint}' as a URL: {err}"));
+            Url::from_str(&format!("http://{endpoint}")).unwrap_or_else(|err| panic!("Cannot parse given address '{endpoint}' as a URL: {err}"));
         if endpoint.domain().is_none() {
             panic!("Given address '{endpoint}' does not have a domain");
         }

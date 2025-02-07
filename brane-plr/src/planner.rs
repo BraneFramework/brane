@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    06 Dec 2024, 18:19:15
+//    07 Feb 2025, 14:07:49
 //  Auto updated?
 //    Yes
 //
@@ -162,7 +162,7 @@ async fn plan_edges(
                 let location: &str = &locs.restricted()[0];
 
                 // Fetch the list of capabilities supported by the planned location
-                let address: String = format!("{api_addr}/infra/capabilities/{location}");
+                let address: String = format!("http://{api_addr}/infra/capabilities/{location}");
                 let res: reqwest::Response = match reqwest::get(&address).await {
                     Ok(req) => req,
                     Err(err) => {
@@ -245,7 +245,7 @@ async fn plan_edges(
                                         .registry;
 
                                     // Compute the registry access method
-                                    let address: String = format!("{registry}/results/download/{iname}");
+                                    let address: String = format!("https://{registry}/results/download/{iname}");
                                     debug!("Input intermediate result '{}' will be transferred in from '{}'", iname, address);
 
                                     // That's the location where to pull the dataset from
@@ -419,7 +419,7 @@ fn plan_deferred(
                                     .registry;
 
                                 // Compute the registry access method
-                                let address: String = format!("{registry}/results/download/{iname}");
+                                let address: String = format!("https://{registry}/results/download/{iname}");
                                 debug!("Input intermediate result '{}' will be transferred in from '{}'", iname, address);
 
                                 // That's the location where to pull the dataset from
@@ -543,7 +543,7 @@ async fn validate_workflow_with(proxy: &ProxyClient, plan: Workflow, location: &
     };
 
     // Create the client
-    let mut client: JobServiceClient = match proxy.connect_to_job(info.delegate.to_string()).await {
+    let mut client: JobServiceClient = match proxy.connect_to_job(format!("grpc://{}", info.delegate)).await {
         Ok(result) => match result {
             Ok(client) => client,
             Err(err) => {
@@ -634,7 +634,7 @@ pub async fn handle(context: Arc<Context>, body: PlanningRequest) -> Result<Resp
     };
 
     // Fetch the data index
-    let url: String = format!("{}/data/info", central.services.api.address);
+    let url: String = format!("http://{}/data/info", central.services.api.address);
     debug!("Loading data index from '{url}'...");
     let dindex: DataIndex = match get_data_index(&url).await {
         Ok(dindex) => dindex,

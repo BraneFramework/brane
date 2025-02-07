@@ -4,7 +4,7 @@
 //  Created:
 //    28 Oct 2024, 20:44:52
 //  Last edited:
-//    06 Dec 2024, 18:35:55
+//    07 Feb 2025, 16:09:25
 //  Auto updated?
 //    Yes
 //
@@ -23,7 +23,7 @@ use axum::extract::{ConnectInfo, Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::Response;
-use axum::routing::get;
+use axum::routing::on;
 use axum::{Extension, Router};
 use eflint_json::spec::Phrase;
 use error_trace::{ErrorTrace as _, Trace, trace};
@@ -43,7 +43,9 @@ use rand::Rng;
 use rand::distributions::Alphanumeric;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use specifications::checking::deliberation::{CheckResponse, CheckTaskRequest, CheckTransferRequest, CheckWorkflowRequest};
+use specifications::checking::deliberation::{
+    CHECK_TASK_PATH, CHECK_TRANSFER_PATH, CHECK_WORKFLOW_PATH, CheckResponse, CheckTaskRequest, CheckTransferRequest, CheckWorkflowRequest,
+};
 use thiserror::Error;
 use tokio::net::{TcpListener, TcpStream};
 use tower_service::Service as _;
@@ -420,22 +422,19 @@ where
             // First, define the axum paths
             debug!("Building axum paths...");
             let check_workflow: Router = Router::new()
-                .route("/workflow", get(Self::check_workflow))
+                .route(CHECK_WORKFLOW_PATH.path, on(CHECK_WORKFLOW_PATH.method.try_into().unwrap(), Self::check_workflow))
                 .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
                 .with_state(this.clone());
             let check_task: Router = Router::new()
-                .route("/task", get(Self::check_task))
+                .route(CHECK_TASK_PATH.path, on(CHECK_TASK_PATH.method.try_into().unwrap(), Self::check_task))
                 .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
                 .with_state(this.clone());
             let check_transfer: Router = Router::new()
-                .route("/transfer", get(Self::check_transfer))
+                .route(CHECK_TRANSFER_PATH.path, on(CHECK_TRANSFER_PATH.method.try_into().unwrap(), Self::check_transfer))
                 .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
                 .with_state(this.clone());
-            let router: IntoMakeServiceWithConnectInfo<Router, SocketAddr> = Router::new()
-                .nest("/v2/", check_workflow)
-                .nest("/v2/", check_task)
-                .nest("/v2/", check_transfer)
-                .into_make_service_with_connect_info();
+            let router: IntoMakeServiceWithConnectInfo<Router, SocketAddr> =
+                Router::new().nest("/", check_workflow).nest("/", check_task).nest("/", check_transfer).into_make_service_with_connect_info();
 
             // Bind the TCP Listener
             debug!("Binding server on '{}'...", this.addr);

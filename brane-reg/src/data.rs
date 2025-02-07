@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:40:40
 //  Last edited:
-//    06 Dec 2024, 18:18:00
+//    07 Feb 2025, 11:45:46
 //  Auto updated?
 //    Yes
 //
@@ -24,14 +24,15 @@ use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
 use brane_shr::formatters::BlockFormatter;
 use brane_shr::fs::archive_async;
 use brane_tsk::errors::AuthorizeError;
-use deliberation::spec::Verdict;
 use enum_debug::EnumDebug as _;
 use error_trace::{ErrorTrace as _, trace};
 use log::{debug, error, info};
+use policy_reasoner::spec::reasonerconn::ReasonerResponse;
+use policy_reasoner::spec::reasons::ManyReason;
 use reqwest::header;
 use rustls::Certificate;
 use serde::{Deserialize, Serialize};
-use specifications::checking::deliberation::CHECK_TRANSFER_PATH;
+use specifications::checking::deliberation::{CHECK_TRANSFER_PATH, CheckResponse};
 use specifications::data::{AccessKind, AssetInfo, DataName};
 use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileReport;
@@ -76,7 +77,7 @@ pub async fn assert_asset_permission(
     client_name: &str,
     data_name: DataName,
     call: Option<ProgramCounter>,
-) -> Result<Option<Vec<String>>, AuthorizeError> {
+) -> Result<Option<ManyReason<String>>, AuthorizeError> {
     info!(
         "Checking data access of '{}'{} permission with checker '{}'...",
         data_name,
@@ -193,14 +194,14 @@ pub async fn assert_asset_permission(
         Ok(res) => res,
         Err(err) => return Err(AuthorizeError::ExecuteBodyDownload { addr, err }),
     };
-    let res: Verdict = match serde_json::from_str(&res) {
+    let res: CheckResponse<ManyReason<String>> = match serde_json::from_str(&res) {
         Ok(res) => res,
         Err(err) => return Err(AuthorizeError::ExecuteBodyDeserialize { addr, raw: res, err }),
     };
 
     // Now match the checker's response
-    match res {
-        Verdict::Allow(_) => {
+    match res.verdict {
+        ReasonerResponse::Success => {
             info!(
                 "Checker ALLOWED data access of '{}'{}",
                 data_name,
@@ -209,13 +210,13 @@ pub async fn assert_asset_permission(
             Ok(None)
         },
 
-        Verdict::Deny(verdict) => {
+        ReasonerResponse::Violated(reasons) => {
             info!(
                 "Checker DENIED data access of '{}'{}",
                 data_name,
                 if let Some(call) = call { format!(" (in the context of {})", call) } else { String::new() },
             );
-            Ok(Some(verdict.reasons_for_denial.unwrap_or_else(Vec::new)))
+            Ok(Some(reasons))
         },
     }
 }

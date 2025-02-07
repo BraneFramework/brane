@@ -4,7 +4,7 @@
 //  Created:
 //    02 Dec 2024, 15:35:46
 //  Last edited:
-//    06 Dec 2024, 18:20:45
+//    07 Feb 2025, 16:32:28
 //  Auto updated?
 //    Yes
 //
@@ -13,6 +13,7 @@
 //!   includes a particular policy interface.
 //
 
+use std::fmt::Display;
 use std::future::Future;
 use std::sync::LazyLock;
 
@@ -71,7 +72,7 @@ impl EFlintJsonReasonerConnectorWithInterface {
     /// and this may panic if the input is somehow ill-formed.
     #[inline]
     pub fn new_async<'l, L: AuditLogger>(
-        addr: impl 'l + Into<String>,
+        addr: impl 'l + Display,
         handler: EFlintPrefixedReasonHandler,
         logger: &'l L,
     ) -> impl 'l
@@ -87,7 +88,7 @@ impl EFlintJsonReasonerConnectorWithInterface {
 
             // Create the normal one
             let reasoner: EFlintJsonReasonerConnector<EFlintPrefixedReasonHandler, Vec<Phrase>, Question> =
-                EFlintJsonReasonerConnector::new_async(addr, handler, logger).await?;
+                EFlintJsonReasonerConnector::new_async(format!("http://{addr}"), handler, logger).await?;
 
             // OK, done
             Ok(Self { reasoner })

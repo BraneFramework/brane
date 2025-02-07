@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    02 Dec 2024, 15:42:22
+//    07 Feb 2025, 17:09:56
 //  Auto updated?
 //    Yes
 //
@@ -298,23 +298,27 @@ async fn assert_workflow_context(wf: &Workflow, usecase: &str, usecases: &HashMa
     };
 
 
-    // Send the request to the Brane API registry to get the current state of the datasets
-    let users: String = format!("{api}/infra/registries");
-    debug!("Retrieving list of users from registry at {users:?}...");
-    let users: HashSet<String> = send_request::<HashMap<String, Address>>(&users).await?.into_keys().collect();
+    // TODO: Finish this
+    // Cannot really do it for now, since, unfortunately, we do not know all users (i.e., no idea
+    // about scientists). Some kind of user database is, clearly, essential.
 
-    // Check if the users are all found in the system
-    debug!("Asserting all users in workflow {:?} exist...", wf.id);
-    if let Some(user) = &wf.user {
-        if !users.contains(&user.id) {
-            return Err(Error::UnknownWorkflowUser { workflow: wf.id.clone(), user: user.id.clone() });
-        }
-    }
-    wf.visit(AssertUserExistance::new(&wf.id, &users))?;
+    // // Send the request to the Brane API registry to get the current state of the datasets
+    // let users: String = format!("http://{api}/infra/registries");
+    // debug!("Retrieving list of users from registry at {users:?}...");
+    // let users: HashSet<String> = send_request::<HashMap<String, Address>>(&users).await?.into_keys().collect();
+
+    // // Check if the users are all found in the system
+    // debug!("Asserting all users in workflow {:?} exist...", wf.id);
+    // if let Some(user) = &wf.user {
+    //     if !users.contains(&user.id) {
+    //         return Err(Error::UnknownWorkflowUser { workflow: wf.id.clone(), user: user.id.clone() });
+    //     }
+    // }
+    // wf.visit(AssertUserExistance::new(&wf.id, &users))?;
 
 
     // Check if all the packages mentioned exist in the system
-    let graphql: String = format!("{api}/graphql");
+    let graphql: String = format!("http://{api}/graphql");
     debug!("Retrieving list of packages from registry at {graphql:?}...");
     let packages: PackageIndex = match brane_tsk::api::get_package_index(&graphql).await {
         Ok(index) => index,
@@ -326,7 +330,7 @@ async fn assert_workflow_context(wf: &Workflow, usecase: &str, usecases: &HashMa
 
 
     // Check if all the datasets mentioned exist in the system
-    let datasets: String = format!("{api}/data/info");
+    let datasets: String = format!("http://{api}/data/info");
     debug!("Retrieving list of datasets from registry at {datasets:?}...");
     let datasets: HashSet<String> = send_request::<HashMap<String, DataInfo>>(&datasets).await?.into_keys().collect();
 
@@ -373,8 +377,10 @@ async fn get_active_policy(db: &SQLiteDatabase<Vec<Phrase>>, res: &mut Vec<Phras
         Ok(None) => return Err(Error::DatabaseInconsistentActive { version }),
         Err(err) => return Err(Error::DatabaseGetActiveVersionMetadata { version, err }),
     };
-    if &md.attached.language.as_bytes()[..12] != b"eflint-json-"
-        || &md.attached.language.as_bytes()[12..] != env!("BASE_DEFS_EFLINT_JSON_HASH").as_bytes()
+    if md.attached.language.len() < 23
+        || &md.attached.language.as_bytes()[..12] != b"eflint-json-"
+        || &md.attached.language.as_bytes()[12..23] != b"v0.1.0-srv-"
+        || &md.attached.language.as_bytes()[23..] != env!("BASE_DEFS_EFLINT_JSON_HASH").as_bytes()
     {
         return Err(Error::DatabaseActiveVersionMismatch {
             version,
@@ -399,84 +405,84 @@ async fn get_active_policy(db: &SQLiteDatabase<Vec<Phrase>>, res: &mut Vec<Phras
 
 
 /***** VISITORS *****/
-/// Checks whether all users mentioned in a workflow exist.
-#[derive(Debug)]
-struct AssertUserExistance<'w> {
-    /// The workflow ID (for debugging)
-    wf_id: &'w str,
-    /// The users that exist.
-    users: &'w HashSet<String>,
-}
-impl<'w> AssertUserExistance<'w> {
-    /// Constructor for the AssertUserExistance.
-    ///
-    /// # Arguments
-    /// - `wf_id`: The ID of the workflow we're asserting.
-    /// - `users`: The users that exist. Any users occuring in the workflow but not in this list
-    ///   will be reported.
-    ///
-    /// # Returns
-    /// A new instance of Self, ready to kick ass and assert user existances (and there's no users
-    /// to check).
-    #[inline]
-    fn new(wf_id: &'w str, users: &'w HashSet<String>) -> Self { Self { wf_id, users } }
-}
-impl<'w> Visitor<'w> for AssertUserExistance<'w> {
-    type Error = Error;
+// /// Checks whether all users mentioned in a workflow exist.
+// #[derive(Debug)]
+// struct AssertUserExistance<'w> {
+//     /// The workflow ID (for debugging)
+//     wf_id: &'w str,
+//     /// The users that exist.
+//     users: &'w HashSet<String>,
+// }
+// impl<'w> AssertUserExistance<'w> {
+//     /// Constructor for the AssertUserExistance.
+//     ///
+//     /// # Arguments
+//     /// - `wf_id`: The ID of the workflow we're asserting.
+//     /// - `users`: The users that exist. Any users occuring in the workflow but not in this list
+//     ///   will be reported.
+//     ///
+//     /// # Returns
+//     /// A new instance of Self, ready to kick ass and assert user existances (and there's no users
+//     /// to check).
+//     #[inline]
+//     fn new(wf_id: &'w str, users: &'w HashSet<String>) -> Self { Self { wf_id, users } }
+// }
+// impl<'w> Visitor<'w> for AssertUserExistance<'w> {
+//     type Error = Error;
 
-    #[inline]
-    fn visit_call(&mut self, elem: &'w policy_reasoner::workflow::ElemCall) -> Result<Option<&'w Elem>, Self::Error> {
-        // Check if all users contributing input are known
-        for i in &elem.input {
-            if let Some(from) = &i.from {
-                if !self.users.contains(&from.id) {
-                    return Err(Error::UnknownInputUser {
-                        workflow: self.wf_id.into(),
-                        call:     elem.id.clone(),
-                        input:    i.id.clone(),
-                        user:     from.id.clone(),
-                    });
-                }
-            }
-        }
-        // Assert that only the planned user generates output
-        for o in &elem.output {
-            if elem.at != o.from {
-                return Err(Error::UnplannedOutputUser {
-                    workflow: self.wf_id.into(),
-                    call: elem.id.clone(),
-                    output: o.id.clone(),
-                    planned_user: elem.at.as_ref().map(|e| e.id.clone()),
-                    output_user: o.from.as_ref().map(|e| e.id.clone()),
-                });
-            }
-        }
+//     #[inline]
+//     fn visit_call(&mut self, elem: &'w policy_reasoner::workflow::ElemCall) -> Result<Option<&'w Elem>, Self::Error> {
+//         // Check if all users contributing input are known
+//         for i in &elem.input {
+//             if let Some(from) = &i.from {
+//                 if !self.users.contains(&from.id) {
+//                     return Err(Error::UnknownInputUser {
+//                         workflow: self.wf_id.into(),
+//                         call:     elem.id.clone(),
+//                         input:    i.id.clone(),
+//                         user:     from.id.clone(),
+//                     });
+//                 }
+//             }
+//         }
+//         // Assert that only the planned user generates output
+//         for o in &elem.output {
+//             if elem.at != o.from {
+//                 return Err(Error::UnplannedOutputUser {
+//                     workflow: self.wf_id.into(),
+//                     call: elem.id.clone(),
+//                     output: o.id.clone(),
+//                     planned_user: elem.at.as_ref().map(|e| e.id.clone()),
+//                     output_user: o.from.as_ref().map(|e| e.id.clone()),
+//                 });
+//             }
+//         }
 
-        // Check if the planned user is known
-        if let Some(user) = &elem.at {
-            if !self.users.contains(&user.id) {
-                return Err(Error::UnknownPlannedUser { workflow: self.wf_id.into(), call: elem.id.clone(), user: user.id.clone() });
-            }
-        }
+//         // Check if the planned user is known
+//         if let Some(user) = &elem.at {
+//             if !self.users.contains(&user.id) {
+//                 return Err(Error::UnknownPlannedUser { workflow: self.wf_id.into(), call: elem.id.clone(), user: user.id.clone() });
+//             }
+//         }
 
-        // Finally, check if all metadata users are known
-        for m in &elem.metadata {
-            if let Some((owner, _)) = &m.signature {
-                if !self.users.contains(&owner.id) {
-                    return Err(Error::UnknownOwnerUser {
-                        workflow: self.wf_id.into(),
-                        call:     elem.id.clone(),
-                        tag:      m.tag.clone(),
-                        user:     owner.id.clone(),
-                    });
-                }
-            }
-        }
+//         // Finally, check if all metadata users are known
+//         for m in &elem.metadata {
+//             if let Some((owner, _)) = &m.signature {
+//                 if !self.users.contains(&owner.id) {
+//                     return Err(Error::UnknownOwnerUser {
+//                         workflow: self.wf_id.into(),
+//                         call:     elem.id.clone(),
+//                         tag:      m.tag.clone(),
+//                         user:     owner.id.clone(),
+//                     });
+//                 }
+//             }
+//         }
 
-        // OK, continue
-        Ok(Some(&elem.next))
-    }
-}
+//         // OK, continue
+//         Ok(Some(&elem.next))
+//     }
+// }
 
 /// Checks whether all packages mentioned in a workflow exist.
 #[derive(Debug)]
