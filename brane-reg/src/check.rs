@@ -4,7 +4,7 @@
 //  Created:
 //    07 Feb 2024, 13:40:32
 //  Last edited:
-//    14 Nov 2024, 18:13:35
+//    07 Feb 2025, 11:46:25
 //  Auto updated?
 //    Yes
 //
@@ -20,6 +20,7 @@ use brane_shr::formatters::BlockFormatter;
 use enum_debug::EnumDebug as _;
 use error_trace::trace;
 use log::{debug, error, info};
+use policy_reasoner::spec::reasons::ManyReason;
 use specifications::data::DataName;
 use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileReport;
@@ -161,7 +162,7 @@ async fn check_data_or_result(name: DataName, body: CheckTransferRequest, contex
             info!("Checker authorized transfer of dataset '{}' to '{}'", name, target);
 
             // Serialize the response
-            let res: String = match serde_json::to_string(&CheckTransferReply { verdict: true, reasons: vec![] }) {
+            let res: String = match serde_json::to_string(&CheckTransferReply { verdict: true, reasons: ManyReason::new() }) {
                 Ok(res) => res,
                 Err(err) => {
                     error!("{}", trace!(("Failed to serialize ChecKTransferReply"), err));

@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 17:39:06
 //  Last edited:
-//    26 Jul 2023, 09:36:57
+//    07 Feb 2025, 13:38:58
 //  Auto updated?
 //    Yes
 //
@@ -85,7 +85,7 @@ pub async fn download_data(
     let location: &str = access.keys().choose(&mut rng).unwrap();
 
     // Send a GET-request to resolve that location to a delegate
-    let registry_addr: String = format!("{api_endpoint}/infra/registries/{location}");
+    let registry_addr: String = format!("http://{api_endpoint}/infra/registries/{location}");
     let res: Response = match reqwest::get(&registry_addr).await {
         Ok(res) => res,
         Err(err) => {
@@ -174,7 +174,7 @@ pub async fn download_data(
 
 
     /* Step 4: Build the client. */
-    let download_addr: String = format!("{registry_addr}/data/download/{name}");
+    let download_addr: String = format!("https://{registry_addr}/data/download/{name}");
     debug!("Sending download request to '{}'...", download_addr);
     let mut client: ClientBuilder =
         Client::builder().use_rustls_tls().add_root_certificate(ca_cert).identity(identity).tls_sni(!is_ip_addr(&download_addr));
@@ -412,7 +412,7 @@ pub async fn download(names: Vec<String>, locs: Vec<String>, proxy_addr: &Option
     };
 
     // Fetch a new, remote DataIndex to get up-to-date entries
-    let data_addr: String = format!("{}/data/info", instance_info.api);
+    let data_addr: String = format!("http://{}/data/info", instance_info.api);
     let index: DataIndex = match brane_tsk::api::get_data_index(&data_addr).await {
         Ok(dindex) => dindex,
         Err(err) => {

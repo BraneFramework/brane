@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2022, 11:21:14
 //  Last edited:
-//    12 Dec 2024, 15:43:24
+//    07 Feb 2025, 16:34:52
 //  Auto updated?
 //    Yes
 //
@@ -21,7 +21,6 @@ use std::ffi::OsStr;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
@@ -396,7 +395,7 @@ async fn preprocess_transfer_tar_local(
     // Send a reqwest
     debug!("Sending download request...");
     let download = prof.time("Downloading");
-    let url: String = format!("{}/{}/download/{}", address, if dataname.is_data() { "data" } else { "results" }, dataname.name());
+    let url: String = format!("https://{}/{}/download/{}", address, if dataname.is_data() { "data" } else { "results" }, dataname.name());
     let res = match proxy
         .get_with_body(&url, Some(NewPathRequestTlsOptions { location: location.clone(), use_client_auth: true }), &DownloadAssetRequest {
             use_case: use_case.into(),
@@ -558,6 +557,7 @@ pub async fn preprocess_transfer_tar(
 /// # Arguments
 /// - `worker_cfg`: The configuration for this node's environment. For us, contains if and where we should proxy the request through and where we may find the checker.
 /// - `use_case`: A string denoting which use-case (registry) we're using.
+/// - `delib_token`: A token used to access the checker's deliberation API.
 /// - `workflow`: The workflow to check.
 /// - `call`: A program counter that identifies which call in the workflow we'll be checkin'.
 ///
@@ -569,6 +569,7 @@ pub async fn preprocess_transfer_tar(
 async fn assert_task_permission(
     worker_cfg: &WorkerConfig,
     use_case: &str,
+    delib_token: &str,
     workflow: &Workflow,
     call: ProgramCounter,
 ) -> Result<bool, AuthorizeError> {
@@ -578,24 +579,13 @@ async fn assert_task_permission(
     debug!("Constructing checker request...");
     let body: CheckTaskRequest = CheckTaskRequest { usecase: use_case.into(), workflow: workflow.clone(), task: call };
 
-    // Next, generate a JWT to inject in the request
-    let jwt: String = match specifications::policy::generate_policy_token(
-        if let Some(user) = &*workflow.user { user.as_str() } else { "UNKNOWN" },
-        &worker_cfg.name,
-        Duration::from_secs(60),
-        &worker_cfg.paths.policy_delib_secret,
-    ) {
-        Ok(token) => token,
-        Err(err) => return Err(AuthorizeError::TokenGenerate { secret: worker_cfg.paths.policy_delib_secret.clone(), err }),
-    };
-
     // Prepare the request to send
     let client: reqwest::Client = match reqwest::Client::builder().build() {
         Ok(client) => client,
         Err(err) => return Err(AuthorizeError::ClientBuild { err }),
     };
-    let addr: String = format!("http://{}:{}/{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, CHECK_TASK_PATH.path);
-    let req: reqwest::Request = match client.request(CHECK_TASK_PATH.method, &addr).bearer_auth(jwt).json(&body).build() {
+    let addr: String = format!("http://{}:{}{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, CHECK_TASK_PATH.path);
+    let req: reqwest::Request = match client.request(CHECK_TASK_PATH.method, &addr).bearer_auth(delib_token).json(&body).build() {
         Ok(req) => req,
         Err(err) => return Err(AuthorizeError::ExecuteRequestBuild { addr, err }),
     };
@@ -618,13 +608,13 @@ async fn assert_task_permission(
         Ok(res) => res,
         Err(err) => return Err(AuthorizeError::ExecuteBodyDownload { addr, err }),
     };
-    let res: ReasonerResponse<ManyReason<String>> = match serde_json::from_str(&res) {
+    let res: CheckResponse<ManyReason<String>> = match serde_json::from_str(&res) {
         Ok(res) => res,
         Err(err) => return Err(AuthorizeError::ExecuteBodyDeserialize { addr, raw: res, err }),
     };
 
     // Now match the checker's response
-    match res {
+    match res.verdict {
         ReasonerResponse::Success => {
             info!("Checker ALLOWED execution of task {}", call);
             Ok(true)
@@ -641,6 +631,7 @@ async fn assert_task_permission(
 ///
 /// # Arguments
 /// -` node_config_path`: The path to a `node.yml` file that defines the environment (such as checker location).
+/// - `delib_token`: Some JWT that we use to authenticate ourselves at the checker.
 /// - `request`: The body of the request, which is either a [`CheckWorkflowRequest`] or a [`CheckTaskRequest`].
 ///
 /// # Returns
@@ -650,6 +641,7 @@ async fn assert_task_permission(
 /// This function may error if we failed to read the `node.yml` file or if we failed to contact the checker.
 async fn check_workflow_or_task(
     node_config_path: &Path,
+    delib_token: &str,
     request: CheckRequest,
 ) -> Result<Response<Prost<CheckResponse<ManyReason<String>>>>, Status> {
     debug!("Consulting checker to find validity for use-case {:?}", request.usecase());
@@ -679,7 +671,7 @@ async fn check_workflow_or_task(
             // It's a workflow request
             (
                 CHECK_WORKFLOW_PATH.method,
-                format!("http://{}:{}/{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, CHECK_WORKFLOW_PATH.path),
+                format!("http://{}:{}{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, CHECK_WORKFLOW_PATH.path),
                 match serde_json::to_string(req) {
                     Ok(req) => req,
                     Err(err) => {
@@ -693,7 +685,7 @@ async fn check_workflow_or_task(
             // It's a task request
             (
                 CHECK_TASK_PATH.method,
-                format!("http://{}:{}/{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, CHECK_TASK_PATH.path),
+                format!("http://{}:{}{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, CHECK_TASK_PATH.path),
                 match serde_json::to_string(req) {
                     Ok(req) => req,
                     Err(err) => {
@@ -702,21 +694,6 @@ async fn check_workflow_or_task(
                     },
                 },
             )
-        },
-    };
-
-    // Next, generate a JWT to inject in the request
-    let jwt: String = match specifications::policy::generate_policy_token(
-        if let Some(user) = &*request.workflow().user { user.as_str() } else { "UNKNOWN" },
-        &worker_cfg.name,
-        Duration::from_secs(60),
-        &worker_cfg.paths.policy_delib_secret,
-    ) {
-        Ok(token) => token,
-        Err(err) => {
-            let err = AuthorizeError::TokenGenerate { secret: worker_cfg.paths.policy_delib_secret.clone(), err };
-            error!("{}", err.trace());
-            return Err(Status::internal("An internal error occurred"));
         },
     };
 
@@ -729,7 +706,7 @@ async fn check_workflow_or_task(
             return Err(Status::internal("An internal error occurred"));
         },
     };
-    let req: reqwest::Request = match client.request(method, &url).bearer_auth(jwt).body(body).build() {
+    let req: reqwest::Request = match client.request(method, &url).bearer_auth(delib_token).body(body).build() {
         Ok(req) => req,
         Err(err) => {
             let err = AuthorizeError::ExecuteRequestBuild { addr: url, err };
@@ -764,7 +741,7 @@ async fn check_workflow_or_task(
             return Err(Status::internal("An internal error occurred"));
         },
     };
-    let res: ReasonerResponse<ManyReason<String>> = match serde_json::from_str(&res) {
+    let res: CheckResponse<ManyReason<String>> = match serde_json::from_str(&res) {
         Ok(res) => res,
         Err(err) => {
             let err = AuthorizeError::ExecuteBodyDeserialize { addr: url, raw: res, err };
@@ -775,7 +752,7 @@ async fn check_workflow_or_task(
     send.stop();
 
     // Now match the checker's response
-    match res {
+    match res.verdict {
         ReasonerResponse::Success => {
             info!("Checker ALLOWED execution of {}", request.what());
             Ok(Response::new(Prost::<CheckResponse<ManyReason<String>>>::new(CheckResponse { verdict: ReasonerResponse::Success })))
@@ -1291,6 +1268,7 @@ async fn execute_task_local(
 /// - `proxy`: The proxy client we use to proxy the data transfer.
 /// - `tx`: The channel to transmit stuff back to the client on.
 /// - `use_case`: A string denoting which use-case (registry) we're using.
+/// - `delib_token`: A JWT used to access the Checker's deliberation API.
 /// - `workflow`: The Workflow that we're executing. Useful for communicating with the eFLINT backend.
 /// - `cinfo`: The CentralNodeInfo that specifies where to find services over at the central node.
 /// - `tinfo`: The TaskInfo that describes the task itself to execute.
@@ -1308,6 +1286,7 @@ async fn execute_task(
     proxy: Arc<ProxyClient>,
     tx: Sender<Result<ExecuteReply, Status>>,
     use_case: &str,
+    delib_token: &str,
     workflow: Workflow,
     cinfo: CentralNodeInfo,
     tinfo: TaskInfo,
@@ -1378,7 +1357,7 @@ async fn execute_task(
         let _auth = prof.time("Authorization");
 
         // First: make sure that the workflow is allowed by the checker
-        match assert_task_permission(worker_cfg, use_case, &workflow, tinfo.pc).await {
+        match assert_task_permission(worker_cfg, use_case, delib_token, &workflow, tinfo.pc).await {
             Ok(true) => {
                 debug!("Checker accepted incoming workflow");
                 if let Err(err) = update_client(&tx, JobStatus::Authorized).await {
@@ -1703,15 +1682,6 @@ impl CheckRequest {
             Self::Task(t) => t.usecase.as_str(),
         }
     }
-
-    /// Retrieves the workflow from either request.
-    #[inline]
-    fn workflow(&self) -> &Workflow {
-        match self {
-            Self::Workflow(w) => &w.workflow,
-            Self::Task(t) => &t.workflow,
-        }
-    }
 }
 
 
@@ -1726,6 +1696,8 @@ pub struct WorkerServer {
     node_config_path: PathBuf,
     /// Whether to remove containers after execution or not (but negated).
     keep_containers:  bool,
+    /// The token used to access the checker's deliberation API.
+    delib_token:      Arc<String>,
 
     /// The proxy client to connect to the proxy service with.
     proxy:      Arc<ProxyClient>,
@@ -1741,6 +1713,7 @@ impl WorkerServer {
     /// # Arguments
     /// - `node_config_path`: The path to the `node.yml` file that describes this node's environment.
     /// - `keep_containers`: If true, then we will not remove containers after execution (useful for debugging).
+    /// - `delib_token`: A deliberation API JWT to authenticate ourselves at the Checker with.
     /// - `proxy`: The proxy client to connect to the proxy service with.
     ///
     /// # Returns
@@ -1749,7 +1722,7 @@ impl WorkerServer {
     /// # Errors
     /// This function could error if it failed to load the node config file at `node_config_path`.
     #[inline]
-    pub fn new(node_config_path: impl Into<PathBuf>, keep_containers: bool, proxy: Arc<ProxyClient>) -> Result<Self, Error> {
+    pub fn new(node_config_path: impl Into<PathBuf>, keep_containers: bool, delib_token: String, proxy: Arc<ProxyClient>) -> Result<Self, Error> {
         // Read the node config to construct a map of caches
         let node_config_path: PathBuf = node_config_path.into();
         let node: NodeConfig = match NodeConfig::from_path(&node_config_path) {
@@ -1772,7 +1745,7 @@ impl WorkerServer {
             worker.usecases.into_iter().map(|(usecase, reg)| (usecase, DomainRegistryCache::new(reg.api))).collect();
 
         // OK, return self
-        Ok(Self { node_config_path, keep_containers, proxy, registries: Arc::new(registries) })
+        Ok(Self { node_config_path, keep_containers, delib_token: Arc::new(delib_token), proxy, registries: Arc::new(registries) })
     }
 }
 
@@ -1793,7 +1766,7 @@ impl JobService for WorkerServer {
         })?;
 
         // Pass to the abstracted version
-        check_workflow_or_task(&self.node_config_path, CheckRequest::Workflow(req)).await
+        check_workflow_or_task(&self.node_config_path, &self.delib_token, CheckRequest::Workflow(req)).await
     }
 
     async fn check_task(&self, request: Request<Prost<CheckTaskRequest>>) -> Result<Response<Prost<CheckResponse<ManyReason<String>>>>, Status> {
@@ -1806,7 +1779,7 @@ impl JobService for WorkerServer {
         })?;
 
         // Pass to the abstracted version
-        check_workflow_or_task(&self.node_config_path, CheckRequest::Task(req)).await
+        check_workflow_or_task(&self.node_config_path, &self.delib_token, CheckRequest::Task(req)).await
     }
 
     async fn preprocess(&self, request: Request<PreprocessRequest>) -> Result<Response<PreprocessReply>, Status> {
@@ -2085,9 +2058,14 @@ impl JobService for WorkerServer {
         // Now move the rest to a separate task so we can return the start of the stream
         let keep_containers: bool = self.keep_containers;
         let proxy: Arc<ProxyClient> = self.proxy.clone();
+        let delib_token: Arc<String> = self.delib_token.clone();
         tokio::spawn(async move {
             let worker: WorkerConfig = worker;
-            report.nest_fut("execution", |scope| execute_task(&worker, proxy, tx, &use_case, workflow, cinfo, tinfo, keep_containers, scope)).await
+            report
+                .nest_fut("execution", |scope| {
+                    execute_task(&worker, proxy, tx, &use_case, &delib_token, workflow, cinfo, tinfo, keep_containers, scope)
+                })
+                .await
         });
 
         // Return the stream so the user can get updates

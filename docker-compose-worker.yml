@@ -32,12 +32,12 @@ services:
     init: true
     container_name: ${CHK_NAME:-brane-chk}
     ports:
-    - "0.0.0.0:${CHK_DELIB_PORT}:50053"
-    - "0.0.0.0:${CHK_STORE_PORT}:50054"
+    - "0.0.0.0:${CHK_DELIB_PORT}:${CHK_DELIB_PORT}"
+    - "0.0.0.0:${CHK_STORE_PORT}:${CHK_STORE_PORT}"
     restart: always
     environment:
-    - DELIB_ADDRESS=0.0.0.0:50053
-    - STORE_ADDRESS=0.0.0.0:50054
+    - DELIB_ADDRESS=0.0.0.0:${CHK_DELIB_PORT}
+    - STORE_ADDRESS=0.0.0.0:${CHK_STORE_PORT}
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
     - ${POLICY_DB}:/policy.db
@@ -67,7 +67,7 @@ services:
   brane-job:
     image: brane-job:${BRANE_VERSION:-latest}
     container_name: ${JOB_NAME:-brane-job}
-    command: --debug
+    command: --debug --delib-token "${CHECKER_DELIB_TOKEN}"
     ports:
     - "0.0.0.0:${JOB_PORT}:${JOB_PORT}"
     restart: always

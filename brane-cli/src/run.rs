@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    14 Nov 2024, 17:58:41
+//    07 Feb 2025, 14:03:23
 //  Auto updated?
 //    Yes
 //
@@ -167,7 +167,7 @@ pub async fn initialize_instance<O: Write, E: Write>(
 
     // Connect to the server with gRPC
     debug!("Connecting to driver '{}'...", drv_endpoint);
-    let mut client: DriverServiceClient = match DriverServiceClient::connect(drv_endpoint.to_string()).await {
+    let mut client: DriverServiceClient = match DriverServiceClient::connect(format!("grpc://{drv_endpoint}")).await {
         Ok(client) => client,
         Err(err) => {
             return Err(Error::ClientConnectError { address: drv_endpoint.into(), err });
@@ -372,7 +372,7 @@ pub async fn process_instance(
                 let data_dir: PathBuf = datasets_dir.join(name.to_string());
 
                 // Fetch a new, local DataIndex to get up-to-date entries
-                let data_addr: String = format!("{api_endpoint}/data/info");
+                let data_addr: String = format!("http://{api_endpoint}/data/info");
                 let index: DataIndex = match brane_tsk::api::get_data_index(&data_addr).await {
                     Ok(dindex) => dindex,
                     Err(err) => {
@@ -662,14 +662,14 @@ pub async fn initialize_instance_vm(
 
     // We fetch a local copy of the indices for compiling
     debug!("Fetching global package & data indices from '{}'...", api_endpoint);
-    let package_addr: String = format!("{api_endpoint}/graphql");
+    let package_addr: String = format!("http://{api_endpoint}/graphql");
     let pindex: Arc<Mutex<PackageIndex>> = match brane_tsk::api::get_package_index(&package_addr).await {
         Ok(pindex) => Arc::new(Mutex::new(pindex)),
         Err(err) => {
             return Err(Error::RemotePackageIndexError { address: package_addr, err });
         },
     };
-    let data_addr: String = format!("{api_endpoint}/data/info");
+    let data_addr: String = format!("http://{api_endpoint}/data/info");
     let dindex: Arc<Mutex<DataIndex>> = match brane_tsk::api::get_data_index(&data_addr).await {
         Ok(dindex) => Arc::new(Mutex::new(dindex)),
         Err(err) => {

@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    02 Dec 2024, 14:55:22
+//    07 Feb 2025, 13:24:50
 //  Auto updated?
 //    Yes
 //
@@ -37,9 +37,9 @@ use enum_debug::EnumDebug as _;
 use jsonwebtoken::jwk::{self, Jwk, JwkSet, KeyAlgorithm, OctetKeyParameters, OctetKeyType, PublicKeyUse};
 use log::{debug, info, warn};
 use policy_store::databases::sqlite::SQLiteDatabase;
+use rand::Rng as _;
 use rand::distributions::Alphanumeric;
 use rand::rngs::OsRng;
-use rand::Rng as _;
 use serde::Serialize;
 use specifications::address::{Address, Host};
 use specifications::package::Capability;
@@ -688,21 +688,21 @@ pub fn node(
                         api: PublicService {
                             name:    api_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), api_port).into(),
-                            address: Address::hostname(format!("http://{api_name}"), api_port),
+                            address: Address::hostname(format!("{api_name}"), api_port),
 
-                            external_address: Address::hostname(format!("http://{hostname}"), api_port),
+                            external_address: Address::hostname(format!("{hostname}"), api_port),
                         },
                         drv: PublicService {
                             name:    drv_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), drv_port).into(),
-                            address: Address::hostname(format!("grpc://{drv_name}"), drv_port),
+                            address: Address::hostname(format!("{drv_name}"), drv_port),
 
-                            external_address: Address::hostname(format!("grpc://{hostname}"), drv_port),
+                            external_address: Address::hostname(format!("{hostname}"), drv_port),
                         },
                         plr: PrivateService {
                             name:    plr_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), plr_port).into(),
-                            address: Address::hostname(format!("http://{plr_name}"), plr_port),
+                            address: Address::hostname(format!("{plr_name}"), plr_port),
                         },
                         prx: if let Some(address) = external_proxy {
                             PrivateOrExternalService::External(ExternalService { address })
@@ -710,7 +710,7 @@ pub fn node(
                             PrivateOrExternalService::Private(PrivateService {
                                 name:    prx_name.clone(),
                                 bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                                address: Address::hostname(format!("http://{prx_name}"), prx_port),
+                                address: Address::hostname(format!("{prx_name}"), prx_port),
                             })
                         },
 
@@ -821,16 +821,16 @@ pub fn node(
                         reg: PublicService {
                             name:    reg_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), reg_port).into(),
-                            address: Address::hostname(format!("https://{reg_name}"), reg_port),
+                            address: Address::hostname(format!("{reg_name}"), reg_port),
 
-                            external_address: Address::hostname(format!("https://{hostname}"), reg_port),
+                            external_address: Address::hostname(format!("{hostname}"), reg_port),
                         },
                         job: PublicService {
                             name:    job_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), job_port).into(),
-                            address: Address::hostname(format!("grpc://{job_name}"), job_port),
+                            address: Address::hostname(format!("{job_name}"), job_port),
 
-                            external_address: Address::hostname(format!("grpc://{hostname}"), job_port),
+                            external_address: Address::hostname(format!("{hostname}"), job_port),
                         },
                         chk: DoublePrivateService {
                             name:  chk_name.clone(),
@@ -844,7 +844,7 @@ pub fn node(
                             PrivateOrExternalService::Private(PrivateService {
                                 name:    prx_name.clone(),
                                 bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                                address: Address::hostname(format!("http://{prx_name}"), prx_port),
+                                address: Address::hostname(format!("{prx_name}"), prx_port),
                             })
                         },
                     },
@@ -882,9 +882,9 @@ pub fn node(
                         prx: PublicService {
                             name:    prx_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address: Address::hostname(format!("http://{prx_name}"), prx_port),
+                            address: Address::hostname(format!("{prx_name}"), prx_port),
 
-                            external_address: Address::hostname(format!("http://{hostname}"), prx_port),
+                            external_address: Address::hostname(format!("{hostname}"), prx_port),
                         },
                     },
                 }),
@@ -1184,8 +1184,8 @@ pub fn infra(
     for loc in locations {
         locs.insert(loc.0.clone(), InfraLocation {
             name:     beautify_id(loc.0),
-            registry: Address::hostname(format!("https://{}", loc.1), 50051),
-            delegate: Address::hostname(format!("grpc://{}", loc.1), 50052),
+            registry: Address::hostname(format!("{}", loc.1), 50051),
+            delegate: Address::hostname(format!("{}", loc.1), 50052),
         });
     }
 

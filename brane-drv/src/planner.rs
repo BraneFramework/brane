@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    14 Nov 2024, 18:08:25
+//    07 Feb 2025, 14:04:38
 //  Auto updated?
 //    Yes
 //
@@ -67,7 +67,7 @@ impl InstancePlanner {
         // Populate a "PlanningRequest" with that (i.e., just populate a future record with the string)
         debug!("Sending request...");
         let remote = prof.time(format!("workflow '{task_id}' on brane-plr"));
-        let url: String = format!("{plr}/plan");
+        let url: String = format!("http://{plr}/plan");
         let client: Client = Client::new();
         let req: Request = match client.post(&url).body(sreq).build() {
             Ok(req) => req,

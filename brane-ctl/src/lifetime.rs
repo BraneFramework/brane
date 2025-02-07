@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    14 Nov 2024, 15:12:14
+//    07 Feb 2025, 14:27:36
 //  Auto updated?
 //    Yes
 //
@@ -22,6 +22,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::str::FromStr as _;
+use std::time::Duration;
 
 use bollard::Docker;
 use brane_cfg::info::Info as _;
@@ -612,6 +613,17 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
             } = &node.paths;
             let WorkerServices { reg, job, chk, prx } = &node.services;
 
+            // Generate the token for this run
+            let delib_token: String = match specifications::policy::generate_policy_token(
+                "branectl",
+                &node.name,
+                Duration::from_secs(365 * 24 * 3600),
+                policy_delib_secret,
+            ) {
+                Ok(token) => token,
+                Err(err) => return Err(Error::TokenGenerate { key: policy_delib_secret.clone(), err }),
+            };
+
             // Add the environment variables, which are basically just central-specific paths to mount in the compose file
             res.extend([
                 // Also add the location ID
@@ -621,6 +633,8 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
                 ("CHK_NAME", OsString::from(&chk.name.as_str())),
                 ("JOB_NAME", OsString::from(&job.name.as_str())),
                 ("CHK_NAME", OsString::from(&chk.name.as_str())),
+                // Tokens
+                ("CHECKER_DELIB_TOKEN", OsString::from(&delib_token.as_str())),
                 // Paths
                 ("BACKEND", canonicalize_join(node_config_dir, backend)?.as_os_str().into()),
                 ("POLICY_DB", canonicalize_join(node_config_dir, policy_database)?.as_os_str().into()),

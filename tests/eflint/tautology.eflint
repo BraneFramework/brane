@@ -4,7 +4,7 @@
 // Created:
 //   16 Jan 2024, 13:30:31
 // Last edited:
-//   16 Jan 2024, 13:30:47
+//   07 Feb 2025, 17:48:29
 // Auto updated?
 //   Yes
 //
@@ -14,5 +14,8 @@
 //
 
 
-// An Invariant that is physically incapable of violating (poor thing)
-Invariant tautology When True.
+// We will make sure that all questions that are asked of the reasoner are true.
++workflow-to-execute(workflow).
++task-to-execute(task).
++dataset-to-transfer(node-input).
++result-to-transfer(workflow-result-recipient).
