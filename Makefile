@@ -9,21 +9,21 @@ SHARED_SERVICES := brane-prx
 BINARY_TARGETS := brane-ctl brane-cli brane-let
 
 BUILD_DIR := target
-IMAGE_DIR := $(BUILD_DIR)/debug
-BIN_DIR := $(BUILD_DIR)/debug
+IMAGE_DIR := $(BUILD_DIR)/release
+BIN_DIR := $(BUILD_DIR)/release
 
 WORKSPACE_MEMBERS := $(sort $(CENTRAL_SERVICES) $(WORKER_SERVICES) $(SHARED_SERVICES))
 
 BUILDX_ARGS := build 
-CARGO_BUILD_ARGS := 
-IMAGE_DOCKER_FILE := ./Dockerfile.dev
+CARGO_BUILD_ARGS := --release
+IMAGE_DOCKER_FILE := ./Dockerfile.rls
 
 # The binaries we can build in either debug or release mode
-ifeq ($(PROFILE),release)
-	CARGO_BUILD_ARGS += --release
-	IMAGE_DOCKER_FILE := ./Dockerfile.rls
-	IMAGE_DIR := $(BUILD_DIR)/release
-	BIN_DIR := $(BUILD_DIR)/release
+ifeq ($(PROFILE),debug)
+	CARGO_BUILD_ARGS := $(filter-out --release,$(CARGO_BUILD_ARGS))
+	IMAGE_DOCKER_FILE := ./Dockerfile.dev
+	IMAGE_DIR := $(BUILD_DIR)/debug
+	BIN_DIR := $(BUILD_DIR)/debug
 endif
 
 # Sometimes docker buildx can take a cached version while there are actually some changes. With
