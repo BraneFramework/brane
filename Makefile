@@ -59,13 +59,24 @@ central-images: $(CENTRAL_SERVICES) $(SHARED_SERVICES)
 .PHONY: $(WORKSPACE_MEMBERS)
 $(WORKSPACE_MEMBERS): $(IMAGE_DIR)
 	@echo "Building $@"
-	docker buildx $(BUILDX_ARGS) --output type="docker,dest=$(IMAGE_DIR)/$@.tar" --file $(IMAGE_DOCKER_FILE) --target $@ .
+	docker buildx $(BUILDX_ARGS) --output type="docker,dest=$(IMAGE_DIR)/$@.tar" --file $(IMAGE_DOCKER_FILE) --target $@ --build-arg "UID=$(shell id -u)" --build-arg "GID=$(shell id -g)" .
 
 # Compilation of binaries
 .PHONY: $(BINARY_TARGETS)
 $(BINARY_TARGETS): $(BIN_DIR)
 	@echo "Building $@"
 	cargo build $(CARGO_BUILD_ARGS) --package $@
+
+# Compilation of branelet
+.PHONY: brane-let-builder
+brane-let-builder:
+	@echo "Building brane-let builder container"
+	docker buildx build --load -t brane-let-builder:latest -f Dockerfile.let --build-arg "UID=$(shell id -u)" --build-arg "GID=$(shell id -g)" .
+
+.PHONY: brane-let-docker
+brane-let-docker: brane-let-builder $(BIN_DIR)
+	@echo "Building brane-let in a Docker container"
+	docker run -it --rm -v "$(shell pwd)/target/release:/output" brane-let-builder:latest
 
 # Directory creation
 # It is important that we flag this directory as a CACHETAG.DIR. Various backup solutions for example will otherwise backup 
