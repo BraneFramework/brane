@@ -1,5 +1,0 @@
-FROM messense/cargo-zigbuild:0.17.3
-
-# Add our own dependencies
-RUN apt-get update && apt-get install -y cmake \
- && rm -rf /var/lib/apt/lists/*

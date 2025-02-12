@@ -1,4 +1,0 @@
-import hello_world;
-
-#[on("test")]
-println(hello_world());

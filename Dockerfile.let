@@ -1,0 +1,56 @@
+# DOCKERFILE.let for BRANE
+#   by Tim Müller
+#
+# Contains the Dockerfile for building a `branelet` binary in a container.
+# 
+# This is necessary when running a non-released Brane (i.e., no precompiled binaries) and on a
+# system that has a newer GLIBC than would run in the container.
+# 
+# The easiest way to use it is through `make brane-let-docker`
+#
+
+
+# NOTE: Ensure this is the same as used by `brane-cli`!
+FROM ubuntu:20.04
+LABEL org.opencontainers.image.source https://github.com/epi-project/brane
+
+# Define some build args
+ARG UID=1000
+ARG GID=1000
+
+# Setup a user mirroring the main one
+RUN addgroup --gid $GID brane
+RUN adduser --uid $UID --gid $GID --gecos "Brane" --disabled-password brane
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    gcc g++ \
+    make cmake \
+    curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# Prepare the build directory while we're root
+RUN mkdir -p /build/target \
+ && chown -R brane:brane /build
+
+# Install rust
+USER brane
+RUN bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y" \
+ && echo ". /home/brane/.cargo/env" >> /home/brane/.profile
+
+# Copy over relevant crates & other files
+COPY --chown=brane:brane . /build
+
+# Build the binary
+WORKDIR /build
+RUN --mount=type=cache,id=cargoidx,target=/home/brane/.cargo/registry \
+    --mount=type=cache,id=branecache,target=/build/target \
+    . /home/brane/.profile \
+ && ls -la /home/brane/.cargo \
+ && cargo build \
+        --release \
+        --package brane-let \
+ && cp ./target/release/brane-let /home/brane/brane-let
+
+# Done
+ENTRYPOINT ["cp", "/home/brane/brane-let" /output/branelet]
