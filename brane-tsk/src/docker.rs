@@ -28,7 +28,6 @@ use brane_exe::FullValue;
 use enum_debug::EnumDebug;
 use futures_util::StreamExt as _;
 use futures_util::stream::TryStreamExt as _;
-use hyper::body::Body;
 use log::debug;
 use serde::de::{Deserializer, Visitor};
 use serde::ser::Serializer;
@@ -754,14 +753,9 @@ async fn import_image(docker: &Docker, image: impl Into<Image>, source: impl AsR
     };
 
     // If successful, open the byte with a FramedReader, freezing all the chunk we read
-    let byte_stream = FramedRead::new(file, BytesCodec::new()).map(|r| {
-        let bytes = r.unwrap().freeze();
-        Ok::<_, Error>(bytes)
-    });
+    let byte_stream = FramedRead::new(file, BytesCodec::new()).map(|r| r.unwrap().freeze());
 
-    // Finally, wrap it in a HTTP body and send it to the Docker API
-    let body = Body::wrap_stream(byte_stream);
-    if let Err(err) = docker.import_image(options, body, None).try_collect::<Vec<_>>().await {
+    if let Err(err) = docker.import_image_stream(options, byte_stream, None).try_collect::<Vec<_>>().await {
         return Err(Error::ImageImportError { path: PathBuf::from(source), err });
     }
 
