@@ -20,64 +20,6 @@ use brane_dsl::location::AllowedLocations;
 pub use crate::errors::AstError as Error;
 
 
-/***** TESTS *****/
-#[cfg(test)]
-pub mod tests {
-    use brane_dsl::ParserOptions;
-    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
-    use specifications::data::DataIndex;
-    use specifications::package::PackageIndex;
-
-    use super::*;
-    use crate::{CompileResult, CompileStage, compile_program_to};
-
-
-    /// 'Tests' the traversal by printing the AST for every node.
-    #[test]
-    fn test_print() {
-        test_on_dsl_files("BraneScript", |path, code| {
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("File '{}' gave us:", path.display());
-
-            // Load the package index
-            let pindex: PackageIndex = create_package_index();
-            let dindex: DataIndex = create_data_index();
-
-            // Run up to this traversal
-            let program: Program = match compile_program_to(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::None) {
-                CompileResult::Program(p, warns) => {
-                    // Print warnings if any
-                    for w in warns {
-                        w.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    p
-                },
-                CompileResult::Eof(err) => {
-                    // Print the error
-                    err.prettyprint(path.to_string_lossy(), &code);
-                    panic!("Failed to parse file (see output above)");
-                },
-                CompileResult::Err(errs) => {
-                    // Print the errors
-                    for e in errs {
-                        e.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    panic!("Failed to parse file (see output above)");
-                },
-
-                _ => {
-                    unreachable!();
-                },
-            };
-
-            // Now print the tree
-            do_traversal(program, std::io::stdout()).unwrap();
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-        });
-    }
-}
-
-
 
 
 
@@ -852,4 +794,62 @@ pub fn do_traversal(root: Program, mut writer: impl Write) -> Result<Program, Ve
 
     // Done
     Ok(root)
+}
+
+
+/***** TESTS *****/
+#[cfg(test)]
+pub mod tests {
+    use brane_dsl::ParserOptions;
+    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
+    use specifications::data::DataIndex;
+    use specifications::package::PackageIndex;
+
+    use super::*;
+    use crate::{CompileResult, CompileStage, compile_program_to};
+
+
+    /// 'Tests' the traversal by printing the AST for every node.
+    #[test]
+    fn test_print() {
+        test_on_dsl_files("BraneScript", |path, code| {
+            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("File '{}' gave us:", path.display());
+
+            // Load the package index
+            let pindex: PackageIndex = create_package_index();
+            let dindex: DataIndex = create_data_index();
+
+            // Run up to this traversal
+            let program: Program = match compile_program_to(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::None) {
+                CompileResult::Program(p, warns) => {
+                    // Print warnings if any
+                    for w in warns {
+                        w.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    p
+                },
+                CompileResult::Eof(err) => {
+                    // Print the error
+                    err.prettyprint(path.to_string_lossy(), &code);
+                    panic!("Failed to parse file (see output above)");
+                },
+                CompileResult::Err(errs) => {
+                    // Print the errors
+                    for e in errs {
+                        e.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    panic!("Failed to parse file (see output above)");
+                },
+
+                _ => {
+                    unreachable!();
+                },
+            };
+
+            // Now print the tree
+            do_traversal(program, std::io::stdout()).unwrap();
+            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+        });
+    }
 }

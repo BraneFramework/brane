@@ -34,72 +34,6 @@ use crate::state::{CompileState, TableState};
 use crate::warnings::AstWarning;
 pub use crate::warnings::CompileWarning as Warning;
 
-
-/***** TESTS *****/
-#[cfg(test)]
-mod tests {
-    use brane_dsl::ParserOptions;
-    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
-    use specifications::data::DataIndex;
-    use specifications::package::PackageIndex;
-
-    use super::super::print::ast_unresolved;
-    use super::*;
-    use crate::{CompileResult, CompileStage, compile_snippet_to};
-
-
-    /// Tests the traversal by generating symbol tables for every file.
-    #[test]
-    fn test_compile() {
-        test_on_dsl_files("BraneScript", |path, code| {
-            // Start by the name to always know which file this is
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("File '{}' gave us:", path.display());
-
-            // Load the package index
-            let pindex: PackageIndex = create_package_index();
-            let dindex: DataIndex = create_data_index();
-
-            // Run up to this traversal
-            let mut state: CompileState = CompileState::new();
-            let workflow: UnresolvedWorkflow =
-                match compile_snippet_to(&mut state, code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::Compile) {
-                    CompileResult::Unresolved(wf, warns) => {
-                        // Print warnings if any
-                        for w in warns {
-                            w.prettyprint(path.to_string_lossy(), &code);
-                        }
-                        wf
-                    },
-                    CompileResult::Eof(err) => {
-                        // Print the error
-                        err.prettyprint(path.to_string_lossy(), &code);
-                        panic!("Failed to compile to workflow (see output above)");
-                    },
-                    CompileResult::Err(errs) => {
-                        // Print the errors
-                        for e in errs {
-                            e.prettyprint(path.to_string_lossy(), &code);
-                        }
-                        panic!("Failed to compile to workflow (see output above)");
-                    },
-
-                    _ => {
-                        unreachable!();
-                    },
-                };
-
-            // Now print the file for prettyness
-            ast_unresolved::do_traversal(&state, workflow, std::io::stdout()).unwrap();
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-        });
-    }
-}
-
-
-
-
-
 /***** COMPILATION FUNCTIONS *****/
 /// Compiles a function's body to the given edge buffer.
 ///
@@ -785,4 +719,65 @@ pub fn do_traversal(state: &CompileState, root: dsl::Program, warnings: &mut Vec
     wf.metadata = Arc::new(root.metadata.into_iter().map(|md| ast::Metadata { owner: md.owner, tag: md.tag, signature: None }).collect());
     warnings.append(&mut warns.into_iter().map(|w| w.into()).collect::<Vec<AstWarning>>());
     Ok(wf)
+}
+
+/***** TESTS *****/
+#[cfg(test)]
+mod tests {
+    use brane_dsl::ParserOptions;
+    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
+    use specifications::data::DataIndex;
+    use specifications::package::PackageIndex;
+
+    use super::super::print::ast_unresolved;
+    use super::*;
+    use crate::{CompileResult, CompileStage, compile_snippet_to};
+
+
+    /// Tests the traversal by generating symbol tables for every file.
+    #[test]
+    fn test_compile() {
+        test_on_dsl_files("BraneScript", |path, code| {
+            // Start by the name to always know which file this is
+            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("File '{}' gave us:", path.display());
+
+            // Load the package index
+            let pindex: PackageIndex = create_package_index();
+            let dindex: DataIndex = create_data_index();
+
+            // Run up to this traversal
+            let mut state: CompileState = CompileState::new();
+            let workflow: UnresolvedWorkflow =
+                match compile_snippet_to(&mut state, code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::Compile) {
+                    CompileResult::Unresolved(wf, warns) => {
+                        // Print warnings if any
+                        for w in warns {
+                            w.prettyprint(path.to_string_lossy(), &code);
+                        }
+                        wf
+                    },
+                    CompileResult::Eof(err) => {
+                        // Print the error
+                        err.prettyprint(path.to_string_lossy(), &code);
+                        panic!("Failed to compile to workflow (see output above)");
+                    },
+                    CompileResult::Err(errs) => {
+                        // Print the errors
+                        for e in errs {
+                            e.prettyprint(path.to_string_lossy(), &code);
+                        }
+                        panic!("Failed to compile to workflow (see output above)");
+                    },
+
+                    _ => {
+                        unreachable!();
+                    },
+                };
+
+            // Now print the file for prettyness
+            ast_unresolved::do_traversal(&state, workflow, std::io::stdout()).unwrap();
+            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+        });
+    }
 }

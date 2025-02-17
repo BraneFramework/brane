@@ -1371,7 +1371,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                         }
                     },
 
-                    TaskDef::Transfer {} => {
+                    TaskDef::Transfer => {
                         todo!();
                     },
                 }

@@ -20,69 +20,6 @@ use crate::errors::AstError;
 use crate::warnings::AstWarning;
 pub use crate::warnings::AttributesWarning as Warning;
 
-
-/***** TESTS *****/
-#[cfg(test)]
-mod tests {
-    use brane_dsl::ParserOptions;
-    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
-    use specifications::data::DataIndex;
-    use specifications::package::PackageIndex;
-
-    use super::super::print::dsl;
-    use super::*;
-    use crate::{CompileResult, CompileStage, compile_program_to};
-
-
-    /// Tests the traversal by generating symbol tables for every file.
-    #[test]
-    fn test_attributes() {
-        test_on_dsl_files("BraneScript", |path, code| {
-            // Start by the name to always know which file this is
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("File '{}' gave us:", path.display());
-
-            // Load the package index
-            let pindex: PackageIndex = create_package_index();
-            let dindex: DataIndex = create_data_index();
-
-            let program: Program = match compile_program_to(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::Attributes) {
-                CompileResult::Program(p, warns) => {
-                    // Print warnings if any
-                    for w in warns {
-                        w.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    p
-                },
-                CompileResult::Eof(err) => {
-                    // Print the error
-                    err.prettyprint(path.to_string_lossy(), &code);
-                    panic!("Failed to process attributes (see output above)");
-                },
-                CompileResult::Err(errs) => {
-                    // Print the errors
-                    for e in errs {
-                        e.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    panic!("Failed to process attributes (see output above)");
-                },
-
-                _ => {
-                    unreachable!();
-                },
-            };
-
-            // Now print the symbol tables for prettyness
-            dsl::do_traversal(program, std::io::stdout()).unwrap();
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-        });
-    }
-}
-
-
-
-
-
 /***** TRAVERSAL FUNCTIONS *****/
 /// Traverses a block to process annotation statements.
 ///
@@ -248,4 +185,62 @@ pub fn do_traversal(mut root: Program, warnings: &mut Vec<AstWarning>) -> Result
 
     // Returns the errors
     Ok(root)
+}
+
+/***** TESTS *****/
+#[cfg(test)]
+mod tests {
+    use brane_dsl::ParserOptions;
+    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
+    use specifications::data::DataIndex;
+    use specifications::package::PackageIndex;
+
+    use super::super::print::dsl;
+    use super::*;
+    use crate::{CompileResult, CompileStage, compile_program_to};
+
+
+    /// Tests the traversal by generating symbol tables for every file.
+    #[test]
+    fn test_attributes() {
+        test_on_dsl_files("BraneScript", |path, code| {
+            // Start by the name to always know which file this is
+            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("File '{}' gave us:", path.display());
+
+            // Load the package index
+            let pindex: PackageIndex = create_package_index();
+            let dindex: DataIndex = create_data_index();
+
+            let program: Program = match compile_program_to(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::Attributes) {
+                CompileResult::Program(p, warns) => {
+                    // Print warnings if any
+                    for w in warns {
+                        w.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    p
+                },
+                CompileResult::Eof(err) => {
+                    // Print the error
+                    err.prettyprint(path.to_string_lossy(), &code);
+                    panic!("Failed to process attributes (see output above)");
+                },
+                CompileResult::Err(errs) => {
+                    // Print the errors
+                    for e in errs {
+                        e.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    panic!("Failed to process attributes (see output above)");
+                },
+
+                _ => {
+                    unreachable!();
+                },
+            };
+
+            // Now print the symbol tables for prettyness
+            dsl::do_traversal(program, std::io::stdout()).unwrap();
+            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+        });
+    }
 }

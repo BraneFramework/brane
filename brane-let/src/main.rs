@@ -166,7 +166,7 @@ async fn run(
     // Switch on the sub_command to do the actual work
     let output = match sub_command {
         SubCommand::Code { function, arguments, working_dir } => exec_ecu::handle(function, decode_b64(arguments)?, working_dir).await,
-        SubCommand::NoOp {} => exec_nop::handle().await,
+        SubCommand::NoOp => exec_nop::handle().await,
     };
 
     // Perform final FINISHED callback.

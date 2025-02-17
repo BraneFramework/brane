@@ -20,68 +20,6 @@ use crate::errors::AstError;
 pub use crate::errors::NullError as Error;
 
 
-/***** TESTS *****/
-#[cfg(test)]
-mod tests {
-    use brane_dsl::ParserOptions;
-    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
-    use specifications::data::DataIndex;
-    use specifications::package::PackageIndex;
-
-    use super::super::print::symbol_tables;
-    use super::*;
-    use crate::{CompileResult, CompileStage, compile_program_to};
-
-
-    /// Tests the traversal by generating symbol tables for every file.
-    #[test]
-    fn test_null() {
-        test_on_dsl_files("BraneScript", |path, code| {
-            // Start by the name to always know which file this is
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("File '{}' gave us:", path.display());
-
-            // Load the package index
-            let pindex: PackageIndex = create_package_index();
-            let dindex: DataIndex = create_data_index();
-
-            let program: Program = match compile_program_to(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::Null) {
-                CompileResult::Program(p, warns) => {
-                    // Print warnings if any
-                    for w in warns {
-                        w.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    p
-                },
-                CompileResult::Eof(err) => {
-                    // Print the error
-                    err.prettyprint(path.to_string_lossy(), &code);
-                    panic!("Failed to analyse null-usage (see output above)");
-                },
-                CompileResult::Err(errs) => {
-                    // Print the errors
-                    for e in errs {
-                        e.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    panic!("Failed to analyse null-usage (see output above)");
-                },
-
-                _ => {
-                    unreachable!();
-                },
-            };
-
-            // Now print the symbol tables for prettyness
-            symbol_tables::do_traversal(program, std::io::stdout()).unwrap();
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-        });
-    }
-}
-
-
-
-
-
 /***** TRAVERSAL FUNCTIONS *****/
 /// Traverses a Block to find any null-occurances.
 ///
@@ -295,4 +233,63 @@ pub fn do_traversal(root: Program) -> Result<Program, Vec<AstError>> {
 
     // Returns the errors
     if errors.is_empty() { Ok(root) } else { Err(errors.into_iter().map(|e| e.into()).collect()) }
+}
+
+
+/***** TESTS *****/
+#[cfg(test)]
+mod tests {
+    use brane_dsl::ParserOptions;
+    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
+    use specifications::data::DataIndex;
+    use specifications::package::PackageIndex;
+
+    use super::super::print::symbol_tables;
+    use super::*;
+    use crate::{CompileResult, CompileStage, compile_program_to};
+
+
+    /// Tests the traversal by generating symbol tables for every file.
+    #[test]
+    fn test_null() {
+        test_on_dsl_files("BraneScript", |path, code| {
+            // Start by the name to always know which file this is
+            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("File '{}' gave us:", path.display());
+
+            // Load the package index
+            let pindex: PackageIndex = create_package_index();
+            let dindex: DataIndex = create_data_index();
+
+            let program: Program = match compile_program_to(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::Null) {
+                CompileResult::Program(p, warns) => {
+                    // Print warnings if any
+                    for w in warns {
+                        w.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    p
+                },
+                CompileResult::Eof(err) => {
+                    // Print the error
+                    err.prettyprint(path.to_string_lossy(), &code);
+                    panic!("Failed to analyse null-usage (see output above)");
+                },
+                CompileResult::Err(errs) => {
+                    // Print the errors
+                    for e in errs {
+                        e.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    panic!("Failed to analyse null-usage (see output above)");
+                },
+
+                _ => {
+                    unreachable!();
+                },
+            };
+
+            // Now print the symbol tables for prettyness
+            symbol_tables::do_traversal(program, std::io::stdout()).unwrap();
+            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+        });
+    }
 }

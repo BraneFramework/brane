@@ -34,68 +34,6 @@ use crate::spec::{BuiltinClasses, BuiltinFunctions};
 use crate::state::CompileState;
 
 
-/***** TESTS *****/
-#[cfg(test)]
-pub mod tests {
-    use brane_dsl::ParserOptions;
-    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
-    use specifications::package::PackageIndex;
-
-    use super::super::print::symbol_tables;
-    use super::*;
-    use crate::{CompileResult, CompileStage, compile_program_to};
-
-
-    /// Tests the traversal by generating symbol tables for every file.
-    #[test]
-    fn test_resolve() {
-        test_on_dsl_files("BraneScript", |path, code| {
-            // Always print the header
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("File '{}' gave us:", path.display());
-
-            // Load the package index
-            let pindex: PackageIndex = create_package_index();
-            let dindex: DataIndex = create_data_index();
-
-            // Run up to this traversal
-            let program: Program = match compile_program_to(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::Resolve) {
-                CompileResult::Program(p, warns) => {
-                    // Print warnings if any
-                    for w in warns {
-                        w.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    p
-                },
-                CompileResult::Eof(err) => {
-                    // Print the error
-                    err.prettyprint(path.to_string_lossy(), &code);
-                    panic!("Failed to resolve symbol tables (see output above)");
-                },
-                CompileResult::Err(errs) => {
-                    // Print the errors
-                    for e in errs {
-                        e.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    panic!("Failed to resolve symbol tables (see output above)");
-                },
-
-                _ => {
-                    unreachable!();
-                },
-            };
-
-            // Now print the symbol tables for prettyness
-            symbol_tables::do_traversal(program, std::io::stdout()).unwrap();
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-        });
-    }
-}
-
-
-
-
-
 /***** HELPER FUNCTIONS ******/
 /// Defines the arguments of the given FuncDef in the given symbol table.
 ///
@@ -865,4 +803,63 @@ pub fn do_traversal(state: &mut CompileState, package_index: &PackageIndex, data
 
     // Done
     if errors.is_empty() { Ok(root) } else { Err(errors.into_iter().map(AstError::from).collect()) }
+}
+
+
+/***** TESTS *****/
+#[cfg(test)]
+pub mod tests {
+    use brane_dsl::ParserOptions;
+    use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
+    use specifications::package::PackageIndex;
+
+    use super::super::print::symbol_tables;
+    use super::*;
+    use crate::{CompileResult, CompileStage, compile_program_to};
+
+
+    /// Tests the traversal by generating symbol tables for every file.
+    #[test]
+    fn test_resolve() {
+        test_on_dsl_files("BraneScript", |path, code| {
+            // Always print the header
+            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("File '{}' gave us:", path.display());
+
+            // Load the package index
+            let pindex: PackageIndex = create_package_index();
+            let dindex: DataIndex = create_data_index();
+
+            // Run up to this traversal
+            let program: Program = match compile_program_to(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript(), CompileStage::Resolve) {
+                CompileResult::Program(p, warns) => {
+                    // Print warnings if any
+                    for w in warns {
+                        w.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    p
+                },
+                CompileResult::Eof(err) => {
+                    // Print the error
+                    err.prettyprint(path.to_string_lossy(), &code);
+                    panic!("Failed to resolve symbol tables (see output above)");
+                },
+                CompileResult::Err(errs) => {
+                    // Print the errors
+                    for e in errs {
+                        e.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    panic!("Failed to resolve symbol tables (see output above)");
+                },
+
+                _ => {
+                    unreachable!();
+                },
+            };
+
+            // Now print the symbol tables for prettyness
+            symbol_tables::do_traversal(program, std::io::stdout()).unwrap();
+            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+        });
+    }
 }

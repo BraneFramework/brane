@@ -17,6 +17,34 @@ use crate::ast_unresolved::UnresolvedWorkflow;
 use crate::errors::AstError;
 
 
+/***** ARGUMENTS *****/
+/// Optimizes the given UnresolvedWorkflow by collapsing successive linear edges into one edge.
+///
+/// # Arguments
+/// - `root`: The root node of the tree on which this compiler pass will be done.
+///
+/// # Returns
+/// The same UnresolvedWorkflow but now (hopefully) with less edges.
+///
+/// # Errors
+/// This pass doesn't error, but might return one for convention purposes.
+///
+/// # Panics
+/// This function may panic if any of the previous passes did not do its job, and the given UnresolvedWorkflow is ill-formed.
+pub fn do_traversal(root: UnresolvedWorkflow) -> Result<UnresolvedWorkflow, Vec<AstError>> {
+    let mut root: UnresolvedWorkflow = root;
+
+    // Pass over each of the buffers
+    root.main_edges.merge_linear();
+    for edges in root.f_edges.values_mut() {
+        edges.merge_linear();
+    }
+
+    // Done
+    Ok(root)
+}
+
+
 /***** TESTS *****/
 #[cfg(test)]
 mod tests {
@@ -116,35 +144,4 @@ mod tests {
             println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
         });
     }
-}
-
-
-
-
-
-/***** ARGUMENTS *****/
-/// Optimizes the given UnresolvedWorkflow by collapsing successive linear edges into one edge.
-///
-/// # Arguments
-/// - `root`: The root node of the tree on which this compiler pass will be done.
-///
-/// # Returns
-/// The same UnresolvedWorkflow but now (hopefully) with less edges.
-///
-/// # Errors
-/// This pass doesn't error, but might return one for convention purposes.
-///
-/// # Panics
-/// This function may panic if any of the previous passes did not do its job, and the given UnresolvedWorkflow is ill-formed.
-pub fn do_traversal(root: UnresolvedWorkflow) -> Result<UnresolvedWorkflow, Vec<AstError>> {
-    let mut root: UnresolvedWorkflow = root;
-
-    // Pass over each of the buffers
-    root.main_edges.merge_linear();
-    for edges in root.f_edges.values_mut() {
-        edges.merge_linear();
-    }
-
-    // Done
-    Ok(root)
 }

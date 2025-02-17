@@ -46,7 +46,7 @@ mod tests {
         let mut i = 0;
         while node.is_some() {
             // Make sure this node is what we expect from it
-            if i >= 0 && i <= 2 {
+            if (0..=2).contains(&i) {
                 let n: Ref<EdgeBufferNode> = node.as_ref().unwrap().borrow();
                 if let Edge::Linear { .. } = &n.edge {
                 } else {
