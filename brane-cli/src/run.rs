@@ -61,7 +61,6 @@ use crate::vm::OfflineVm;
 ///
 /// # Errors
 /// This function errors if the given string was not a valid workflow. If that's the case, it's also pretty-printed to stdout with source context.
-
 #[allow(clippy::too_many_arguments)]
 fn compile(
     state: &mut CompileState,

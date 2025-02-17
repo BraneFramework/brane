@@ -141,7 +141,7 @@ impl DomainRegistryCache {
     ///
     /// # Errors
     /// This function may error if we had to retrieve the address from the remote registry but failed.
-    pub async fn get<'s>(&'s self, location: &'_ Location) -> Result<Address, DomainRegistryCacheError> {
+    pub async fn get(&'_ self, location: &'_ Location) -> Result<Address, DomainRegistryCacheError> {
         debug!("Resolving location '{}' in registry '{}'", location, self.api);
 
         // Attempt to read the cache
