@@ -1,6 +1,6 @@
 [package]
 name = "brane-job"
-rust-version = "1.74"
+rust-version = "1.75"
 edition = "2018"
 version.workspace = true
 repository.workspace = true
@@ -9,7 +9,7 @@ license.workspace = true
 
 [dependencies]
 base64 = "0.22.0"
-bollard = "0.14.0"
+bollard = "0.18.0"
 chrono = "0.4.35"
 clap = { version = "4.5.6", features = ["derive","env"] }
 deliberation = { git = "https://github.com/epi-project/policy-reasoner" }

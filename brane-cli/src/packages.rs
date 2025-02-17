@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use anyhow::Result;
 use bollard::Docker;
-use bollard::errors::Error;
 use bollard::image::{ImportImageOptions, TagImageOptions};
 use bollard::models::BuildInfo;
 use brane_dsl::DataType;
@@ -15,7 +14,6 @@ use console::{Alignment, pad_str, style};
 use dialoguer::Confirm;
 use fs_extra::dir;
 use futures_util::stream::TryStreamExt;
-use hyper::Body;
 use indicatif::{DecimalBytes, HumanDuration};
 use prettytable::Table;
 use prettytable::format::FormatBuilder;
@@ -313,13 +311,9 @@ pub async fn load(name: String, version: Version) -> Result<()> {
     // let file = TFile::open(image_file).await?;
     let file = file_handle.ok().unwrap();
     /*******/
-    let byte_stream = FramedRead::new(file, BytesCodec::new()).map(|r| {
-        let bytes = r.unwrap().freeze();
-        Ok::<_, Error>(bytes)
-    });
+    let byte_stream = FramedRead::new(file, BytesCodec::new()).map(|r| r.unwrap().freeze());
 
-    let body = Body::wrap_stream(byte_stream);
-    let result = docker.import_image(options, body, None).try_collect::<Vec<_>>().await?;
+    let result = docker.import_image_stream(options, byte_stream, None).try_collect::<Vec<_>>().await?;
     if let Some(BuildInfo { stream: Some(stream), .. }) = result.first() {
         debug!("{}", stream);
 

@@ -1,6 +1,6 @@
 [package]
 name = "brane-plr"
-rust-version = "1.74.1"
+rust-version = "1.75"
 edition = "2021"
 version.workspace = true
 repository.workspace = true

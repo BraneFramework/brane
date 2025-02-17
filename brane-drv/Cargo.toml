@@ -1,7 +1,7 @@
 [package]
 name = "brane-drv"
 edition = "2021"
-rust-version = "1.74"
+rust-version = "1.75"
 version.workspace = true
 repository.workspace = true
 authors.workspace = true

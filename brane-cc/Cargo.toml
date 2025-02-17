@@ -1,6 +1,6 @@
 [package]
 name = "brane-cc"
-rust-version = "1.74"
+rust-version = "1.75"
 edition = "2021"
 authors = [ "Tim Müller" ]
 version.workspace = true

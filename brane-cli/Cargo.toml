@@ -1,6 +1,6 @@
 [package]
 name = "brane-cli"
-rust-version = "1.74"
+rust-version = "1.75"
 edition = "2021"
 default-run = "brane"
 version.workspace = true
@@ -22,7 +22,7 @@ anyhow = "1.0.66"
 async-compression = { version = "0.4", features = ["tokio","gzip"] }
 async-trait = "0.1.67"
 base64 = "0.22.0"
-bollard = "0.14.0"
+bollard = "0.18.0"
 chrono = "0.4.35"
 clap = { version = "4.5.6", features = ["derive","env"] }
 console = "0.15.5"
