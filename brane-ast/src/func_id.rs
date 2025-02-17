@@ -139,7 +139,7 @@ impl<'de> Deserialize<'de> for FunctionId {
     {
         /// Visitor for the [`FunctionId`].
         struct FunctionIdVisitor;
-        impl<'de> Visitor<'de> for FunctionIdVisitor {
+        impl Visitor<'_> for FunctionIdVisitor {
             type Value = FunctionId;
 
             #[inline]

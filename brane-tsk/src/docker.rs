@@ -118,7 +118,7 @@ impl FromStr for ClientVersion {
 pub struct ImageSourceSerializer<'a> {
     source: &'a ImageSource,
 }
-impl<'a> Display for ImageSourceSerializer<'a> {
+impl Display for ImageSourceSerializer<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use ImageSource::*;
         match self.source {
@@ -294,7 +294,7 @@ impl<'de> Deserialize<'de> for ImageSource {
     {
         // Define the visitor
         struct ImageSourceVisitor;
-        impl<'de> Visitor<'de> for ImageSourceVisitor {
+        impl Visitor<'_> for ImageSourceVisitor {
             type Value = ImageSource;
 
             fn expecting(&self, f: &mut Formatter) -> FResult { write!(f, "an image source (as file or repository)") }

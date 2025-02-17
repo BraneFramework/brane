@@ -48,7 +48,7 @@ pub struct ArchBraneFormatter<'a> {
     /// The architecture to format.
     arch: &'a Arch,
 }
-impl<'a> Display for ArchBraneFormatter<'a> {
+impl Display for ArchBraneFormatter<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self.arch {
@@ -64,7 +64,7 @@ pub struct ArchRustFormatter<'a> {
     /// The architecture to format.
     arch: &'a Arch,
 }
-impl<'a> Display for ArchRustFormatter<'a> {
+impl Display for ArchRustFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Arch::*;
         match self.arch {
@@ -80,7 +80,7 @@ pub struct ArchDockerFormatter<'a> {
     /// The architecture to format.
     arch: &'a Arch,
 }
-impl<'a> Display for ArchDockerFormatter<'a> {
+impl Display for ArchDockerFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Arch::*;
         match self.arch {
@@ -96,7 +96,7 @@ pub struct ArchJuiceFsFormatter<'a> {
     /// The architecture to format.
     arch: &'a Arch,
 }
-impl<'a> Display for ArchJuiceFsFormatter<'a> {
+impl Display for ArchJuiceFsFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Arch::*;
         match self.arch {
@@ -112,7 +112,7 @@ pub struct ArchCfsslFormatter<'a> {
     /// The architecture to format.
     os: &'a Arch,
 }
-impl<'a> Display for ArchCfsslFormatter<'a> {
+impl Display for ArchCfsslFormatter<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self.os {

@@ -156,7 +156,7 @@ pub enum Token<'a> {
     None,
 }
 
-impl<'a> Token<'a> {
+impl Token<'_> {
     pub fn as_bool(&self) -> bool { if let Token::Boolean(span) = self { bool::from_str(span.as_ref()).unwrap() } else { unreachable!() } }
 
     pub fn as_i64(&self) -> i64 {
@@ -208,12 +208,12 @@ impl<'a> Tokens<'a> {
     pub fn new(vec: &'a [Token]) -> Self { Tokens { tok: vec, start: 0, end: vec.len() } }
 }
 
-impl<'a> InputLength for Tokens<'a> {
+impl InputLength for Tokens<'_> {
     #[inline]
     fn input_len(&self) -> usize { self.tok.len() }
 }
 
-impl<'a> InputTake for Tokens<'a> {
+impl InputTake for Tokens<'_> {
     #[inline]
     fn take(&self, count: usize) -> Self { Tokens { tok: &self.tok[0..count], start: 0, end: count } }
 
@@ -226,29 +226,29 @@ impl<'a> InputTake for Tokens<'a> {
     }
 }
 
-impl<'a> InputLength for Token<'a> {
+impl InputLength for Token<'_> {
     #[inline]
     fn input_len(&self) -> usize { 1 }
 }
 
-impl<'a> Slice<Range<usize>> for Tokens<'a> {
+impl Slice<Range<usize>> for Tokens<'_> {
     #[inline]
     fn slice(&self, range: Range<usize>) -> Self {
         Tokens { tok: self.tok.slice(range.clone()), start: self.start + range.start, end: self.start + range.end }
     }
 }
 
-impl<'a> Slice<RangeTo<usize>> for Tokens<'a> {
+impl Slice<RangeTo<usize>> for Tokens<'_> {
     #[inline]
     fn slice(&self, range: RangeTo<usize>) -> Self { self.slice(0..range.end) }
 }
 
-impl<'a> Slice<RangeFrom<usize>> for Tokens<'a> {
+impl Slice<RangeFrom<usize>> for Tokens<'_> {
     #[inline]
     fn slice(&self, range: RangeFrom<usize>) -> Self { self.slice(range.start..self.end - self.start) }
 }
 
-impl<'a> Slice<RangeFull> for Tokens<'a> {
+impl Slice<RangeFull> for Tokens<'_> {
     #[inline]
     fn slice(&self, _: RangeFull) -> Self { Tokens { tok: self.tok, start: self.start, end: self.end } }
 }

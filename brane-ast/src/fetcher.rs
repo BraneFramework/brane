@@ -47,7 +47,7 @@ impl<'a> SnippetFetcher<'a> {
     }
 }
 
-impl<'a> Iterator for SnippetFetcher<'a> {
+impl Iterator for SnippetFetcher<'_> {
     type Item = (TextPos, String);
 
     fn next(&mut self) -> Option<Self::Item> {

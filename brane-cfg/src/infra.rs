@@ -83,7 +83,7 @@ impl InfraFile {
     #[inline]
     pub fn is_empty(&self) -> bool { self.locations.len() == 0 }
 }
-impl<'de> YamlInfo<'de> for InfraFile {}
+impl YamlInfo<'_> for InfraFile {}
 
 impl IntoIterator for InfraFile {
     type IntoIter = std::collections::hash_map::IntoIter<String, InfraLocation>;

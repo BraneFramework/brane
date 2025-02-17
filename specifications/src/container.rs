@@ -115,7 +115,7 @@ pub struct VolumeBindOptionDockerDisplay<'a> {
     option: &'a VolumeBindOption,
 }
 
-impl<'a> Display for VolumeBindOptionDockerDisplay<'a> {
+impl Display for VolumeBindOptionDockerDisplay<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use VolumeBindOption::*;
         match self.option {
@@ -147,7 +147,7 @@ pub struct VolumeBindDockerDisplay<'a> {
     bind: &'a VolumeBind,
 }
 
-impl<'a> Display for VolumeBindDockerDisplay<'a> {
+impl Display for VolumeBindDockerDisplay<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         write!(
             f,
@@ -249,7 +249,7 @@ pub struct ImageDockerFormatter<'a> {
     /// The image to format
     image: &'a Image,
 }
-impl<'a> Display for ImageDockerFormatter<'a> {
+impl Display for ImageDockerFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         write!(
             f,

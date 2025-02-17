@@ -29,7 +29,7 @@ pub struct PolicyFile {
     /// The containers to allow
     pub containers: Vec<ContainerPolicy>,
 }
-impl<'de> YamlInfo<'de> for PolicyFile {}
+impl YamlInfo<'_> for PolicyFile {}
 
 
 

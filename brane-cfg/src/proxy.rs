@@ -74,7 +74,7 @@ impl<'de> Deserialize<'de> for ProxyProtocol {
     {
         /// Visitor for the ProxyProtocol.
         struct ProxyProtocolVisitor;
-        impl<'de> Visitor<'de> for ProxyProtocolVisitor {
+        impl Visitor<'_> for ProxyProtocolVisitor {
             type Value = ProxyProtocol;
 
             fn expecting(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "a proxy protocol identifier") }
@@ -124,7 +124,7 @@ impl Default for ProxyConfig {
         }
     }
 }
-impl<'de> YamlInfo<'de> for ProxyConfig {}
+impl YamlInfo<'_> for ProxyConfig {}
 
 
 

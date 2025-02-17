@@ -24,7 +24,7 @@ pub struct ErrorTraceFormatter<'e> {
     /// The error to format.
     err: &'e dyn Error,
 }
-impl<'e> Display for ErrorTraceFormatter<'e> {
+impl Display for ErrorTraceFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         // We can always serialize the error itself
         write!(f, "{}", self.err)?;

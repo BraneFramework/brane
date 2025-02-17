@@ -54,7 +54,7 @@ pub struct OsCfsslFormatter<'o> {
     /// The operating system to format.
     os: &'o Os,
 }
-impl<'o> Display for OsCfsslFormatter<'o> {
+impl Display for OsCfsslFormatter<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         match self.os {

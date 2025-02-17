@@ -80,7 +80,7 @@ pub struct NodeConfig {
     /// Any node-specific config
     pub node: NodeSpecificConfig,
 }
-impl<'de> YamlInfo<'de> for NodeConfig {}
+impl YamlInfo<'_> for NodeConfig {}
 
 
 

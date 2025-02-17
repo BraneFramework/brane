@@ -247,7 +247,7 @@ impl<'de> Deserialize<'de> for Address {
     {
         /// Defines the visitor for the Address
         struct AddressVisitor;
-        impl<'de> serde::de::Visitor<'de> for AddressVisitor {
+        impl serde::de::Visitor<'_> for AddressVisitor {
             type Value = Address;
 
             #[inline]

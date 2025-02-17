@@ -902,7 +902,7 @@ impl<'c> DownloadSecurity<'c> {
     #[inline]
     pub fn none() -> Self { Self { checksum: None, https: false } }
 }
-impl<'c> Display for DownloadSecurity<'c> {
+impl Display for DownloadSecurity<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         // Write what is enabled
         if let Some(checksum) = &self.checksum {

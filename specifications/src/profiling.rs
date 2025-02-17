@@ -97,7 +97,7 @@ impl ProfileTiming {
 /// Formats the giving Timing to show a (hopefully) sensible scale to the given formatter.
 #[derive(Debug)]
 pub struct TimingFormatter<'t>(&'t Timing);
-impl<'t> Display for TimingFormatter<'t> {
+impl Display for TimingFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         if self.0.nanos < 10_000 {
             write!(f, "{}ns", self.0.nanos)
@@ -119,7 +119,7 @@ pub struct ProfileReportFormatter<'r> {
     /// The scope of the toplevel report to write.
     scope: &'r ProfileScope,
 }
-impl<'r> Display for ProfileReportFormatter<'r> {
+impl Display for ProfileReportFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         writeln!(f, "### Timing report for {} ###", self.scope.name)?;
         write!(f, "{}", self.scope.display())
@@ -136,7 +136,7 @@ pub struct ProfileScopeFormatter<'s> {
     /// The indentation to format with.
     indent: usize,
 }
-impl<'s> Display for ProfileScopeFormatter<'s> {
+impl Display for ProfileScopeFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         // Print the internal timings
         let mut newline: bool = false;
@@ -265,12 +265,12 @@ pub struct TimerGuard<'s> {
     /// We mark the phantom lifetime because the above is a weak reference
     _lifetime: PhantomData<&'s ()>,
 }
-impl<'s> TimerGuard<'s> {
+impl TimerGuard<'_> {
     /// Early stop the timer. This effectively just janks the guard out-of-scope by taking ownership of it.
     #[inline]
     pub fn stop(self) {}
 }
-impl<'s> Drop for TimerGuard<'s> {
+impl Drop for TimerGuard<'_> {
     fn drop(&mut self) {
         // Set it, done
         let mut lock: MutexGuard<Timing> = self.timing.lock();
@@ -293,12 +293,12 @@ impl ProfileScopeHandle<'static> {
     #[inline]
     pub fn dummy() -> Self { Self { scope: Arc::new(ProfileScope::new("<<<dummy>>>")), _lifetime: Default::default() } }
 }
-impl<'s> ProfileScopeHandle<'s> {
+impl ProfileScopeHandle<'_> {
     /// Finishes a scope, by janking the handle wrapping it out-of-scope.
     #[inline]
     pub fn finish(self) {}
 }
-impl<'s> Deref for ProfileScopeHandle<'s> {
+impl Deref for ProfileScopeHandle<'_> {
     type Target = ProfileScope;
 
     #[inline]

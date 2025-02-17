@@ -85,4 +85,4 @@ impl BackendFile {
     #[inline]
     pub fn hash_containers(&self) -> bool { self.hash_containers.unwrap_or(true) }
 }
-impl<'de> YamlInfo<'de> for BackendFile {}
+impl YamlInfo<'_> for BackendFile {}

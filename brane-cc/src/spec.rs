@@ -44,7 +44,7 @@ pub struct IndexLocationSerializer<'a> {
     /// The index location to serialize.
     loc: &'a IndexLocation,
 }
-impl<'a> Display for IndexLocationSerializer<'a> {
+impl Display for IndexLocationSerializer<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use IndexLocation::*;
         match self.loc {

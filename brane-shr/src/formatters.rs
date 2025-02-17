@@ -32,7 +32,7 @@ impl<'a> CapitalizeFormatter<'a> {
     #[inline]
     pub fn new(s: &'a (impl ?Sized + AsRef<str>)) -> Self { Self { s: s.as_ref() } }
 }
-impl<'a> Display for CapitalizeFormatter<'a> {
+impl Display for CapitalizeFormatter<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         if !self.s.is_empty() {
@@ -73,7 +73,7 @@ impl<'a> HexFormatter<'a> {
     #[inline]
     pub fn new(bytes: &'a impl AsRef<[u8]>) -> Self { Self { bytes: bytes.as_ref() } }
 }
-impl<'a> Display for HexFormatter<'a> {
+impl Display for HexFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         // Write in pairs of two for as long as we can (i.e., four bits)
         let mut first: bool = true;
@@ -143,7 +143,7 @@ impl<'a, I> PrettyListFormatter<'a, I> {
     #[inline]
     pub fn new(iter: I, word: &'a str) -> Self { Self { iter: RefCell::new(iter), word } }
 }
-impl<'a, I> Display for PrettyListFormatter<'a, I>
+impl<I> Display for PrettyListFormatter<'_, I>
 where
     I: Iterator,
     <I as Iterator>::Item: Display,

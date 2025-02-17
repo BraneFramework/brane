@@ -205,7 +205,7 @@ impl<'de> Deserialize<'de> for Metadata {
     {
         /// The visitor for the Metadata
         struct MetadataVisitor;
-        impl<'de> Visitor<'de> for MetadataVisitor {
+        impl Visitor<'_> for MetadataVisitor {
             type Value = Metadata;
 
             #[inline]

@@ -322,7 +322,7 @@ mod tests {
 /// Custom visitor for the DataId struct.
 struct DataIdVisitor;
 
-impl<'de> Visitor<'de> for DataIdVisitor {
+impl Visitor<'_> for DataIdVisitor {
     type Value = DataId;
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "Data identifier") }
@@ -338,7 +338,7 @@ impl<'de> Visitor<'de> for DataIdVisitor {
 /// Custom visitor for the ResultId struct.
 struct ResultIdVisitor;
 
-impl<'de> Visitor<'de> for ResultIdVisitor {
+impl Visitor<'_> for ResultIdVisitor {
     type Value = ResultId;
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "Result identifier") }
@@ -365,7 +365,7 @@ pub struct ValueDisplay<'a, 'b> {
     table: &'b SymTable,
 }
 
-impl<'a, 'b> Display for ValueDisplay<'a, 'b> {
+impl Display for ValueDisplay<'_, '_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Value::*;

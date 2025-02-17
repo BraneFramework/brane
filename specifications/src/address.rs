@@ -246,7 +246,7 @@ impl<'de> Deserialize<'de> for Address {
     {
         /// Defines the visitor for the Address
         struct AddressVisitor;
-        impl<'de> Visitor<'de> for AddressVisitor {
+        impl Visitor<'_> for AddressVisitor {
             type Value = Address;
 
             #[inline]
@@ -550,7 +550,7 @@ impl<'de> Deserialize<'de> for AddressOpt {
     {
         /// Defines the visitor for the AddressOpt
         struct AddressOptVisitor;
-        impl<'de> Visitor<'de> for AddressOptVisitor {
+        impl Visitor<'_> for AddressOptVisitor {
             type Value = AddressOpt;
 
             #[inline]

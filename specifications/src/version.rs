@@ -241,7 +241,7 @@ impl Error for ParseError {}
 /// Implements a Visitor for the Version.
 struct VersionVisitor;
 
-impl<'de> Visitor<'de> for VersionVisitor {
+impl Visitor<'_> for VersionVisitor {
     type Value = Version;
 
     fn expecting(&self, formatter: &mut Formatter<'_>) -> FResult { formatter.write_str("a semanting version") }
