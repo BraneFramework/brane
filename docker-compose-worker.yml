@@ -39,10 +39,10 @@ services:
     - DELIB_ADDRESS=0.0.0.0:${CHK_DELIB_PORT}
     - STORE_ADDRESS=0.0.0.0:${CHK_STORE_PORT}
     volumes:
-    - ${NODE_CONFIG_PATH}:/node.yml
-    - ${POLICY_DB}:/policy.db
-    - ${POLICY_DELIB_KEYS}:/delib_keys.json
-    - ${POLICY_STORE_KEYS}:/store_keys.json
+    - ${NODE_CONFIG_PATH}:/home/brane/node.yml
+    - ${POLICY_DB}:/home/brane/policy.db
+    - ${POLICY_DELIB_KEYS}:/home/brane/delib_keys.json
+    - ${POLICY_STORE_KEYS}:/home/brane/store_keys.json
     extra_hosts:
     - host.docker.internal:host-gateway
 
