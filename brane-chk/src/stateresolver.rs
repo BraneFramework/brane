@@ -4,7 +4,7 @@
 //  Created:
 //    17 Oct 2024, 16:09:36
 //  Last edited:
-//    07 Feb 2025, 17:09:56
+//    19 Feb 2025, 18:18:49
 //  Auto updated?
 //    Yes
 //
@@ -12,9 +12,10 @@
 //!   Implements the Brane-specific state resolver.
 //
 
-use std::collections::{HashMap, HashSet};
+// use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::future::Future;
-use std::str::FromStr as _;
+// use std::str::FromStr as _;
 use std::sync::{Arc, LazyLock};
 
 use brane_cfg::node::WorkerUsecase;
@@ -27,11 +28,12 @@ use policy_store::databases::sqlite::{SQLiteConnection, SQLiteDatabase};
 use policy_store::spec::authresolver::HttpError;
 use policy_store::spec::databaseconn::{DatabaseConnection as _, DatabaseConnector as _};
 use policy_store::spec::metadata::{Metadata, User};
-use reqwest::{Response, StatusCode};
-use serde::de::DeserializeOwned;
+// use reqwest::{Response, StatusCode};
+use reqwest::StatusCode;
+// use serde::de::DeserializeOwned;
 use specifications::address::Address;
-use specifications::data::DataInfo;
-use specifications::package::PackageIndex;
+// use specifications::data::DataInfo;
+// use specifications::package::PackageIndex;
 use specifications::version::Version;
 use thiserror::Error;
 use tracing::{Level, debug, span, warn};
@@ -234,48 +236,48 @@ impl HttpError for Error {
 
 
 /***** HELPER FUNCTIONS *****/
-/// Sends a GET-request and tries to deserialize the response.
-///
-/// # Generic arguments
-/// - `R`: The [`Deserialize`]able object to expect in the response.
-///
-/// # Arguments
-/// - `url`: The path to send a request to.
-///
-/// # Returns
-/// A parsed `R` if the server replied with 200 OK.
-///
-/// # Errors
-/// This function errors if we failed to send the request, receive the response or if the server did not 200 OK.
-async fn send_request<R: DeserializeOwned>(url: &str) -> Result<R, Error> {
-    // Send the request out
-    let res: Response = match reqwest::get(url.to_string()).await {
-        Ok(res) => res,
-        Err(err) => return Err(Error::Request { what: std::any::type_name::<R>(), addr: url.into(), err }),
-    };
-    // Check if the response makes sense
-    if !res.status().is_success() {
-        return Err(Error::RequestFailure {
-            what:   std::any::type_name::<R>(),
-            addr:   url.into(),
-            status: res.status(),
-            raw:    res.text().await.ok(),
-        });
-    }
+// /// Sends a GET-request and tries to deserialize the response.
+// ///
+// /// # Generic arguments
+// /// - `R`: The [`Deserialize`]able object to expect in the response.
+// ///
+// /// # Arguments
+// /// - `url`: The path to send a request to.
+// ///
+// /// # Returns
+// /// A parsed `R` if the server replied with 200 OK.
+// ///
+// /// # Errors
+// /// This function errors if we failed to send the request, receive the response or if the server did not 200 OK.
+// async fn send_request<R: DeserializeOwned>(url: &str) -> Result<R, Error> {
+//     // Send the request out
+//     let res: Response = match reqwest::get(url.to_string()).await {
+//         Ok(res) => res,
+//         Err(err) => return Err(Error::Request { what: std::any::type_name::<R>(), addr: url.into(), err }),
+//     };
+//     // Check if the response makes sense
+//     if !res.status().is_success() {
+//         return Err(Error::RequestFailure {
+//             what:   std::any::type_name::<R>(),
+//             addr:   url.into(),
+//             status: res.status(),
+//             raw:    res.text().await.ok(),
+//         });
+//     }
 
-    // Now attempt to deserialize the response
-    let raw: String = match res.text().await {
-        Ok(raw) => raw,
-        Err(err) => return Err(Error::ResponseDownload { what: std::any::type_name::<R>(), addr: url.into(), err }),
-    };
-    let res: R = match serde_json::from_str(&raw) {
-        Ok(res) => res,
-        Err(err) => return Err(Error::ResponseDeserialize { what: std::any::type_name::<R>(), addr: url.into(), err }),
-    };
+//     // Now attempt to deserialize the response
+//     let raw: String = match res.text().await {
+//         Ok(raw) => raw,
+//         Err(err) => return Err(Error::ResponseDownload { what: std::any::type_name::<R>(), addr: url.into(), err }),
+//     };
+//     let res: R = match serde_json::from_str(&raw) {
+//         Ok(res) => res,
+//         Err(err) => return Err(Error::ResponseDeserialize { what: std::any::type_name::<R>(), addr: url.into(), err }),
+//     };
 
-    // Done
-    Ok(res)
-}
+//     // Done
+//     Ok(res)
+// }
 
 /// Checks if all users, datasets, packages etc exist in the given workflow.
 ///
@@ -289,53 +291,53 @@ async fn send_request<R: DeserializeOwned>(url: &str) -> Result<R, Error> {
 ///
 /// # Errors
 /// This function may error if the `usecase` is unknown, or if the remote registry does not reply (correctly).
-async fn assert_workflow_context(wf: &Workflow, usecase: &str, usecases: &HashMap<String, WorkerUsecase>) -> Result<(), Error> {
+async fn assert_workflow_context(_wf: &Workflow, usecase: &str, usecases: &HashMap<String, WorkerUsecase>) -> Result<(), Error> {
     // Resolve the usecase to an address to query
     debug!("Resolving usecase {usecase:?} to registry address...");
-    let api: &Address = match usecases.get(usecase) {
+    let _api: &Address = match usecases.get(usecase) {
         Some(usecase) => &usecase.api,
         None => return Err(Error::UnknownUsecase { usecase: usecase.into() }),
     };
 
 
-    // TODO: Finish this
-    // Cannot really do it for now, since, unfortunately, we do not know all users (i.e., no idea
-    // about scientists). Some kind of user database is, clearly, essential.
+    // // TODO: Finish this
+    // // Cannot really do it for now, since, unfortunately, we do not know all users (i.e., no idea
+    // // about scientists). Some kind of user database is, clearly, essential.
 
-    // // Send the request to the Brane API registry to get the current state of the datasets
-    // let users: String = format!("http://{api}/infra/registries");
-    // debug!("Retrieving list of users from registry at {users:?}...");
-    // let users: HashSet<String> = send_request::<HashMap<String, Address>>(&users).await?.into_keys().collect();
+    // // // Send the request to the Brane API registry to get the current state of the datasets
+    // // let users: String = format!("http://{api}/infra/registries");
+    // // debug!("Retrieving list of users from registry at {users:?}...");
+    // // let users: HashSet<String> = send_request::<HashMap<String, Address>>(&users).await?.into_keys().collect();
 
-    // // Check if the users are all found in the system
-    // debug!("Asserting all users in workflow {:?} exist...", wf.id);
-    // if let Some(user) = &wf.user {
-    //     if !users.contains(&user.id) {
-    //         return Err(Error::UnknownWorkflowUser { workflow: wf.id.clone(), user: user.id.clone() });
-    //     }
-    // }
-    // wf.visit(AssertUserExistance::new(&wf.id, &users))?;
-
-
-    // Check if all the packages mentioned exist in the system
-    let graphql: String = format!("http://{api}/graphql");
-    debug!("Retrieving list of packages from registry at {graphql:?}...");
-    let packages: PackageIndex = match brane_tsk::api::get_package_index(&graphql).await {
-        Ok(index) => index,
-        Err(err) => return Err(Error::PackageIndex { addr: graphql, err }),
-    };
-
-    debug!("Asserting all packages in workflow {:?} exist...", wf.id);
-    wf.visit(AssertPackageExistance::new(&wf.id, &packages))?;
+    // // // Check if the users are all found in the system
+    // // debug!("Asserting all users in workflow {:?} exist...", wf.id);
+    // // if let Some(user) = &wf.user {
+    // //     if !users.contains(&user.id) {
+    // //         return Err(Error::UnknownWorkflowUser { workflow: wf.id.clone(), user: user.id.clone() });
+    // //     }
+    // // }
+    // // wf.visit(AssertUserExistance::new(&wf.id, &users))?;
 
 
-    // Check if all the datasets mentioned exist in the system
-    let datasets: String = format!("http://{api}/data/info");
-    debug!("Retrieving list of datasets from registry at {datasets:?}...");
-    let datasets: HashSet<String> = send_request::<HashMap<String, DataInfo>>(&datasets).await?.into_keys().collect();
+    // // Check if all the packages mentioned exist in the system
+    // let graphql: String = format!("http://{api}/graphql");
+    // debug!("Retrieving list of packages from registry at {graphql:?}...");
+    // let packages: PackageIndex = match brane_tsk::api::get_package_index(&graphql).await {
+    //     Ok(index) => index,
+    //     Err(err) => return Err(Error::PackageIndex { addr: graphql, err }),
+    // };
 
-    debug!("Asserting all input datasets in workflow {:?} exist...", wf.id);
-    wf.visit(AssertDataExistance::new(&wf.id, datasets))?;
+    // debug!("Asserting all packages in workflow {:?} exist...", wf.id);
+    // wf.visit(AssertPackageExistance::new(&wf.id, &packages))?;
+
+
+    // // Check if all the datasets mentioned exist in the system
+    // let datasets: String = format!("http://{api}/data/info");
+    // debug!("Retrieving list of datasets from registry at {datasets:?}...");
+    // let datasets: HashSet<String> = send_request::<HashMap<String, DataInfo>>(&datasets).await?.into_keys().collect();
+
+    // debug!("Asserting all input datasets in workflow {:?} exist...", wf.id);
+    // wf.visit(AssertDataExistance::new(&wf.id, datasets))?;
 
 
     // Done!
@@ -484,122 +486,122 @@ async fn get_active_policy(db: &SQLiteDatabase<Vec<Phrase>>, res: &mut Vec<Phras
 //     }
 // }
 
-/// Checks whether all packages mentioned in a workflow exist.
-#[derive(Debug)]
-struct AssertPackageExistance<'w> {
-    /// The workflow ID (for debugging)
-    wf_id: &'w str,
-    /// The users that exist.
-    index: &'w PackageIndex,
-}
-impl<'w> AssertPackageExistance<'w> {
-    /// Constructor for the AssertPackageExistance.
-    ///
-    /// # Arguments
-    /// - `wf_id`: The ID of the workflow we're asserting.
-    /// - `index`: The [`PackageIndex`] listing which packages exist. Any packages occuring in the
-    ///   workflow but not in this list will be reported.
-    ///
-    /// # Returns
-    /// A new instance of Self, ready to check the existance of those rowdy packages.
-    #[inline]
-    fn new(wf_id: &'w str, index: &'w PackageIndex) -> Self { Self { wf_id, index } }
-}
-impl<'w> Visitor<'w> for AssertPackageExistance<'w> {
-    type Error = Error;
+// /// Checks whether all packages mentioned in a workflow exist.
+// #[derive(Debug)]
+// struct AssertPackageExistance<'w> {
+//     /// The workflow ID (for debugging)
+//     wf_id: &'w str,
+//     /// The users that exist.
+//     index: &'w PackageIndex,
+// }
+// impl<'w> AssertPackageExistance<'w> {
+//     /// Constructor for the AssertPackageExistance.
+//     ///
+//     /// # Arguments
+//     /// - `wf_id`: The ID of the workflow we're asserting.
+//     /// - `index`: The [`PackageIndex`] listing which packages exist. Any packages occuring in the
+//     ///   workflow but not in this list will be reported.
+//     ///
+//     /// # Returns
+//     /// A new instance of Self, ready to check the existance of those rowdy packages.
+//     #[inline]
+//     fn new(wf_id: &'w str, index: &'w PackageIndex) -> Self { Self { wf_id, index } }
+// }
+// impl<'w> Visitor<'w> for AssertPackageExistance<'w> {
+//     type Error = Error;
 
-    #[inline]
-    fn visit_call(&mut self, elem: &'w ElemCall) -> Result<Option<&'w Elem>, Self::Error> {
-        // Check if the package mentioned matches the Brane structure
-        let (package, version, function): (&str, &str, &str) = if let Some(l) = elem.task.find('[') {
-            if let Some(r) = elem.task[l + 1..].find(']') {
-                if let Some(dot) = elem.task[l + 1 + r + 1..].find("::") {
-                    (&elem.task[..l], &elem.task[l + 1..l + 1 + r], &elem.task[l + 1 + r + 1 + dot + 2..])
-                } else {
-                    return Err(Error::UnknownTaskFormat { workflow: self.wf_id.into(), call: elem.id.clone(), task: elem.task.clone() });
-                }
-            } else {
-                return Err(Error::UnknownTaskFormat { workflow: self.wf_id.into(), call: elem.id.clone(), task: elem.task.clone() });
-            }
-        } else {
-            return Err(Error::UnknownTaskFormat { workflow: self.wf_id.into(), call: elem.id.clone(), task: elem.task.clone() });
-        };
+//     #[inline]
+//     fn visit_call(&mut self, elem: &'w ElemCall) -> Result<Option<&'w Elem>, Self::Error> {
+//         // Check if the package mentioned matches the Brane structure
+//         let (package, version, function): (&str, &str, &str) = if let Some(l) = elem.task.find('[') {
+//             if let Some(r) = elem.task[l + 1..].find(']') {
+//                 if let Some(dot) = elem.task[l + 1 + r + 1..].find("::") {
+//                     (&elem.task[..l], &elem.task[l + 1..l + 1 + r], &elem.task[l + 1 + r + 1 + dot + 2..])
+//                 } else {
+//                     return Err(Error::UnknownTaskFormat { workflow: self.wf_id.into(), call: elem.id.clone(), task: elem.task.clone() });
+//                 }
+//             } else {
+//                 return Err(Error::UnknownTaskFormat { workflow: self.wf_id.into(), call: elem.id.clone(), task: elem.task.clone() });
+//             }
+//         } else {
+//             return Err(Error::UnknownTaskFormat { workflow: self.wf_id.into(), call: elem.id.clone(), task: elem.task.clone() });
+//         };
 
-        // See if we can parse the version
-        let version: Version = match Version::from_str(version) {
-            Ok(ver) => ver,
-            Err(err) => {
-                return Err(Error::IllegalVersionFormat {
-                    workflow: self.wf_id.into(),
-                    call: elem.id.clone(),
-                    task: elem.task.clone(),
-                    version: version.into(),
-                    err,
-                });
-            },
-        };
+//         // See if we can parse the version
+//         let version: Version = match Version::from_str(version) {
+//             Ok(ver) => ver,
+//             Err(err) => {
+//                 return Err(Error::IllegalVersionFormat {
+//                     workflow: self.wf_id.into(),
+//                     call: elem.id.clone(),
+//                     task: elem.task.clone(),
+//                     version: version.into(),
+//                     err,
+//                 });
+//             },
+//         };
 
-        // OK, now check the package index
-        if let Some(info) = self.index.get(package, Some(&version)) {
-            if info.functions.get(function).is_none() {
-                return Err(Error::UnknownFunction {
-                    workflow: self.wf_id.into(),
-                    call: elem.id.clone(),
-                    package: package.into(),
-                    version,
-                    function: function.into(),
-                });
-            }
-        } else {
-            return Err(Error::UnknownPackage { workflow: self.wf_id.into(), call: elem.id.clone(), package: package.into(), version });
-        }
+//         // OK, now check the package index
+//         if let Some(info) = self.index.get(package, Some(&version)) {
+//             if info.functions.get(function).is_none() {
+//                 return Err(Error::UnknownFunction {
+//                     workflow: self.wf_id.into(),
+//                     call: elem.id.clone(),
+//                     package: package.into(),
+//                     version,
+//                     function: function.into(),
+//                 });
+//             }
+//         } else {
+//             return Err(Error::UnknownPackage { workflow: self.wf_id.into(), call: elem.id.clone(), package: package.into(), version });
+//         }
 
-        // OK, continue
-        Ok(Some(&elem.next))
-    }
-}
+//         // OK, continue
+//         Ok(Some(&elem.next))
+//     }
+// }
 
-/// Checks whether all datasets mentioned in a workflow exist.
-#[derive(Debug)]
-struct AssertDataExistance<'w> {
-    /// The workflow ID (for debugging)
-    wf_id:    &'w str,
-    /// The datasets that exist.
-    datasets: HashSet<String>,
-}
-impl<'w> AssertDataExistance<'w> {
-    /// Constructor for the AssertDataExistance.
-    ///
-    /// # Arguments
-    /// - `wf_id`: The ID of the workflow we're asserting.
-    /// - `datasets`: The list of datasets that we already know exist. Taken by ownership to also
-    ///   register temporary outputs as we find them.
-    ///
-    /// # Returns
-    /// A new instance of Self, ready to assert the heck out of datasets.
-    #[inline]
-    fn new(wf_id: &'w str, datasets: HashSet<String>) -> Self { Self { wf_id, datasets } }
-}
-impl<'w> Visitor<'w> for AssertDataExistance<'w> {
-    type Error = Error;
+// /// Checks whether all datasets mentioned in a workflow exist.
+// #[derive(Debug)]
+// struct AssertDataExistance<'w> {
+//     /// The workflow ID (for debugging)
+//     wf_id:    &'w str,
+//     /// The datasets that exist.
+//     datasets: HashSet<String>,
+// }
+// impl<'w> AssertDataExistance<'w> {
+//     /// Constructor for the AssertDataExistance.
+//     ///
+//     /// # Arguments
+//     /// - `wf_id`: The ID of the workflow we're asserting.
+//     /// - `datasets`: The list of datasets that we already know exist. Taken by ownership to also
+//     ///   register temporary outputs as we find them.
+//     ///
+//     /// # Returns
+//     /// A new instance of Self, ready to assert the heck out of datasets.
+//     #[inline]
+//     fn new(wf_id: &'w str, datasets: HashSet<String>) -> Self { Self { wf_id, datasets } }
+// }
+// impl<'w> Visitor<'w> for AssertDataExistance<'w> {
+//     type Error = Error;
 
-    #[inline]
-    fn visit_call(&mut self, elem: &'w ElemCall) -> Result<Option<&'w Elem>, Self::Error> {
-        // First, check if the inputs exist
-        for i in &elem.input {
-            if !self.datasets.contains(&i.id) {
-                return Err(Error::UnknownInput { workflow: self.wf_id.into(), call: elem.id.clone(), input: i.id.clone() });
-            }
-        }
-        // Then register any produced outputs
-        for o in &elem.output {
-            self.datasets.insert(o.id.clone());
-        }
+//     #[inline]
+//     fn visit_call(&mut self, elem: &'w ElemCall) -> Result<Option<&'w Elem>, Self::Error> {
+//         // First, check if the inputs exist
+//         for i in &elem.input {
+//             if !self.datasets.contains(&i.id) {
+//                 return Err(Error::UnknownInput { workflow: self.wf_id.into(), call: elem.id.clone(), input: i.id.clone() });
+//             }
+//         }
+//         // Then register any produced outputs
+//         for o in &elem.output {
+//             self.datasets.insert(o.id.clone());
+//         }
 
-        // OK, continue
-        Ok(Some(&elem.next))
-    }
-}
+//         // OK, continue
+//         Ok(Some(&elem.next))
+//     }
+// }
 
 /// Asserts that the given task occurs exactly once in the workflow.
 #[derive(Debug)]

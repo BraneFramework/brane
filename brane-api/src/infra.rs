@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2022, 16:21:33
 //  Last edited:
-//    13 Jul 2023, 13:58:57
+//    19 Feb 2025, 17:29:27
 //  Auto updated?
 //    Yes
 //
@@ -194,7 +194,7 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     };
 
     // Ask the location about its capabilities
-    let reg_addr: String = format!("{}/infra/capabilities", info.registry);
+    let reg_addr: String = format!("http://{}/infra/capabilities", info.registry);
     let res: reqwest::Response = match context.proxy.get(&reg_addr, Some(NewPathRequestTlsOptions { use_client_auth: false, location: loc })).await {
         Ok(res) => match res {
             Ok(res) => res,

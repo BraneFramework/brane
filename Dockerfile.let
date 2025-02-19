@@ -12,7 +12,7 @@
 
 # NOTE: Ensure this is the same as used by `brane-cli`!
 FROM ubuntu:20.04
-LABEL org.opencontainers.image.source https://github.com/epi-project/brane
+LABEL org.opencontainers.image.source=https://github.com/epi-project/brane
 
 # Define some build args
 ARG UID=1000
@@ -23,10 +23,10 @@ RUN addgroup --gid $GID brane
 RUN adduser --uid $UID --gid $GID --gecos "Brane" --disabled-password brane
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y \
     gcc g++ \
     make cmake \
-    curl \
+    perl curl \
  && rm -rf /var/lib/apt/lists/*
 
 # Prepare the build directory while we're root
@@ -43,14 +43,13 @@ COPY --chown=brane:brane . /build
 
 # Build the binary
 WORKDIR /build
-RUN --mount=type=cache,id=cargoidx,target=/home/brane/.cargo/registry \
-    --mount=type=cache,id=branecache,target=/build/target \
+RUN --mount=type=cache,id=cargoidx,uid=$UID,target=/home/brane/.cargo/registry \
+    --mount=type=cache,id=braneletcache,uid=$UID,target=/build/target \
     . /home/brane/.profile \
- && ls -la /home/brane/.cargo \
  && cargo build \
         --release \
         --package brane-let \
- && cp ./target/release/brane-let /home/brane/brane-let
+ && cp ./target/release/branelet /home/brane/branelet
 
 # Done
-ENTRYPOINT ["cp", "/home/brane/brane-let" /output/branelet]
+ENTRYPOINT ["cp", "/home/brane/branelet", "/output/branelet"]
