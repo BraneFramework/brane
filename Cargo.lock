@@ -631,7 +631,7 @@ dependencies = [
  "brane-tsk",
  "clap",
  "eflint-json 0.1.0",
- "eflint-to-json 0.2.0 (git+https://gitlab.com/eflint/eflint-to-json-rs?tag=v0.1.0)",
+ "eflint-to-json 1.0.0",
  "enum-debug 1.1.0",
  "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
  "futures",
@@ -758,7 +758,7 @@ dependencies = [
  "dotenvy",
  "download 0.1.0 (git+https://github.com/Lut99/download-rs?tag=v0.1.0)",
  "eflint-json 1.0.0",
- "eflint-to-json 0.2.0 (git+https://gitlab.com/eflint/eflint-to-json-rs)",
+ "eflint-to-json 0.2.0",
  "enum-debug 1.1.0",
  "error-trace 3.0.0",
  "hex-literal",
@@ -1626,18 +1626,6 @@ dependencies = [
 [[package]]
 name = "eflint-to-json"
 version = "0.2.0"
-source = "git+https://gitlab.com/eflint/eflint-to-json-rs?tag=v0.1.0#0950c102fb9924306f0b68923e40bbf88aab61b6"
-dependencies = [
- "async-recursion",
- "console",
- "download 0.1.0 (git+https://github.com/Lut99/download-rs)",
- "hex-literal",
- "log",
-]
-
-[[package]]
-name = "eflint-to-json"
-version = "0.2.0"
 source = "git+https://gitlab.com/eflint/eflint-to-json-rs#0950c102fb9924306f0b68923e40bbf88aab61b6"
 dependencies = [
  "async-recursion",
@@ -1646,6 +1634,18 @@ dependencies = [
  "hex-literal",
  "log",
  "tokio",
+]
+
+[[package]]
+name = "eflint-to-json"
+version = "1.0.0"
+source = "git+https://gitlab.com/eflint/eflint-to-json-rs?tag=v1.0.0#311d18b4c2ba92b5f09f1b06f302107c8026e5f4"
+dependencies = [
+ "async-recursion",
+ "console",
+ "download 0.1.0 (git+https://github.com/Lut99/download-rs)",
+ "hex-literal",
+ "log",
 ]
 
 [[package]]
