@@ -268,7 +268,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 [[package]]
 name = "audit-logger"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#d8d9529dff7d4a97cab7dd94afb9ba9344e61147"
+source = "git+https://github.com/epi-project/policy-reasoner#a80fea4ffee364c63ee72daa41e949c4673c49d8"
 dependencies = [
  "async-trait",
  "auth-resolver",
@@ -286,7 +286,7 @@ dependencies = [
 [[package]]
 name = "auth-resolver"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#d8d9529dff7d4a97cab7dd94afb9ba9344e61147"
+source = "git+https://github.com/epi-project/policy-reasoner#a80fea4ffee364c63ee72daa41e949c4673c49d8"
 dependencies = [
  "async-trait",
  "serde",
@@ -525,7 +525,7 @@ dependencies = [
 [[package]]
 name = "brane-ast"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#15b40db355c588e2b08a49524eabc82baa98f2e5"
+source = "git+https://github.com/epi-project/brane#7524309001d9ff347c8063747f2535a474a73565"
 dependencies = [
  "brane-dsl 3.0.0 (git+https://github.com/epi-project/brane)",
  "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
@@ -758,7 +758,7 @@ dependencies = [
 [[package]]
 name = "brane-dsl"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#15b40db355c588e2b08a49524eabc82baa98f2e5"
+source = "git+https://github.com/epi-project/brane#7524309001d9ff347c8063747f2535a474a73565"
 dependencies = [
  "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
  "bytes",
@@ -801,7 +801,7 @@ dependencies = [
 [[package]]
 name = "brane-exe"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#15b40db355c588e2b08a49524eabc82baa98f2e5"
+source = "git+https://github.com/epi-project/brane#7524309001d9ff347c8063747f2535a474a73565"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -991,7 +991,7 @@ dependencies = [
 [[package]]
 name = "brane-shr"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#15b40db355c588e2b08a49524eabc82baa98f2e5"
+source = "git+https://github.com/epi-project/brane#7524309001d9ff347c8063747f2535a474a73565"
 dependencies = [
  "async-compression 0.3.15",
  "console",
@@ -1352,7 +1352,7 @@ checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 [[package]]
 name = "deliberation"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#d8d9529dff7d4a97cab7dd94afb9ba9344e61147"
+source = "git+https://github.com/epi-project/policy-reasoner#a80fea4ffee364c63ee72daa41e949c4673c49d8"
 dependencies = [
  "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
  "brane-exe 3.0.0 (git+https://github.com/epi-project/brane)",
@@ -1580,7 +1580,7 @@ dependencies = [
 [[package]]
 name = "eflint-to-json"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#d8d9529dff7d4a97cab7dd94afb9ba9344e61147"
+source = "git+https://github.com/epi-project/policy-reasoner#a80fea4ffee364c63ee72daa41e949c4673c49d8"
 dependencies = [
  "async-recursion",
  "console",
@@ -3255,7 +3255,7 @@ checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 [[package]]
 name = "policy"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#d8d9529dff7d4a97cab7dd94afb9ba9344e61147"
+source = "git+https://github.com/epi-project/policy-reasoner#a80fea4ffee364c63ee72daa41e949c4673c49d8"
 dependencies = [
  "async-trait",
  "chrono",
@@ -3452,7 +3452,7 @@ dependencies = [
 [[package]]
 name = "reasonerconn"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#d8d9529dff7d4a97cab7dd94afb9ba9344e61147"
+source = "git+https://github.com/epi-project/policy-reasoner#a80fea4ffee364c63ee72daa41e949c4673c49d8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4242,7 +4242,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#15b40db355c588e2b08a49524eabc82baa98f2e5"
+source = "git+https://github.com/epi-project/brane#7524309001d9ff347c8063747f2535a474a73565"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4279,7 +4279,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "srv"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#d8d9529dff7d4a97cab7dd94afb9ba9344e61147"
+source = "git+https://github.com/epi-project/policy-reasoner#a80fea4ffee364c63ee72daa41e949c4673c49d8"
 dependencies = [
  "audit-logger",
  "auth-resolver",
@@ -4311,7 +4311,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "state-resolver"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#d8d9529dff7d4a97cab7dd94afb9ba9344e61147"
+source = "git+https://github.com/epi-project/policy-reasoner#a80fea4ffee364c63ee72daa41e949c4673c49d8"
 dependencies = [
  "async-trait",
  "serde",
@@ -5413,7 +5413,7 @@ dependencies = [
 [[package]]
 name = "workflow"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#d8d9529dff7d4a97cab7dd94afb9ba9344e61147"
+source = "git+https://github.com/epi-project/policy-reasoner#a80fea4ffee364c63ee72daa41e949c4673c49d8"
 dependencies = [
  "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
  "brane-exe 3.0.0 (git+https://github.com/epi-project/brane)",
