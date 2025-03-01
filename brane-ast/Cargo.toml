@@ -16,7 +16,7 @@ rand = "0.8.5"
 num-traits = "0.2.18"
 serde = { version = "1.0.204", features = ["rc"] }
 serde_json_any_key = "2.0.0"
-strum = { version = "0.25.0", features = ["derive"] }
+strum = { version = "0.27.0", features = ["derive"] }
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 
 brane-dsl = { path = "../brane-dsl" }
