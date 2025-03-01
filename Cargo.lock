@@ -631,7 +631,7 @@ dependencies = [
  "brane-tsk",
  "clap",
  "eflint-json 0.1.0",
- "eflint-to-json 1.0.0",
+ "eflint-to-json 1.1.0",
  "enum-debug 1.1.0",
  "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
  "futures",
@@ -761,7 +761,7 @@ dependencies = [
  "eflint-to-json 0.2.0",
  "enum-debug 1.1.0",
  "error-trace 3.0.0",
- "hex-literal",
+ "hex-literal 0.4.1",
  "human-panic 2.0.1",
  "humanlog",
  "humantime",
@@ -1631,20 +1631,20 @@ dependencies = [
  "async-recursion",
  "console",
  "download 0.1.0 (git+https://github.com/Lut99/download-rs)",
- "hex-literal",
+ "hex-literal 0.4.1",
  "log",
  "tokio",
 ]
 
 [[package]]
 name = "eflint-to-json"
-version = "1.0.0"
-source = "git+https://gitlab.com/eflint/eflint-to-json-rs?tag=v1.0.0#311d18b4c2ba92b5f09f1b06f302107c8026e5f4"
+version = "1.1.0"
+source = "git+https://gitlab.com/eflint/eflint-to-json-rs?tag=v1.1.0#0654fe98789e98fab3ecb2437f11c4bc00701897"
 dependencies = [
  "async-recursion",
  "console",
  "download 0.1.0 (git+https://github.com/Lut99/download-rs)",
- "hex-literal",
+ "hex-literal 1.0.0",
  "log",
 ]
 
@@ -2204,6 +2204,12 @@ name = "hex-literal"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
+
+[[package]]
+name = "hex-literal"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcaaec4551594c969335c98c903c1397853d4198408ea609190f420500f6be71"
 
 [[package]]
 name = "histogram"

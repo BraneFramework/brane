@@ -59,7 +59,7 @@ base16ct = { version = "*", features = ["std"] }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs", tag = "v3.3.0" }
 sha2 = "0.10.6"
 
-eflint-to-json = { git = "https://gitlab.com/eflint/eflint-to-json-rs", tag = "v1.0.0" }
+eflint-to-json = { git = "https://gitlab.com/eflint/eflint-to-json-rs", tag = "v1.1.0" }
 
 
 [features]
