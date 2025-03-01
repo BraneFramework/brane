@@ -2,6 +2,7 @@
 # This file is used to compile various parts of the Brane infrastructure and tooling
 #
 #
+
 CENTRAL_SERVICES := brane-api brane-drv brane-plr
 WORKER_SERVICES := brane-job brane-reg brane-chk
 SHARED_SERVICES := brane-prx
@@ -59,7 +60,7 @@ central-images: $(CENTRAL_SERVICES) $(SHARED_SERVICES)
 .PHONY: $(WORKSPACE_MEMBERS)
 $(WORKSPACE_MEMBERS): $(IMAGE_DIR)
 	@echo "Building $@"
-	docker buildx $(BUILDX_ARGS) --output type="docker,dest=$(IMAGE_DIR)/$@.tar" --file $(IMAGE_DOCKER_FILE) --target $@ --build-arg "UID=$(shell id -u)" --build-arg "GID=$(shell id -g)" .
+	docker buildx $(BUILDX_ARGS) --output type="docker,dest=$(IMAGE_DIR)/$@.tar" --file $(IMAGE_DOCKER_FILE) --target $@ .
 
 # Compilation of binaries
 .PHONY: $(BINARY_TARGETS)
@@ -71,7 +72,7 @@ $(BINARY_TARGETS): $(BIN_DIR)
 .PHONY: brane-let-builder
 brane-let-builder:
 	@echo "Building brane-let builder container"
-	docker buildx build --load -t brane-let-builder:latest -f Dockerfile.let --build-arg "UID=$(shell id -u)" --build-arg "GID=$(shell id -g)" .
+	docker buildx build --load -t brane-let-builder:latest -f Dockerfile.let --build-arg "UID=$(shell id -u)" --build-arg "UID=$(shell id -g)" .
 
 .PHONY: brane-let-docker
 brane-let-docker: brane-let-builder $(BIN_DIR)
