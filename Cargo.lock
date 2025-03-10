@@ -971,7 +971,7 @@ dependencies = [
  "enum-debug",
  "fs2",
  "futures-util",
- "getrandom 0.3.1",
+ "getrandom 0.2.15",
  "hex",
  "humanlog",
  "indicatif",
