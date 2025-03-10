@@ -8,52 +8,52 @@ on:
 
 jobs:
   # The complete workspace only needs to be compiled for linux x86
-  # check-stable-all:
-  #   name: "Check & Build / All"
-  #   uses: ./.github/workflows/mixin-cargo-check.yml
-  #   with:
-  #     os: ubuntu-24.04
-  #     rust-version: stable
-  #     packages: workspace
-  #
-  # # Frontend packages are compiled for windows and macOS as well
-  # check-stable-frontend:
-  #   name: "Check & Build / Frontend"
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       os: [macos-latest, windows-latest]
-  #       rust: [stable]
-  #
-  #   uses: ./.github/workflows/mixin-cargo-check.yml
-  #   with:
-  #     os: "${{ matrix.os }}"
-  #     rust-version: "${{ matrix.rust }}"
-  #     packages: frontend
-  #
-  #
-  # # This one is optional, but it is nice to know if something will work as intended in the future
-  # check-nightly:
-  #   name: "Check & Build (Nightly)"
-  #
-  #   uses: ./.github/workflows/mixin-cargo-check.yml
-  #   with:
-  #     os: ubuntu-24.04
-  #     rust-version: nightly
-  #     packages: workspace
-  #
-  # test:
-  #   needs: check-stable-all
-  #   name: "Tests"
-  #   # TODO: Run on macOS and windows as well using matrix (if this provides any value)
-  #
-  #   uses: ./.github/workflows/mixin-cargo-test.yml
-  #   with:
-  #     os: ubuntu-24.04
-  #     rust-version: stable
-  #
+  check-stable-all:
+    name: "Check & Build / All"
+    uses: ./.github/workflows/mixin-cargo-check.yml
+    with:
+      os: ubuntu-24.04
+      rust-version: stable
+      packages: workspace
+
+  # Frontend packages are compiled for windows and macOS as well
+  check-stable-frontend:
+    name: "Check & Build / Frontend"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+        rust: [stable]
+
+    uses: ./.github/workflows/mixin-cargo-check.yml
+    with:
+      os: "${{ matrix.os }}"
+      rust-version: "${{ matrix.rust }}"
+      packages: frontend
+
+
+  # This one is optional, but it is nice to know if something will work as intended in the future
+  check-nightly:
+    name: "Check & Build (Nightly)"
+
+    uses: ./.github/workflows/mixin-cargo-check.yml
+    with:
+      os: ubuntu-24.04
+      rust-version: nightly
+      packages: workspace
+
+  test:
+    needs: check-stable-all
+    name: "Tests"
+    # TODO: Run on macOS and windows as well using matrix (if this provides any value)
+
+    uses: ./.github/workflows/mixin-cargo-test.yml
+    with:
+      os: ubuntu-24.04
+      rust-version: stable
+
   test-coverage:
-    # needs: test
+    needs: test
     name: "Test coverage"
     # TODO: Run on macOS and windows as well using matrix (if this provides any value)
 
@@ -63,127 +63,127 @@ jobs:
       os: ubuntu-24.04
       rust-version: stable
 
-  # clippy:
-  #   needs: check-stable-all
-  #   name: "Clippy (Stable)"
-  #   # NOTE: Maybe we should run this on macOS and windows, not sure if it is worth it
-  #
-  #   uses: ./.github/workflows/mixin-cargo-clippy.yml
-  #   with:
-  #     os: ubuntu-24.04
-  #     rust-version: stable
-  #
-  # # We use the nightly formatter because it has additional formatter settings
-  # fmt:
-  #   # Note that we don't depend on check in stable or nightly
-  #   # as code need not compile for the formatter to work
-  #   name: "Formatter"
-  #   uses: ./.github/workflows/mixin-cargo-fmt.yml
-  #   with:
-  #     os: ubuntu-24.04
-  #     rust-version: nightly
-  #
-  # doc:
-  #   # Note that we don't depend on check in stable or nightly
-  #   # as code need not compile for the formatter to work
-  #   name: "Documentation"
-  #
-  #   runs-on: ubuntu-24.04
-  #
-  #   env:
-  #     # Disallow warnings
-  #     RUSTDOCFLAGS: -DWarnings
-  #
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #     - name: Install rust toolchain
-  #       uses: dtolnay/rust-toolchain@master
-  #       with:
-  #         toolchain: stable
-  #     - name: "Compile documentation"
-  #       run: cargo doc --workspace --no-deps --all-features
-  #     - name: "Run doc tests"
-  #       run: cargo test --workspace --doc
-  #
-  # # Clippy contains more lints in nightly, they might be unstable / unusable, but show them regardless
-  # clippy-nightly:
-  #   needs: check-nightly
-  #   name: "Clippy (Nightly)"
-  #   continue-on-error: true
-  #   runs-on: ubuntu-24.04
-  #
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Install rust toolchain
-  #       uses: dtolnay/rust-toolchain@master
-  #       with:
-  #         toolchain: stable
-  #         components: clippy
-  #
-  #     - name: Run unit tests
-  #       run: cargo clippy --workspace
-  #
-  # audit:
-  #   # needs: check-stable-all
-  #   name: "Audit"
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: rustsec/audit-check@v2.0.0
-  #       with:
-  #         token: ${{ secrets.GITHUB_TOKEN }}
-  #
-  # direct-minimal-versions:
-  #   name: "Direct Minimal versions"
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Install rust toolchain
-  #       uses: dtolnay/rust-toolchain@master
-  #       with:
-  #         toolchain: stable
-  #     - uses: taiki-e/install-action@cargo-hack
-  #     - uses: taiki-e/install-action@cargo-minimal-versions
-  #     - name: Run direct minimal versions
-  #       run: cargo minimal-versions check --workspace --direct
-  #
-  # msrv:
-  #   # Lets first make sure it works with the most recent version before we attempt all supported versions
-  #   needs: check-stable-all
-  #   name: "Minimum supported rust version"
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #     - name: Install Cargo Binstall
-  #       uses: cargo-bins/cargo-binstall@main
-  #     - name: Install Cargo MSRV
-  #       run: cargo binstall --no-confirm cargo-msrv --version ^0.16
-  #     - name: Install dependencies
-  #       run: sudo apt update; sudo apt install -y yq
-  #     - name: "Run minimum supported rust version"
-  #       run: ./ci-cd/msrv
-  #
-  #
-  # lockfile:
-  #   # Note that we don't depend on check in stable or nightly
-  #   # as code need not compile for the formatter to work
-  #   name: "Lock file"
-  #
-  #   runs-on: ubuntu-24.04
-  #
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #     - name: Install rust toolchain
-  #       uses: dtolnay/rust-toolchain@master
-  #       with:
-  #         toolchain: stable
-  #     - name: "Check if lockfile update is necessary"
-  #       # This will attempt an update all dependencies in our workspace (not transient).
-  #       # This should not be the case, so if it can locked will prevent it and return a non-zero exit code
-  #       # The behaviour should be comparable to `check --locked`, but without actually compiling it
-  #       run: cargo update --workspace --locked
+  clippy:
+    needs: check-stable-all
+    name: "Clippy (Stable)"
+    # NOTE: Maybe we should run this on macOS and windows, not sure if it is worth it
+
+    uses: ./.github/workflows/mixin-cargo-clippy.yml
+    with:
+      os: ubuntu-24.04
+      rust-version: stable
+
+  # We use the nightly formatter because it has additional formatter settings
+  fmt:
+    # Note that we don't depend on check in stable or nightly
+    # as code need not compile for the formatter to work
+    name: "Formatter"
+    uses: ./.github/workflows/mixin-cargo-fmt.yml
+    with:
+      os: ubuntu-24.04
+      rust-version: nightly
+
+  doc:
+    # Note that we don't depend on check in stable or nightly
+    # as code need not compile for the formatter to work
+    name: "Documentation"
+
+    runs-on: ubuntu-24.04
+
+    env:
+      # Disallow warnings
+      RUSTDOCFLAGS: -DWarnings
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: "Compile documentation"
+        run: cargo doc --workspace --no-deps --all-features
+      - name: "Run doc tests"
+        run: cargo test --workspace --doc
+
+  # Clippy contains more lints in nightly, they might be unstable / unusable, but show them regardless
+  clippy-nightly:
+    needs: check-nightly
+    name: "Clippy (Nightly)"
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Run unit tests
+        run: cargo clippy --workspace
+
+  audit:
+    # needs: check-stable-all
+    name: "Audit"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  direct-minimal-versions:
+    name: "Direct Minimal versions"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - uses: taiki-e/install-action@cargo-hack
+      - uses: taiki-e/install-action@cargo-minimal-versions
+      - name: Run direct minimal versions
+        run: cargo minimal-versions check --workspace --direct
+
+  msrv:
+    # Lets first make sure it works with the most recent version before we attempt all supported versions
+    needs: check-stable-all
+    name: "Minimum supported rust version"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Cargo Binstall
+        uses: cargo-bins/cargo-binstall@main
+      - name: Install Cargo MSRV
+        run: cargo binstall --no-confirm cargo-msrv --version ^0.16
+      - name: Install dependencies
+        run: sudo apt update; sudo apt install -y yq
+      - name: "Run minimum supported rust version"
+        run: ./ci-cd/msrv
+
+
+  lockfile:
+    # Note that we don't depend on check in stable or nightly
+    # as code need not compile for the formatter to work
+    name: "Lock file"
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: "Check if lockfile update is necessary"
+        # This will attempt an update all dependencies in our workspace (not transient).
+        # This should not be the case, so if it can locked will prevent it and return a non-zero exit code
+        # The behaviour should be comparable to `check --locked`, but without actually compiling it
+        run: cargo update --workspace --locked

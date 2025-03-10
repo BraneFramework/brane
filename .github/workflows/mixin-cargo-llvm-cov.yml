@@ -42,5 +42,3 @@ jobs:
           slug: BraneFramework/brane
           files: codecov.json
           fail_ci_if_error: true
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
