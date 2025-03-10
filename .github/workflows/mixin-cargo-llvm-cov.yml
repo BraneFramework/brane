@@ -1,0 +1,42 @@
+name: Test coverage
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      rust-version:
+        required: true
+        type: string
+
+jobs:
+  cargo-test:
+    name: Cargo Test (${{ inputs.os }})
+    runs-on: ${{ inputs.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ inputs.rust-version }}
+          components: rustfmt, clippy
+
+      - name: Install dependencies
+        if: startsWith(inputs.os, 'ubuntu-')
+        run: sudo apt update && sudo apt install -y libsqlite3-dev
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Generate code coverage
+        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
+          fail_ci_if_error: true
