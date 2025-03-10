@@ -11,8 +11,8 @@ on:
         type: string
 
 jobs:
-  cargo-test:
-    name: Cargo Test (${{ inputs.os }})
+  cargo-test-coverage:
+    name: Cargo Test Coverage (${{ inputs.os }})
     runs-on: ${{ inputs.os }}
 
     steps:
