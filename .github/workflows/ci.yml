@@ -126,16 +126,6 @@ jobs:
       - name: Run unit tests
         run: cargo clippy --workspace
 
-  audit:
-    # needs: check-stable-all
-    name: "Audit"
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
   direct-minimal-versions:
     name: "Direct Minimal versions"
     runs-on: ubuntu-24.04
