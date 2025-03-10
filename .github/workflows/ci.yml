@@ -58,6 +58,7 @@ jobs:
     # TODO: Run on macOS and windows as well using matrix (if this provides any value)
 
     uses: ./.github/workflows/mixin-cargo-llvm-cov.yml
+    secrets: inherit
     with:
       os: ubuntu-24.04
       rust-version: stable
