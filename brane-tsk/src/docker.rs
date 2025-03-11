@@ -4,7 +4,7 @@
 //  Created:
 //    19 Sep 2022, 14:57:17
 //  Last edited:
-//    06 Dec 2024, 18:28:08
+//    11 Mar 2025, 08:54:12
 //  Auto updated?
 //    Yes
 //
@@ -739,9 +739,12 @@ async fn remove_container(docker: &Docker, name: impl AsRef<str>) -> Result<(), 
 /// - `source`: Path to the image to import.
 ///
 /// # Returns
-/// Nothing on success, or an ExecutorError otherwise.
-async fn import_image(docker: &Docker, image: impl Into<Image>, source: impl AsRef<Path>) -> Result<(), Error> {
-    let image: Image = image.into();
+/// The given `image`, possibly updated with a new ID if another was returned by Docker.
+///
+/// # Errors
+/// This function errors if we failed to import the given image file or tag it.
+async fn import_image(docker: &Docker, image: impl Into<Image>, source: impl AsRef<Path>) -> Result<Image, Error> {
+    let mut image: Image = image.into();
     let source: &Path = source.as_ref();
     let options = ImportImageOptions { quiet: true };
 
@@ -761,14 +764,26 @@ async fn import_image(docker: &Docker, image: impl Into<Image>, source: impl AsR
 
     // Finally, wrap it in a HTTP body and send it to the Docker API
     let body = Body::wrap_stream(byte_stream);
-    if let Err(err) = docker.import_image(options, body, None).try_collect::<Vec<_>>().await {
-        return Err(Error::ImageImportError { path: PathBuf::from(source), err });
-    }
+    image.digest = match docker.import_image(options, body, None).try_collect::<Vec<_>>().await {
+        Ok(res) => {
+            let mut id: Option<String> = None;
+            for info in &res {
+                if let Some(stream) = &info.stream {
+                    if stream.starts_with("Loaded image ID: sha256:") && stream.ends_with("\n") {
+                        id = Some(stream[24..stream.len() - 1].into());
+                        break;
+                    }
+                }
+            }
+            Some(id.ok_or_else(|| Error::ImageImportFindId { path: source.into(), infos: res })?)
+        },
+        Err(err) => return Err(Error::ImageImportError { path: PathBuf::from(source), err }),
+    };
 
     // Tag it with the appropriate name & version
     let options = Some(TagImageOptions { repo: image.name.clone(), tag: image.version.clone().unwrap() });
     match docker.tag_image(image.digest.as_ref().unwrap(), options).await {
-        Ok(_) => Ok(()),
+        Ok(_) => Ok(image),
         Err(err) => Err(Error::ImageTagError { image: Box::new(image), source: source.to_string_lossy().to_string(), err }),
     }
 }
@@ -782,17 +797,32 @@ async fn import_image(docker: &Docker, image: impl Into<Image>, source: impl AsR
 ///
 /// # Errors
 /// This function errors if we failed to pull the image, e.g., the Docker engine did not know where to find it, or there was no internet.
-async fn pull_image(docker: &Docker, image: impl Into<Image>, source: impl Into<String>) -> Result<(), Error> {
-    let image: Image = image.into();
+async fn pull_image(docker: &Docker, image: impl Into<Image>, source: impl Into<String>) -> Result<Image, Error> {
+    let mut image: Image = image.into();
     let source: String = source.into();
 
     // Define the options for this image
     let options = Some(CreateImageOptions { from_image: source.clone(), ..Default::default() });
 
     // Try to create it
-    if let Err(err) = docker.create_image(options, None, None).try_collect::<Vec<_>>().await {
-        return Err(Error::ImagePullError { source, err });
-    }
+    image.digest = match docker.create_image(options, None, None).try_collect::<Vec<_>>().await {
+        Ok(res) => {
+            let mut id: Option<String> = None;
+            for info in &res {
+                if let Some(status) = &info.status {
+                    if status.starts_with("Digest: sha256:") {
+                        id = Some(status[15..].into());
+                        break;
+                    }
+                }
+            }
+            match id {
+                Some(id) => Some(id),
+                None => return Err(Error::ImagePullFindId { source, infos: res }),
+            }
+        },
+        Err(err) => return Err(Error::ImagePullError { source, err }),
+    };
 
     // Set the options
     let options: Option<TagImageOptions<_>> = Some(if let Some(version) = &image.version {
@@ -803,7 +833,7 @@ async fn pull_image(docker: &Docker, image: impl Into<Image>, source: impl Into<
 
     // Now tag it
     match docker.tag_image(&source, options).await {
-        Ok(_) => Ok(()),
+        Ok(_) => Ok(image),
         Err(err) => Err(Error::ImageTagError { image: Box::new(image), source, err }),
     }
 }
@@ -1052,9 +1082,12 @@ pub async fn hash_container(container_path: impl AsRef<Path>) -> Result<String, 
 /// - `image`: The Docker image name, version & potential digest to pull.
 /// - `source`: Where to get the image from should it not be present already.
 ///
+/// # Returns
+/// The given `image`, possibly updated with a new ID if another was returned by Docker.
+///
 /// # Errors
 /// This function errors if it failed to ensure the image existed (i.e., import or pull failed).
-pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl Into<ImageSource>) -> Result<(), Error> {
+pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl Into<ImageSource>) -> Result<Image, Error> {
     let image: Image = image.into();
     let source: ImageSource = source.into();
 
@@ -1062,7 +1095,7 @@ pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl
     match docker.inspect_image(&image.docker().to_string()).await {
         Ok(_) => {
             debug!("Image '{}' already exists in Docker deamon.", image.docker());
-            return Ok(());
+            return Ok(image);
         },
         Err(bollard::errors::Error::DockerResponseServerError { status_code: 404, message: _ }) => {
             debug!("Image '{}' doesn't exist in Docker daemon.", image.docker());

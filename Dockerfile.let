@@ -15,12 +15,12 @@ FROM ubuntu:20.04
 LABEL org.opencontainers.image.source=https://github.com/epi-project/brane
 
 # Define some build args
-ARG UID=1000
-ARG GID=1000
+ARG USERID=1000
+ARG GROUPID=1000
 
 # Setup a user mirroring the main one
-RUN addgroup --gid $GID brane
-RUN adduser --uid $UID --gid $GID --gecos "Brane" --disabled-password brane
+RUN if [[ -z "$(cat /etc/group | grep ':20:')" ]]; then addgroup --gid $GROUPID brane && export GROUP=brane else export GROUP=$(getent group $GROUPID | cut -d: -f1); fi
+RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password brane
 
 # Install build dependencies
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y \
@@ -31,7 +31,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install 
 
 # Prepare the build directory while we're root
 RUN mkdir -p /build/target \
- && chown -R brane:brane /build
+ && chown -R brane:$GROUP /build
 
 # Install rust
 USER brane
@@ -39,12 +39,12 @@ RUN bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -
  && echo ". /home/brane/.cargo/env" >> /home/brane/.profile
 
 # Copy over relevant crates & other files
-COPY --chown=brane:brane . /build
+COPY --chown=brane:$GROUP . /build
 
 # Build the binary
 WORKDIR /build
-RUN --mount=type=cache,id=cargoidx,uid=$UID,target=/home/brane/.cargo/registry \
-    --mount=type=cache,id=braneletcache,uid=$UID,target=/build/target \
+RUN --mount=type=cache,id=cargoidx,uid=$USERID,target=/home/brane/.cargo/registry \
+    --mount=type=cache,id=braneletcache,uid=$USERID,target=/build/target \
     . /home/brane/.profile \
  && cargo build \
         --release \
