@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:27:26
 //  Last edited:
-//    14 Nov 2024, 17:24:09
+//    11 Mar 2025, 08:55:04
 //  Auto updated?
 //    Yes
 //
@@ -18,6 +18,7 @@ use std::fmt::{Display, Formatter, Result as FResult, Write};
 use std::path::PathBuf;
 
 use bollard::ClientVersion;
+use bollard::secret::{BuildInfo, CreateImageInfo};
 use brane_shr::formatters::{BlockFormatter, Capitalizeable};
 use enum_debug::EnumDebug as _;
 use reqwest::StatusCode;
@@ -984,6 +985,8 @@ pub enum DockerError {
     ImageFileOpenError { path: PathBuf, err: std::io::Error },
     /// Failed to import the given image file.
     ImageImportError { path: PathBuf, err: bollard::errors::Error },
+    /// Failed to find the digest after importing the given image.
+    ImageImportFindId { path: PathBuf, infos: Vec<BuildInfo> },
     /// Failed to create the given image file.
     ImageFileCreateError { path: PathBuf, err: std::io::Error },
     /// Failed to download a piece of the image from the Docker client.
@@ -995,6 +998,8 @@ pub enum DockerError {
 
     /// Failed to pull the given image file.
     ImagePullError { source: String, err: bollard::errors::Error },
+    /// Failed to find the digest after pulling the given image.
+    ImagePullFindId { source: String, infos: Vec<CreateImageInfo> },
     /// Failed to appropriately tag the pulled image.
     ImageTagError { image: Box<Image>, source: String, err: bollard::errors::Error },
 
@@ -1049,12 +1054,28 @@ impl Display for DockerError {
 
             ImageFileOpenError { path, .. } => write!(f, "Failed to open image file '{}'", path.display()),
             ImageImportError { path, .. } => write!(f, "Failed to import image file '{}' into Docker engine", path.display()),
+            ImageImportFindId { path, infos } => write!(
+                f,
+                "Failed to read digest after importing image '{}'\n\nReturned infos:\n{}\n{}\n{}\n",
+                path.display(),
+                "-".repeat(80),
+                infos.iter().map(|i| format!("{i:?}")).collect::<Vec<String>>().join("\n"),
+                "-".repeat(80)
+            ),
             ImageFileCreateError { path, .. } => write!(f, "Failed to create image file '{}'", path.display()),
             ImageExportError { name, .. } => write!(f, "Failed to export image '{name}'"),
             ImageFileWriteError { path, .. } => write!(f, "Failed to write to image file '{}'", path.display()),
             ImageFileShutdownError { path, .. } => write!(f, "Failed to shut image file '{}' down", path.display()),
 
             ImagePullError { source, .. } => write!(f, "Failed to pull image '{source}' into Docker engine"),
+            ImagePullFindId { source, infos } => write!(
+                f,
+                "Failed to read digest after pulling image '{}'\n\nReturned infos:\n{}\n{}\n{}\n",
+                source,
+                "-".repeat(80),
+                infos.iter().map(|i| format!("{i:?}")).collect::<Vec<String>>().join("\n"),
+                "-".repeat(80)
+            ),
             ImageTagError { image, source, .. } => write!(f, "Failed to tag pulled image '{source}' as '{image}'"),
 
             ImageInspectError { image, .. } => write!(
@@ -1117,12 +1138,14 @@ impl Error for DockerError {
 
             ImageFileOpenError { err, .. } => Some(err),
             ImageImportError { err, .. } => Some(err),
+            ImageImportFindId { .. } => None,
             ImageFileCreateError { err, .. } => Some(err),
             ImageExportError { err, .. } => Some(err),
             ImageFileWriteError { err, .. } => Some(err),
             ImageFileShutdownError { err, .. } => Some(err),
 
             ImagePullError { err, .. } => Some(err),
+            ImagePullFindId { .. } => None,
             ImageTagError { err, .. } => Some(err),
 
             ImageInspectError { err, .. } => Some(err),

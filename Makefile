@@ -7,7 +7,7 @@ CENTRAL_SERVICES := brane-api brane-drv brane-plr
 WORKER_SERVICES := brane-job brane-reg brane-chk
 SHARED_SERVICES := brane-prx
 
-BINARY_TARGETS := brane-ctl brane-cli brane-let
+BINARY_TARGETS := brane-ctl brane-cli # brane-let   <-- True but we need special treatment (always build as Linux, never as Darwin)
 
 BUILD_DIR := target
 IMAGE_DIR := $(BUILD_DIR)/release
@@ -18,6 +18,24 @@ WORKSPACE_MEMBERS := $(sort $(CENTRAL_SERVICES) $(WORKER_SERVICES) $(SHARED_SERV
 BUILDX_ARGS := build 
 CARGO_BUILD_ARGS := --release
 IMAGE_DOCKER_FILE := ./Dockerfile.rls
+
+# Find the architecture of this machine
+ifndef RUST_ARCH
+	SARCH := $(shell uname -m)
+	ifeq ($(SARCH),amd64)
+		RUST_ARCH := x86_64
+	else ifeq ($(SARCH),x86_64)
+		RUST_ARCH := x86_64
+	else ifeq ($(SARCH),x86-64)
+		RUST_ARCH := x86_64
+	else ifeq ($(SARCH),aarch64)
+		RUST_ARCH := aarch64
+	else ifeq ($(SARCH),arm64)
+		RUST_ARCH := aarch64
+	else
+		RUST_ARCH := UNKNOWN
+	endif
+endif
 
 # The binaries we can build in either debug or release mode
 ifeq ($(PROFILE),debug)
@@ -64,6 +82,9 @@ $(WORKSPACE_MEMBERS): $(IMAGE_DIR)
 
 # Compilation of binaries
 .PHONY: $(BINARY_TARGETS)
+brane-let: $(BIN_DIR)
+	@echo "Building $@"
+	cargo build $(CARGO_BUILD_ARGS) --target $(RUST_ARCH)-unknown-linux-musl --package $@
 $(BINARY_TARGETS): $(BIN_DIR)
 	@echo "Building $@"
 	cargo build $(CARGO_BUILD_ARGS) --package $@
@@ -72,7 +93,7 @@ $(BINARY_TARGETS): $(BIN_DIR)
 .PHONY: brane-let-builder
 brane-let-builder:
 	@echo "Building brane-let builder container"
-	docker buildx build --load -t brane-let-builder:latest -f Dockerfile.let --build-arg "UID=$(shell id -u)" --build-arg "UID=$(shell id -g)" .
+	docker buildx build --load -t brane-let-builder:latest -f Dockerfile.let --build-arg "USERID=$(shell id -u)" --build-arg "GROUPID=$(shell id -g)" .
 
 .PHONY: brane-let-docker
 brane-let-docker: brane-let-builder $(BIN_DIR)
