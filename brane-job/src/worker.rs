@@ -51,7 +51,7 @@ use enum_debug::EnumDebug as _;
 use error_trace::{ErrorTrace as _, trace};
 use futures_util::StreamExt;
 use hyper::body::Bytes;
-use hyper::header;
+use reqwest::header;
 // use kube::config::Kubeconfig;
 use log::{debug, error, info, warn};
 use reqwest::Method;
