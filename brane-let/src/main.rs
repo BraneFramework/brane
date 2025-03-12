@@ -16,6 +16,8 @@
 use std::path::PathBuf;
 use std::process;
 
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use brane_let::common::PackageResult;
 use brane_let::errors::LetError;
 use brane_let::{exec_ecu, exec_nop};
@@ -192,9 +194,9 @@ async fn run(
             // Print to stdout as (base64-encoded) JSON
             if std::env::vars().any(|(name, value)| name == OUTPUT_PREFIX_NAME && value == "1") {
                 debug!("Writing output prefix enabled");
-                println!("{}{}", OUTPUT_PREFIX, base64::encode(output));
+                println!("{}{}", OUTPUT_PREFIX, BASE64_STANDARD.encode(output));
             } else {
-                println!("{}", base64::encode(output));
+                println!("{}", BASE64_STANDARD.encode(output));
             }
             // }
 
@@ -259,7 +261,7 @@ where
     T: DeserializeOwned,
 {
     // Decode the Base64
-    let input = match base64::decode(input) {
+    let input = match BASE64_STANDARD.decode(input) {
         Ok(input) => input,
         Err(err) => {
             return Err(LetError::ArgumentsBase64Error { err });

@@ -40,9 +40,9 @@ use specifications::package::Capability;
 use specifications::planning::{PlanningDeniedReply, PlanningReply, PlanningRequest};
 use specifications::profiling::ProfileReport;
 use specifications::working::{CheckReply, CheckWorkflowRequest, JobServiceClient};
+use warp::http::StatusCode;
 use warp::reject::Rejection;
 use warp::reply::Response;
-use warp::http::StatusCode;
 
 use crate::context::Context;
 
