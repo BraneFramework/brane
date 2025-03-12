@@ -33,7 +33,6 @@ use brane_tsk::errors::PlanError;
 use error_trace::trace;
 use log::{debug, error, info};
 use rand::prelude::IteratorRandom;
-use reqwest::StatusCode;
 use serde_json::Value;
 use specifications::address::Address;
 use specifications::data::{AccessKind, AvailabilityKind, DataIndex, DataName, PreprocessKind};
@@ -41,6 +40,7 @@ use specifications::package::Capability;
 use specifications::planning::{PlanningDeniedReply, PlanningReply, PlanningRequest};
 use specifications::profiling::ProfileReport;
 use specifications::working::{CheckReply, CheckWorkflowRequest, JobServiceClient};
+use warp::http::StatusCode;
 use warp::reject::Rejection;
 use warp::reply::Response;
 
