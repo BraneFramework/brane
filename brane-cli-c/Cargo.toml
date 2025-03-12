@@ -1,7 +1,7 @@
 [package]
 name = "brane-cli-c"
 description = "Wrapper around `brane-cli` that provides C-bindings for interacting with a remote backend. This allows C-programs to act as a BRANE client."
-rust-version = "1.75"
+rust-version = "1.81"
 edition = "2021"
 version.workspace = true
 repository.workspace = true

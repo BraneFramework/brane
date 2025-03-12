@@ -1,7 +1,7 @@
 [package]
 name = "brane-drv"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.81"
 version.workspace = true
 repository.workspace = true
 authors.workspace = true
@@ -17,14 +17,14 @@ env_logger = "0.10.0"
 error-trace.workspace = true
 futures-util = "0.3.30"
 log = "0.4.22"
-prost = "0.12.0"
+prost = "0.13.2"
 # rdkafka = { version = "0.31", features = ["cmake-build"] }
 reqwest = { version = "0.12.0" }
 serde_json = "1.0.120"
 serde_json_any_key = "2.0.0"
 tokio = { version = "1.38.0", default-features = false, features = ["macros", "rt", "signal"] }
 tokio-stream = "0.1.6"
-tonic = "0.11.0"
+tonic = "0.12.0"
 
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }

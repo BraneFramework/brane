@@ -1,6 +1,6 @@
 [package]
 name = "brane-job"
-rust-version = "1.75"
+rust-version = "1.81"
 edition = "2018"
 version.workspace = true
 repository.workspace = true
@@ -29,7 +29,7 @@ serde_json_any_key = "2.0.0"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
 tokio = { version = "1.38.0", default-features = false, features = ["rt", "macros", "signal"] }
 tokio-stream = "0.1.6"
-tonic = "0.11.0"
+tonic = "0.12.0"
 
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }

@@ -2,7 +2,7 @@
 name = "brane-prx"
 edition = "2021"
 authors = [ "Tim Müller" ]
-rust-version = "1.75"
+rust-version = "1.81"
 version.workspace = true
 repository.workspace = true
 license.workspace = true
@@ -22,7 +22,7 @@ serde_json = "1.0.120"
 socksx = { git = "https://github.com/epi-project/socksx", tag = "v2.0.0" }
 tokio = { version = "1.38.0", default-features = false, features = ["macros", "rt", "signal"] }
 tokio-rustls = "0.24.0"
-tonic = "0.11.0"
+tonic = "0.12.0"
 url = "2.5.0"
 warp = "0.3.2"
 

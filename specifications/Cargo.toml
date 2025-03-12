@@ -1,6 +1,6 @@
 [package]
 name = "specifications"
-rust-version = "1.73"
+rust-version = "1.81"
 edition = "2018"
 version.workspace = true
 repository.workspace = true
@@ -21,7 +21,7 @@ jsonwebtoken = "9.2.0"
 log = "0.4.22"
 num-traits = "0.2.18"
 parking_lot = { version = "0.12.1", features = ["serde"] }
-prost = "0.12.0"
+prost = "0.13.2"
 reqwest = { version = "0.12.0", features = ["json", "stream"] }
 semver = "1.0.0"
 serde = { version = "1.0.204", features = ["derive", "rc"] }
@@ -31,7 +31,7 @@ serde_with = "3.0.0"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
 strum = "0.27.0"
 strum_macros = "0.27.0"
-tonic = "0.11.0"
+tonic = "0.12.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 
 [lints]

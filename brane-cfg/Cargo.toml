@@ -1,6 +1,6 @@
 [package]
 name = "brane-cfg"
-rust-version = "1.73"
+rust-version = "1.81"
 edition = "2018"
 authors = ["Onno Valkering", "Tim Müller"]
 version.workspace = true

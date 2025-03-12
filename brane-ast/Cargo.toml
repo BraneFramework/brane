@@ -1,6 +1,6 @@
 [package]
 name = "brane-ast"
-rust-version = "1.73.0"
+rust-version = "1.81.0"
 edition = "2021"
 authors = [ "Tim Müller" ]
 version.workspace = true

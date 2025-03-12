@@ -1,6 +1,6 @@
 [package]
 name = "brane-dsl"
-rust-version = "1.73"
+rust-version = "1.81"
 edition = "2018"
 version.workspace = true
 repository.workspace = true
