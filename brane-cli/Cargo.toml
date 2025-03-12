@@ -19,7 +19,7 @@ doc = false
 
 [dependencies]
 anyhow = "1.0.66"
-async-compression = { version = "0.4", features = ["tokio","gzip"] }
+async-compression = { version = "0.4.0", features = ["tokio","gzip"] }
 async-trait = "0.1.67"
 base64 = "0.22.0"
 bollard = "0.18.0"
