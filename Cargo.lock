@@ -587,7 +587,7 @@ dependencies = [
  "anyhow",
  "async-compression 0.4.12",
  "async-trait",
- "base64 0.21.7",
+ "base64 0.22.1",
  "bollard",
  "brane-ast 3.0.0",
  "brane-cfg",
@@ -781,7 +781,7 @@ version = "3.0.0"
 dependencies = [
  "async-recursion",
  "async-trait",
- "base64 0.13.1",
+ "base64 0.22.1",
  "brane-ast 3.0.0",
  "brane-shr 3.0.0",
  "console",
@@ -825,7 +825,7 @@ dependencies = [
 name = "brane-job"
 version = "3.0.0"
 dependencies = [
- "base64 0.21.7",
+ "base64 0.22.1",
  "bollard",
  "brane-ast 3.0.0",
  "brane-cfg",
@@ -859,7 +859,7 @@ name = "brane-let"
 version = "3.0.0"
 dependencies = [
  "anyhow",
- "base64 0.13.1",
+ "base64 0.22.1",
  "brane-ast 3.0.0",
  "brane-exe 3.0.0",
  "clap",
@@ -935,7 +935,7 @@ dependencies = [
 name = "brane-reg"
 version = "3.0.0"
 dependencies = [
- "base64 0.21.7",
+ "base64 0.22.1",
  "brane-ast 3.0.0",
  "brane-cfg",
  "brane-exe 3.0.0",
@@ -1019,7 +1019,7 @@ name = "brane-tsk"
 version = "3.0.0"
 dependencies = [
  "async-trait",
- "base64 0.21.7",
+ "base64 0.22.1",
  "base64ct",
  "bollard",
  "brane-ast 3.0.0",
@@ -4292,7 +4292,7 @@ version = "3.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.21.7",
+ "base64 0.22.1",
  "base64ct",
  "chrono",
  "const_format",
