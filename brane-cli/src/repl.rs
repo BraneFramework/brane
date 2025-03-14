@@ -24,7 +24,7 @@ use brane_tsk::spec::AppId;
 use log::warn;
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::error::ReadlineError;
-use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
+use rustyline::highlight::{CmdKind, Highlighter, MatchingBracketHighlighter};
 use rustyline::hint::{Hinter, HistoryHinter};
 use rustyline::history::DefaultHistory;
 use rustyline::validate::{self, MatchingBracketValidator, Validator};
@@ -118,7 +118,7 @@ impl Highlighter for ReplHelper {
 
     fn highlight<'l>(&self, line: &'l str, pos: usize) -> Cow<'l, str> { self.highlighter.highlight(line, pos) }
 
-    fn highlight_char(&self, line: &str, pos: usize) -> bool { self.highlighter.highlight_char(line, pos) }
+    fn highlight_char(&self, line: &str, pos: usize, cmd_kind: CmdKind) -> bool { self.highlighter.highlight_char(line, pos, cmd_kind) }
 }
 
 impl Validator for ReplHelper {
