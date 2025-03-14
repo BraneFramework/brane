@@ -34,7 +34,7 @@ use brane_tsk::docker::{DockerOptions, ImageSource, ensure_image, get_digest};
 use console::style;
 use log::{debug, info};
 use rand::Rng;
-use rand::distributions::Alphanumeric;
+use rand::distr::Alphanumeric;
 use serde::{Deserialize, Serialize};
 use specifications::container::Image;
 use specifications::version::Version;
@@ -471,7 +471,7 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
 
     // Attemp to open the file to write that to
     let compose_path: PathBuf = PathBuf::from("/tmp")
-        .join(format!("docker-compose-override-{}.yml", rand::thread_rng().sample_iter(&Alphanumeric).take(3).map(char::from).collect::<String>()));
+        .join(format!("docker-compose-override-{}.yml", rand::rng().sample_iter(&Alphanumeric).take(3).map(char::from).collect::<String>()));
     let handle: File = match File::create(&compose_path) {
         Ok(handle) => handle,
         Err(err) => {

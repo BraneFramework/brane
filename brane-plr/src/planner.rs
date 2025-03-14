@@ -215,7 +215,7 @@ async fn plan_edges(
                                     if info.access.is_empty() {
                                         return Err(PlanError::DatasetUnavailable { name: dname.clone(), locs: vec![] });
                                     }
-                                    let mut rng = rand::thread_rng();
+                                    let mut rng = rand::rng();
                                     let location: &str = info.access.keys().choose(&mut rng).unwrap();
 
                                     // That's the location where to pull the dataset from
