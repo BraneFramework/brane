@@ -793,7 +793,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specifications 3.0.0",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
