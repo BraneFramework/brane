@@ -30,7 +30,6 @@ dotenvy = "0.15.0"
 eflint-to-json = { git = "https://github.com/epi-project/policy-reasoner" }
 enum-debug.workspace = true
 error-trace.workspace = true
-# env_logger = "0.10"
 hex-literal = "0.4.0"
 humanlog.workspace = true
 humantime = "2.1.0"
