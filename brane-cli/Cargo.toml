@@ -68,7 +68,7 @@ tokio-util = { version = "0.7.1", features = ["codec"] }
 tonic = "0.12.0"
 url = "2.5.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
-x509-parser = "0.15.0"
+x509-parser = "0.17.0"
 
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
