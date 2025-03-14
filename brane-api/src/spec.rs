@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use brane_prx::client::ProxyClient;
-use scylla::Session;
+use scylla::client::session::Session;
 
 
 /***** LIBRARY *****/

@@ -18,7 +18,6 @@ use std::str::FromStr;
 use chrono::{DateTime, TimeZone, Utc};
 use juniper::{EmptySubscription, FieldResult, GraphQLObject, RootNode, graphql_object};
 use log::{debug, info};
-use scylla::IntoTypedRows;
 use specifications::version::Version;
 
 use crate::packages::PackageUdt;
@@ -81,7 +80,9 @@ impl Query {
 
         debug!("Querying Scylla database...");
         let mut packages: Vec<Package> = vec![];
-        if let Some(rows) = scylla.query(query, &(like,)).await?.rows {
+        if let Ok(rows_result) = scylla.query_unpaged(query, &(like,)).await?.into_rows_result() {
+            // FIXME: We are going to need to bubble these different errors up
+            let rows = rows_result.rows();
             // Search for all matches of this package
             for row in rows.into_typed::<(PackageUdt,)>() {
                 let (package,) = row?;
@@ -163,7 +164,7 @@ impl Mutations {
         // Get the image file first, tho
         debug!("Querying file path from Scylla database...");
         let query = "SELECT file FROM brane.packages WHERE name = ? AND version = ?";
-        let file = scylla.query(query, &(&name, &version)).await?;
+        let file = scylla.query_unpaged(query, &(&name, &version)).await?;
         if let Some(rows) = file.rows {
             if rows.is_empty() {
                 return Ok("OK!");
@@ -173,7 +174,7 @@ impl Mutations {
             // Delete the thing from the database
             debug!("Deleting package from Scylla database...");
             let query = "DELETE FROM brane.packages WHERE name = ? AND version = ?";
-            scylla.query(query, &(&name, &version)).await?;
+            scylla.query_unpaged(query, &(&name, &version)).await?;
 
             // Delete the file
             debug!("Deleting container file '{}'...", file.display());
