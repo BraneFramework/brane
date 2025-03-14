@@ -81,7 +81,7 @@ pub async fn download_data(
     if access.is_empty() {
         return Ok(None);
     }
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let location: &str = access.keys().choose(&mut rng).unwrap();
 
     // Send a GET-request to resolve that location to a delegate

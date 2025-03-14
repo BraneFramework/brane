@@ -25,7 +25,7 @@ use std::sync::Arc;
 use brane_dsl::spec::MergeStrategy;
 use enum_debug::EnumDebug;
 use rand::Rng as _;
-use rand::distributions::Alphanumeric;
+use rand::distr::Alphanumeric;
 use serde::de::{self, Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,7 @@ lazy_static!(
 /// A string of the form `workflow-XXXXXXXX`, where `XXXXXXXX` are eight random alphanumeric characters.
 #[inline]
 fn generate_random_workflow_id() -> String {
-    format!("workflow-{}", rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>())
+    format!("workflow-{}", rand::rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>())
 }
 
 

@@ -38,9 +38,9 @@ use diesel_migrations::{FileBasedMigrations, MigrationHarness as _};
 use enum_debug::EnumDebug as _;
 use jsonwebtoken::jwk::{self, Jwk, JwkSet, KeyAlgorithm, OctetKeyParameters, OctetKeyType, PublicKeyUse};
 use log::{debug, info, warn};
-use rand::Rng as _;
-use rand::distributions::Alphanumeric;
+use rand::distr::Alphanumeric;
 use rand::rngs::OsRng;
+use rand::{Rng as _, TryRngCore};
 use serde::Serialize;
 use specifications::address::Address;
 use specifications::package::Capability;
@@ -1008,9 +1008,7 @@ pub async fn certs(fix_dirs: bool, path: impl Into<PathBuf>, temp_dir: impl Into
     }
 
     // Generate a random ID to avoid* conflicting* repeated files
-    let id: String = rand::thread_rng().sample_iter(Alphanumeric).map(char::from).take(3).collect::<String>();
-
-
+    let id: String = rand::rng().sample_iter(Alphanumeric).map(char::from).take(3).collect::<String>();
 
     /* KIND-SPECIFIC */
     match &kind {
@@ -1408,7 +1406,7 @@ pub fn policy_secret(fix_dirs: bool, path: PathBuf, key_id: String, key_alg: Key
             // Generate a 256-bit, base64-encoded random string of bytes
             // See: <https://datatracker.ietf.org/doc/html/rfc7518#section-6.4.1>
             let mut key: [u8; 32] = [0; 32];
-            OsRng.fill(&mut key);
+            OsRng.try_fill_bytes(&mut key).expect("OsRng should be available and must be able to fill array");
             base64ct::Base64Url::encode_string(&key)
         },
 

@@ -24,7 +24,7 @@ use brane_cfg::node::{CentralConfig, NodeConfig, NodeKind};
 use bytes::Buf;
 use log::{debug, error, info, warn};
 use rand::Rng;
-use rand::distributions::Alphanumeric;
+use rand::distr::Alphanumeric;
 use scylla::macros::{FromUserType, IntoUserType};
 use scylla::{SerializeCql, Session};
 use specifications::package::PackageInfo;
@@ -445,7 +445,7 @@ where
     let tempdir_path: &Path = tempdir.path();
 
     // Generate a unique ID for the image name.
-    let id: String = rand::thread_rng().sample_iter(&Alphanumeric).take(8).map(char::from).collect();
+    let id: String = rand::rng().sample_iter(&Alphanumeric).take(8).map(char::from).collect();
 
     // Attempt to open a new file
     let tar_path: PathBuf = tempdir_path.join(format!("{id}.tar.gz"));

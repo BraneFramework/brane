@@ -28,7 +28,7 @@ use error_trace::trace;
 use log::{debug, info};
 use policy::{Policy, PolicyVersion};
 use rand::Rng;
-use rand::distributions::Alphanumeric;
+use rand::distr::Alphanumeric;
 use reqwest::{Client, Request, Response, StatusCode};
 use serde_json::value::RawValue;
 use specifications::address::{Address, AddressOpt};
@@ -676,7 +676,7 @@ pub async fn add(
     // Next stop: resolve the input to a path to read from
     let (input, from_stdin): (PathBuf, bool) = if input == "-" {
         // Create a temporary file to write stdin to
-        let id: String = rand::thread_rng().sample_iter(Alphanumeric).take(4).map(char::from).collect::<String>();
+        let id: String = rand::rng().sample_iter(Alphanumeric).take(4).map(char::from).collect::<String>();
         let temp_path: PathBuf = std::env::temp_dir().join(format!("branectl-stdin-{id}.txt"));
         debug!("Writing stdin to temporary file '{}'...", temp_path.display());
         let mut temp: TFile = match TFile::create(&temp_path).await {
