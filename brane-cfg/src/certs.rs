@@ -17,7 +17,9 @@ use std::path::Path;
 use std::{fs, io};
 
 use log::debug;
-use rustls::{Certificate, PrivateKey, RootCertStore};
+use rustls::RootCertStore;
+use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::{CertificateDer as Certificate, PrivateKeyDer as PrivateKey};
 use rustls_pemfile::{Item, certs, rsa_private_keys};
 use x509_parser::certificate::X509Certificate;
 use x509_parser::prelude::FromDer;
@@ -38,7 +40,7 @@ pub use crate::errors::CertsError as Error;
 /// This function errors if we could not extract the name for some reason. You should consider the client unauthenticated, in that case.
 pub fn extract_client_name(cert: Certificate) -> Result<String, Error> {
     // Attempt to parse the certificate as a real x509 one
-    match X509Certificate::from_der(&cert.0) {
+    match X509Certificate::from_der(&cert) {
         Ok((_, cert)) => {
             // Get the part after 'CN = ' and before end-of-string or comma (since that's canonically the domain name)
             let subject: String = cert.subject.to_string();
@@ -72,7 +74,7 @@ pub fn extract_client_name(cert: Certificate) -> Result<String, Error> {
 ///
 /// # Errors
 /// This function errors if we failed to access/read the file.
-pub fn load_all(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Vec<PrivateKey>), Error> {
+pub fn load_all(file: impl AsRef<Path>) -> Result<(Vec<Certificate<'static>>, Vec<PrivateKey<'static>>), Error> {
     let file: &Path = file.as_ref();
 
     // Open a (buffered) file handle
@@ -98,9 +100,11 @@ pub fn load_all(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Vec<Private
 
         // Match the item
         match item {
-            Item::X509Certificate(cert) => certs.push(Certificate(cert)),
+            Item::X509Certificate(cert) => certs.push(Certificate::from_slice(&cert)),
 
-            Item::ECKey(key) | Item::PKCS8Key(key) | Item::RSAKey(key) => keys.push(PrivateKey(key)),
+            Item::ECKey(key) | Item::PKCS8Key(key) | Item::RSAKey(key) => {
+                keys.push(PrivateKey::from_pem_slice(&key).expect("Data should be valid PEM data"))
+            },
 
             _ => {
                 return Err(Error::UnknownItemError { what: "PEM", path: file.into() });
@@ -123,7 +127,7 @@ pub fn load_all(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Vec<Private
 ///
 /// # Errors
 /// This function errors if we failed to read the file.
-pub fn load_cert(certfile: impl AsRef<Path>) -> Result<Vec<Certificate>, Error> {
+pub fn load_cert(certfile: impl AsRef<Path>) -> Result<Vec<Certificate<'static>>, Error> {
     let certfile: &Path = certfile.as_ref();
 
     // Open a (buffered) file handle
@@ -145,7 +149,7 @@ pub fn load_cert(certfile: impl AsRef<Path>) -> Result<Vec<Certificate>, Error> 
     debug!("Found {} certificate(s) in '{}'", certs.len(), certfile.display());
 
     // Done, return
-    Ok(certs.into_iter().map(Certificate).collect())
+    Ok(certs.into_iter().map(|x| Certificate::from_slice(&x)).collect())
 }
 
 /// Loads a given key file.
@@ -158,7 +162,7 @@ pub fn load_cert(certfile: impl AsRef<Path>) -> Result<Vec<Certificate>, Error> 
 ///
 /// # Errors
 /// This function errors if we failed to read the file.
-pub fn load_key(keyfile: impl AsRef<Path>) -> Result<Vec<PrivateKey>, Error> {
+pub fn load_key(keyfile: impl AsRef<Path>) -> Result<Vec<PrivateKey<'static>>, Error> {
     let keyfile: &Path = keyfile.as_ref();
 
     // Open a (buffered) file handle
@@ -180,7 +184,7 @@ pub fn load_key(keyfile: impl AsRef<Path>) -> Result<Vec<PrivateKey>, Error> {
     debug!("Found {} key(s) in '{}'", keys.len(), keyfile.display());
 
     // Done, return
-    Ok(keys.into_iter().map(PrivateKey).collect())
+    Ok(keys.into_iter().map(|x| PrivateKey::from_pem_slice(&x).expect("Key contents should be valid PEM data")).collect())
 }
 
 
@@ -195,7 +199,7 @@ pub fn load_key(keyfile: impl AsRef<Path>) -> Result<Vec<PrivateKey>, Error> {
 ///
 /// # Errors
 /// This function errors if we failed to read the files.
-pub fn load_identity(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, PrivateKey), Error> {
+pub fn load_identity(file: impl AsRef<Path>) -> Result<(Vec<Certificate<'static>>, PrivateKey<'static>), Error> {
     let file: &Path = file.as_ref();
 
     // Open the file
@@ -221,9 +225,11 @@ pub fn load_identity(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Privat
 
         // Match the item
         match item {
-            Item::X509Certificate(cert) => certs.push(Certificate(cert)),
+            Item::X509Certificate(cert) => certs.push(Certificate::from_slice(&cert)),
 
-            Item::ECKey(key) | Item::PKCS8Key(key) | Item::RSAKey(key) => keys.push(PrivateKey(key)),
+            Item::ECKey(key) | Item::PKCS8Key(key) | Item::RSAKey(key) => {
+                keys.push(PrivateKey::from_pem_slice(&key).expect("Private key should be valid PEM data"))
+            },
 
             _ => {
                 return Err(Error::UnknownItemError { what: "identity", path: file.into() });
@@ -254,7 +260,7 @@ pub fn load_identity(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Privat
 ///
 /// # Errors
 /// This function errors if we failed to read either of the files.
-pub fn load_keypair(certfile: impl AsRef<Path>, keyfile: impl AsRef<Path>) -> Result<(Certificate, PrivateKey), Error> {
+pub fn load_keypair(certfile: impl AsRef<Path>, keyfile: impl AsRef<Path>) -> Result<(Certificate<'static>, PrivateKey<'static>), Error> {
     let certfile: &Path = certfile.as_ref();
     let keyfile: &Path = keyfile.as_ref();
 
@@ -301,17 +307,16 @@ pub fn load_certstore(storefile: impl AsRef<Path>) -> Result<RootCertStore, Erro
     let mut reader: io::BufReader<fs::File> = io::BufReader::new(handle);
 
     // Read the certificates in this file
-    let certs: Vec<Vec<u8>> = match certs(&mut reader) {
-        Ok(certs) => certs,
-        Err(err) => {
-            return Err(Error::CertFileParseError { path: storefile.into(), err });
-        },
-    };
+    let certs = rustls_pemfile::certs(&mut reader)
+        .map_err(|e| Error::CertFileParseError { path: storefile.into(), err: e })?
+        .into_iter()
+        .map(|x| Certificate::from_slice(&x));
+
     debug!("Found {} certificate(s) in '{}'", certs.len(), storefile.display());
 
     // Read the certificates in the file to the store.
     let mut store: RootCertStore = RootCertStore::empty();
-    let (added, ignored): (usize, usize) = store.add_parsable_certificates(&certs);
+    let (added, ignored): (usize, usize) = store.add_parsable_certificates(certs);
     debug!("Created client trust store from '{}' with {} certificates (ignored {})", storefile.display(), added, ignored);
 
     // Done, for now
