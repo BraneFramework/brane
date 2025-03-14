@@ -30,7 +30,7 @@ url = "2.5.0"
 specifications = { path = "../specifications" }
 
 [dev-dependencies]
-getrandom = "0.2.8"
+rand = "0.9.0"
 tempfile = "3.10.1"
 
 [lints]

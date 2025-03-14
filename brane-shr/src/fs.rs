@@ -42,7 +42,7 @@ pub mod tests {
     use std::fs;
     use std::io::{Read, Write};
 
-    use getrandom::getrandom;
+    use rand::RngCore;
     use tempfile::TempDir;
 
     use super::*;
@@ -453,13 +453,11 @@ pub mod tests {
              up, guys. I had virtually no rehearsal for that."
         };
         let file2: Vec<u8> = {
-            let mut res: Vec<u8> = Vec::with_capacity(4096);
-            match getrandom(&mut res) {
-                Ok(_) => res,
-                Err(err) => {
-                    panic!("Failed to genereate random test bytestring: {}", err);
-                },
-            }
+            let mut res: Vec<u8> = vec![0; 4096];
+
+            rand::rng().fill_bytes(&mut res);
+
+            res
         };
         let file3: &'static str = {
             "Did you ever hear the tragedy of Darth Plagueis The Wise? I thought not. It’s not a story the Jedi would tell you. It’s a Sith legend. \
