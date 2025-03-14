@@ -24,8 +24,18 @@ use brane_cfg::node::{CentralConfig, NodeConfig, NodeKind};
 use bytes::Buf;
 use log::{debug, error, info, warn};
 use rand::Rng;
+<<<<<<< Updated upstream
 use rand::distributions::Alphanumeric;
+use scylla::macros::{FromUserType, IntoUserType};
+use scylla::{SerializeCql, Session};
+||||||| Stash base
+use rand::distr::Alphanumeric;
+use scylla::macros::{FromUserType, IntoUserType};
+use scylla::{SerializeCql, Session};
+=======
+use rand::distr::Alphanumeric;
 use scylla::client::session::Session;
+>>>>>>> Stashed changes
 use specifications::package::PackageInfo;
 use specifications::version::Version;
 // use tar::Archive;

@@ -20,7 +20,7 @@ use brane_cfg::node::NodeKind;
 use brane_shr::formatters::PrettyListFormatter;
 use enum_debug::EnumDebug as _;
 use reqwest::StatusCode;
-use scylla::transport::errors::NewSessionError;
+use scylla::errors::NewSessionError;
 use specifications::address::Address;
 use specifications::version::Version;
 
@@ -165,20 +165,20 @@ pub enum PackageError {
     MissingDigest { name: String },
 
     /// Failed to define the `brane.package` type in the Scylla database.
-    PackageTypeDefineError { err: scylla::transport::errors::QueryError },
+    PackageTypeDefineError { err: scylla::errors::ExecutionError },
     /// Failed to define the package table in the Scylla database.
-    PackageTableDefineError { err: scylla::transport::errors::QueryError },
+    PackageTableDefineError { err: scylla::errors::ExecutionError },
     /// Failed to insert a new package in the database.
-    PackageInsertError { name: String, err: scylla::transport::errors::QueryError },
+    PackageInsertError { name: String, err: scylla::errors::ExecutionError },
 
     /// Failed to query for the given package in the Scylla database.
-    VersionsQueryError { name: String, err: scylla::transport::errors::QueryError },
+    VersionsQueryError { name: String, err: scylla::errors::ExecutionError },
     /// Failed to parse a Version string
     VersionParseError { raw: String, err: specifications::version::ParseError },
     /// No versions found for the given package
     NoVersionsFound { name: String },
     /// Failed to query the database for the file of the given package.
-    PathQueryError { name: String, version: Version, err: scylla::transport::errors::QueryError },
+    PathQueryError { name: String, version: Version, err: scylla::errors::ExecutionError },
     /// The given package was unknown.
     UnknownPackage { name: String, version: Version },
     /// Failed to get the metadata of a file.
