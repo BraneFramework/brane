@@ -1,0 +1,37 @@
+name: Nightly CI
+on:
+  pull_request: 
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  # This one is optional, but it is nice to know if something will work as intended in the future
+  check-nightly:
+    name: "Check & Build (Nightly)"
+
+    uses: ./.github/workflows/mixin-cargo-check.yml
+    with:
+      os: ubuntu-24.04
+      rust-version: nightly
+      packages: workspace
+
+  clippy-nightly:
+    needs: check-nightly
+    name: "Clippy (Nightly)"
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: clippy
+
+      - name: Run unit tests
+        run: cargo +nightly clippy --workspace

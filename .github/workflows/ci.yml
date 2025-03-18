@@ -31,17 +31,6 @@ jobs:
       rust-version: "${{ matrix.rust }}"
       packages: frontend
 
-
-  # This one is optional, but it is nice to know if something will work as intended in the future
-  check-nightly:
-    name: "Check & Build (Nightly)"
-
-    uses: ./.github/workflows/mixin-cargo-check.yml
-    with:
-      os: ubuntu-24.04
-      rust-version: nightly
-      packages: workspace
-
   test:
     needs: check-stable-all
     name: "Tests"
@@ -105,26 +94,6 @@ jobs:
         run: cargo doc --workspace --no-deps --all-features
       - name: "Run doc tests"
         run: cargo test --workspace --doc
-
-  # Clippy contains more lints in nightly, they might be unstable / unusable, but show them regardless
-  clippy-nightly:
-    needs: check-nightly
-    name: "Clippy (Nightly)"
-    continue-on-error: true
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          components: clippy
-
-      - name: Run unit tests
-        run: cargo clippy --workspace
 
   direct-minimal-versions:
     name: "Direct Minimal versions"
