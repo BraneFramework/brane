@@ -21,7 +21,6 @@ humanlog.workspace = true
 libc = "0.2.154"
 log = "0.4.22"
 parking_lot = "0.12.1"
-serde_json = "1.0.120"
 tokio = "1.38.0"
 
 brane-ast = { path = "../brane-ast" }
@@ -29,16 +28,6 @@ brane-cli = { path = "../brane-cli" }
 brane-exe = { path = "../brane-exe" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
-
-
-# [build-dependencies]
-# cbindgen = "0.26"
-
-
-# Hacky indeed but necessary to dodge OpenSSL linking, which we need to make cross-compilation _so_ much easier
-[dependencies.openssl-sys]
-version = "0.9.102"
-features = ["vendored"]
 
 [lints]
 workspace = true

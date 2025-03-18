@@ -16,25 +16,20 @@ dotenvy = "0.15"
 enum-debug.workspace = true
 env_logger = "0.11.0"
 error-trace.workspace = true
-futures = "0.3.24"
 juniper = { version = "0.16.1", features = ["chrono"] }
 juniper_warp = "0.8.0"
 # k8s-openapi = { version = "0.14", default-features = false, features = ["v1_23"] }
 log = "0.4.22"
-prost = "0.13.2"
 rand = "0.9.0"
 # rdkafka = { version = "0.31", features = ["cmake-build"] }
 reqwest = { version = "0.12.0", features = ["rustls-tls-manual-roots"] }
 scylla = "0.12.0"
-serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
 tempfile = "3.10.1"
-time = "0.3.35"
 tokio = { version = "1.38.0", default-features = false, features = ["macros", "rt", "signal"] }
 tokio-stream = "0.1.6"
 tokio-tar = "0.3.0"
-tokio-util = { version = "0.7.1", features = ["codec"] }
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 warp = "0.3.2"
 

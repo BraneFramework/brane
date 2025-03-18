@@ -30,7 +30,6 @@ dotenvy = "0.15.0"
 eflint-to-json = { git = "https://github.com/epi-project/policy-reasoner" }
 enum-debug.workspace = true
 error-trace.workspace = true
-hex-literal = "0.4.0"
 humanlog.workspace = true
 humantime = "2.1.0"
 human-panic = "2.0.0"
@@ -54,12 +53,6 @@ brane-shr = { path = "../brane-shr" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
 clap_complete = "4.5.8"
-
-
-# Hacky indeed but necessary to dodge OpenSSL linking, which we need to make cross-compilation _so_ much easier
-[dependencies.openssl-sys]
-version = "0.9.102"
-features = ["vendored"]
 
 
 [build-dependencies]

@@ -19,7 +19,6 @@ doc = false
 
 [dependencies]
 anyhow = "1.0.66"
-async-compression = { version = "0.4.0", features = ["tokio","gzip"] }
 async-trait = "0.1.67"
 base64 = "0.22.0"
 bollard = "0.18.0"
@@ -31,10 +30,8 @@ dirs = "6.0.0"
 dotenvy = "0.15.0"
 enum-debug.workspace = true
 error-trace.workspace = true
-filetime = "0.2.15"
 flate2 = { version = "1.0.13", features = ["zlib"], default-features = false }
 fs_extra = "1.2.0"
-futures = "0.3.24"
 futures-util = "0.3.30"
 # git2 = { version = "0.17", features = ["vendored-libgit2"] }
 graphql_client = "0.14.0"
@@ -45,7 +42,6 @@ indicatif = "0.17.0"
 lazy_static = "1.4.0"
 log = "0.4.22"
 names.workspace = true
-openapiv3 = "2.0.0"
 parking_lot = "0.12.1"
 path-clean = "1.0.0"
 prettytable-rs = "0.10.0"
@@ -54,19 +50,15 @@ reqwest = {version = "0.12.0", features = ["rustls-tls-manual-roots","json", "st
 rustls = "0.21.6"
 rustyline = "15.0.0"
 rustyline-derive = "0.11.0"
-semver = "1.0.0"
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
-serde_with = "3.0.0"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
 tar = "0.4.21"
 tempfile = "3.10.1"
 tokio = { version = "1.38.0", features = ["full"] }
 tokio-stream = "0.1.6"
-tokio-tar = "0.3.0"
 tokio-util = { version = "0.7.1", features = ["codec"] }
 tonic = "0.12.0"
-url = "2.5.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 x509-parser = "0.17.0"
 
@@ -78,12 +70,6 @@ brane-shr = { path = "../brane-shr" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
 clap_complete = "4.5.8"
-
-
-# Hacky indeed but necessary to dodge OpenSSL linking, which we need to make cross-compilation _so_ much easier
-[dependencies.openssl-sys]
-version = "0.9.102"
-features = ["vendored"]
 
 [features]
 print_exec_path = [ "brane-exe/print_exec_path" ]

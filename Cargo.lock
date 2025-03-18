@@ -522,24 +522,19 @@ dependencies = [
  "enum-debug",
  "env_logger 0.11.7",
  "error-trace",
- "futures",
  "juniper",
  "juniper_warp",
  "log",
- "prost 0.13.5",
  "rand 0.9.0",
  "reqwest 0.12.14",
  "scylla",
- "serde",
  "serde_json",
  "serde_yml",
  "specifications 3.0.0",
  "tempfile",
- "time",
  "tokio",
  "tokio-stream",
  "tokio-tar",
- "tokio-util",
  "uuid",
  "warp",
 ]
@@ -598,7 +593,6 @@ dependencies = [
  "human-panic 2.0.2",
  "humanlog",
  "log",
- "openssl-sys",
  "serde_json",
  "specifications 3.0.0",
  "tokio",
@@ -626,7 +620,6 @@ name = "brane-cli"
 version = "3.0.0"
 dependencies = [
  "anyhow",
- "async-compression 0.4.20",
  "async-trait",
  "base64 0.22.1",
  "bollard",
@@ -645,10 +638,8 @@ dependencies = [
  "dotenvy",
  "enum-debug",
  "error-trace",
- "filetime",
  "flate2",
  "fs_extra",
- "futures",
  "futures-util",
  "graphql_client",
  "human-panic 2.0.2",
@@ -658,8 +649,6 @@ dependencies = [
  "lazy_static",
  "log",
  "names",
- "openapiv3",
- "openssl-sys",
  "parking_lot",
  "path-clean",
  "prettytable-rs",
@@ -668,20 +657,16 @@ dependencies = [
  "rustls 0.21.12",
  "rustyline",
  "rustyline-derive",
- "semver",
  "serde",
  "serde_json",
- "serde_with",
  "serde_yml",
  "specifications 3.0.0",
  "tar",
  "tempfile",
  "tokio",
  "tokio-stream",
- "tokio-tar",
  "tokio-util",
  "tonic 0.12.3",
- "url",
  "uuid",
  "x509-parser",
 ]
@@ -698,9 +683,7 @@ dependencies = [
  "humanlog",
  "libc",
  "log",
- "openssl-sys",
  "parking_lot",
- "serde_json",
  "specifications 3.0.0",
  "tokio",
 ]
@@ -734,7 +717,6 @@ dependencies = [
  "lazy_static",
  "log",
  "names",
- "openssl-sys",
  "policy",
  "rand 0.9.0",
  "reqwest 0.12.14",
@@ -765,9 +747,7 @@ dependencies = [
  "enum-debug",
  "env_logger 0.11.7",
  "error-trace",
- "futures-util",
  "log",
- "prost 0.13.5",
  "reqwest 0.12.14",
  "serde_json",
  "serde_json_any_key",
@@ -782,18 +762,14 @@ name = "brane-dsl"
 version = "3.0.0"
 dependencies = [
  "brane-shr 3.0.0",
- "bytes",
  "enum-debug",
  "log",
  "nom",
  "nom_locate",
  "rand 0.9.0",
  "regex",
- "semver",
  "serde",
- "serde_json",
  "specifications 3.0.0",
- "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -836,7 +812,6 @@ dependencies = [
  "serde_json",
  "specifications 3.0.0",
  "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -908,7 +883,6 @@ dependencies = [
  "env_logger 0.11.7",
  "libc",
  "log",
- "reqwest 0.12.14",
  "serde",
  "serde_json",
  "serde_yml",
@@ -926,12 +900,10 @@ dependencies = [
  "brane-ast 3.0.0",
  "brane-cfg",
  "brane-prx",
- "brane-shr 3.0.0",
  "brane-tsk",
  "clap",
  "dotenvy",
  "error-trace",
- "futures-util",
  "humanlog",
  "log",
  "parking_lot",
@@ -940,7 +912,6 @@ dependencies = [
  "serde_json",
  "specifications 3.0.0",
  "tokio",
- "tokio-stream",
  "tonic 0.12.3",
  "warp",
 ]
@@ -951,7 +922,6 @@ version = "3.0.0"
 dependencies = [
  "anyhow",
  "brane-cfg",
- "brane-shr 3.0.0",
  "brane-tsk",
  "clap",
  "dotenvy",
@@ -967,7 +937,6 @@ dependencies = [
  "specifications 3.0.0",
  "tokio",
  "tokio-rustls 0.24.1",
- "tonic 0.12.3",
  "url",
  "warp",
 ]
@@ -976,7 +945,6 @@ dependencies = [
 name = "brane-reg"
 version = "3.0.0"
 dependencies = [
- "base64 0.22.1",
  "brane-ast 3.0.0",
  "brane-cfg",
  "brane-exe 3.0.0",
@@ -998,7 +966,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-rustls 0.24.1",
- "tokio-stream",
  "warp",
 ]
 
@@ -1011,12 +978,10 @@ dependencies = [
  "dialoguer",
  "enum-debug",
  "fs2",
- "futures-util",
  "hex",
  "humanlog",
  "indicatif",
  "log",
- "num-traits",
  "rand 0.9.0",
  "regex",
  "reqwest 0.12.14",
@@ -1075,13 +1040,10 @@ dependencies = [
  "futures-util",
  "graphql_client",
  "humanlog",
- "hyper 1.6.0",
- "indicatif",
  "lazy_static",
  "log",
  "num-traits",
  "parking_lot",
- "prost 0.13.5",
  "rand 0.9.0",
  "reqwest 0.12.14",
  "serde",
@@ -1573,7 +1535,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ebda144c4fe02d1f7ea1a7d9641b6fc6b580adcfa024ae48797ecdeb6825b4d"
 dependencies = [
  "libc",
- "redox_users 0.4.5",
+ "redox_users 0.4.6",
  "winapi",
 ]
 
@@ -3220,17 +3182,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d75b0bedcc4fe52caa0e03d9f1151a323e4aa5e2d78ba3580400cd3c9e2bc4bc"
 
 [[package]]
-name = "openapiv3"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc02deea53ffe807708244e5914f6b099ad7015a207ee24317c22112e17d9c5c"
-dependencies = [
- "indexmap 2.8.0",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "openssl"
 version = "0.10.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3263,15 +3214,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 
 [[package]]
-name = "openssl-src"
-version = "300.4.2+3.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "168ce4e058f975fe43e89d9ccf78ca668601887ae736090aacc23ae353c298e2"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "openssl-sys"
 version = "0.9.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3279,7 +3221,6 @@ checksum = "8bb61ea9811cc39e3c2069f40b8b8e2e70d8569b361f879786cc7ed48b777cdd"
 dependencies = [
  "cc",
  "libc",
- "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -3728,9 +3669,9 @@ dependencies = [
 
 [[package]]
 name = "redox_users"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd283d9651eeda4b2a83a43c1c91b266c40fd76ecd39a50a8c630ae69dc72891"
+checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
  "getrandom 0.2.15",
  "libredox",
@@ -4439,7 +4380,6 @@ dependencies = [
  "futures",
  "jsonwebtoken",
  "log",
- "num-traits",
  "parking_lot",
  "prost 0.13.5",
  "reqwest 0.12.14",

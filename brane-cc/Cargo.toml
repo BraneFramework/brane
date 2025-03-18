@@ -32,11 +32,5 @@ specifications = { path = "../specifications" }
 [target.'cfg(unix)'.dependencies]
 expanduser = "1.2.2"
 
-
-# Hacky indeed but necessary to dodge OpenSSL linking, which we need to make cross-compilation _so_ much easier
-[dependencies.openssl-sys]
-version = "0.9.102"
-features = ["vendored"]
-
 [lints]
 workspace = true

@@ -8,7 +8,6 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-base64 = "0.22.0"
 clap = { version = "4.5.6", features = ["derive","env"] }
 deliberation = { git = "https://github.com/epi-project/policy-reasoner" }
 dotenvy = "0.15.0"
@@ -24,7 +23,6 @@ serde_yaml = { version = "0.0.10", package = "serde_yml" }
 tempfile = "3.10.1"
 tokio = { version = "1.38.0", features = ["rt","rt-multi-thread","macros","io-util", "signal"] }
 tokio-rustls = "0.24.0"
-tokio-stream = "0.1.6"
 warp = "0.3.2"
 
 brane-ast = { path = "../brane-ast" }
