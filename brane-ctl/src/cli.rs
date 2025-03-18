@@ -353,7 +353,7 @@ pub(crate) enum GenerateSubcommand {
             short,
             long,
             default_value = "main",
-            help = "The branch of the `https://github.com/epi-project/policy-reasoner` repository from which to pull the Diesel migrations."
+            help = "The branch of the `https://github.com/braneframework/policy-reasoner` repository from which to pull the Diesel migrations."
         )]
         branch:   String,
     },

@@ -193,7 +193,7 @@ impl error::Error for Error {
 
 
 /***** HELPER STRUCTURES *****/
-/// Manual copy of the [policy-reasoner](https://github.com/epi-project/policy-reasoner)'s `ExecuteTaskRequest`-struct.
+/// Manual copy of the [policy-reasoner](https://github.com/braneframework/policy-reasoner)'s `ExecuteTaskRequest`-struct.
 ///
 /// This is necessary because, when we pull the dependency directly, we get conflicts because that repository depends on the git version of this repository, meaning its notion of a Workflow is always (practically) outdated.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -208,7 +208,7 @@ struct PolicyExecuteRequest {
     pub task_id:  ProgramCounter,
 }
 
-/// Manual copy of the [policy-reasoner](https://github.com/epi-project/policy-reasoner)'s `WorkflowValidationRequest`-struct.
+/// Manual copy of the [policy-reasoner](https://github.com/braneframework/policy-reasoner)'s `WorkflowValidationRequest`-struct.
 ///
 /// This is necessary because, when we pull the dependency directly, we get conflicts because that repository depends on the git version of this repository, meaning its notion of a Workflow is always (practically) outdated.
 #[derive(Clone, Debug, Deserialize, Serialize)]

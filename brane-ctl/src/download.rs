@@ -245,9 +245,9 @@ pub async fn services(
         DownloadServicesSubcommand::Central => {
             // Resolve the address to use
             let address: String = if version.is_latest() {
-                format!("https://github.com/epi-project/brane/releases/latest/download/instance-{}.tar.gz", arch.brane())
+                format!("https://github.com/braneframework/brane/releases/latest/download/instance-{}.tar.gz", arch.brane())
             } else {
-                format!("https://github.com/epi-project/brane/releases/download/v{}/instance-{}.tar.gz", version, arch.brane())
+                format!("https://github.com/braneframework/brane/releases/download/v{}/instance-{}.tar.gz", version, arch.brane())
             };
             debug!("Will download from: {}", address);
 
@@ -258,9 +258,9 @@ pub async fn services(
         DownloadServicesSubcommand::Worker => {
             // Resolve the address to use
             let address: String = if version.is_latest() {
-                format!("https://github.com/epi-project/brane/releases/latest/download/worker-instance-{}.tar.gz", arch.brane())
+                format!("https://github.com/braneframework/brane/releases/latest/download/worker-instance-{}.tar.gz", arch.brane())
             } else {
-                format!("https://github.com/epi-project/brane/releases/download/v{}/worker-instance-{}.tar.gz", version, arch.brane())
+                format!("https://github.com/braneframework/brane/releases/download/v{}/worker-instance-{}.tar.gz", version, arch.brane())
             };
             debug!("Will download from: {}", address);
 

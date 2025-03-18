@@ -1329,7 +1329,7 @@ pub async fn policy_database(fix_dirs: bool, path: PathBuf, branch: String) -> R
     }
 
     // Next, fetch the migrations to run
-    debug!("Retrieving up-to-date mitigations from 'https://github.com/epi-project/policy-reasoner ({branch})...");
+    debug!("Retrieving up-to-date mitigations from 'https://github.com/braneframework/policy-reasoner ({branch})...");
     // NOTE: We're not using `_dir`, but keep it to prevent the directory from being removed once the objects gets dropped
     let (_dir, migrations): (TempDir, FileBasedMigrations) = {
         // Prepare the input URL and output directory

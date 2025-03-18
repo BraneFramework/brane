@@ -226,7 +226,7 @@ pub async fn assert_asset_permission(
 
 
 /***** HELPER STRUCTURES *****/
-/// Manual copy of the [policy-reasoner](https://github.com/epi-project/policy-reasoner)'s `AccessDataRequest`-struct.
+/// Manual copy of the [policy-reasoner](https://github.com/braneframework/policy-reasoner)'s `AccessDataRequest`-struct.
 ///
 /// This is necessary because, when we pull the dependency directly, we get conflicts because that repository depends on the git version of this repository, meaning its notion of a Workflow is always (practically) outdated.
 #[derive(Serialize, Deserialize)]

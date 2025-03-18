@@ -44,7 +44,7 @@ macro_rules! writeln_build {
 /***** COMMON CONSTANTS */
 /// The URL which we use to pull the latest branelet executable from.
 pub const BRANELET_URL: &str =
-    concat!("https://github.com/epi-project/brane/releases/download/", concat!("v", env!("CARGO_PKG_VERSION")), "/branelet");
+    concat!("https://github.com/braneframework/brane/releases/download/", concat!("v", env!("CARGO_PKG_VERSION")), "/branelet");
 
 
 
