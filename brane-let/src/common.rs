@@ -95,8 +95,6 @@ fn assert_type(got: &DataType, expected: &DataType) -> bool {
 
 
 /***** INITIALIZATION *****/
-/// **Edited: now returning LetErrors.**
-///
 /// Tries to confirm that what we're told to put in the function is the same as the function accepts.
 ///
 /// **Arguments**

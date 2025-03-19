@@ -61,8 +61,6 @@ impl Error for DependencyError {}
 
 
 /***** UTILITIES *****/
-/// **Edited: Now returning UtilErrors.**
-///
 /// Checks the runtime dependencies of brane-cli (Docker + BuildKit)
 ///
 /// **Returns**  
@@ -74,8 +72,6 @@ pub async fn check_dependencies() -> Result<Result<(), DependencyError>, UtilErr
 
 
 
-/// **Edited: now returning CliErrors.**
-///
 /// Tries to determine the package file in the pulled repository.
 ///
 /// TODO: This is rather dumb, why does it not just check the contents of the file?
@@ -118,8 +114,6 @@ pub fn determine_file(dir: &Path) -> Result<PathBuf, UtilError> {
 
 
 
-/// **Edited: not taking a context anymore, returning CliErrors and a PackageKind instead of a string.**
-///
 /// Tries to deduce the package kind from the given file.
 ///
 /// **Arguments**
@@ -173,8 +167,6 @@ pub fn determine_kind(path: &Path) -> Result<PackageKind, UtilError> {
 
 
 
-/// **Edited: uses dirs instead of appdirs and returns UtilErrors when it goes wrong.**
-///
 /// Returns the path of the configuration directory. Is guaranteed to be an absolute path when it returns successfully (but _not_ that it also exists!).
 ///
 /// **Returns**  
@@ -219,8 +211,6 @@ pub fn ensure_config_dir(create: bool) -> Result<PathBuf, UtilError> {
     Ok(config_dir)
 }
 
-/// **Edited: Now returns UtilErrors.**
-///
 /// Returns the location of the history file for Brane.
 ///
 /// **Returns**  
@@ -313,8 +303,6 @@ pub fn ensure_data_dir(create: bool) -> Result<PathBuf, UtilError> {
     Ok(data_dir)
 }
 
-/// **Edited: Changed to return UtilErrors.**
-///
 /// Returns the general package directory based on the user's home folder.  
 /// Basically, tries to resolve the folder '~/.local/share/brane/packages`.  
 /// Note that this does not mean that this directory exists.
@@ -411,8 +399,6 @@ pub fn ensure_datasets_dir(create: bool) -> Result<PathBuf, UtilError> {
     Ok(data_dir)
 }
 
-/// **Edited: Now returning UtilErrors.**
-///
 /// Gets the directory where we likely stored the package.  
 /// If the given version is omitted, just returns the package directory for this name.  
 /// If the given version is latest, tries to find the latest version directory to return that; otherwise, errors that there are no versions to choose from.  

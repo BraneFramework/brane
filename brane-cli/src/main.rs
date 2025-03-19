@@ -83,8 +83,6 @@ async fn main() -> Result<()> {
     }
 }
 
-/// **Edited: now returning CliErrors.**
-///
 /// Runs one of the subcommand as given on the Cli.
 ///
 /// **Arguments**

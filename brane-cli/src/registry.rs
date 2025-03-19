@@ -274,9 +274,6 @@ pub async fn pull(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
     Ok(())
 }
 
-/* TIM */
-/// **Edited: the version is now optional.**
-///
 /// Pushes the given package to the remote instance that we're currently logged into.
 ///
 /// **Arguments**
@@ -404,7 +401,6 @@ pub async fn push(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
     // Done!
     Ok(())
 }
-/*******/
 
 pub async fn search(term: Option<String>) -> Result<()> {
     #[derive(GraphQLQuery)]

@@ -524,7 +524,7 @@ pub struct ContainerInfo {
 }
 
 impl ContainerInfo {
-    /// Returns a `ContainerInfo` by constructing it from the file at the given path.
+/// Returns a `ContainerInfo` by constructing it from the file at the given path.
     ///
     /// **Generic types**
     ///  * `P`: The Path-like type of the given target location.
