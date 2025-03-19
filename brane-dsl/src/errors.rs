@@ -16,7 +16,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 
-use nom::error::{VerboseError, VerboseErrorKind};
+use nom_language::error::{VerboseError, VerboseErrorKind};
 
 use crate::scanner::{Span, Tokens};
 use crate::spec::{Language, TextRange};
