@@ -23,7 +23,6 @@ mod operator;
 
 // Declare public modules
 pub mod ast;
-pub mod bakery;
 pub mod bscript;
 
 

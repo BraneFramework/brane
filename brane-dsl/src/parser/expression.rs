@@ -258,7 +258,7 @@ fn proj_expr<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(input: To
 /// This function returns a nom::Error if it failed to parse an expression.
 fn array_expr<'a, 'b, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(
     start_range: &'b Option<TextRange>,
-) -> impl 'b + Parser<Tokens<'a>, Expr, E> {
+) -> impl 'b + Parser<Tokens<'a>, Output = Expr, Error = E> {
     trace!("Attempting to parse Array-expression");
 
     // Return a closure that does the actual thingy

@@ -17,8 +17,9 @@ use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
 use log::trace;
-use nom::error::{ContextError, ErrorKind, ParseError, VerboseError};
+use nom::error::{ContextError, ErrorKind, ParseError};
 use nom::{IResult, Parser, branch, combinator as comb, multi, sequence as seq};
+use nom_language::error::VerboseError;
 
 use super::ast::{Block, Identifier, Literal, Node, Program, Property, Stmt};
 use crate::ast::Attribute;
@@ -147,7 +148,7 @@ pub fn parse_ast(input: Tokens) -> IResult<Tokens, Program, VerboseError<Tokens>
     trace!("Attempting to parse BraneScript AST");
 
     // Parse it all as statements
-    let (r, stmts) = comb::all_consuming(multi::many0(parse_stmt))(input)?;
+    let (r, stmts) = comb::all_consuming(multi::many0(parse_stmt)).parse(input)?;
 
     // Wrap it in a program and done
     let start_pos: TextPos = stmts.first().map(|s| s.start().clone()).unwrap_or(TextPos::none());

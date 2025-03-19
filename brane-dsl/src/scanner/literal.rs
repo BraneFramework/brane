@@ -97,7 +97,8 @@ fn string<'a, E: ParseError<Span<'a>> + ContextError<Span<'a>>>(input: Span<'a>)
     nom::error::context(
         "string",
         seq::preceded(cc::char('\"'), comb::cut(seq::terminated(bc::escaped(bc::is_not("\"\\"), '\\', cc::one_of("\"ntr\\\'")), cc::char('\"')))),
-    )(input)
+    )
+    .parse(input)
 }
 
 /// Parses a real token off of the head of the given input.
@@ -121,7 +122,8 @@ fn real<'a, E: ParseError<Span<'a>> + ContextError<Span<'a>>>(input: Span<'a>) -
             integer,
         ))),
         comb::recognize(seq::tuple((integer, cc::char('.'), comb::opt(integer)))),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 

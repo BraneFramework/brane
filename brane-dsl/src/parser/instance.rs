@@ -63,11 +63,13 @@ pub fn parse<'a, E: ParseError<Tokens<'a>> + ContextError<Tokens<'a>>>(input: To
 
     // Get the new token first
     let (r, n): (Tokens<'a>, Tokens<'a>) = tag_token!(Token::New)(input)?;
+
     // Parse the main body
     let (r, (class, properties)): (Tokens<'a>, (Identifier, Option<Vec<PropertyExpr>>)) =
-        comb::cut(seq::pair(identifier::parse, seq::preceded(tag_token!(Token::LeftBrace), comb::opt(multi::many1(instance_property)))))(r)?;
+        comb::cut(seq::pair(identifier::parse, seq::preceded(tag_token!(Token::LeftBrace), comb::opt(multi::many1(instance_property))))).parse(r)?;
+
     // Parse the closing bracket
-    let (r, b): (Tokens<'a>, Tokens<'a>) = comb::cut(tag_token!(Token::RightBrace))(r)?;
+    let (r, b): (Tokens<'a>, Tokens<'a>) = comb::cut(tag_token!(Token::RightBrace)).parse(r)?;
 
     // Now put that in an Expr and return
     Ok((r, Expr::new_instance(class, properties.unwrap_or_default(), TextRange::from((n.tok[0].inner(), b.tok[0].inner())))))
