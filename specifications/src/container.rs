@@ -524,8 +524,6 @@ pub struct ContainerInfo {
 }
 
 impl ContainerInfo {
-    /// **Edited: now returning ContainerInfoErrors.**
-    ///
     /// Returns a ContainerInfo by constructing it from the file at the given path.
     ///
     /// **Generic types**
@@ -552,8 +550,6 @@ impl ContainerInfo {
         ContainerInfo::from_string(contents)
     }
 
-    /// **Edited: now returning ContainerInfoErrors.**
-    ///
     /// Returns a ContainerInfo by constructing it from the given Reader with YAML text.
     ///
     /// **Arguments**
@@ -568,8 +564,6 @@ impl ContainerInfo {
         }
     }
 
-    /// **Edited: now returning ContainerInfoErrors.**
-    ///
     /// Returns a ContainerInfo by constructing it from the given string of YAML text.
     ///
     /// **Arguments**

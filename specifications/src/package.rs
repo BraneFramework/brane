@@ -338,8 +338,6 @@ impl PackageInfo {
         PackageInfo { created, id, digest: None, name, version, kind, owners, description, detached, functions, types }
     }
 
-    /// **Edited: changed to return appropriate errors. Also added docstring.**
-    ///
     /// Constructor for the PackageInfo that tries to construct it from the file at the given location.
     ///
     /// **Arguments**
@@ -364,8 +362,6 @@ impl PackageInfo {
         }
     }
 
-    /// **Edited: changed to return appropriate errors. Also added docstring.**
-    ///
     /// Constructor for the PackageInfo that tries to deserialize it.
     ///
     /// **Arguments**
@@ -548,8 +544,6 @@ impl PackageIndex {
         PackageIndex { packages, latest }
     }
 
-    /// **Edited: Returns PackageIndexErrors now.**
-    ///
     /// Tries to construct a new PackageIndex from the application file at the given path.
     ///
     /// **Arguments**
@@ -571,8 +565,6 @@ impl PackageIndex {
         PackageIndex::from_reader(buf_reader)
     }
 
-    /// **Edited: Returns PackageIndexErrors now.**
-    ///
     /// Tries to construct a new PackageIndex from the given reader.
     ///
     /// **Arguments**
@@ -593,8 +585,6 @@ impl PackageIndex {
         PackageIndex::from_value(v)
     }
 
-    /// **Edited: Returns PackageIndexErrors now.**
-    ///
     /// Tries to construct a new PackageIndex from a JSON file at the given URL.
     ///
     /// **Arguments**
@@ -627,8 +617,6 @@ impl PackageIndex {
         PackageIndex::from_value(json)
     }
 
-    /// **Edited: Returns PackageIndexErrors now.**
-    ///
     /// Tries to construct a new PackageIndex from the given JSON-parsed value.
     ///
     /// **Arguments**
@@ -649,8 +637,6 @@ impl PackageIndex {
         PackageIndex::from_packages(known_packages)
     }
 
-    /// **Edited: Returns PackageIndexErrors now.**
-    ///
     /// Tries to construct a new PackageIndex from a list of PackageInfos.
     ///
     /// **Arguments**

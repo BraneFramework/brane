@@ -246,9 +246,6 @@ impl Value {
         }
     }
 
-    /* TIM */
-    /// **Edited: Changed return type to String instead of &str.**
-    ///
     /// Returns a string representation of the Value's type.
     pub fn data_type(&self) -> String {
         use Value::*;
@@ -266,8 +263,6 @@ impl Value {
             FunctionExt(_) => "FunctionExt".to_string(),
         }
     }
-
-    /*******/
 
     pub fn as_bool(&self) -> Result<bool, CastError> { if let Value::Boolean(b) = self { Ok(*b) } else { Err(CastError { what: "boolean" }) } }
 
@@ -384,11 +379,9 @@ pub struct FunctionExt {
     pub version: Version,
 }
 
-/* TIM */
 impl std::fmt::Display for FunctionExt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "@{}()", self.name) }
 }
-/*******/
 
 
 

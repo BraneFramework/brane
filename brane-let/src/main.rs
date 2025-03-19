@@ -146,8 +146,6 @@ async fn main() {
     }
 }
 
-/// **Edited: instantiating callback earlier, updated callback policy (new callback interface + new events). Also returning LetErrors.**
-///
 /// Runs the job that this branelet is in charge of.
 ///
 /// **Arguments**
@@ -247,8 +245,6 @@ async fn run(
     }
 }
 
-/// **Edited: now returning LetErrors.**
-///
 /// Decodes the given base64 string as JSON to the desired output type.
 ///
 /// **Arguments**

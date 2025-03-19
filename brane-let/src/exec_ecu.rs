@@ -45,8 +45,6 @@ const PREFIX: &str = "~~>";
 
 
 /***** ENTRYPOINT *****/
-/// **Edited: working with new callback interface + events.**
-///
 /// Handles a package containing ExeCUtable code (ECU).
 ///
 /// **Arguments**
@@ -140,8 +138,6 @@ pub async fn handle(
 
 
 /***** INITIALIZATION *****/
-/// **Edited: returning LetErrors + now also doing the steps before the specific working dir initialization.**
-///
 /// Initializes the environment for the nested package by reading the container.yml and preparing the working directory.
 ///
 /// **Arguments**
@@ -277,8 +273,6 @@ fn start(
     Ok((command, process))
 }
 
-/// **Edited: now returning LetErrors.**
-///
 /// Creates a map with enviroment variables for the nested package based on the given arguments.
 ///
 /// **Arguments**
@@ -490,8 +484,6 @@ async fn complete(
     Ok(PackageReturnState::Finished { stdout })
 }
 
-/// **Edited: returns LetErrors + changed to accept string instead of split stuff.**
-///
 /// Preprocesses stdout by only leaving the stuff that is relevant for the branelet (i.e., only that which is marked as captured by the mode).
 ///
 /// **Arguments**
