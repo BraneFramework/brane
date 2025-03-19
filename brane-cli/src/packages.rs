@@ -54,7 +54,6 @@ fn insert_package_in_list(infos: &mut Vec<PackageInfo>, info: PackageInfo) {
     // Simply add to the list
     infos.push(info);
 }
-/*******/
 
 
 
@@ -189,9 +188,6 @@ pub fn inspect(name: String, version: Version, syntax: String) -> Result<()> {
 
 
 
-/* TIM */
-/// **Edited: updated to deal with get_packages_dir() returning ExecutorErrors. Also added option to only show latest packages and also standard packages.**
-///
 /// Lists the packages locally build and available.
 /// use console::style;
 /// **Arguments**
@@ -264,12 +260,9 @@ pub fn list(latest: bool) -> Result<(), PackageError> {
     table.printstd();
     Ok(())
 }
-/*******/
 
 
 
-/// **Edited: now working with new versions.**
-///
 /// Loads the given package to the local Docker daemon.
 ///
 /// **Arguments**
@@ -301,16 +294,13 @@ pub async fn load(name: String, version: Version) -> Result<()> {
     println!("Image doesn't exist in Docker deamon: importing...");
     let options = ImportImageOptions { quiet: true };
 
-    /* TIM */
     let file_handle = TFile::open(&image_file).await;
     if let Err(reason) = file_handle {
         let code = reason.raw_os_error().unwrap_or(-1);
         eprintln!("Could not open image file '{}': {}.", image_file.to_string_lossy(), reason);
         std::process::exit(code);
     }
-    // let file = TFile::open(image_file).await?;
     let file = file_handle.ok().unwrap();
-    /*******/
     let byte_stream = FramedRead::new(file, BytesCodec::new()).map(|r| r.unwrap().freeze());
 
     let result = docker.import_image_stream(options, byte_stream, None).try_collect::<Vec<_>>().await?;
@@ -334,8 +324,6 @@ pub async fn load(name: String, version: Version) -> Result<()> {
 
 
 
-/// **Edited: now working with new versions.**
-///
 /// Removes the given list of packages from the local repository.
 ///
 /// # Arguments

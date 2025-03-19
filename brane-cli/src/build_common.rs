@@ -51,8 +51,6 @@ pub const BRANELET_URL: &str =
 
 
 /***** COMMON FUNCTIONS *****/
-/// **Edited: now returning BuildErrors. Also leaving .lock removal to the main handle function.**
-///
 /// Cleans the resulting build directory from the build files (but only if the build files should be removed).
 ///
 /// **Arguments**

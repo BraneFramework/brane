@@ -1,5 +1,3 @@
-/* TIM */
-
 /* HEALTH.rs
  *   by Lut99
  *
@@ -27,5 +25,3 @@ pub async fn handle() -> Result<impl Reply, Rejection> {
 
     Ok(response)
 }
-
-/*******/
