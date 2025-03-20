@@ -291,7 +291,7 @@ pub struct ProfileScopeHandle<'s> {
 impl ProfileScopeHandle<'static> {
     /// Provides a dummy handle for if you are not interested in profiling, but need to use the functions.
     #[inline]
-    pub fn dummy() -> Self { Self { scope: Arc::new(ProfileScope::new("<<<dummy>>>")), _lifetime: PhantomData::default() } }
+    pub fn dummy() -> Self { Self { scope: Arc::new(ProfileScope::new("<<<dummy>>>")), _lifetime: PhantomData } }
 }
 impl ProfileScopeHandle<'_> {
     /// Finishes a scope, by janking the handle wrapping it out-of-scope.
@@ -465,7 +465,7 @@ impl ProfileScope {
 
         // Create a TimerGuard around that timing.
         let timing: Arc<Mutex<Timing>> = lock.last().unwrap().timing().clone();
-        TimerGuard { start: Instant::now(), timing, _lifetime: PhantomData::default() }
+        TimerGuard { start: Instant::now(), timing, _lifetime: PhantomData }
     }
 
     /// Profiles the given function and adds its timing under the given name.
@@ -540,7 +540,7 @@ impl ProfileScope {
         lock.push(ProfileTiming::Scope(Arc::new(scope)));
 
         // Return a weak reference to it
-        ProfileScopeHandle { scope: lock.last().unwrap().scope().clone(), _lifetime: PhantomData::default() }
+        ProfileScopeHandle { scope: lock.last().unwrap().scope().clone(), _lifetime: PhantomData }
     }
 
     /// Profiles the given function, but provides it with extra profile options by giving it its own `ProfileScope` to populate.
