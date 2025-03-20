@@ -17,6 +17,12 @@ on:
         type: boolean
         default: false
 
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+  RUSTDOCFLAGS: -Dwarnings
+
 jobs:
   cargo-build:
     name: "${{ inputs.packages }} / ${{ inputs.os }}"
