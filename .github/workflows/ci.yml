@@ -112,10 +112,6 @@ jobs:
 
     runs-on: ubuntu-24.04
 
-    env:
-      # Disallow warnings
-      RUSTDOCFLAGS: -DWarnings
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

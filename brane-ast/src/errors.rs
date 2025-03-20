@@ -759,7 +759,7 @@ pub enum TypeError {
     NonArrayIndexError { got: DataType, range: TextRange },
 
     /// The user specified something else as a Data than a literal string.
-    DataNameNotAStringError { name: String, got: Expr, range: TextRange },
+    DataNameNotAStringError { name: String, got: Box<Expr>, range: TextRange },
     /// The user did not specify a name field in a Data or IntermediateResult field.
     DataNoNamePropertyError { name: String, range: TextRange },
 }

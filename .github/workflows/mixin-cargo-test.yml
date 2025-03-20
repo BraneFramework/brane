@@ -10,6 +10,12 @@ on:
         required: false
         type: string
 
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+  RUSTDOCFLAGS: -Dwarnings
+
 jobs:
   cargo-test:
     name: "${{ inputs.os }} / ${{ inputs.rust-version }}"
