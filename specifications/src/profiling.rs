@@ -455,7 +455,7 @@ impl ProfileScope {
     /// - `name`: The name to set for this Timing.
     ///
     /// # Returns
-    /// A new [`Timer`] struct to take a timing.
+    /// A new [`TimerGuard`] struct to take a timing.
     pub fn time(&self, name: impl Into<String>) -> TimerGuard {
         // Get a lock
         let mut lock: MutexGuard<Vec<ProfileTiming>> = self.timings.lock();
