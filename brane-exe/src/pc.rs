@@ -274,7 +274,6 @@ impl Serialize for ProgramCounter {
 impl PartialOrd for ProgramCounter {
     #[inline]
     #[track_caller]
-    #[must_use]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         // Only define an ordering if the functions are the same
         if self.func_id == other.func_id { self.edge_idx.partial_cmp(&other.edge_idx) } else { None }
@@ -292,7 +291,6 @@ impl Add<usize> for ProgramCounter {
     /// A new [`ProgramCounter`] that points to the same function and the same edge index, except the latter is added to `rhs`.
     #[inline]
     #[track_caller]
-    #[must_use]
     fn add(self, rhs: usize) -> Self::Output { Self { func_id: self.func_id, edge_idx: self.edge_idx + rhs } }
 }
 impl AddAssign<usize> for ProgramCounter {
