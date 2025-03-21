@@ -356,63 +356,50 @@ pub async fn process_instance(
     // We only print
     if result != FullValue::Void {
         println!("\nWorkflow returned value {}", style(format!("'{result}'")).bold().cyan());
-
-        // Treat some values special
-        match result {
-            // Print sommat additional if it's an intermediate result.
-            FullValue::IntermediateResult(_) => {
-                println!("(Intermediate results are not available locally; promote it using 'commit_result()')");
-            },
-
-            // If it's a dataset, attempt to download it
-            FullValue::Data(name) => {
-                // Compute the directory to write to
-                let data_dir: PathBuf = datasets_dir.join(name.to_string());
-
-                // Fetch a new, local DataIndex to get up-to-date entries
-                let data_addr: String = format!("{api_endpoint}/data/info");
-                let index: DataIndex = match brane_tsk::api::get_data_index(&data_addr).await {
-                    Ok(dindex) => dindex,
-                    Err(err) => {
-                        return Err(Error::RemoteDataIndexError { address: data_addr, err });
-                    },
-                };
-
-                // Fetch the method of its availability
-                let info: &DataInfo = match index.get(&name) {
-                    Some(info) => info,
-                    None => {
-                        return Err(Error::UnknownDataset { name: name.into() });
-                    },
-                };
-                let access: AccessKind = match info.access.get(LOCALHOST) {
-                    Some(access) => access.clone(),
-                    None => {
-                        // Attempt to download it instead
-                        match data::download_data(api_endpoint, proxy_addr, certs_dir, data_dir, &name, &info.access).await {
-                            Ok(Some(access)) => access,
-                            Ok(None) => {
-                                return Err(Error::UnavailableDataset { name: name.into(), locs: info.access.keys().cloned().collect() });
-                            },
-                            Err(err) => {
-                                return Err(Error::DataDownloadError { err });
-                            },
-                        }
-                    },
-                };
-
-                // Write the method of access
-                match access {
-                    AccessKind::File { path } => println!("(It's available under '{}')", path.display()),
-                }
-            },
-
-            // Nothing for the rest
-            _ => {},
-        }
     }
 
-    // DOne
+    // Treat some values special
+    match result {
+        // Print sommat additional if it's an intermediate result.
+        FullValue::IntermediateResult(_) => {
+            println!("(Intermediate results are not available locally; promote it using 'commit_result()')");
+        },
+
+        // If it's a dataset, attempt to download it
+        FullValue::Data(name) => {
+            // Compute the directory to write to
+            let data_dir: PathBuf = datasets_dir.join(name.to_string());
+
+            // Fetch a new, local DataIndex to get up-to-date entries
+            let data_addr: String = format!("{api_endpoint}/data/info");
+            let index: DataIndex =
+                brane_tsk::api::get_data_index(&data_addr).await.map_err(|err| Error::RemoteDataIndexError { address: data_addr, err })?;
+
+            // Fetch the method of its availability
+            let info: &DataInfo = index.get(&name).ok_or_else(|| Error::UnknownDataset { name: name.clone().into() })?;
+
+            let access: AccessKind = match info.access.get(LOCALHOST).cloned() {
+                Some(access) => access,
+                None => {
+                    // Attempt to download it instead
+                    data::download_data(api_endpoint, proxy_addr, certs_dir, data_dir, &name, &info.access)
+                        .await
+                        .map_err(|source| Error::DataDownloadError { err: source })?
+                        .ok_or_else(|| Error::UnavailableDataset { name: name.into(), locs: info.access.keys().cloned().collect() })?
+                },
+            };
+
+            // Write the method of access
+            match access {
+                AccessKind::File { path } => println!("(It's available under '{}')", path.display()),
+            }
+        },
+
+        // Nothing for the rest
+        _ => {},
+    }
+
+    // Done
     Ok(())
 }
 
