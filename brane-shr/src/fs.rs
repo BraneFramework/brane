@@ -638,156 +638,126 @@ pub mod tests {
 
 /***** ERRORS *****/
 /// Defines the errors tha may occur when dealing with the filesystem operations.
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     /// The given path already exists.
+    #[error("{} '{}' already exists", what.capitalize(), path.display())]
     PathExistsError { what: &'static str, path: PathBuf },
     /// File not found.
+    #[error("{} '{}' not found", what.capitalize(), path.display())]
     PathNotFoundError { what: &'static str, path: PathBuf },
     /// File not a file or a directory.
+    #[error("{} '{}' exists but is not a file nor a directory (don't know what to do with it)", what.capitalize(), path.display())]
     PathNotFileNotDir { what: &'static str, path: PathBuf },
     /// The given path contains a '..' where it is not allowed.
+    #[error("Given {} path '{}' contains a parent directory component ('..'); this is not allowed", what, path.display())]
     PathWithParentDir { what: &'static str, path: PathBuf },
     /// Failed to rename the given path to the target path.
-    PathRenameError { source: PathBuf, target: PathBuf, err: std::io::Error },
+    #[error("Failed to rename '{}' to '{}': {}", file.display(), target.display(), err)]
+    PathRenameError {
+        file:   PathBuf,
+        target: PathBuf,
+        #[source]
+        err:    std::io::Error,
+    },
 
     /// The given file is not a file.
+    #[error("File '{}' exists but not as a file", path.display())]
     FileNotAFile { path: PathBuf },
     /// Failed to create a file.
+    #[error("Failed to create {} file '{}': {}", what, path.display(), err)]
     FileCreateError { what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to open an existing file.
+    #[error("Failed to open {} file '{}': {}", what, path.display(), err)]
     FileOpenError { what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to read metadata of the given file.
+    #[error("Failed to read metadata of file '{}': {}", path.display(), err)]
     FileMetadataError { path: PathBuf, err: std::io::Error },
     /// Failed to update the permissions of the given file.
+    #[error("Failed to update the permissions of file '{}': {}", path.display(), err)]
     FilePermissionsError { path: PathBuf, err: std::io::Error },
     /// Failed to write to the output file.
+    #[error("Failed to write to {} file '{}': {}", what, path.display(), err)]
     FileWriteError { what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to copy a file.
-    FileCopyError { source: PathBuf, target: PathBuf, err: std::io::Error },
+    #[error("Failed to copy file '{}' to '{}': {}", file.display(), target.display(), err)]
+    FileCopyError { file: PathBuf, target: PathBuf, err: std::io::Error },
     /// Failed to remove a file.
+    #[error("Failed to remove file '{}': {}", path.display(), err)]
     FileRemoveError { path: PathBuf, err: std::io::Error },
     /// The checksum of a file was not what we expected.
+    #[error("Checksum of {} file '{}' is incorrect: expected '{}', got '{}'", what, path.display(), got, expected)]
     FileChecksumError { what: &'static str, path: PathBuf, got: String, expected: String },
-    /// Failed to lock a file.
+    #[error("Failed to lock file '{}': {}", path.display(), err)]
     FileLockError { path: PathBuf, err: std::io::Error },
 
     /// Directory not found.
+    #[error("Directory '{}' not found", path.display())]
     DirNotFound { path: PathBuf },
     /// The given directory should be a directory, but isn't.
+    #[error("{} directory '{}' exists but is not a directory", what.capitalize(), path.display())]
     DirNotADir { what: &'static str, path: PathBuf },
     /// Failed to create some directory.
+    #[error("Failed to create {} directory '{}': {}", what, path.display(), err)]
     DirCreateError { what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to read a directory's entries.
+    #[error("Failed to read {} directory '{}': {}", what, path.display(), err)]
     DirReadError { what: &'static str, path: PathBuf, err: std::io::Error },
     /// Failed to read a single entry within the directory's entries.
+    #[error("Failed to read entry {} from {} directory '{}': {}", entry, what, path.display(), err)]
     DirEntryReadError { what: &'static str, path: PathBuf, entry: usize, err: std::io::Error },
     /// Failed to remove a directory.
+    #[error("Failed to remove directory '{}': {}", path.display(), err)]
     DirRemoveError { path: PathBuf, err: std::io::Error },
     /// A given dir had not exactly one child.
+    #[error("{} directory '{}' does not have exactly one entry", what.capitalize(), path.display())]
     DirNotOneEntry { what: &'static str, path: PathBuf },
     /// A given dir had not a directory as child.
+    #[error("Entry '{}' in {} directory '{}' is not a directory", child.to_string_lossy(), what, path.display())]
     DirNonDirChild { what: &'static str, path: PathBuf, child: OsString },
 
     /// The given address did not have HTTPS enabled.
+    #[error("Security policy requires HTTPS is enabled, but '{address}' does not enable it (or we cannot parse the URL)")]
     NotHttpsError { address: String },
     /// Failed to send a request to the given address.
+    #[error("Failed to send GET-request to '{address}': {err}")]
     RequestError { address: String, err: reqwest::Error },
     /// The given server responded with a non-2xx status code.
+    #[error( "GET-request to '{}' failed with status code {} ({}){}", address, code.as_u16(), code.canonical_reason().unwrap_or("???"), if let Some(err) = err { format!(": {err}") } else { String::new() })]
     RequestFailure { address: String, code: StatusCode, err: Option<String> },
     /// Failed to download the full file stream.
+    #[error("Failed to download file '{address}': {err}")]
     DownloadError { address: String, err: reqwest::Error },
 
     /// A bit of an obscure error meaning we failed to flush the encoder (=write handle)'s contents.
+    #[error("Failed to flush GzipEncoder: {err}")]
     EncoderFlushError { err: std::io::Error },
 
     /// Failed to append a file to the given archive.
-    TarAppendError { source: PathBuf, tarball: PathBuf, err: std::io::Error },
+    #[error("Failed to append '{}' to tarball '{}': {}", file.display(), tarball.display(), err)]
+    TarAppendError { file: PathBuf, tarball: PathBuf, err: std::io::Error },
     /// Failed to finish writing the given tarball.
+    #[error("Failed to finish writing tarball '{}': {}", path.display(), err)]
     TarFinishError { path: PathBuf, err: std::io::Error },
     /// Failed to read the entries in a tarball.
+    #[error("Failed to read entries in tarball '{}': {}", path.display(), err)]
     TarEntriesError { path: PathBuf, err: std::io::Error },
     /// Failed a particular entry in the tarball.
+    #[error("Failed to read entry {} in tarball '{}': {}", entry, path.display(), err)]
     TarEntryError { path: PathBuf, entry: usize, err: std::io::Error },
     /// Failed to get the path in the given entry.
+    #[error("Failed to get path of entry {} in tarball '{}': {}", entry, path.display(), err)]
     TarEntryPathError { path: PathBuf, entry: usize, err: std::io::Error },
     /// Failed to extract the given tarball.
-    TarExtractError { tarball: PathBuf, entry: PathBuf, target: PathBuf, err: std::io::Error },
+    #[error("Failed to extract '{}' in tarball '{}' to '{}': {}", entry.display(), tarball.display(), target.display(), err)]
+    TarExtractError {
+        tarball: PathBuf,
+        entry:   PathBuf,
+        target:  PathBuf,
+        #[source]
+        err:     std::io::Error,
+    },
 }
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use Error::*;
-        match self {
-            PathExistsError { what, path } => write!(f, "{} '{}' already exists", what.capitalize(), path.display()),
-            PathNotFoundError { what, path } => write!(f, "{} '{}' not found", what.capitalize(), path.display()),
-            PathNotFileNotDir { what, path } => {
-                write!(f, "{} '{}' exists but is not a file nor a directory (don't know what to do with it)", what.capitalize(), path.display())
-            },
-            PathWithParentDir { what, path } => {
-                write!(f, "Given {} path '{}' contains a parent directory component ('..'); this is not allowed", what, path.display())
-            },
-            PathRenameError { source, target, err } => write!(f, "Failed to rename '{}' to '{}': {}", source.display(), target.display(), err),
-
-            FileNotAFile { path } => write!(f, "File '{}' exists but not as a file", path.display()),
-            FileCreateError { what, path, err } => write!(f, "Failed to create {} file '{}': {}", what, path.display(), err),
-            FileOpenError { what, path, err } => write!(f, "Failed to open {} file '{}': {}", what, path.display(), err),
-            FileMetadataError { path, err } => write!(f, "Failed to read metadata of file '{}': {}", path.display(), err),
-            FilePermissionsError { path, err } => write!(f, "Failed to update the permissions of file '{}': {}", path.display(), err),
-            FileWriteError { what, path, err } => write!(f, "Failed to write to {} file '{}': {}", what, path.display(), err),
-            FileCopyError { source, target, err } => write!(f, "Failed to copy file '{}' to '{}': {}", source.display(), target.display(), err),
-            FileRemoveError { path, err } => write!(f, "Failed to remove file '{}': {}", path.display(), err),
-            FileChecksumError { what, path, got, expected } => {
-                write!(f, "Checksum of {} file '{}' is incorrect: expected '{}', got '{}'", what, path.display(), got, expected)
-            },
-            FileLockError { path, err } => write!(f, "Failed to lock file '{}': {}", path.display(), err),
-
-            DirNotFound { path } => write!(f, "Directory '{}' not found", path.display()),
-            DirNotADir { what, path } => write!(f, "{} directory '{}' exists but is not a directory", what.capitalize(), path.display()),
-            DirCreateError { what, path, err } => write!(f, "Failed to create {} directory '{}': {}", what, path.display(), err),
-            DirReadError { what, path, err } => write!(f, "Failed to read {} directory '{}': {}", what, path.display(), err),
-            DirEntryReadError { what, path, entry, err } => {
-                write!(f, "Failed to read entry {} from {} directory '{}': {}", entry, what, path.display(), err)
-            },
-            DirRemoveError { path, err } => write!(f, "Failed to remove directory '{}': {}", path.display(), err),
-            DirNotOneEntry { what, path } => write!(f, "{} directory '{}' does not have exactly one entry", what.capitalize(), path.display()),
-            DirNonDirChild { what, path, child } => {
-                write!(f, "Entry '{}' in {} directory '{}' is not a directory", child.to_string_lossy(), what, path.display())
-            },
-
-            NotHttpsError { address } => {
-                write!(f, "Security policy requires HTTPS is enabled, but '{address}' does not enable it (or we cannot parse the URL)")
-            },
-            RequestError { address, err } => write!(f, "Failed to send GET-request to '{address}': {err}"),
-            RequestFailure { address, code, err } => write!(
-                f,
-                "GET-request to '{}' failed with status code {} ({}){}",
-                address,
-                code.as_u16(),
-                code.canonical_reason().unwrap_or("???"),
-                if let Some(err) = err { format!(": {err}") } else { String::new() }
-            ),
-            DownloadError { address, err } => write!(f, "Failed to download file '{address}': {err}"),
-
-            EncoderFlushError { err } => write!(f, "Failed to flush GzipEncoder: {err}"),
-
-            TarAppendError { source, tarball, err } => {
-                write!(f, "Failed to append '{}' to tarball '{}': {}", source.display(), tarball.display(), err)
-            },
-            TarFinishError { path, err } => write!(f, "Failed to finish writing tarball '{}': {}", path.display(), err),
-            TarEntriesError { path, err } => write!(f, "Failed to read entries in tarball '{}': {}", path.display(), err),
-            TarEntryError { path, entry, err } => write!(f, "Failed to read entry {} in tarball '{}': {}", entry, path.display(), err),
-            TarEntryPathError { path, entry, err } => write!(f, "Failed to get path of entry {} in tarball '{}': {}", entry, path.display(), err),
-            TarExtractError { tarball, entry, target, err } => {
-                write!(f, "Failed to extract '{}' in tarball '{}' to '{}': {}", entry.display(), tarball.display(), target.display(), err)
-            },
-        }
-    }
-}
-impl std::error::Error for Error {}
-
-
-
-
 
 /***** AUXILLARY *****/
 /// Defines permission flags we can set per group.
@@ -1171,7 +1141,7 @@ pub async fn move_path_async(source: impl AsRef<Path>, target: impl AsRef<Path>)
     // That failed; do the expensive one by first copying...
     if source.is_file() {
         if let Err(err) = tfs::copy(source, target).await {
-            return Err(Error::FileCopyError { source: source.into(), target: target.into(), err });
+            return Err(Error::FileCopyError { file: source.into(), target: target.into(), err });
         }
     } else {
         copy_dir_recursively_async(source, target).await?;
@@ -1244,7 +1214,7 @@ pub async fn copy_dir_recursively_async(source: impl AsRef<Path>, target: impl A
                 let dst_file: PathBuf = dst_dir.join(e_path.file_name().unwrap());
                 debug!("Copying file '{}' to '{}'...", e_path.display(), dst_file.display());
                 if let Err(err) = tfs::copy(&e_path, &dst_file).await {
-                    return Err(Error::FileCopyError { source: e_path, target: dst_file, err });
+                    return Err(Error::FileCopyError { file: e_path, target: dst_file, err });
                 }
             } else if e_path.is_dir() {
                 // Create the new directory
@@ -1496,7 +1466,7 @@ pub async fn archive_async(source: impl AsRef<Path>, tarball: impl AsRef<Path>, 
 
             // Compress as a file
             if let Err(err) = tar.append_path_with_name(&path, name).await {
-                return Err(Error::TarAppendError { source: path, tarball: tarball.into(), err });
+                return Err(Error::TarAppendError { file: path, tarball: tarball.into(), err });
             }
         } else if path.is_dir() {
             // Recurse to add the files

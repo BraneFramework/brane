@@ -988,6 +988,7 @@ dependencies = [
  "sha2",
  "specifications 3.0.0",
  "tempfile",
+ "thiserror 2.0.12",
  "tokio",
  "tokio-stream",
  "tokio-tar",
