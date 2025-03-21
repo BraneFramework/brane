@@ -12,18 +12,18 @@ BINARY_TARGETS := brane-ctl brane-cli brane-let brane-cc
 DYNAMIC_LIBRARES := brane-cli-c
 
 BUILD_DIR := target
-IMAGE_DIR := $(BUILD_DIR)/debug
-BIN_DIR := $(BUILD_DIR)/debug
-LIB_DIR := $(BUILD_DIR)/debug
 
 WORKSPACE_MEMBERS := $(sort $(CENTRAL_SERVICES) $(WORKER_SERVICES) $(SHARED_SERVICES))
 
 BUILDX_ARGS := build 
 CARGO_BUILD_ARGS := 
-IMAGE_DOCKER_FILE := ./Dockerfile.dev
 
 # The binaries we can build in either debug or release mode
-ifeq ($(PROFILE),release)
+ifeq ($(PROFILE),debug)
+	IMAGE_DOCKER_FILE := ./Dockerfile.dev
+	IMAGE_DIR := $(BUILD_DIR)/debug
+	BIN_DIR := $(BUILD_DIR)/debug
+else
 	CARGO_BUILD_ARGS += --release
 	IMAGE_DOCKER_FILE := ./Dockerfile.rls
 	IMAGE_DIR := $(BUILD_DIR)/release
