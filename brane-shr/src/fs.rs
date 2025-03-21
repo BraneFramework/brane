@@ -1565,7 +1565,7 @@ pub async fn unarchive_async(tarball: impl AsRef<Path>, target: impl AsRef<Path>
     if target.exists() {
         return Err(Error::PathExistsError { what: "target", path: target.into() });
     }
-    if let Err(err) = tfs::create_dir(target).await {
+    if let Err(err) = tfs::create_dir_all(target).await {
         return Err(Error::DirCreateError { what: "target", path: target.into(), err });
     }
 
