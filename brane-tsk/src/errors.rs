@@ -18,6 +18,7 @@ use std::fmt::{Display, Formatter, Result as FResult, Write};
 use std::path::PathBuf;
 
 use bollard::ClientVersion;
+use brane_ast::Workflow;
 use brane_ast::func_id::FunctionId;
 use brane_ast::locations::{Location, Locations};
 use brane_exe::pc::ProgramCounter;
@@ -699,7 +700,7 @@ pub enum AuthorizeError {
     /// The data to authorize is not input to the task given as context.
     AuthorizationDataMismatch { pc: ProgramCounter, data_name: DataName },
     /// The user to authorize does not execute the given task.
-    AuthorizationUserMismatch { who: String, authenticated: String, workflow: String },
+    AuthorizationUserMismatch { who: String, authenticated: String, workflow: Workflow },
     /// An edge was referenced to be executed which wasn't an [`Edge::Node`](brane_ast::ast::Edge).
     AuthorizationWrongEdge { pc: ProgramCounter, got: String },
     /// An edge index given was out-of-bounds for the given function.
@@ -738,13 +739,7 @@ impl Display for AuthorizeError {
 
             AuthorizationDataMismatch { pc, data_name } => write!(f, "Dataset '{data_name}' is not an input to task {pc}"),
             AuthorizationUserMismatch { who, authenticated, workflow } => {
-                write!(
-                    f,
-                    "Authorized user '{}' does not match {} user in workflow\n\nWorkflow:\n{}\n",
-                    authenticated,
-                    who,
-                    BlockFormatter::new(workflow)
-                )
+                write!(f, "Authorized user '{}' does not match '{}' user in workflow\n\nWorkflow:\n{:#?}\n", authenticated, who, workflow)
             },
             AuthorizationWrongEdge { pc, got } => write!(f, "Edge {pc} in workflow is not an Edge::Node but an Edge::{got}"),
             IllegalEdgeIdx { func, got, max } => write!(f, "Edge index {got} is out-of-bounds for function {func} with {max} edges"),

@@ -152,6 +152,7 @@ impl Store {
                     }
 
                     // Load it
+                    // FIXME: The store should not fail if a single dataset is not parsible
                     let info: AssetInfo = match AssetInfo::from_path(&info_path) {
                         Ok(info) => info,
                         Err(err) => {

@@ -13,11 +13,14 @@
 //
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
+use brane_ast::Workflow;
+use brane_ast::ast::Edge;
 use brane_shr::fs::copy_dir_recursively_async;
 use brane_shr::utilities::is_ip_addr;
 use brane_tsk::spec::LOCALHOST;
@@ -25,14 +28,14 @@ use chrono::Utc;
 use console::{Alignment, Term, pad_str, style};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Select};
-use hyper::body::Bytes;
 use indicatif::HumanDuration;
 use prettytable::Table;
 use prettytable::format::FormatBuilder;
 use rand::prelude::IteratorRandom;
 use reqwest::tls::{Certificate, Identity};
-use reqwest::{Client, ClientBuilder, Proxy, Response};
-use specifications::data::{AccessKind, AssetInfo, DataIndex, DataInfo};
+use reqwest::{Client, ClientBuilder, Proxy};
+use specifications::data::{AccessKind, AssetInfo, DataIndex, DataInfo, DataName};
+use specifications::registering::DownloadAssetRequest;
 use tempfile::TempDir;
 use tokio::fs as tfs;
 use tokio::io::AsyncWriteExt;
@@ -66,15 +69,15 @@ pub async fn download_data(
     proxy_addr: &Option<String>,
     certs_dir: impl AsRef<Path>,
     data_dir: impl AsRef<Path>,
+    use_case: String,
     name: impl AsRef<str>,
+    workflow: Workflow,
     access: &HashMap<String, AccessKind>,
 ) -> Result<Option<AccessKind>, DataError> {
     let api_endpoint: &str = api_endpoint.as_ref();
     let certs_dir: &Path = certs_dir.as_ref();
     let data_dir: &Path = data_dir.as_ref();
     let name: &str = name.as_ref();
-
-
 
     /* Step 1: Get target registry address */
     // Choose a random location to attempt to download the asset from.
@@ -85,169 +88,113 @@ pub async fn download_data(
     let location: &str = access.keys().choose(&mut rng).unwrap();
 
     // Send a GET-request to resolve that location to a delegate
-    let registry_addr: String = format!("{api_endpoint}/infra/registries/{location}");
-    let res: Response = match reqwest::get(&registry_addr).await {
-        Ok(res) => res,
-        Err(err) => {
-            return Err(DataError::RequestError { what: "registry", address: registry_addr, err });
-        },
-    };
+    let registry_addr = format!("{api_endpoint}/infra/registries/{location}");
+    let res = reqwest::get(&registry_addr).await.map_err(|err| DataError::RequestError { what: "registry", address: registry_addr.clone(), err })?;
 
     // Attempt to get its body if it was a success
     if !res.status().is_success() {
         return Err(DataError::RequestFailure { address: registry_addr, code: res.status(), message: res.text().await.ok() });
     }
-    let registry_addr: String = match res.text().await {
-        Ok(registry_addr) => registry_addr,
-        Err(err) => {
-            return Err(DataError::ResponseTextError { address: registry_addr, err });
-        },
-    };
+
+    let registry_addr: String = res.text().await.map_err(|err| DataError::ResponseTextError { address: registry_addr, err })?;
+
     debug!("Remote registry: '{}'", registry_addr);
-
-
 
     /* Step 2: Load the required certificates */
     debug!("Loading certificate for location '{}'...", location);
     let (identity, ca_cert): (Identity, Certificate) = {
         // Compute the paths
-        // let cert_dir : PathBuf = match get_active_certs_dir(location) { Ok(path) => path, Err(err) => { return Err(DataError::CertsDirError{ err }); }, };
-        let cert_dir: PathBuf = certs_dir.join(location);
-        let idfile: PathBuf = cert_dir.join("client-id.pem");
-        let cafile: PathBuf = cert_dir.join("ca.pem");
+        let cert_dir = certs_dir.join(location);
+        let idfile = cert_dir.join("client-id.pem");
+        let cafile = cert_dir.join("ca.pem");
 
         // Load the keypair for this location as an Identity file (for which we just smash 'em together and hope that works)
-        let ident: Identity = match tfs::read(&idfile).await {
-            Ok(raw) => match Identity::from_pem(&raw) {
-                Ok(identity) => identity,
-                Err(err) => {
-                    return Err(DataError::IdentityFileError { path: idfile, err });
-                },
-            },
-            Err(err) => {
-                return Err(DataError::FileReadError { what: "client identity", path: idfile, err });
-            },
-        };
+        let ident_raw = tfs::read(&idfile).await.map_err(|err| DataError::FileReadError { what: "client identity", path: idfile.clone(), err })?;
+
+        let ident = Identity::from_pem(&ident_raw).map_err(|err| DataError::IdentityFileError { path: idfile.clone(), err })?;
 
         // Load the root store for this location (also as a list of certificates)
-        let root: Certificate = match tfs::read(&cafile).await {
-            Ok(raw) => match Certificate::from_pem(&raw) {
-                Ok(root) => root,
-                Err(err) => {
-                    return Err(DataError::CertificateError { path: cafile, err });
-                },
-            },
-            Err(err) => {
-                return Err(DataError::FileReadError { what: "server cert root", path: cafile, err });
-            },
-        };
+        let raw_root = tfs::read(&cafile).await.map_err(|err| DataError::FileReadError { what: "server cert root", path: cafile.clone(), err })?;
+
+        // Load the root store for this location (also as a list of certificates)
+        let root = Certificate::from_pem(&raw_root).map_err(|err| DataError::CertificateError { path: cafile, err })?;
 
         // Return them, with the cert and key as identity
         (ident, root)
     };
 
-
-
     /* Step 3: Prepare the filesystem */
     debug!("Preparing filesystem...");
 
     // Make sure the temporary tarfile directory exists
-    let tar_dir: TempDir = match TempDir::new() {
-        Ok(tar_dir) => tar_dir,
-        Err(err) => {
-            return Err(DataError::TempDirError { err });
-        },
-    };
-    let tar_path: PathBuf = tar_dir.path().join(format!("data_{name}.tar.gz"));
+    let tar_dir = TempDir::new().map_err(|err| DataError::TempDirError { err })?;
+    let tar_path = tar_dir.path().join(format!("data_{name}.tar.gz"));
 
     // Make sure the old data path doesn't exist anymore
-    let data_path: PathBuf = data_dir.join("data");
+    let data_path = data_dir.join("data");
     if data_path.exists() {
         if !data_path.is_dir() {
             return Err(DataError::DirNotADirError { what: "target data", path: data_path });
         }
-        if let Err(err) = tfs::remove_dir_all(&data_path).await {
-            return Err(DataError::DirRemoveError { what: "target data", path: data_path, err });
-        }
+        tfs::remove_dir_all(&data_path).await.map_err(|err| DataError::DirRemoveError { what: "target data", path: data_path.clone(), err })?;
     }
-
-
 
     /* Step 4: Build the client. */
     let download_addr: String = format!("{registry_addr}/data/download/{name}");
     debug!("Sending download request to '{}'...", download_addr);
     let mut client: ClientBuilder =
         Client::builder().use_rustls_tls().add_root_certificate(ca_cert).identity(identity).tls_sni(!is_ip_addr(&download_addr));
+
     if let Some(proxy_addr) = proxy_addr {
-        client = client.proxy(match Proxy::all(proxy_addr) {
-            Ok(proxy) => proxy,
-            Err(err) => return Err(DataError::ProxyCreateError { address: proxy_addr.into(), err }),
-        });
+        client = client.proxy(Proxy::all(proxy_addr).map_err(|err| DataError::ProxyCreateError { address: proxy_addr.into(), err })?);
     }
-    let client: Client = match client.build() {
-        Ok(client) => client,
-        Err(err) => {
-            return Err(DataError::ClientCreateError { err });
-        },
-    };
+
+    let client = client.build().map_err(|err| DataError::ClientCreateError { err })?;
 
     // Send a reqwest
-    let res = match client.get(&download_addr).send().await {
-        Ok(res) => res,
-        Err(err) => {
-            return Err(DataError::RequestError { what: "download", address: download_addr, err });
-        },
-    };
+    let res = client
+        .get(&download_addr)
+        .json(&DownloadAssetRequest {
+            use_case,
+            workflow: serde_json::to_value(workflow)
+                .map_err(|err| DataError::WorkflowSerializeError { context: String::from("creating download asset request"), err })?,
+            task: None,
+        })
+        .send()
+        .await
+        .map_err(|err| DataError::RequestError { what: "download", address: download_addr.clone(), err })?;
+
     if !res.status().is_success() {
         return Err(DataError::RequestFailure { address: download_addr, code: res.status(), message: res.text().await.ok() });
     }
 
-
-
     /* Step 5: Download the raw file in parts */
     debug!("Downloading file to '{}'...", tar_path.display());
     {
-        let mut handle: tfs::File = match tfs::File::create(&tar_path).await {
-            Ok(handle) => handle,
-            Err(err) => {
-                return Err(DataError::TarCreateError { path: tar_path, err });
-            },
-        };
+        let mut handle = tfs::File::create(&tar_path).await.map_err(|err| DataError::TarCreateError { path: tar_path.clone(), err })?;
+
         let mut stream = res.bytes_stream();
         while let Some(chunk) = stream.next().await {
             // Unwrap the chunk
-            let mut chunk: Bytes = match chunk {
-                Ok(chunk) => chunk,
-                Err(err) => {
-                    return Err(DataError::DownloadStreamError { address: download_addr, err });
-                },
-            };
+            let mut chunk = chunk.map_err(|err| DataError::DownloadStreamError { address: download_addr.clone(), err })?;
 
             // Write it to the file
-            if let Err(err) = handle.write_all_buf(&mut chunk).await {
-                return Err(DataError::TarWriteError { path: tar_path, err });
-            }
+            handle.write_all_buf(&mut chunk).await.map_err(|err| DataError::TarWriteError { path: tar_path.clone(), err })?;
         }
     }
 
-
-
     /* Step 6: Extract the tar. */
     debug!("Unpacking '{}' to '{}'...", tar_path.display(), data_path.display());
-    if let Err(err) = brane_shr::fs::unarchive_async(tar_path, &data_path).await {
-        return Err(DataError::TarExtractError { err });
-    }
-
-
+    brane_shr::fs::unarchive_async(tar_path, &data_path).await.map_err(|err| DataError::TarExtractError { err })?;
 
     /* Step 7: In the case of brane-cli, also write a DataInfo. */
-    let access: AccessKind = AccessKind::File { path: data_path };
+    let access = AccessKind::File { path: data_path };
     {
-        let info_path: PathBuf = data_dir.join("data.yml");
+        let info_path = data_dir.join("data.yml");
         debug!("Writing data info to '{}'...", info_path.display());
 
         // Populate the info itself
-        let info: DataInfo = DataInfo {
+        let info = DataInfo {
             name: name.into(),
             owners: None,
             description: None,
@@ -257,12 +204,8 @@ pub async fn download_data(
         };
 
         // Write it
-        if let Err(err) = info.to_path(&info_path) {
-            return Err(DataError::DataInfoWriteError { err });
-        }
+        info.to_path(&info_path).map_err(|err| DataError::DataInfoWriteError { err })?;
     }
-
-
 
     /* Step 7: Done */
     Ok(Some(access))
@@ -387,7 +330,15 @@ pub async fn build(file: impl AsRef<Path>, workdir: impl AsRef<Path>, _keep_file
 ///
 /// # Errors
 /// This function may error if the download failed for any reason.
-pub async fn download(names: Vec<String>, locs: Vec<String>, proxy_addr: &Option<String>, force: bool) -> Result<(), DataError> {
+pub async fn download(
+    names: Vec<String>,
+    locs: Vec<String>,
+    use_case: String,
+    user: String,
+    proxy_addr: &Option<String>,
+    force: bool,
+) -> Result<(), DataError> {
+    eprintln!("Lets go");
     // Parse the locations into a map
     let mut locations: HashMap<String, String> = HashMap::with_capacity(locs.len());
     for l in locs {
@@ -483,7 +434,15 @@ pub async fn download(names: Vec<String>, locs: Vec<String>, proxy_addr: &Option
         let access: AccessKind = match info.access.get(LOCALHOST) {
             Some(access) => access.clone(),
             None => {
-                // Attempt to download it instead
+                let workflow = Workflow {
+                    // FIXME: Randomize ID
+                    id: "download-request".to_string(),
+                    table: Arc::new(Default::default()),
+                    metadata: Arc::new(Default::default()),
+                    user: Arc::new(Some(user.clone())),
+                    graph: Arc::new(vec![Edge::Return { result: HashSet::from([DataName::Data(name.clone())]) }]),
+                    funcs: Arc::new(Default::default()),
+                };
 
                 // Get the certificate path
                 let certs_dir: PathBuf = match InstanceInfo::get_active_name() {
@@ -507,7 +466,9 @@ pub async fn download(names: Vec<String>, locs: Vec<String>, proxy_addr: &Option
                 };
 
                 // Run the download
-                match download_data(instance_info.api.to_string(), proxy_addr, certs_dir, data_dir, &name, &access).await? {
+                match download_data(instance_info.api.to_string(), proxy_addr, certs_dir, data_dir, use_case.clone(), &name, workflow, &access)
+                    .await?
+                {
                     Some(access) => access,
                     None => {
                         return Err(DataError::UnavailableDataset { name, locs: info.access.keys().cloned().collect() });

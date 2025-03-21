@@ -16,7 +16,8 @@ use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs;
 use std::io::{Stderr, Stdout};
 
-use brane_ast::ParserOptions;
+use brane_ast::ast::Snippet;
+use brane_ast::{ParserOptions, Workflow};
 use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_tsk::docker::DockerOptions;
@@ -34,8 +35,8 @@ use rustyline_derive::Helper;
 pub use crate::errors::ReplError as Error;
 use crate::instance::InstanceInfo;
 use crate::run::{
-    InstanceVmState, OfflineVmState, initialize_instance_vm, initialize_offline_vm, process_instance_result, process_offline_result, run_instance_vm,
-    run_offline_vm,
+    self, InstanceVmState, OfflineVmState, initialize_instance_vm, initialize_offline_vm, process_instance_result, process_offline_result,
+    run_instance_vm, run_offline_vm,
 };
 use crate::utils::{ensure_config_dir, get_history_file};
 
@@ -150,6 +151,7 @@ impl Validator for ReplHelper {
 pub async fn start(
     proxy_addr: Option<String>,
     remote: bool,
+    use_case: String,
     attach: Option<AppId>,
     language: Language,
     clear: bool,
@@ -212,7 +214,7 @@ pub async fn start(
         };
 
         // Run the thing
-        remote_repl(&mut rl, info, proxy_addr, attach, options, profile).await?;
+        remote_repl(&mut rl, info, use_case, proxy_addr, attach, options, profile).await?;
     } else {
         local_repl(&mut rl, options, docker_opts, keep_containers).await?;
     }
@@ -243,6 +245,7 @@ pub async fn start(
 async fn remote_repl(
     rl: &mut Editor<ReplHelper, DefaultHistory>,
     info: InstanceInfo,
+    use_case: String,
     proxy_addr: Option<String>,
     attach: Option<AppId>,
     options: ParserOptions,
@@ -252,13 +255,9 @@ async fn remote_repl(
     let drv_address: String = info.drv.to_string();
 
     // First we initialize the remote thing
-    let mut state: InstanceVmState<Stdout, Stderr> =
-        match initialize_instance_vm(&api_address, &drv_address, Some(info.user.clone()), attach, options).await {
-            Ok(state) => state,
-            Err(err) => {
-                return Err(Error::InitializeError { what: "remote instance client", err });
-            },
-        };
+    let mut state: InstanceVmState<Stdout, Stderr> = initialize_instance_vm(&api_address, &drv_address, Some(info.user.clone()), attach, options)
+        .await
+        .map_err(|err| Error::InitializeError { what: "remote instance client", err })?;
 
     // Next, enter the L in REPL
     let mut count: u32 = 1;
@@ -286,23 +285,31 @@ async fn remote_repl(
                     }
                 }
 
+                let line_count = 1 + line.chars().filter(|c| *c == '\n').count();
+
+                let workflow = {
+                    let pindex = state.pindex.lock();
+                    let dindex = state.dindex.lock();
+                    Workflow::from_source(&mut state.state, &mut state.source, &pindex, &dindex, None, &state.options, "<test task>", line)
+                        .map_err(|err| Error::RunError { what: "repl", err: run::Error::CompileError(err) })?
+                };
+
+                let snippet = Snippet { lines: line_count, snippet: workflow };
+
                 // Next, we run the VM (one snippet only ayway)
-                let res: FullValue = match run_instance_vm(&drv_address, &mut state, "<stdin>", &line, profile).await {
-                    Ok(res) => res,
-                    Err(_) => {
-                        continue;
-                    },
+                let Ok(res) = run_instance_vm(&drv_address, &mut state, &snippet, profile).await else {
+                    continue;
                 };
 
                 // Then, we collect and process the result
-                if let Err(err) = process_instance_result(&api_address, &proxy_addr, res).await {
+                if let Err(err) = process_instance_result(&api_address, &proxy_addr, use_case.clone(), snippet.snippet, res).await {
                     error!("{}", Error::ProcessError { what: "remote instance VM", err });
                     continue;
                 }
 
                 // Go to the next iteration
                 count += 1;
-                state.state.offset += 1 + line.chars().filter(|c| *c == '\n').count();
+                state.state.offset += line_count;
             },
             Err(ReadlineError::Interrupted) => {
                 println!("Keyboard interrupt received, exiting...");
@@ -374,8 +381,25 @@ async fn local_repl(
                     }
                 }
 
+                // Compile the workflow
+                let line_count = line.chars().filter(|&c| c == '\n').count();
+
+                let workflow = Workflow::from_source(
+                    &mut state.state,
+                    &mut state.source,
+                    &state.pindex,
+                    &state.dindex,
+                    None,
+                    &state.options,
+                    "<test task>",
+                    line.clone(),
+                )
+                .map_err(|err| Error::RunError { what: "local repl", err: run::Error::CompileError(err) })?;
+
+                let snippet = Snippet { lines: line_count, snippet: workflow };
+
                 // Next, we run the VM (one snippet only ayway)
-                let res: FullValue = match run_offline_vm(&mut state, "<stdin>", &line).await {
+                let res: FullValue = match run_offline_vm(&mut state, snippet).await {
                     Ok(res) => res,
                     Err(err) => {
                         return Err(Error::RunError { what: "offline VM", err });

@@ -63,8 +63,8 @@ LABEL org.opencontainers.image.source https://github.com/braneframework/brane
 WORKDIR /
 ARG REASONER=eflint
 ARG REASONER_BRANCH=main
-ADD "http://github.com/braneframework/policy-reasoner/zipball/${REASONER_BRANCH}/" /policy-reasoner.zip
-RUN unzip /policy-reasoner.zip && mv /braneframework-policy-reasoner* /policy-reasoner
+ADD "https://github.com/braneframework/policy-reasoner/zipball/${REASONER_BRANCH}/" /policy-reasoner.zip
+RUN unzip /policy-reasoner.zip && mv /BraneFramework-policy-reasoner* /policy-reasoner
 
 # Touch a `policy.db` into action to avoid the policy reasoner's `build.rs` building it for us (unnecessary)
 RUN mkdir -p /policy-reasoner/data && touch /policy-reasoner/data/policy.db

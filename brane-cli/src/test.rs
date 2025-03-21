@@ -15,7 +15,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use brane_ast::ParserOptions;
+use brane_ast::ast::Snippet;
+use brane_ast::{ParserOptions, Workflow};
 use brane_exe::FullValue;
 use brane_tsk::docker::DockerOptions;
 use brane_tsk::input::prompt_for_input;
@@ -25,7 +26,7 @@ use specifications::package::PackageInfo;
 use specifications::version::Version;
 
 use crate::errors::TestError;
-use crate::run::{OfflineVmState, initialize_offline_vm, run_offline_vm};
+use crate::run::{self, OfflineVmState, initialize_offline_vm, run_offline_vm};
 use crate::utils::{ensure_datasets_dir, ensure_package_dir};
 
 
@@ -164,7 +165,7 @@ pub async fn test_generic(
     };
 
     // Build a phony workflow with that
-    let workflow: String = format!(
+    let workflow_content: String = format!(
         "import {}[{}]; return {}({});",
         info.name,
         info.version,
@@ -187,7 +188,23 @@ pub async fn test_generic(
             return Err(TestError::InitializeError { err });
         },
     };
-    let result: FullValue = match run_offline_vm(&mut state, "<test task>", workflow).await {
+
+    // Compile the workflow
+    let workflow = Workflow::from_source(
+        &mut state.state,
+        &mut state.source,
+        &state.pindex,
+        &state.dindex,
+        None,
+        &state.options,
+        "<test task>",
+        workflow_content.clone(),
+    )
+    .map_err(|err| TestError::RunError { err: run::Error::CompileError(err) })?;
+
+    let snippet = Snippet { lines: workflow_content.lines().count(), snippet: workflow };
+
+    let result: FullValue = match run_offline_vm(&mut state, snippet).await {
         Ok(result) => result,
         Err(err) => {
             return Err(TestError::RunError { err });
