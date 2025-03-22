@@ -59,4 +59,5 @@
 //!   **Removed modules:**
 //!   brane-shr:
 //!   - kafka
+//!   - version
 //
