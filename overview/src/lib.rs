@@ -60,4 +60,5 @@
 //!   brane-shr:
 //!   - kafka
 //!   - version
+//!   - address
 //
