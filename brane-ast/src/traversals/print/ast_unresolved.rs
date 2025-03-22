@@ -480,73 +480,44 @@ pub fn pass_edge_instr(writer: &mut impl Write, instr: &EdgeInstr, table: &Table
 pub fn do_traversal(state: &CompileState, root: UnresolvedWorkflow, mut writer: impl Write) -> Result<UnresolvedWorkflow, Vec<Error>> {
     let UnresolvedWorkflow { main_edges, f_edges, metadata } = &root;
 
-    if let Err(err) = writeln!(&mut writer, "UnresolvedWorkflow {{") {
-        return Err(vec![Error::WriteError { err }]);
-    };
+    writeln!(&mut writer, "UnresolvedWorkflow {{").map_err(|source| vec![Error::WriteError { source }])?;
 
     // Print parsed metadata
     if !metadata.is_empty() {
         for md in metadata.iter() {
-            if let Err(err) = writeln!(
+            writeln!(
                 &mut writer,
                 "{}#{}.{}{}",
                 indent!(INDENT_SIZE),
                 if md.owner.contains(' ') { format!("\"{}\"", md.owner) } else { md.owner.clone() },
                 if md.tag.contains(' ') { format!("\"{}\"", md.tag) } else { md.tag.clone() },
                 if let Some((assigner, signature)) = &md.signature { format!(" <{assigner}.{signature}>") } else { String::new() }
-            ) {
-                return Err(vec![Error::WriteError { err }]);
-            };
+            )
+            .map_err(|source| vec![Error::WriteError { source }])?;
         }
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
     }
 
     // First up: print the workflow's table
-    if let Err(err) = pass_table(&mut writer, &state.table, INDENT_SIZE) {
-        return Err(vec![Error::WriteError { err }]);
-    };
-    if let Err(err) = writeln!(&mut writer) {
-        return Err(vec![Error::WriteError { err }]);
-    };
-    if let Err(err) = writeln!(&mut writer) {
-        return Err(vec![Error::WriteError { err }]);
-    };
-    if let Err(err) = writeln!(&mut writer) {
-        return Err(vec![Error::WriteError { err }]);
-    };
+    pass_table(&mut writer, &state.table, INDENT_SIZE).map_err(|source| vec![Error::WriteError { source }])?;
+    writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+    writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+    writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
 
     // Print the main function body
-    if let Err(err) = pass_edges(&mut writer, main_edges, &state.table, INDENT_SIZE, HashSet::new()) {
-        return Err(vec![Error::WriteError { err }]);
-    };
+    pass_edges(&mut writer, main_edges, &state.table, INDENT_SIZE, HashSet::new()).map_err(|source| vec![Error::WriteError { source }])?;
 
     // Print the function edges
     if !f_edges.is_empty() {
-        if let Err(err) = pass_f_edges(&mut writer, f_edges, &state.table, INDENT_SIZE) {
-            return Err(vec![Error::WriteError { err }]);
-        }
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
+        pass_f_edges(&mut writer, f_edges, &state.table, INDENT_SIZE).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
     }
 
     // Done
-    if let Err(err) = writeln!(&mut writer, "}}") {
-        return Err(vec![Error::WriteError { err }]);
-    };
+    writeln!(&mut writer, "}}").map_err(|source| vec![Error::WriteError { source }])?;
     Ok(root)
 }

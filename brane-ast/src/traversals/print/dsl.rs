@@ -761,7 +761,7 @@ pub fn pass_literal(writer: &mut impl Write, literal: &Literal) -> std::io::Resu
 /// This pass doesn't really error, but is here for convention purposes.
 pub fn do_traversal(root: Program, mut writer: impl Write) -> Result<Program, Vec<Error>> {
     // Write the metadata
-    if let Err(err) = writeln!(
+    writeln!(
         &mut writer,
         "{}\n",
         root.metadata
@@ -773,23 +773,18 @@ pub fn do_traversal(root: Program, mut writer: impl Write) -> Result<Program, Ve
             ))
             .collect::<Vec<String>>()
             .join(" ")
-    ) {
-        return Err(vec![Error::WriteError { err }]);
-    }
+    )
+    .map_err(|source| vec![Error::WriteError { source }])?;
+
     // Write the attributes
     for a in &root.block.attrs {
-        if let Err(err) = pass_attr(&mut writer, a, true, 0) {
-            return Err(vec![Error::WriteError { err }]);
-        }
+        pass_attr(&mut writer, a, true, 0).map_err(|source| vec![Error::WriteError { source }])?;
     }
-    if let Err(err) = writeln!(&mut writer) {
-        return Err(vec![Error::WriteError { err }]);
-    }
+    writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+
     // Iterate over all statements and run the appropriate match
     for s in &root.block.stmts {
-        if let Err(err) = pass_stmt(&mut writer, s, 0) {
-            return Err(vec![Error::WriteError { err }]);
-        }
+        pass_stmt(&mut writer, s, 0).map_err(|source| vec![Error::WriteError { source }])?;
     }
 
     // Done

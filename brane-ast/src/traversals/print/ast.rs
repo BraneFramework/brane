@@ -528,96 +528,66 @@ fn pass_edge_instr(writer: &mut impl Write, instr: &EdgeInstr, table: &SymTable)
 pub fn do_traversal(root: &Workflow, mut writer: impl Write) -> Result<(), Vec<Error>> {
     let Workflow { id, table, metadata, user, graph, funcs } = root;
 
-    if let Err(err) = writeln!(&mut writer, "Workflow '{id}' {{") {
-        return Err(vec![Error::WriteError { err }]);
-    };
+    writeln!(&mut writer, "Workflow '{id}' {{").map_err(|source| vec![Error::WriteError { source }])?;
 
     // Print parsed metadata
     if user.is_some() || !metadata.is_empty() {
         // Print the user
         if let Some(user) = &**user {
             // Write it
-            if let Err(err) = writeln!(&mut writer, "{}User: '{}'", indent!(INDENT_SIZE), user) {
-                return Err(vec![Error::WriteError { err }]);
-            };
+            writeln!(&mut writer, "{}User: '{}'", indent!(INDENT_SIZE), user).map_err(|source| vec![Error::WriteError { source }])?;
 
             // Write a newline separating the tags
             if !metadata.is_empty() {
-                if let Err(err) = writeln!(&mut writer) {
-                    return Err(vec![Error::WriteError { err }]);
-                };
+                writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
             }
         }
 
         // Print the metadata
         for md in metadata.iter() {
-            if let Err(err) = writeln!(
+            writeln!(
                 &mut writer,
                 "{}#{}.{}{}",
                 indent!(INDENT_SIZE),
                 if md.owner.contains(' ') { format!("\"{}\"", md.owner) } else { md.owner.clone() },
                 if md.tag.contains(' ') { format!("\"{}\"", md.tag) } else { md.tag.clone() },
                 if let Some((assigner, signature)) = &md.signature { format!(" <{assigner}.{signature}>") } else { String::new() }
-            ) {
-                return Err(vec![Error::WriteError { err }]);
-            };
+            )
+            .map_err(|source| vec![Error::WriteError { source }])?;
         }
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
     }
 
     // First up: print the workflow table
-    if let Err(err) = pass_table(&mut writer, table, INDENT_SIZE) {
-        return Err(vec![Error::WriteError { err }]);
-    };
+    pass_table(&mut writer, table, INDENT_SIZE).map_err(|source| vec![Error::WriteError { source }])?;
+
     if !root.table.vars.is_empty()
         || !root.table.funcs.is_empty()
         || !root.table.tasks.is_empty()
         || !root.table.classes.is_empty()
         || !root.table.results.is_empty()
     {
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
     }
 
     // Print the main function body (and thus all function bodies)
-    if let Err(err) = writeln!(&mut writer, "{}<Main>", indent!(INDENT_SIZE)) {
-        return Err(vec![Error::WriteError { err }]);
-    };
-    if let Err(err) = pass_edges(&mut writer, 0, graph, table, INDENT_SIZE, &mut HashSet::new()) {
-        return Err(vec![Error::WriteError { err }]);
-    };
+    writeln!(&mut writer, "{}<Main>", indent!(INDENT_SIZE)).map_err(|source| vec![Error::WriteError { source }])?;
+    pass_edges(&mut writer, 0, graph, table, INDENT_SIZE, &mut HashSet::new()).map_err(|source| vec![Error::WriteError { source }])?;
 
     // Print the functions
     for (i, f) in funcs.iter() {
-        if let Err(err) = writeln!(&mut writer) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = writeln!(&mut writer, "{}<Function {} ({})>", indent!(INDENT_SIZE), *i, table.funcs[*i].name) {
-            return Err(vec![Error::WriteError { err }]);
-        };
-        if let Err(err) = pass_edges(&mut writer, 0, f, table, INDENT_SIZE, &mut HashSet::new()) {
-            return Err(vec![Error::WriteError { err }]);
-        };
+        writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
+        writeln!(&mut writer, "{}<Function {} ({})>", indent!(INDENT_SIZE), *i, table.funcs[*i].name)
+            .map_err(|source| vec![Error::WriteError { source }])?;
+        pass_edges(&mut writer, 0, f, table, INDENT_SIZE, &mut HashSet::new()).map_err(|source| vec![Error::WriteError { source }])?;
     }
 
     // Done
-    if let Err(err) = writeln!(&mut writer, "}}") {
-        return Err(vec![Error::WriteError { err }]);
-    };
+    writeln!(&mut writer, "}}").map_err(|source| vec![Error::WriteError { source }])?;
+
     Ok(())
 }

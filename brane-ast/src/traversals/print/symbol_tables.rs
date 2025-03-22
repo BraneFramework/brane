@@ -227,15 +227,9 @@ pub fn do_traversal(root: Program, writer: impl Write) -> Result<Program, Vec<Er
     let mut writer = writer;
 
     // Iterate over all statements and run the appropriate match
-    if let Err(err) = write!(&mut writer, "__root ") {
-        return Err(vec![Error::WriteError { err }]);
-    };
-    if let Err(err) = pass_block(&mut writer, &root.block, 0) {
-        return Err(vec![Error::WriteError { err }]);
-    };
-    if let Err(err) = writeln!(&mut writer) {
-        return Err(vec![Error::WriteError { err }]);
-    };
+    write!(&mut writer, "__root ").map_err(|source| vec![Error::WriteError { source }])?;
+    pass_block(&mut writer, &root.block, 0).map_err(|source| vec![Error::WriteError { source }])?;
+    writeln!(&mut writer).map_err(|source| vec![Error::WriteError { source }])?;
 
     // Done
     Ok(root)

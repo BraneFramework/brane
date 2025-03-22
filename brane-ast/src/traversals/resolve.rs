@@ -59,8 +59,13 @@ fn define_func(entry: &mut FunctionEntry, params: &mut [Identifier], symbol_tabl
                 Ok(e) => {
                     entry.params.push(e);
                 },
-                Err(err) => {
-                    errors.push(Error::ParameterDefineError { func_name: entry.name.clone(), name: p.value.clone(), err, range: p.range().clone() });
+                Err(source) => {
+                    errors.push(Error::ParameterDefineError {
+                        func_name: entry.name.clone(),
+                        name: p.value.clone(),
+                        source,
+                        range: p.range().clone(),
+                    });
                     continue;
                 },
             };
@@ -156,8 +161,8 @@ fn pass_stmt(
             // First: parse the version
             let semver: Version = match version.as_version() {
                 Ok(version) => version,
-                Err(err) => {
-                    errors.push(Error::VersionParseError { err, range: version.range().clone() });
+                Err(source) => {
+                    errors.push(Error::VersionParseError { source, range: version.range().clone() });
                     return;
                 },
             };
@@ -193,8 +198,8 @@ fn pass_stmt(
                     Ok(entry) => {
                         funcs.push(entry);
                     },
-                    Err(err) => {
-                        errors.push(Error::FunctionImportError { package_name: info.name.clone(), name: name.into(), err, range: range.clone() });
+                    Err(source) => {
+                        errors.push(Error::FunctionImportError { package_name: info.name.clone(), name: name.into(), source, range: range.clone() });
                         return;
                     },
                 }
@@ -212,8 +217,8 @@ fn pass_stmt(
                         for p in properties.iter() {
                             match cst.add_var(VarEntry::from_prop(p.0, p.1, name, range.clone())) {
                                 Ok(_) => {},
-                                Err(err) => {
-                                    errors.push(Error::VariableDefineError { name: p.0.clone(), err, range: range.clone() });
+                                Err(source) => {
+                                    errors.push(Error::VariableDefineError { name: p.0.clone(), source, range: range.clone() });
                                     return;
                                 },
                             }
@@ -233,8 +238,8 @@ fn pass_stmt(
                     Ok(entry) => {
                         classes.push(entry);
                     },
-                    Err(err) => {
-                        errors.push(Error::ClassImportError { package_name: info.name.clone(), name: name.into(), err, range: range.clone() });
+                    Err(source) => {
+                        errors.push(Error::ClassImportError { package_name: info.name.clone(), name: name.into(), source, range: range.clone() });
                         return;
                     },
                 }
@@ -256,8 +261,8 @@ fn pass_stmt(
                     Ok(entry) => {
                         *st_entry = Some(entry);
                     },
-                    Err(err) => {
-                        errors.push(Error::FunctionDefineError { name: ident.value.clone(), err, range: ident.range().clone() });
+                    Err(source) => {
+                        errors.push(Error::FunctionDefineError { name: ident.value.clone(), source, range: ident.range().clone() });
                         return;
                     },
                 }
@@ -291,8 +296,8 @@ fn pass_stmt(
                         Ok(entry) => {
                             p.st_entry = Some(entry);
                         },
-                        Err(err) => {
-                            errors.push(Error::VariableDefineError { name: ident.value.clone(), err, range: range.clone() });
+                        Err(source) => {
+                            errors.push(Error::VariableDefineError { name: ident.value.clone(), source, range: range.clone() });
                             return;
                         },
                     }
@@ -340,8 +345,8 @@ fn pass_stmt(
                             Ok(entry) => {
                                 *m_st_entry = Some(entry);
                             },
-                            Err(err) => {
-                                errors.push(Error::FunctionDefineError { name: m_ident.value.clone(), err, range: m_range.clone() });
+                            Err(source) => {
+                                errors.push(Error::FunctionDefineError { name: m_ident.value.clone(), source, range: m_range.clone() });
                                 return;
                             },
                         }
@@ -358,8 +363,8 @@ fn pass_stmt(
                     Ok(entry) => {
                         *st_entry = Some(entry);
                     },
-                    Err(err) => {
-                        errors.push(Error::ClassDefineError { name: ident.value.clone(), err, range: range.clone() });
+                    Err(source) => {
+                        errors.push(Error::ClassDefineError { name: ident.value.clone(), source, range: range.clone() });
                         return;
                     },
                 }
@@ -439,8 +444,8 @@ fn pass_stmt(
                     Ok(entry) => {
                         *st_entry = Some(entry);
                     },
-                    Err(err) => {
-                        errors.push(Error::VariableDefineError { name: result.value.clone(), err, range: result.range().clone() });
+                    Err(source) => {
+                        errors.push(Error::VariableDefineError { name: result.value.clone(), source, range: result.range().clone() });
                     },
                 }
             }
@@ -456,8 +461,8 @@ fn pass_stmt(
                 Ok(entry) => {
                     *st_entry = Some(entry);
                 },
-                Err(err) => {
-                    errors.push(Error::VariableDefineError { name: name.value.clone(), err, range: name.range().clone() });
+                Err(source) => {
+                    errors.push(Error::VariableDefineError { name: name.value.clone(), source, range: name.range().clone() });
                 },
             }
         },

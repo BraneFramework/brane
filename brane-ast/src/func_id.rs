@@ -13,7 +13,6 @@
 //!   platform-dependent [`usize::MAX`] to indicate the main function.
 //
 
-use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::str::FromStr;
 
@@ -25,31 +24,12 @@ use serde::ser::{Serialize, Serializer};
 
 /***** ERRORS *****/
 /// Defines errors when parsing `FunctionId` from a string.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum FunctionIdParseError {
     /// Failed to parse the given string as a numerical ID.
-    InvalidId { raw: String, err: std::num::ParseIntError },
+    #[error("Failed to parse '{raw}' as a valid function ID (i.e., unsigned integer)")]
+    InvalidId { raw: String, source: std::num::ParseIntError },
 }
-impl Display for FunctionIdParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use FunctionIdParseError::*;
-        match self {
-            InvalidId { raw, .. } => write!(f, "Failed to parse '{raw}' as a valid function ID (i.e., unsigned integer)"),
-        }
-    }
-}
-impl Error for FunctionIdParseError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        use FunctionIdParseError::*;
-        match self {
-            InvalidId { err, .. } => Some(err),
-        }
-    }
-}
-
-
-
-
 
 /***** LIBRARY *****/
 /// Enum that can be used for function identifiers, to specially handle `main`.
@@ -128,7 +108,7 @@ impl FromStr for FunctionId {
         // Then parse it as an integer number
         match usize::from_str(s) {
             Ok(id) => Ok(Self::Func(id)),
-            Err(err) => Err(FunctionIdParseError::InvalidId { raw: s.into(), err }),
+            Err(source) => Err(FunctionIdParseError::InvalidId { raw: s.into(), source }),
         }
     }
 }

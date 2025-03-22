@@ -13,7 +13,7 @@
 //
 
 use std::error::Error;
-use std::fmt::{Display, Formatter, Result as FResult};
+use std::fmt::Display;
 use std::io::Write;
 
 use brane_dsl::ast::Expr;
@@ -389,38 +389,43 @@ fn prettywrite_err_reasons(
 
 /***** ERRORS *****/
 /// Defines toplevel errors that occur in this crate.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum AstError {
     // Toplevel errors
     /// We could not read from the given parser.
-    ReaderReadError {
-        err: std::io::Error,
-    },
+    #[error("Failed to read given reader")]
+    ReaderReadError { source: std::io::Error },
     /// The parser failed.
-    ParseError {
-        err: brane_dsl::Error,
-    },
+    #[error(transparent)]
+    ParseError { source: brane_dsl::Error },
     /// Failed to write to the given writer.
-    WriteError {
-        err: std::io::Error,
-    },
+    #[error("Failed to write to given writer")]
+    WriteError { source: std::io::Error },
 
     // Nested errors
     /// An error has occurred while resolving enum variants.
-    SanityError(SanityError),
+    #[error(transparent)]
+    SanityError(#[from] SanityError),
     /// An error has occurred while resolving variable scopes.
-    ResolveError(ResolveError),
+    #[error(transparent)]
+    ResolveError(#[from] ResolveError),
     /// An error has occurred during type checking.
-    TypeError(TypeError),
+    #[error(transparent)]
+    TypeError(#[from] TypeError),
     /// An error has occurred during null-analysis.
-    NullError(NullError),
+    #[error(transparent)]
+    NullError(#[from] NullError),
     /// An error has occurred during location analysis.
-    LocationError(LocationError),
+    #[error(transparent)]
+    LocationError(#[from] LocationError),
     /// An error has occurred while pruning the tree for compilation.
-    PruneError(PruneError),
+    #[error(transparent)]
+    PruneError(#[from] PruneError),
     /// An error has occurred while flattening the AST's symbol tables.
-    FlattenError(FlattenError),
-    CompileError(CompileError),
+    #[error(transparent)]
+    FlattenError(#[from] FlattenError),
+    #[error("Compile error\n: Error: {0}")]
+    CompileError(#[from] CompileError),
 }
 
 impl AstError {
@@ -445,15 +450,9 @@ impl AstError {
     pub fn prettywrite(&self, mut writer: impl Write, file: impl AsRef<str>, source: impl AsRef<str>) -> Result<(), std::io::Error> {
         use AstError::*;
         match self {
-            ReaderReadError { .. } => {
-                writeln!(writer, "{self}")
-            },
-            ParseError { .. } => {
-                writeln!(writer, "{self}")
-            },
-            WriteError { .. } => {
-                writeln!(writer, "{self}")
-            },
+            ReaderReadError { .. } => writeln!(writer, "{self}"),
+            ParseError { .. } => writeln!(writer, "{self}"),
+            WriteError { .. } => writeln!(writer, "{self}"),
 
             SanityError(err) => err.prettywrite(writer, file, source),
             ResolveError(err) => err.prettywrite(writer, file, source),
@@ -467,64 +466,11 @@ impl AstError {
     }
 }
 
-impl From<SanityError> for AstError {
-    #[inline]
-    fn from(err: SanityError) -> Self { Self::SanityError(err) }
-}
-impl From<ResolveError> for AstError {
-    #[inline]
-    fn from(err: ResolveError) -> Self { Self::ResolveError(err) }
-}
-impl From<TypeError> for AstError {
-    #[inline]
-    fn from(err: TypeError) -> Self { Self::TypeError(err) }
-}
-impl From<NullError> for AstError {
-    #[inline]
-    fn from(err: NullError) -> Self { Self::NullError(err) }
-}
-impl From<LocationError> for AstError {
-    #[inline]
-    fn from(err: LocationError) -> Self { Self::LocationError(err) }
-}
-impl From<PruneError> for AstError {
-    #[inline]
-    fn from(err: PruneError) -> Self { Self::PruneError(err) }
-}
-impl From<FlattenError> for AstError {
-    #[inline]
-    fn from(err: FlattenError) -> Self { Self::FlattenError(err) }
-}
-
-impl Display for AstError {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use AstError::*;
-        match self {
-            ReaderReadError { err } => write!(f, "Failed to read given reader: {err}"),
-            ParseError { err } => write!(f, "{err}"),
-            WriteError { err } => write!(f, "Failed to write to given writer: {err}"),
-
-            SanityError(err) => write!(f, "{err}"),
-            ResolveError(err) => write!(f, "{err}"),
-            TypeError(err) => write!(f, "{err}"),
-            NullError(err) => write!(f, "{err}"),
-            LocationError(err) => write!(f, "{err}"),
-            PruneError(err) => write!(f, "{err}"),
-            FlattenError(err) => write!(f, "{err}"),
-            CompileError(err) => write!(f, "Compile error\n: Error: {err}"),
-        }
-    }
-}
-
-impl Error for AstError {}
-
-
-
 /// Defines errors that relate to wrong usage of variants.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum SanityError {
     /// Used a projection operator where the user shouldn't have.
+    #[error("Illegal {what} '{raw}'")]
     ProjError { what: &'static str, raw: String, range: TextRange },
 }
 
@@ -555,69 +501,77 @@ impl SanityError {
     }
 }
 
-impl Display for SanityError {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use SanityError::*;
-        match self {
-            ProjError { what, raw, .. } => write!(f, "Illegal {what} '{raw}'"),
-        }
-    }
-}
-
-impl Error for SanityError {}
-
 
 
 /// Defines errors that occur while building symbol tables.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ResolveError {
     /// Failed to parse a package version number.
-    VersionParseError { err: specifications::version::ParseError, range: TextRange },
+    #[error("Failed to parse package version")]
+    VersionParseError { source: specifications::version::ParseError, range: TextRange },
     /// The given package/version pair was not found.
+    #[error("Package '{}' does not exist{}", name, if !version.is_latest() { format!(" or has no version '{version}'") } else { String::new() })]
     UnknownPackageError { name: String, version: Version, range: TextRange },
     /// Failed to declare an imported package function
-    FunctionImportError { package_name: String, name: String, err: brane_dsl::errors::SymbolTableError, range: TextRange },
+    #[error("Could not import function '{name}' from package '{package_name}'")]
+    FunctionImportError { package_name: String, name: String, source: brane_dsl::errors::SymbolTableError, range: TextRange },
     /// Failed to declare an imported package class
-    ClassImportError { package_name: String, name: String, err: brane_dsl::errors::SymbolTableError, range: TextRange },
+    #[error("Could not import class '{name}' from package '{package_name}'")]
+    ClassImportError { package_name: String, name: String, source: brane_dsl::errors::SymbolTableError, range: TextRange },
 
     /// Failed to declare a new function.
-    FunctionDefineError { name: String, err: brane_dsl::errors::SymbolTableError, range: TextRange },
+    #[error("Could not define function '{name}'")]
+    FunctionDefineError { name: String, source: brane_dsl::errors::SymbolTableError, range: TextRange },
     /// Failed to declare a new parameter for a function.
-    ParameterDefineError { func_name: String, name: String, err: brane_dsl::errors::SymbolTableError, range: TextRange },
+    #[error("Could not define parmater '{name}' of function '{func_name}'")]
+    ParameterDefineError { func_name: String, name: String, source: brane_dsl::errors::SymbolTableError, range: TextRange },
 
     /// Failed to declare a new class.
-    ClassDefineError { name: String, err: brane_dsl::errors::SymbolTableError, range: TextRange },
+    #[error("Could not define class '{name}'")]
+    ClassDefineError { name: String, source: brane_dsl::errors::SymbolTableError, range: TextRange },
     /// The given class was not declared before.
+    #[error("Undefined class or type '{ident}'")]
     UndefinedClass { ident: String, range: TextRange },
     /// A method has the same name as a property in this class.
+    #[error("'{name}' refers to both a name and a property in class {c_name} (make sure all names are unique)")]
     DuplicateMethodAndProperty { c_name: String, name: String, new_range: TextRange, existing_range: TextRange },
     /// A method haf a 'self' parameter but in an incorrect position.
+    #[error("'self' can only be first parameter of method, not at position {arg}")]
     IllegalSelf { c_name: String, name: String, arg: usize, range: TextRange },
     /// A method did not have a 'self' parameter.
+    #[error("Missing 'self' parameter as first parameter in method '{name}' in class {c_name}")]
     MissingSelf { c_name: String, name: String, range: TextRange },
 
     /// Failed to parse the merge strategy.
+    #[error("Unknown merge strategy '{raw}'")]
     UnknownMergeStrategy { raw: String, range: TextRange },
     /// Failed to declare a new variable.
-    VariableDefineError { name: String, err: brane_dsl::errors::SymbolTableError, range: TextRange },
+    #[error("Could not define variable '{name}'")]
+    VariableDefineError { name: String, source: brane_dsl::errors::SymbolTableError, range: TextRange },
 
     /// The given function was not declared before.
+    #[error("Undefined function or method '{ident}'")]
     UndefinedFunction { ident: String, range: TextRange },
     /// A `commit_result()` did not have a string literal as 'name' field.
+    #[error("Builtin function 'commit_result()' can only accept string literals as data name")]
     CommitResultIncorrectExpr { range: TextRange },
 
     /// A project operator was used on a non-class type.
+    #[error("Cannot access field '{name}' of non-class type {got}")]
     NonClassProjection { name: String, got: DataType, range: TextRange },
     /// The given field is not known in the given class.
+    #[error("Class '{class_name}' has no field '{name}'")]
     UnknownField { class_name: String, name: String, range: TextRange },
 
     /// A data structure did not have a string literal as 'name' field.
+    #[error("Data class can only take String literals as name")]
     DataIncorrectExpr { range: TextRange },
     /// An unknown dataset was references.
+    #[error("No location has access to data asset '{name}'")]
     UnknownDataError { name: String, range: TextRange },
 
     /// The given variable was not declared before.
+    #[error("Undefined variable or parameter '{ident}'")]
     UndefinedVariable { ident: String, range: TextRange },
 }
 
@@ -675,101 +629,77 @@ impl ResolveError {
     }
 }
 
-impl Display for ResolveError {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use ResolveError::*;
-        match self {
-            VersionParseError { err, .. } => write!(f, "Failed to parse package version: {err}"),
-            UnknownPackageError { name, version, .. } => write!(
-                f,
-                "Package '{}' does not exist{}",
-                name,
-                if !version.is_latest() { format!(" or has no version '{version}'") } else { String::new() }
-            ),
-            FunctionImportError { package_name, name, err, .. } => {
-                write!(f, "Could not import function '{name}' from package '{package_name}': {err}")
-            },
-            ClassImportError { package_name, name, err, .. } => write!(f, "Could not import class '{name}' from package '{package_name}': {err}"),
-
-            FunctionDefineError { name, err, .. } => write!(f, "Could not define function '{name}': {err}"),
-            ParameterDefineError { func_name, name, err, .. } => write!(f, "Could not define parmater '{name}' of function '{func_name}': {err}"),
-
-            ClassDefineError { name, err, .. } => write!(f, "Could not define class '{name}': {err}"),
-            UndefinedClass { ident, .. } => write!(f, "Undefined class or type '{ident}'"),
-            DuplicateMethodAndProperty { c_name, name, .. } => {
-                write!(f, "'{name}' refers to both a name and a property in class {c_name} (make sure all names are unique)")
-            },
-            IllegalSelf { arg, .. } => write!(f, "'self' can only be first parameter of method, not at position {arg}"),
-            MissingSelf { c_name, name, .. } => write!(f, "Missing 'self' parameter as first parameter in method '{name}' in class {c_name}"),
-
-            UnknownMergeStrategy { raw, .. } => write!(f, "Unknown merge strategy '{raw}'"),
-            VariableDefineError { name, err, .. } => write!(f, "Could not define variable '{name}': {err}"),
-
-            UndefinedFunction { ident, .. } => write!(f, "Undefined function or method '{ident}'"),
-            CommitResultIncorrectExpr { .. } => write!(f, "Builtin function 'commit_result()' can only accept string literals as data name"),
-
-            NonClassProjection { name, got, .. } => write!(f, "Cannot access field '{name}' of non-class type {got}"),
-            UnknownField { class_name, name, .. } => write!(f, "Class '{class_name}' has no field '{name}'"),
-
-            DataIncorrectExpr { .. } => write!(f, "Data class can only take String literals as name"),
-            UnknownDataError { name, .. } => write!(f, "No location has access to data asset '{name}'"),
-
-            UndefinedVariable { ident, .. } => write!(f, "Undefined variable or parameter '{ident}'"),
-        }
-    }
-}
-
-impl Error for ResolveError {}
-
 
 
 /// Defines errors that occur during type checking.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum TypeError {
     /// The projection operator was used on a non-class variable.
+    #[error("Cannot use projection (.) on non-Class type {got}")]
     ProjOnNonClassError { got: DataType, range: TextRange },
     /// A method was used as if it was a field.
+    #[error("Cannot use method '{name}' as property")]
     UnexpectedMethod { class_name: String, name: String, range: TextRange },
     /// The given field is not known in the given class.
+    #[error("Class '{class_name}' has no field '{name}'")]
     UnknownField { class_name: String, name: String, range: TextRange },
 
     /// A type cannot be (implicitly) casted to another.
+    #[error("Expected a {expected}, got {got}")]
     IncorrectType { got: DataType, expected: DataType, range: TextRange },
 
     /// An imported function returned a Data, while it cannot do that anymore.
+    #[error("Function '{}' returns a {}, whereas this is illegal (use an {} instead)", name, BuiltinClasses::Data.name(), BuiltinClasses::IntermediateResult.name())]
     IllegalDataReturnError { name: String, range: TextRange },
 
     /// The return statements of a function did not all return the same type.
+    #[error("Not all return paths return the same value: the first returns {expected}, this returns {got}")]
     IncompatibleReturns { got: DataType, expected: DataType, got_range: TextRange, expected_range: TextRange },
 
     /// A block in a parallel statement did not return while it should have.
+    #[error("Block {block} in parallel statement does not return while it should")]
     ParallelNoReturn { block: usize, range: TextRange },
     /// A block in a parallel statement did return while it should not have.
+    #[error("Block {block} in parallel statement does returns a value of type {got} while it should not return")]
     ParallelUnexpectedReturn { block: usize, got: DataType, range: TextRange },
     /// Not all blocks in a parallel statement return a non-void value.
+    #[error("Block {block} in parallel statement does not return a value of type {expected} while it should")]
     ParallelIncompleteReturn { block: usize, expected: DataType, range: TextRange },
     /// The parallel returned the wrong value for the merge strategy
+    #[error(
+        "Using '{:?}' merge strategy requires parallel branches to return values of type {}, but got {}",
+        merge,
+        prettyprint_list(expected, "or"),
+        got
+    )]
     ParallelIllegalType { merge: MergeStrategy, got: DataType, expected: Vec<DataType>, range: TextRange, reason: TextRange },
     /// The parallel returns a value but the merge is None
+    #[error("Specify a merge strategy that returns a value if you intend to store the value")]
     ParallelNoStrategy { range: TextRange },
 
     /// A function call has been attempted on a non-function.
+    #[error("Cannot call object of type {got}")]
     NonFunctionCall { got: DataType, range: TextRange, defined_range: TextRange },
     /// The function identifier was not known.
+    #[error("Undefined function '{name}'")]
     UndefinedFunctionCall { name: String, range: TextRange },
     /// A function was given an incorrect number of parameters.
+    #[error("Function '{name}' expected {expected} arguments, but {got} were given")]
     FunctionArityError { name: String, got: usize, expected: usize, got_range: TextRange, expected_range: TextRange },
 
     /// An Array had confusing types
+    #[error("Array expression has conflicting type requirements: started out as {expected}, got {got}")]
     InconsistentArrayError { got: DataType, expected: DataType, got_range: TextRange, expected_range: TextRange },
 
     /// An Array Index was used on a non-array.
+    #[error("Cannot index non-Array type {got}")]
     NonArrayIndexError { got: DataType, range: TextRange },
 
     /// The user specified something else as a Data than a literal string.
+    #[error("Expected class {name} to have a `name` property with a literal string, got {got:?}")]
     DataNameNotAStringError { name: String, got: Expr, range: TextRange },
     /// The user did not specify a name field in a Data or IntermediateResult field.
+    #[error("Missing `name` property for class {name}")]
     DataNoNamePropertyError { name: String, range: TextRange },
 }
 
@@ -826,71 +756,13 @@ impl TypeError {
     }
 }
 
-impl Display for TypeError {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use TypeError::*;
-        match self {
-            ProjOnNonClassError { got, .. } => write!(f, "Cannot use projection (.) on non-Class type {got}"),
-            UnexpectedMethod { name, .. } => write!(f, "Cannot use method '{name}' as property"),
-            UnknownField { class_name, name, .. } => write!(f, "Class '{class_name}' has no field '{name}'"),
-
-            IncorrectType { got, expected, .. } => write!(f, "Expected a {expected}, got {got}"),
-
-            IllegalDataReturnError { name, .. } => write!(
-                f,
-                "Function '{}' returns a {}, whereas this is illegal (use an {} instead)",
-                name,
-                BuiltinClasses::Data.name(),
-                BuiltinClasses::IntermediateResult.name()
-            ),
-
-            IncompatibleReturns { got, expected, .. } => {
-                write!(f, "Not all return paths return the same value: the first returns {expected}, this returns {got}")
-            },
-
-            ParallelNoReturn { block, .. } => write!(f, "Block {block} in parallel statement does not return while it should"),
-            ParallelUnexpectedReturn { block, got, .. } => {
-                write!(f, "Block {block} in parallel statement does returns a value of type {got} while it should not return")
-            },
-            ParallelIncompleteReturn { block, expected, .. } => {
-                write!(f, "Block {block} in parallel statement does not return a value of type {expected} while it should")
-            },
-            ParallelIllegalType { merge, got, expected, .. } => write!(
-                f,
-                "Using '{:?}' merge strategy requires parallel branches to return values of type {}, but got {}",
-                merge,
-                prettyprint_list(expected, "or"),
-                got
-            ),
-            ParallelNoStrategy { .. } => write!(f, "Specify a merge strategy that returns a value if you intend to store the value"),
-
-            NonFunctionCall { got, .. } => write!(f, "Cannot call object of type {got}"),
-            UndefinedFunctionCall { name, .. } => write!(f, "Undefined function '{name}'"),
-            FunctionArityError { name, got, expected, .. } => write!(f, "Function '{name}' expected {expected} arguments, but {got} were given"),
-
-            InconsistentArrayError { got, expected, .. } => {
-                write!(f, "Array expression has conflicting type requirements: started out as {expected}, got {got}")
-            },
-
-            NonArrayIndexError { got, .. } => write!(f, "Cannot index non-Array type {got}"),
-
-            DataNameNotAStringError { name, got, .. } => {
-                write!(f, "Expected class {name} to have a `name` property with a literal string, got {got:?}")
-            },
-            DataNoNamePropertyError { name, .. } => write!(f, "Missing `name` property for class {name}"),
-        }
-    }
-}
-
-impl Error for TypeError {}
-
 
 
 /// Defines errors that occur while resolving null-usage.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum NullError {
     /// We found a Null used in an illegal spot.
+    #[error("You can only use 'null' to initialize a new variable")]
     IllegalNull { range: TextRange },
 }
 
@@ -920,28 +792,20 @@ impl NullError {
     }
 }
 
-impl Display for NullError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use NullError::*;
-        match self {
-            IllegalNull { .. } => write!(f, "You can only use 'null' to initialize a new variable"),
-        }
-    }
-}
-
-impl Error for NullError {}
-
 
 
 /// Defines errors that occur during location resolving.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum LocationError {
     /// A location was not a literal string.
+    #[error("On-structures can only accept string literals as location specifiers.")]
     IllegalLocation { range: TextRange },
     /// An On-structure combination already limited the locations too much.
+    #[error("Combination of attributes already over-restrict locations (no location left to run any calls).")]
     OnNoLocation { range: TextRange, reasons: Vec<TextRange> },
 
     /// The usage of On-structures and/or annotations caused a function to never-ever be able to run.
+    #[error("External function call is over-restricted and has no locations left to run.")]
     NoLocation { range: TextRange, reasons: Vec<TextRange> },
 }
 
@@ -974,27 +838,11 @@ impl LocationError {
     }
 }
 
-impl Display for LocationError {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use LocationError::*;
-        match self {
-            IllegalLocation { .. } => write!(f, "On-structures can only accept string literals as location specifiers."),
-            OnNoLocation { .. } => write!(f, "Combination of attributes already over-restrict locations (no location left to run any calls)."),
-
-            NoLocation { .. } => write!(f, "External function call is over-restricted and has no locations left to run."),
-        }
-    }
-}
-
-impl Error for LocationError {}
-
-
-
 /// Defines errors that occur during type checking.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum PruneError {
     /// Missing a return statement
+    #[error("Missing return statement of type {expected}")]
     MissingReturn { expected: DataType, range: TextRange },
 }
 
@@ -1024,24 +872,17 @@ impl PruneError {
     }
 }
 
-impl Display for PruneError {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use PruneError::*;
-        match self {
-            MissingReturn { expected, .. } => write!(f, "Missing return statement of type {expected}"),
-        }
-    }
-}
-
-impl Error for PruneError {}
 
 
 
 /// Defines errors that occur during the flatten traversal.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum FlattenError {
     /// There was a name conflict between intermediate results
+    #[error(
+        "Conflicting generated identifiers for intermediate results ('{name}'). This is a very unlikely event, and probably solved by simply trying \
+         again."
+    )]
     IntermediateResultConflict { name: String },
 }
 
@@ -1071,36 +912,10 @@ impl FlattenError {
     }
 }
 
-impl Display for FlattenError {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use FlattenError::*;
-        match self {
-            IntermediateResultConflict { name } => write!(
-                f,
-                "Conflicting generated identifiers for intermediate results ('{name}'). This is a very unlikely event, and probably solved by \
-                 simply trying again."
-            ),
-        }
-    }
-}
-
-impl Error for FlattenError {}
-
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum CompileError {
+    #[error("Something went wrong during compilation of the workflow: {what}")]
     AstError { what: String, errs: Vec<AstError> },
-}
-
-impl Error for CompileError {}
-
-impl Display for CompileError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use CompileError::*;
-        match self {
-            AstError { what, errs: _ } => write!(f, "Something went wrong during compilation of the workflow: {what}"),
-        }
-    }
 }
 
 impl CompileError {

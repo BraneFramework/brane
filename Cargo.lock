@@ -556,6 +556,7 @@ dependencies = [
  "serde_json_any_key",
  "specifications 3.0.0",
  "strum 0.27.1",
+ "thiserror 2.0.12",
  "uuid",
 ]
 

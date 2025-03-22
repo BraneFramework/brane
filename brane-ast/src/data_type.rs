@@ -13,7 +13,6 @@
 //!   transferral along the wire).
 //
 
-use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 
 use serde::{Deserialize, Serialize};
@@ -23,23 +22,12 @@ use crate::spec::BuiltinClasses;
 
 /***** AUXILLARY ERRORS *****/
 /// Defines errors that occur when parsing DataTypes.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DataTypeError {
     /// The given string was not recognized.
+    #[error("Unknown data type '{raw}'")]
     UnknownDataType { raw: String },
 }
-
-impl Display for DataTypeError {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use DataTypeError::*;
-        match self {
-            UnknownDataType { raw } => write!(f, "Unknown data type '{raw}'"),
-        }
-    }
-}
-
-impl Error for DataTypeError {}
 
 
 

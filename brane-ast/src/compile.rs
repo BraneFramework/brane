@@ -302,18 +302,18 @@ pub fn compile_snippet_to<R: std::io::Read>(
     trace!("Reading input");
     let mut reader: R = reader;
     let mut source: String = String::new();
-    if let Err(err) = reader.read_to_string(&mut source) {
-        return CompileResult::Err(vec![Error::ReaderReadError { err }]);
+    if let Err(source) = reader.read_to_string(&mut source) {
+        return CompileResult::Err(vec![Error::ReaderReadError { source }]);
     }
     // ...and compile it to a program
     trace!("Parsing as {}", options.lang);
     let mut program: Program = match brane_dsl::parse(source, package_index, options) {
         Ok(program) => program,
         Err(ParseError::Eof { lang, err }) => {
-            return CompileResult::Eof(Error::ParseError { err: ParseError::Eof { lang, err } });
+            return CompileResult::Eof(Error::ParseError { source: ParseError::Eof { lang, err } });
         },
         Err(err) => {
-            return CompileResult::Err(vec![Error::ParseError { err }]);
+            return CompileResult::Err(vec![Error::ParseError { source: err }]);
         },
     };
 
