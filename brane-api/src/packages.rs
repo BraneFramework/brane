@@ -110,13 +110,13 @@ impl TryFrom<PackageInfo> for PackageUdt {
         let functions_as_json: String = match serde_json::to_string(&package.functions) {
             Ok(funcs) => funcs,
             Err(err) => {
-                return Err(Error::FunctionsSerializeError { name: package.name, err });
+                return Err(Error::FunctionsSerializeError { name: package.name, source: err });
             },
         };
         let types_as_json: String = match serde_json::to_string(&package.types) {
             Ok(types) => types,
             Err(err) => {
-                return Err(Error::TypesSerializeError { name: package.name, err });
+                return Err(Error::TypesSerializeError { name: package.name, source: err });
             },
         };
 
@@ -181,7 +181,7 @@ pub async fn ensure_db_table(scylla: &Session) -> Result<(), Error> {
         )
         .await
     {
-        return Err(Error::PackageTypeDefineError { err });
+        return Err(Error::PackageTypeDefineError { source: err });
     }
 
     // Define  the `brane.packages` table
@@ -198,7 +198,7 @@ pub async fn ensure_db_table(scylla: &Session) -> Result<(), Error> {
         )
         .await
     {
-        return Err(Error::PackageTableDefineError { err });
+        return Err(Error::PackageTableDefineError { source: err });
     }
 
     // Done
@@ -239,7 +239,7 @@ async fn insert_package_into_db(scylla: &Arc<Session>, package: &PackageInfo, pa
         )
         .await
     {
-        return Err(Error::PackageInsertError { name: package.name, err });
+        return Err(Error::PackageInsertError { name: package.name, source: err });
     }
 
     // Done
@@ -271,8 +271,8 @@ pub async fn download(name: String, version: String, context: Context) -> Result
     let version: Version = if version.to_lowercase() == "latest" {
         let versions = match context.scylla.query("SELECT version FROM brane.packages WHERE name=?", vec![&name]).await {
             Ok(versions) => versions,
-            Err(err) => {
-                fail!(Error::VersionsQueryError { name, err });
+            Err(source) => {
+                fail!(Error::VersionsQueryError { name, source });
             },
         };
         let mut latest: Option<Version> = None;
@@ -284,8 +284,8 @@ pub async fn download(name: String, version: String, context: Context) -> Result
                 // Attempt to parse
                 let version: Version = match Version::from_str(version) {
                     Ok(version) => version,
-                    Err(err) => {
-                        fail!(Error::VersionParseError { raw: version.into(), err });
+                    Err(source) => {
+                        fail!(Error::VersionParseError { raw: version.into(), source });
                     },
                 };
 
@@ -307,8 +307,8 @@ pub async fn download(name: String, version: String, context: Context) -> Result
     } else {
         match Version::from_str(&version) {
             Ok(version) => version,
-            Err(err) => {
-                fail!(Error::VersionParseError { raw: version, err });
+            Err(source) => {
+                fail!(Error::VersionParseError { raw: version, source });
             },
         }
     };
@@ -332,16 +332,16 @@ pub async fn download(name: String, version: String, context: Context) -> Result
                     return Err(warp::reject::not_found());
                 }
             },
-            Err(err) => {
-                fail!(Error::PathQueryError { name, version, err });
+            Err(source) => {
+                fail!(Error::PathQueryError { name, version, source });
             },
         };
 
     // Retrieve the size of the file for the content length
     let length: u64 = match tfs::metadata(&file).await {
         Ok(metadata) => metadata.len(),
-        Err(err) => {
-            fail!(Error::FileMetadataError { path: file, err });
+        Err(source) => {
+            fail!(Error::FileMetadataError { path: file, source });
         },
     };
 
@@ -354,8 +354,8 @@ pub async fn download(name: String, version: String, context: Context) -> Result
         // Open the archive file to read
         let mut handle: tfs::File = match tfs::File::open(&file).await {
             Ok(handle) => handle,
-            Err(err) => {
-                fail!(Error::FileOpenError { path: file, err });
+            Err(source) => {
+                fail!(Error::FileOpenError { path: file, source });
             },
         };
 
@@ -366,8 +366,8 @@ pub async fn download(name: String, version: String, context: Context) -> Result
             // Read the chunk
             let bytes: usize = match handle.read(&mut buf).await {
                 Ok(bytes) => bytes,
-                Err(err) => {
-                    fail!(Error::FileReadError { path: file, err });
+                Err(source) => {
+                    fail!(Error::FileReadError { path: file, source });
                 },
             };
             if bytes == 0 {
@@ -375,8 +375,8 @@ pub async fn download(name: String, version: String, context: Context) -> Result
             }
 
             // Send that with the body
-            if let Err(err) = body_sender.send_data(Bytes::copy_from_slice(&buf[..bytes])).await {
-                fail!(Error::FileSendError { path: file, err });
+            if let Err(source) = body_sender.send_data(Bytes::copy_from_slice(&buf[..bytes])).await {
+                fail!(Error::FileSendError { path: file, source });
             }
         }
 
@@ -416,8 +416,8 @@ where
     // Load the node config file
     let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
-        Err(err) => {
-            fail!(Error::NodeConfigLoadError { err });
+        Err(source) => {
+            fail!(Error::NodeConfigLoadError { source });
         },
     };
     let central: &CentralConfig = match node_config.node.try_central() {
@@ -438,8 +438,8 @@ where
     debug!("Preparing filesystem...");
     let tempdir: TempDir = match TempDir::new() {
         Ok(tempdir) => tempdir,
-        Err(err) => {
-            fail!(Error::TempDirCreateError { err });
+        Err(source) => {
+            fail!(Error::TempDirCreateError { source });
         },
     };
     let tempdir_path: &Path = tempdir.path();
@@ -451,8 +451,8 @@ where
     let tar_path: PathBuf = tempdir_path.join(format!("{id}.tar.gz"));
     let mut handle = match tfs::File::create(&tar_path).await {
         Ok(handle) => handle,
-        Err(err) => {
-            fail!(Error::TarCreateError { path: tar_path, err });
+        Err(source) => {
+            fail!(Error::TarCreateError { path: tar_path, source });
         },
     };
 
@@ -462,20 +462,20 @@ where
         // Unwrap the chunk
         let mut chunk: B = match chunk {
             Ok(chunk) => chunk,
-            Err(err) => {
-                fail!(Error::BodyReadError { err });
+            Err(source) => {
+                fail!(Error::BodyReadError { source });
             },
         };
 
         // Write the chunk to the Tokio file
-        if let Err(err) = handle.write_all_buf(&mut chunk).await {
-            fail!(Error::TarWriteError { path: tar_path, err });
+        if let Err(source) = handle.write_all_buf(&mut chunk).await {
+            fail!(Error::TarWriteError { path: tar_path, source });
         }
     }
 
     // Wait until the handle is finished writing
-    if let Err(err) = handle.shutdown().await {
-        fail!(Error::TarFlushError { path: tar_path, err });
+    if let Err(source) = handle.shutdown().await {
+        fail!(Error::TarFlushError { path: tar_path, source });
     }
 
 
@@ -488,8 +488,8 @@ where
     {
         let handle: tfs::File = match tfs::File::open(&tar_path).await {
             Ok(handle) => handle,
-            Err(err) => {
-                fail!(Error::TarReopenError { path: tar_path, err });
+            Err(source) => {
+                fail!(Error::TarReopenError { path: tar_path, source });
             },
         };
 
@@ -500,8 +500,8 @@ where
         // Iterate over the entries in the stream
         let mut entries: Entries<_> = match tar.entries() {
             Ok(entries) => entries,
-            Err(err) => {
-                fail!(Error::TarEntriesError { path: tar_path, err });
+            Err(source) => {
+                fail!(Error::TarEntriesError { path: tar_path, source });
             },
         };
         let mut i: usize = 0;
@@ -511,16 +511,16 @@ where
             // Unwrap the entry
             let mut entry: Entry<_> = match entry {
                 Ok(entry) => entry,
-                Err(err) => {
-                    fail!(Error::TarEntryError { path: tar_path, entry: i, err });
+                Err(source) => {
+                    fail!(Error::TarEntryError { path: tar_path, entry: i, source });
                 },
             };
 
             // Attempt to get its path
             let entry_path: Cow<Path> = match entry.path() {
                 Ok(path) => path,
-                Err(err) => {
-                    fail!(Error::TarEntryPathError { path: tar_path, entry: i, err });
+                Err(source) => {
+                    fail!(Error::TarEntryPathError { path: tar_path, entry: i, source });
                 },
             };
 
@@ -528,15 +528,15 @@ where
             if entry_path == PathBuf::from("package.yml") {
                 // Extract as such
                 debug!("Extracting '{}/package.yml' to '{}'...", tar_path.display(), info_path.display());
-                if let Err(err) = entry.unpack(&info_path).await {
-                    fail!(Error::TarFileUnpackError { file: PathBuf::from("package.yml"), tarball: tar_path, target: info_path, err });
+                if let Err(source) = entry.unpack(&info_path).await {
+                    fail!(Error::TarFileUnpackError { file: PathBuf::from("package.yml"), tarball: tar_path, target: info_path, source });
                 }
                 did_info = true;
             } else if entry_path == PathBuf::from("image.tar") {
                 // Extract as such
                 debug!("Extracting '{}/image.tar' to '{}'...", tar_path.display(), image_path.display());
-                if let Err(err) = entry.unpack(&image_path).await {
-                    fail!(Error::TarFileUnpackError { file: PathBuf::from("image.tar"), tarball: tar_path, target: image_path, err });
+                if let Err(source) = entry.unpack(&image_path).await {
+                    fail!(Error::TarFileUnpackError { file: PathBuf::from("image.tar"), tarball: tar_path, target: image_path, source });
                 }
                 did_image = true;
             } else {
@@ -560,22 +560,22 @@ where
     // Read the extracted package info
     let sinfo: String = match tfs::read_to_string(&info_path).await {
         Ok(sinfo) => sinfo,
-        Err(err) => {
-            fail!(Error::PackageInfoReadError { path: info_path, err });
+        Err(source) => {
+            fail!(Error::PackageInfoReadError { path: info_path, source });
         },
     };
     let info: PackageInfo = match serde_yaml::from_str(&sinfo) {
         Ok(info) => info,
-        Err(err) => {
-            fail!(Error::PackageInfoParseError { path: info_path, err });
+        Err(source) => {
+            fail!(Error::PackageInfoParseError { path: info_path, source });
         },
     };
 
     // Copy the image tar to the proper location
     let result_path: PathBuf = central.paths.packages.join(format!("{}-{}.tar", info.name, info.version));
     debug!("Moving image '{}' to '{}'...", image_path.display(), result_path.display());
-    if let Err(err) = tfs::rename(&image_path, &result_path).await {
-        fail!(image_path, Error::FileMoveError { from: image_path, to: result_path, err });
+    if let Err(source) = tfs::rename(&image_path, &result_path).await {
+        fail!(image_path, Error::FileMoveError { from: image_path, to: result_path, source });
     }
 
     // Call the insert function to store the dataset in the registry

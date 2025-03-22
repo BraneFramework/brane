@@ -27,6 +27,7 @@ scylla = "0.12.0"
 serde_json = "1.0.120"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
 tempfile = "3.10.1"
+thiserror = "2.0.0"
 tokio = { version = "1.38.0", default-features = false, features = ["macros", "rt", "signal"] }
 tokio-stream = "0.1.6"
 tokio-tar = "0.3.0"

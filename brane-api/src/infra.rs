@@ -59,8 +59,8 @@ pub async fn registries(context: Context) -> Result<impl Reply, Rejection> {
     // Load the infrastructure file
     let infra: InfraFile = match InfraFile::from_path(&node_config.node.central().paths.infra) {
         Ok(infra) => infra,
-        Err(err) => {
-            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), err });
+        Err(source) => {
+            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source });
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -74,8 +74,8 @@ pub async fn registries(context: Context) -> Result<impl Reply, Rejection> {
     // Now serialize this map
     let body: String = match serde_json::to_string(&locations) {
         Ok(body) => body,
-        Err(err) => {
-            error!("{}", Error::SerializeError { what: "list of all registry endpoints", err });
+        Err(source) => {
+            error!("{}", Error::SerializeError { what: "list of all registry endpoints", source });
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -121,8 +121,8 @@ pub async fn get_registry(loc: String, context: Context) -> Result<impl Reply, R
     // Load the infrastructure file
     let infra: InfraFile = match InfraFile::from_path(&node_config.node.central().paths.infra) {
         Ok(infra) => infra,
-        Err(err) => {
-            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), err });
+        Err(source) => {
+            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source });
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -179,8 +179,8 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     // Load the infrastructure file
     let infra: InfraFile = match InfraFile::from_path(&node_config.node.central().paths.infra) {
         Ok(infra) => infra,
-        Err(err) => {
-            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), err });
+        Err(source) => {
+            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source });
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -198,13 +198,13 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     let res: reqwest::Response = match context.proxy.get(&reg_addr, Some(NewPathRequestTlsOptions { use_client_auth: false, location: loc })).await {
         Ok(res) => match res {
             Ok(res) => res,
-            Err(err) => {
-                error!("{}", Error::RequestError { address: reg_addr, err });
+            Err(source) => {
+                error!("{}", Error::RequestError { address: reg_addr, source });
                 return Err(warp::reject::custom(Error::SecretError));
             },
         },
-        Err(err) => {
-            error!("{}", Error::ProxyError { err });
+        Err(source) => {
+            error!("{}", Error::ProxyError { source });
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -216,15 +216,15 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     // Parse the body as the proper JSON
     let capabilities: String = match res.text().await {
         Ok(caps) => caps,
-        Err(err) => {
-            error!("{}", Error::ResponseBodyError { address: reg_addr, err });
+        Err(source) => {
+            error!("{}", Error::ResponseBodyError { address: reg_addr, source });
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
     let capabilities: HashSet<Capability> = match serde_json::from_str(&capabilities) {
         Ok(caps) => caps,
-        Err(err) => {
-            error!("{}", Error::ResponseParseError { address: reg_addr, raw: capabilities, err });
+        Err(source) => {
+            error!("{}", Error::ResponseParseError { address: reg_addr, raw: capabilities, source });
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -232,8 +232,8 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     // Create a body with the registry (re-serialize for full correctness)
     let body: String = match serde_json::to_string(&capabilities) {
         Ok(body) => body,
-        Err(err) => {
-            error!("{}", Error::CapabilitiesSerializeError { err });
+        Err(source) => {
+            error!("{}", Error::CapabilitiesSerializeError { source });
             return Err(warp::reject::custom(Error::SecretError));
         },
     };

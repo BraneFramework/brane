@@ -101,7 +101,7 @@ async fn main() {
     {
         Ok(scylla) => scylla,
         Err(reason) => {
-            error!("{}", ApiError::ScyllaConnectError { host: central.services.aux_scylla.address, err: reason });
+            error!("{}", ApiError::ScyllaConnectError { host: central.services.aux_scylla.address, source: reason });
             std::process::exit(-1);
         },
     };
