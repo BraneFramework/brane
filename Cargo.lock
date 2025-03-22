@@ -614,6 +614,7 @@ dependencies = [
  "serde",
  "serde_yml",
  "specifications 3.0.0",
+ "thiserror 2.0.12",
  "tokio",
  "x509-parser",
 ]

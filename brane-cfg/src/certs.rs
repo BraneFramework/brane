@@ -53,7 +53,7 @@ pub fn extract_client_name(cert: Certificate) -> Result<String, Error> {
             // Extract it as the name
             Ok(subject[name_loc..name_end].to_string())
         },
-        Err(err) => Err(Error::ClientCertParseError { err }),
+        Err(source) => Err(Error::ClientCertParseError { source }),
     }
 }
 
@@ -76,12 +76,7 @@ pub fn load_all(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Vec<Private
     let file: &Path = file.as_ref();
 
     // Open a (buffered) file handle
-    let handle: fs::File = match fs::File::open(file) {
-        Ok(handle) => handle,
-        Err(err) => {
-            return Err(Error::FileOpenError { what: "PEM", path: file.into(), err });
-        },
-    };
+    let handle: fs::File = fs::File::open(file).map_err(|source| Error::FileOpenError { what: "PEM", path: file.into(), source })?;
     let mut reader: io::BufReader<fs::File> = io::BufReader::new(handle);
 
     // Iterate over the thing to read it
@@ -89,12 +84,7 @@ pub fn load_all(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Vec<Private
     let mut keys: Vec<PrivateKey> = vec![];
     while let Some(item) = rustls_pemfile::read_one(&mut reader).transpose() {
         // Unwrap the item
-        let item: Item = match item {
-            Ok(item) => item,
-            Err(err) => {
-                return Err(Error::FileReadError { what: "PEM", path: file.into(), err });
-            },
-        };
+        let item: Item = item.map_err(|source| Error::FileReadError { what: "PEM", path: file.into(), source })?;
 
         // Match the item
         match item {
@@ -127,21 +117,11 @@ pub fn load_cert(certfile: impl AsRef<Path>) -> Result<Vec<Certificate>, Error> 
     let certfile: &Path = certfile.as_ref();
 
     // Open a (buffered) file handle
-    let handle: fs::File = match fs::File::open(certfile) {
-        Ok(handle) => handle,
-        Err(err) => {
-            return Err(Error::FileOpenError { what: "certificate", path: certfile.into(), err });
-        },
-    };
+    let handle: fs::File = fs::File::open(certfile).map_err(|source| Error::FileOpenError { what: "certificate", path: certfile.into(), source })?;
     let mut reader: io::BufReader<fs::File> = io::BufReader::new(handle);
 
     // Read the certificates in this file
-    let certs: Vec<Vec<u8>> = match certs(&mut reader) {
-        Ok(certs) => certs,
-        Err(err) => {
-            return Err(Error::CertFileParseError { path: certfile.into(), err });
-        },
-    };
+    let certs: Vec<Vec<u8>> = certs(&mut reader).map_err(|source| Error::CertFileParseError { path: certfile.into(), source })?;
     debug!("Found {} certificate(s) in '{}'", certs.len(), certfile.display());
 
     // Done, return
@@ -162,21 +142,11 @@ pub fn load_key(keyfile: impl AsRef<Path>) -> Result<Vec<PrivateKey>, Error> {
     let keyfile: &Path = keyfile.as_ref();
 
     // Open a (buffered) file handle
-    let handle: fs::File = match fs::File::open(keyfile) {
-        Ok(handle) => handle,
-        Err(err) => {
-            return Err(Error::FileOpenError { what: "private key", path: keyfile.into(), err });
-        },
-    };
+    let handle: fs::File = fs::File::open(keyfile).map_err(|source| Error::FileOpenError { what: "private key", path: keyfile.into(), source })?;
     let mut reader: io::BufReader<fs::File> = io::BufReader::new(handle);
 
     // Read the certificates in this file
-    let keys: Vec<Vec<u8>> = match rsa_private_keys(&mut reader) {
-        Ok(keys) => keys,
-        Err(err) => {
-            return Err(Error::CertFileParseError { path: keyfile.into(), err });
-        },
-    };
+    let keys: Vec<Vec<u8>> = rsa_private_keys(&mut reader).map_err(|source| Error::CertFileParseError { path: keyfile.into(), source })?;
     debug!("Found {} key(s) in '{}'", keys.len(), keyfile.display());
 
     // Done, return
@@ -199,12 +169,7 @@ pub fn load_identity(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Privat
     let file: &Path = file.as_ref();
 
     // Open the file
-    let handle: fs::File = match fs::File::open(file) {
-        Ok(handle) => handle,
-        Err(err) => {
-            return Err(Error::FileOpenError { what: "identity", path: file.into(), err });
-        },
-    };
+    let handle: fs::File = fs::File::open(file).map_err(|source| Error::FileOpenError { what: "identity", path: file.into(), source })?;
     let mut reader: io::BufReader<fs::File> = io::BufReader::new(handle);
 
     // Iterate over the thing to read it
@@ -212,12 +177,7 @@ pub fn load_identity(file: impl AsRef<Path>) -> Result<(Vec<Certificate>, Privat
     let mut keys: Vec<PrivateKey> = vec![];
     while let Some(item) = rustls_pemfile::read_one(&mut reader).transpose() {
         // Unwrap the item
-        let item: Item = match item {
-            Ok(item) => item,
-            Err(err) => {
-                return Err(Error::FileReadError { what: "identity", path: file.into(), err });
-            },
-        };
+        let item: Item = item.map_err(|source| Error::FileReadError { what: "identity", path: file.into(), source })?;
 
         // Match the item
         match item {
@@ -292,21 +252,12 @@ pub fn load_certstore(storefile: impl AsRef<Path>) -> Result<RootCertStore, Erro
     let storefile: &Path = storefile.as_ref();
 
     // Read the certificate first
-    let handle: fs::File = match fs::File::open(storefile) {
-        Ok(handle) => handle,
-        Err(err) => {
-            return Err(Error::FileOpenError { what: "client certificate store", path: storefile.into(), err });
-        },
-    };
+    let handle: fs::File =
+        fs::File::open(storefile).map_err(|source| Error::FileOpenError { what: "client certificate store", path: storefile.into(), source })?;
     let mut reader: io::BufReader<fs::File> = io::BufReader::new(handle);
 
     // Read the certificates in this file
-    let certs: Vec<Vec<u8>> = match certs(&mut reader) {
-        Ok(certs) => certs,
-        Err(err) => {
-            return Err(Error::CertFileParseError { path: storefile.into(), err });
-        },
-    };
+    let certs: Vec<Vec<u8>> = certs(&mut reader).map_err(|source| Error::CertFileParseError { path: storefile.into(), source })?;
     debug!("Found {} certificate(s) in '{}'", certs.len(), storefile.display());
 
     // Read the certificates in the file to the store.
