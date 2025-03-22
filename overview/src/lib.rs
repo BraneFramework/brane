@@ -61,4 +61,5 @@
 //!   - kafka
 //!   - version
 //!   - address
+//!   - identifier
 //
