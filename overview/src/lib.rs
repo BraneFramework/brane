@@ -55,4 +55,6 @@
 //!   Below a non-exhaustive list of those projects and what was the last version in which they
 //!   were developed.
 //!   - `brane-oas`: An Openapi specification crate for Brane. Removed after v3.0.0
+//!
+//!   **Removed modules:**
 //
