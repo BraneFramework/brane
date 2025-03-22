@@ -57,4 +57,6 @@
 //!   - `brane-oas`: An Openapi specification crate for Brane. Removed after v3.0.0
 //!
 //!   **Removed modules:**
+//!   brane-shr:
+//!   - kafka
 //
