@@ -130,14 +130,10 @@ struct Arguments {
 fn read_input(name: impl Into<String>, input: &mut impl BufRead) -> Result<String, CompileError> {
     // Read line-by-line
     let mut raw: String = String::new();
+    let name = name.into();
     for line in input.lines() {
         // Unwrap the line
-        let line: String = match line {
-            Ok(raw) => raw,
-            Err(err) => {
-                return Err(CompileError::InputReadError { name: name.into(), err });
-            },
-        };
+        let line: String = line.map_err(|source| CompileError::InputReadError { name: name.clone(), source })?;
 
         // Check if the line is our defined separator
         if line == "<-- FILE -->" {
@@ -207,12 +203,9 @@ pub async fn compile_iter(
             if raw_assets {
                 warn!("Giving `--raw` has no effect when loading packages remotely");
             }
-            match brane_tsk::api::get_package_index(remote).await {
-                Ok(pindex) => pindex,
-                Err(err) => {
-                    return Err(CompileError::RemotePackageIndexError { endpoint: remote.clone(), err });
-                },
-            }
+            brane_tsk::api::get_package_index(remote)
+                .await
+                .map_err(|source| CompileError::RemotePackageIndexError { endpoint: remote.clone(), source })?
         },
 
         IndexLocation::Local(local) => {
@@ -227,12 +220,7 @@ pub async fn compile_iter(
 
             debug!("Fetching local package index from '{}'...", local.display());
             if !raw_assets {
-                match brane_tsk::local::get_package_index(local) {
-                    Ok(pindex) => pindex,
-                    Err(err) => {
-                        return Err(CompileError::LocalPackageIndexError { err });
-                    },
-                }
+                brane_tsk::local::get_package_index(local).map_err(|source| CompileError::LocalPackageIndexError { source })?
             } else {
                 brane_shr::utilities::create_package_index_from(local)
             }
@@ -244,12 +232,7 @@ pub async fn compile_iter(
             if raw_assets {
                 warn!("Giving `--raw` has no effect when loading datasets remotely");
             }
-            match brane_tsk::api::get_data_index(remote).await {
-                Ok(pindex) => pindex,
-                Err(err) => {
-                    return Err(CompileError::RemoteDataIndexError { endpoint: remote.clone(), err });
-                },
-            }
+            brane_tsk::api::get_data_index(remote).await.map_err(|source| CompileError::RemoteDataIndexError { endpoint: remote.clone(), source })?
         },
 
         IndexLocation::Local(local) => {
@@ -264,12 +247,7 @@ pub async fn compile_iter(
 
             debug!("Fetching local data index from '{}'...", local.display());
             if !raw_assets {
-                match brane_tsk::local::get_data_index(local) {
-                    Ok(pindex) => pindex,
-                    Err(err) => {
-                        return Err(CompileError::LocalDataIndexError { err });
-                    },
-                }
+                brane_tsk::local::get_data_index(local).map_err(|source| CompileError::LocalDataIndexError { source })?
             } else {
                 brane_shr::utilities::create_data_index_from(local)
             }
@@ -293,9 +271,7 @@ pub async fn compile_iter(
         CompileResult::Program(_, _) => unreachable!(),
         CompileResult::Eof(err) => {
             err.prettyprint(iname, source);
-            if let Err(err) = writeln!(output, "---ERROR---") {
-                return Err(CompileError::OutputWriteError { name: oname.into(), err });
-            }
+            writeln!(output, "---ERROR---").map_err(|source| CompileError::OutputWriteError { name: oname.into(), source })?;
             state.offset += raw.chars().filter(|c| *c == '\n').count();
             return Ok(());
         },
@@ -303,9 +279,7 @@ pub async fn compile_iter(
             for err in &errs {
                 err.prettyprint(iname, &mut *source);
             }
-            if let Err(err) = writeln!(output, "---ERROR---") {
-                return Err(CompileError::OutputWriteError { name: oname.into(), err });
-            }
+            writeln!(output, "---ERROR---").map_err(|source| CompileError::OutputWriteError { name: oname.into(), source })?;
             state.offset += raw.chars().filter(|c| *c == '\n').count();
             return Ok(());
         },
@@ -318,29 +292,15 @@ pub async fn compile_iter(
         ast::do_traversal(&workflow, &mut res).unwrap();
         String::from_utf8_lossy(&res).to_string()
     } else if !compact {
-        match serde_json::to_string_pretty(&workflow) {
-            Ok(sworkflow) => sworkflow,
-            Err(err) => {
-                return Err(CompileError::WorkflowSerializeError { err });
-            },
-        }
+        serde_json::to_string_pretty(&workflow).map_err(|source| CompileError::WorkflowSerializeError { source })?
     } else {
-        match serde_json::to_string(&workflow) {
-            Ok(sworkflow) => sworkflow,
-            Err(err) => {
-                return Err(CompileError::WorkflowSerializeError { err });
-            },
-        }
+        serde_json::to_string(&workflow).map_err(|source| CompileError::WorkflowSerializeError { source })?
     };
 
     // Write it and update the source
     debug!("Writing to '{}'...", oname);
-    if let Err(err) = writeln!(output, "{sworkflow}") {
-        return Err(CompileError::OutputWriteError { name: oname.into(), err });
-    }
-    if let Err(err) = writeln!(output, "---END---") {
-        return Err(CompileError::OutputWriteError { name: oname.into(), err });
-    }
+    writeln!(output, "{sworkflow}").map_err(|source| CompileError::OutputWriteError { name: oname.into(), source })?;
+    writeln!(output, "---END---").map_err(|source| CompileError::OutputWriteError { name: oname.into(), source })?;
 
     // Done
     Ok(())

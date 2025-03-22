@@ -18,6 +18,7 @@ enum-debug.workspace = true
 humanlog.workspace = true
 human-panic = "2.0.0"
 log = "0.4.22"
+thiserror = "2.0.0"
 tokio = { version = "1.38.0", features = ["rt","macros"] }
 url = "2.5.0"
 
