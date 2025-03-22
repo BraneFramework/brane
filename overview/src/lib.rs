@@ -62,4 +62,5 @@
 //!   - version
 //!   - address
 //!   - identifier
+//!   - info
 //
