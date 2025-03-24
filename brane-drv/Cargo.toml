@@ -19,13 +19,14 @@ dotenvy.workspace = true
 enum-debug.workspace = true
 env_logger.workspace = true
 error-trace.workspace = true
-log.workspace = true
 prost.workspace = true
 reqwest = { workspace = true }
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "signal"] }
 tonic.workspace = true
+tracing.workspace = true
+log.workspace = true
 
 # Brane
 brane-cfg.workspace = true

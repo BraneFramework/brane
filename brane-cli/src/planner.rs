@@ -20,10 +20,10 @@ use std::sync::Arc;
 
 use brane_tsk::errors::PlanError;
 use brane_tsk::spec::{LOCALHOST, Planner};
-use log::debug;
 use parking_lot::Mutex;
 use specifications::data::{AccessKind, AvailabilityKind, DataIndex, DataName};
 use specifications::wir::{Edge, SymTable, Workflow};
+use tracing::debug;
 
 
 /***** HELPER FUNCTIONS *****/

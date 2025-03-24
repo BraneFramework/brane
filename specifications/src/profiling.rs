@@ -31,9 +31,9 @@ use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Local};
 use enum_debug::EnumDebug;
-use log::warn;
 use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 
 /***** HELPER MACROS *****/

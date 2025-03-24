@@ -31,10 +31,10 @@ use dotenvy::dotenv;
 use expanduser::expanduser;
 use human_panic::setup_panic;
 use humanlog::{DebugMode, HumanLogger};
-use log::{debug, error, info, warn};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 use specifications::wir::Workflow;
+use tracing::{debug, error, info, warn};
 
 
 

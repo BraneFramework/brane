@@ -25,7 +25,6 @@ use brane_exe::FullValue;
 use brane_tsk::docker::DockerOptions;
 use brane_tsk::spec::AppId;
 use error_trace::ErrorTrace as _;
-use log::warn;
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{CmdKind, Highlighter, MatchingBracketHighlighter};
@@ -38,6 +37,7 @@ use serde::{Deserialize, Serialize};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 use specifications::wir::Workflow;
+use tracing::warn;
 
 pub use crate::errors::ReplError as Error;
 use crate::instance::InstanceInfo;
@@ -155,7 +155,7 @@ pub fn from_source(
         },
     };
     debug!("Compiled to workflow:\n\n");
-    if log::max_level() == log::LevelFilter::Debug {
+    if tracing::enabled!(tracing::Level::DEBUG) {
         brane_ast::traversals::print::ast::do_traversal(&workflow, std::io::stdout()).unwrap();
     }
 

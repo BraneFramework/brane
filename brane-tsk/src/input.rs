@@ -21,13 +21,13 @@ use brane_exe::FullValue;
 use console::{Term, style};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input as Prompt, Select};
-use log::debug;
 use specifications::data::DataIndex;
 use specifications::package::PackageInfo;
 use specifications::version::ConcreteFunctionVersion;
 use specifications::wir::builtins::BuiltinClasses;
 use specifications::wir::data_type::DataType;
 use specifications::wir::{ClassDef, VarDef};
+use tracing::debug;
 
 
 /***** ERRORS *****/

@@ -33,12 +33,11 @@ use dotenvy::dotenv;
 use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
 // use git2::Repository;
-use log::{error, info};
 use specifications::arch::Arch;
 use specifications::package::PackageKind;
 use specifications::version::AliasedFunctionVersion;
 use tempfile::TempDir;
-
+use tracing::{error, info};
 
 /***** ENTRYPOINT *****/
 #[tokio::main]

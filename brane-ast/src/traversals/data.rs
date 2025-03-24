@@ -21,8 +21,8 @@ use brane_dsl::ast::{Block, Data, Expr, Program, Stmt};
 use brane_dsl::symbol_table::{ClassEntry, FunctionEntry, SymbolTableEntry, VarEntry};
 use brane_dsl::{DataType, SymbolTable};
 use enum_debug::EnumDebug as _;
-use log::debug;
 use specifications::wir::builtins::{BuiltinClasses, BuiltinFunctions};
+use tracing::debug;
 use uuid::Uuid;
 
 use crate::errors::AstError;

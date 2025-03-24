@@ -22,11 +22,11 @@ use brane_dsl::data_type::{ClassSignature, FunctionSignature};
 use brane_dsl::symbol_table::{ClassEntry, FunctionEntry, SymbolTableEntry, VarEntry};
 use brane_dsl::{DataType, SymbolTable, TextRange};
 use enum_debug::EnumDebug as _;
-use log::trace;
 use specifications::data::DataIndex;
 use specifications::package::{PackageIndex, PackageInfo};
 use specifications::wir::builtins::{BuiltinClasses, BuiltinFunctions};
 use specifications::wir::merge_strategy::MergeStrategy;
+use tracing::trace;
 
 use crate::errors::AstError;
 pub use crate::errors::ResolveError as Error;

@@ -34,12 +34,12 @@ use brane_cfg::proxy;
 use brane_shr::fs::MaybeTempPath;
 use brane_tsk::docker::{DockerOptions, ImageSource, ensure_image, get_digest};
 use console::style;
-use log::{debug, info, warn};
 use rand::Rng;
 use rand::distr::Alphanumeric;
 use serde::Serialize;
 use specifications::container::Image;
 use specifications::version::BraneVersion;
+use tracing::{debug, info, warn};
 
 pub use crate::errors::LifetimeError as Error;
 use crate::spec::{LogsOpts, StartOpts, StartSubcommand};

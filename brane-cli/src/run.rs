@@ -161,8 +161,8 @@ pub async fn run_instance<O: Write, E: Write>(
                 if profile { /* TODO */ }
 
                 // The remote send us some debug message
-                if let Some(debug) = reply.debug {
-                    debug!("Remote: {}", debug);
+                if let Some(debug_msg) = reply.debug {
+                    debug!("Remote: {}", debug_msg);
                 }
 
                 // The remote send us a normal text message

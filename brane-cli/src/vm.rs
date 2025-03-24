@@ -31,7 +31,6 @@ use brane_tsk::errors::{CommitError, ExecuteError, PreprocessError, StdoutError}
 use brane_tsk::spec::{LOCALHOST, Planner as _};
 use brane_tsk::tools::decode_base64;
 use chrono::Utc;
-use log::{debug, info};
 use parking_lot::Mutex;
 use specifications::container::{Image, VolumeBind};
 use specifications::data::{AccessKind, DataIndex, DataInfo, DataName, PreprocessKind};
@@ -43,6 +42,7 @@ use specifications::wir::Workflow;
 use specifications::wir::locations::Location;
 use tokio::fs as tfs;
 use tokio::io::AsyncWriteExt;
+use tracing::{debug, info};
 
 pub use crate::errors::OfflineVmError as Error;
 use crate::planner::OfflinePlanner;

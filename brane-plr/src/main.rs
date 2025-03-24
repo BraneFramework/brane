@@ -27,9 +27,9 @@ use clap::Parser;
 use dotenvy::dotenv;
 use error_trace::trace;
 use humanlog::{DebugMode, HumanLogger};
-use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use tokio::signal::unix::{Signal, SignalKind, signal};
+use tracing::{debug, error, info, warn};
 use warp::Filter as _;
 
 

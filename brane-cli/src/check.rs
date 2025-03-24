@@ -21,12 +21,12 @@ use brane_ast::CompileResult;
 use brane_dsl::{Language, ParserOptions};
 use console::style;
 use error_trace::trace;
-use log::{debug, info};
 use specifications::data::DataIndex;
 use specifications::driving::{CheckReply, CheckRequest, DriverServiceClient};
 use specifications::package::PackageIndex;
 use specifications::profiling::{self};
 use specifications::wir::Workflow;
+use tracing::{debug, info};
 
 pub use crate::errors::CheckError as Error;
 use crate::instance::InstanceInfo;

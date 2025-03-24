@@ -44,7 +44,6 @@ use enum_debug::EnumDebug as _;
 use error_trace::{ErrorTrace as _, trace};
 use futures_util::StreamExt;
 use hyper::body::Bytes;
-use log::{debug, error, info, warn};
 use policy_reasoner::spec::reasonerconn::ReasonerResponse;
 use policy_reasoner::spec::reasons::ManyReason;
 use reqwest::Method;
@@ -67,6 +66,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::{self, Sender};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
+use tracing::{debug, error, info, warn};
 
 
 /***** CONSTANTS *****/
@@ -86,9 +86,9 @@ macro_rules! err {
 
     ($tx:ident,JobStatus:: $status:ident, $err:expr) => {{
         let err = $err;
-        log::error!("{}", err.trace());
+        tracing::error!("{}", err.trace());
         if let Err(err) = update_client(&$tx, JobStatus::$status(format!("{}", err))).await {
-            log::error!("{}", trace!(("Failed to update client on error"), err));
+            tracing::error!("{}", trace!(("Failed to update client on error"), err));
         }
         Err(err)
     }};

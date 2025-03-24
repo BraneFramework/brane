@@ -22,10 +22,11 @@ use brane_prx::client::ProxyClient;
 use clap::Parser;
 use dotenvy::dotenv;
 use error_trace::trace;
-use log::{LevelFilter, debug, error, info, warn};
+use log::LevelFilter;
 use specifications::working::JobServiceServer;
 use tokio::signal::unix::{Signal, SignalKind, signal};
 use tonic::transport::Server;
+use tracing::{debug, error, info, warn};
 
 mod cli;
 

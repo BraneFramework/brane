@@ -18,9 +18,9 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::{Arc, MutexGuard};
 
-use log::{debug, error, info};
 use specifications::address::Address;
 use tokio::net::{TcpListener, TcpStream};
+use tracing::{debug, error, info};
 use warp::http::StatusCode;
 use warp::hyper::body::Bytes;
 use warp::hyper::{Body, Response};

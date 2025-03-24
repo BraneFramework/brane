@@ -16,8 +16,8 @@
 use std::cell::Ref;
 use std::collections::HashMap;
 
-use log::debug;
 use specifications::wir::{Edge, SymTable, Workflow};
+use tracing::debug;
 
 use crate::ast_unresolved::UnresolvedWorkflow;
 use crate::edgebuffer::{EdgeBuffer, EdgeBufferNode, EdgeBufferNodeLink, EdgeBufferNodePtr};

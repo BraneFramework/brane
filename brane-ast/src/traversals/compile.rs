@@ -22,10 +22,10 @@ use std::sync::Arc;
 use brane_dsl::ast as dsl;
 use brane_dsl::symbol_table::{FunctionEntry, VarEntry};
 use enum_debug::EnumDebug as _;
-use log::warn;
 use specifications::data::DataName;
 use specifications::wir as ast;
 use specifications::wir::merge_strategy::MergeStrategy;
+use tracing::warn;
 
 use crate::ast_unresolved::UnresolvedWorkflow;
 use crate::dsl::{dtype_dsl_to_ast, locs_dsl_to_ast};

@@ -20,12 +20,12 @@ use std::hash::Hash;
 use std::path::{Path, PathBuf};
 
 use humanlog::{DebugMode, HumanLogger};
-use log::{debug, warn};
 use regex::Regex;
 use specifications::container::ContainerInfo;
 use specifications::data::{AssetInfo, DataIndex, DataInfo};
 use specifications::package::{PackageIndex, PackageInfo};
 use tokio::runtime::{Builder, Runtime};
+use tracing::{debug, warn};
 use url::{Host, Url};
 
 

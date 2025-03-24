@@ -48,7 +48,6 @@ error-trace.workspace = true
 humanlog.workspace = true
 hyper.workspace = true
 lazy_static.workspace = true
-log.workspace = true
 names.workspace = true
 rand.workspace = true
 reqwest = { workspace = true, features = ["json", "stream", "multipart"] }
@@ -59,6 +58,7 @@ serde_yaml.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tonic.workspace = true
+tracing.workspace = true
 
 # Brane
 brane-ast.workspace = true

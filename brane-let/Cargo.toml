@@ -21,13 +21,14 @@ base64.workspace = true
 clap.workspace = true
 dotenvy.workspace = true
 env_logger.workspace = true
-log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tonic.workspace = true
+log.workspace = true
+tracing.workspace = true
 
 # Brane
 brane-exe.workspace = true

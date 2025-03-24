@@ -26,7 +26,6 @@ use console::style;
 use dialoguer::theme::ColorfulTheme;
 use enum_debug::EnumDebug;
 use error_trace::trace;
-use log::{debug, info};
 use policy_store::servers::axum::spec::{ActivateRequest, GetActiveVersionResponse, GetVersionsResponse};
 use policy_store::spec::metadata::{AttachedMetadata, Metadata};
 use rand::Rng;
@@ -39,6 +38,7 @@ use specifications::checking::store::{
     GET_CONTEXT_PATH, GET_VERSION_CONTENT_PATH, GET_VERSIONS_PATH, GetContextResponse,
 };
 use tokio::fs::{self as tfs, File as TFile};
+use tracing::{debug, info};
 
 use crate::spec::PolicyInputLanguage;
 

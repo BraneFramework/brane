@@ -493,6 +493,7 @@ dependencies = [
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
+ "tracing",
  "uuid",
  "warp",
 ]
@@ -506,7 +507,6 @@ dependencies = [
  "console",
  "enum-debug",
  "lazy_static",
- "log",
  "num-traits",
  "rand 0.9.2",
  "serde",
@@ -514,6 +514,7 @@ dependencies = [
  "specifications 3.0.0",
  "strum 0.27.2",
  "thiserror 2.0.17",
+ "tracing",
  "uuid",
 ]
 
@@ -531,11 +532,11 @@ dependencies = [
  "expanduser",
  "human-panic",
  "humanlog",
- "log",
  "serde_json",
  "specifications 3.0.0",
  "thiserror 2.0.17",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -545,7 +546,6 @@ version = "3.0.0"
 dependencies = [
  "async-trait",
  "enum-debug",
- "log",
  "rustls 0.21.12",
  "rustls-pemfile",
  "serde",
@@ -553,6 +553,7 @@ dependencies = [
  "specifications 3.0.0",
  "thiserror 2.0.17",
  "tokio",
+ "tracing",
  "x509-parser",
 ]
 
@@ -621,7 +622,6 @@ dependencies = [
  "hyper 1.8.1",
  "indicatif",
  "lazy_static",
- "log",
  "names",
  "parking_lot",
  "path-clean",
@@ -643,6 +643,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tonic",
+ "tracing",
  "uuid",
  "x509-parser",
 ]
@@ -658,10 +659,10 @@ dependencies = [
  "console",
  "humanlog",
  "libc",
- "log",
  "parking_lot",
  "specifications 3.0.0",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -704,6 +705,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.17",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -733,6 +735,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
+ "tracing",
 ]
 
 [[package]]
@@ -741,7 +744,6 @@ version = "3.0.0"
 dependencies = [
  "brane-shr",
  "enum-debug",
- "log",
  "nom",
  "nom_locate",
  "rand 0.9.2",
@@ -749,6 +751,7 @@ dependencies = [
  "serde",
  "specifications 3.0.0",
  "thiserror 2.0.17",
+ "tracing",
 ]
 
 [[package]]
@@ -765,12 +768,12 @@ dependencies = [
  "futures",
  "humanlog",
  "lazy_static",
- "log",
  "serde",
  "serde_json",
  "specifications 3.0.0",
  "thiserror 2.0.17",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -805,6 +808,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
+ "tracing",
 ]
 
 [[package]]
@@ -826,6 +830,7 @@ dependencies = [
  "thiserror 2.0.17",
  "tokio",
  "tonic",
+ "tracing",
  "yaml-rust2",
 ]
 
@@ -841,7 +846,6 @@ dependencies = [
  "dotenvy",
  "error-trace",
  "humanlog",
- "log",
  "parking_lot",
  "policy-reasoner",
  "rand 0.9.2",
@@ -850,6 +854,7 @@ dependencies = [
  "specifications 3.0.0",
  "tokio",
  "tonic",
+ "tracing",
  "warp",
 ]
 
@@ -875,6 +880,7 @@ dependencies = [
  "thiserror 2.0.17",
  "tokio",
  "tokio-rustls 0.24.1",
+ "tracing",
  "url",
  "warp",
 ]
@@ -903,6 +909,7 @@ dependencies = [
  "thiserror 2.0.17",
  "tokio",
  "tokio-rustls 0.24.1",
+ "tracing",
  "warp",
 ]
 
@@ -919,7 +926,6 @@ dependencies = [
  "hex",
  "humanlog",
  "indicatif",
- "log",
  "rand 0.9.2",
  "regex",
  "reqwest",
@@ -929,6 +935,7 @@ dependencies = [
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
+ "tracing",
  "url",
 ]
 
@@ -954,7 +961,6 @@ dependencies = [
  "graphql_client",
  "humanlog",
  "lazy_static",
- "log",
  "num-traits",
  "parking_lot",
  "rand 0.9.2",
@@ -968,6 +974,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tonic",
+ "tracing",
  "uuid",
 ]
 
@@ -4465,7 +4472,6 @@ dependencies = [
  "futures",
  "jsonwebtoken",
  "lazy_static",
- "log",
  "num-traits",
  "parking_lot",
  "policy-reasoner",
@@ -4483,6 +4489,7 @@ dependencies = [
  "strum 0.27.2",
  "thiserror 2.0.17",
  "tonic",
+ "tracing",
  "uuid",
 ]
 
