@@ -29,9 +29,9 @@ use clap::Parser;
 use dotenvy::dotenv;
 use error_trace::trace;
 use juniper::EmptySubscription;
-use log::{debug, error, info, warn};
 use scylla::{Session, SessionBuilder};
 use tokio::signal::unix::{Signal, SignalKind, signal};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use warp::Filter;
@@ -165,7 +165,7 @@ async fn main() {
     let version = warp::path("version").and(warp::path::end()).and_then(version::handle);
 
     // Construct the final routes
-    let routes = data.or(packages.or(infra.or(health.or(version.or(graphql))))).with(warp::log("brane-api"));
+    let routes = data.or(packages.or(infra.or(health.or(version.or(graphql))))).with(warp::trace::request());
 
     // Run the server
     let handle = warp::serve(routes).try_bind_with_graceful_shutdown(central.services.api.bind, async {
