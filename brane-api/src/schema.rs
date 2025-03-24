@@ -17,9 +17,9 @@ use std::str::FromStr;
 
 use chrono::{DateTime, TimeZone, Utc};
 use juniper::{EmptySubscription, FieldResult, GraphQLObject, RootNode, graphql_object};
-use log::{debug, info};
 use scylla::IntoTypedRows;
 use specifications::version::Version;
+use tracing::{debug, info};
 
 use crate::packages::PackageUdt;
 use crate::spec::Context;
