@@ -19,5 +19,8 @@ serde = "1.0.204"
 brane-shr = { path = "../brane-shr" }
 specifications = { path = "../specifications" }
 
+[dev-dependencies]
+insta = { version = "1.42.2", features=["yaml"] }
+
 [lints]
 workspace = true
