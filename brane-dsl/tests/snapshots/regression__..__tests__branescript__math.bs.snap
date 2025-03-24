@@ -1,0 +1,614 @@
+---
+source: brane-dsl/tests/regression.rs
+expression: res
+---
+Program {
+    block: Block {
+        stmts: [
+            Expr {
+                expr: BinOp {
+                    op: Add {
+                        range: TextRange {
+                            start: TextPos {
+                                line: 2,
+                                col: 3,
+                            },
+                            end: TextPos {
+                                line: 2,
+                                col: 4,
+                            },
+                        },
+                    },
+                    lhs: Literal {
+                        literal: Integer {
+                            value: 1,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 2,
+                                    col: 1,
+                                },
+                                end: TextPos {
+                                    line: 2,
+                                    col: 2,
+                                },
+                            },
+                        },
+                    },
+                    rhs: Literal {
+                        literal: Integer {
+                            value: 1,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 2,
+                                    col: 5,
+                                },
+                                end: TextPos {
+                                    line: 2,
+                                    col: 6,
+                                },
+                            },
+                        },
+                    },
+                    range: TextRange {
+                        start: TextPos {
+                            line: 2,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 2,
+                            col: 6,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 2,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 2,
+                        col: 7,
+                    },
+                },
+            },
+            Expr {
+                expr: BinOp {
+                    op: Sub {
+                        range: TextRange {
+                            start: TextPos {
+                                line: 3,
+                                col: 3,
+                            },
+                            end: TextPos {
+                                line: 3,
+                                col: 4,
+                            },
+                        },
+                    },
+                    lhs: Literal {
+                        literal: Integer {
+                            value: 2,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 3,
+                                    col: 1,
+                                },
+                                end: TextPos {
+                                    line: 3,
+                                    col: 2,
+                                },
+                            },
+                        },
+                    },
+                    rhs: Literal {
+                        literal: Integer {
+                            value: 1,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 3,
+                                    col: 5,
+                                },
+                                end: TextPos {
+                                    line: 3,
+                                    col: 6,
+                                },
+                            },
+                        },
+                    },
+                    range: TextRange {
+                        start: TextPos {
+                            line: 3,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 3,
+                            col: 6,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 3,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 3,
+                        col: 7,
+                    },
+                },
+            },
+            Expr {
+                expr: BinOp {
+                    op: Add {
+                        range: TextRange {
+                            start: TextPos {
+                                line: 4,
+                                col: 9,
+                            },
+                            end: TextPos {
+                                line: 4,
+                                col: 10,
+                            },
+                        },
+                    },
+                    lhs: BinOp {
+                        op: Mul {
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 4,
+                                    col: 4,
+                                },
+                                end: TextPos {
+                                    line: 4,
+                                    col: 5,
+                                },
+                            },
+                        },
+                        lhs: Literal {
+                            literal: Integer {
+                                value: 42,
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 4,
+                                        col: 1,
+                                    },
+                                    end: TextPos {
+                                        line: 4,
+                                        col: 3,
+                                    },
+                                },
+                            },
+                        },
+                        rhs: Literal {
+                            literal: Integer {
+                                value: 55,
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 4,
+                                        col: 6,
+                                    },
+                                    end: TextPos {
+                                        line: 4,
+                                        col: 8,
+                                    },
+                                },
+                            },
+                        },
+                        range: TextRange {
+                            start: TextPos {
+                                line: 4,
+                                col: 1,
+                            },
+                            end: TextPos {
+                                line: 4,
+                                col: 8,
+                            },
+                        },
+                    },
+                    rhs: Literal {
+                        literal: Integer {
+                            value: 1,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 4,
+                                    col: 11,
+                                },
+                                end: TextPos {
+                                    line: 4,
+                                    col: 12,
+                                },
+                            },
+                        },
+                    },
+                    range: TextRange {
+                        start: TextPos {
+                            line: 4,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 4,
+                            col: 12,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 4,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 4,
+                        col: 13,
+                    },
+                },
+            },
+            Expr {
+                expr: BinOp {
+                    op: Mul {
+                        range: TextRange {
+                            start: TextPos {
+                                line: 5,
+                                col: 7,
+                            },
+                            end: TextPos {
+                                line: 5,
+                                col: 8,
+                            },
+                        },
+                    },
+                    lhs: Literal {
+                        literal: Integer {
+                            value: 33333,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 5,
+                                    col: 1,
+                                },
+                                end: TextPos {
+                                    line: 5,
+                                    col: 6,
+                                },
+                            },
+                        },
+                    },
+                    rhs: Literal {
+                        literal: Integer {
+                            value: 33333,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 5,
+                                    col: 9,
+                                },
+                                end: TextPos {
+                                    line: 5,
+                                    col: 14,
+                                },
+                            },
+                        },
+                    },
+                    range: TextRange {
+                        start: TextPos {
+                            line: 5,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 5,
+                            col: 14,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 5,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 5,
+                        col: 15,
+                    },
+                },
+            },
+            Expr {
+                expr: BinOp {
+                    op: Add {
+                        range: TextRange {
+                            start: TextPos {
+                                line: 6,
+                                col: 5,
+                            },
+                            end: TextPos {
+                                line: 6,
+                                col: 6,
+                            },
+                        },
+                    },
+                    lhs: Literal {
+                        literal: Integer {
+                            value: 828,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 6,
+                                    col: 1,
+                                },
+                                end: TextPos {
+                                    line: 6,
+                                    col: 4,
+                                },
+                            },
+                        },
+                    },
+                    rhs: BinOp {
+                        op: Div {
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 6,
+                                    col: 22,
+                                },
+                                end: TextPos {
+                                    line: 6,
+                                    col: 23,
+                                },
+                            },
+                        },
+                        lhs: BinOp {
+                            op: Mod {
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 6,
+                                        col: 13,
+                                    },
+                                    end: TextPos {
+                                        line: 6,
+                                        col: 14,
+                                    },
+                                },
+                            },
+                            lhs: Literal {
+                                literal: Integer {
+                                    value: 12318,
+                                    range: TextRange {
+                                        start: TextPos {
+                                            line: 6,
+                                            col: 7,
+                                        },
+                                        end: TextPos {
+                                            line: 6,
+                                            col: 12,
+                                        },
+                                    },
+                                },
+                            },
+                            rhs: Literal {
+                                literal: Integer {
+                                    value: 123123,
+                                    range: TextRange {
+                                        start: TextPos {
+                                            line: 6,
+                                            col: 15,
+                                        },
+                                        end: TextPos {
+                                            line: 6,
+                                            col: 21,
+                                        },
+                                    },
+                                },
+                            },
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 6,
+                                    col: 7,
+                                },
+                                end: TextPos {
+                                    line: 6,
+                                    col: 21,
+                                },
+                            },
+                        },
+                        rhs: Literal {
+                            literal: Integer {
+                                value: 1231231231,
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 6,
+                                        col: 24,
+                                    },
+                                    end: TextPos {
+                                        line: 6,
+                                        col: 34,
+                                    },
+                                },
+                            },
+                        },
+                        range: TextRange {
+                            start: TextPos {
+                                line: 6,
+                                col: 7,
+                            },
+                            end: TextPos {
+                                line: 6,
+                                col: 34,
+                            },
+                        },
+                    },
+                    range: TextRange {
+                        start: TextPos {
+                            line: 6,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 6,
+                            col: 34,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 6,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 6,
+                        col: 35,
+                    },
+                },
+            },
+            Expr {
+                expr: BinOp {
+                    op: Add {
+                        range: TextRange {
+                            start: TextPos {
+                                line: 7,
+                                col: 7,
+                            },
+                            end: TextPos {
+                                line: 7,
+                                col: 8,
+                            },
+                        },
+                    },
+                    lhs: Literal {
+                        literal: Real {
+                            value: 12.0,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 7,
+                                    col: 1,
+                                },
+                                end: TextPos {
+                                    line: 7,
+                                    col: 6,
+                                },
+                            },
+                        },
+                    },
+                    rhs: Literal {
+                        literal: Integer {
+                            value: 123123,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 7,
+                                    col: 9,
+                                },
+                                end: TextPos {
+                                    line: 7,
+                                    col: 16,
+                                },
+                            },
+                        },
+                    },
+                    range: TextRange {
+                        start: TextPos {
+                            line: 7,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 7,
+                            col: 16,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 7,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 7,
+                        col: 17,
+                    },
+                },
+            },
+            Expr {
+                expr: Literal {
+                    literal: Real {
+                        value: 777777.777777,
+                        range: TextRange {
+                            start: TextPos {
+                                line: 8,
+                                col: 1,
+                            },
+                            end: TextPos {
+                                line: 8,
+                                col: 14,
+                            },
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 8,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 8,
+                        col: 15,
+                    },
+                },
+            },
+            Expr {
+                expr: Literal {
+                    literal: Real {
+                        value: 5550000000000.0,
+                        range: TextRange {
+                            start: TextPos {
+                                line: 9,
+                                col: 1,
+                            },
+                            end: TextPos {
+                                line: 9,
+                                col: 8,
+                            },
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 9,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 9,
+                        col: 9,
+                    },
+                },
+            },
+        ],
+        table: RefCell {
+            value: SymbolTable {
+                parent: None,
+                functions: {},
+                classes: {},
+                variables: {},
+            },
+        },
+        ret_type: None,
+        attrs: [],
+        range: TextRange {
+            start: TextPos {
+                line: 2,
+                col: 1,
+            },
+            end: TextPos {
+                line: 9,
+                col: 9,
+            },
+        },
+    },
+    metadata: {},
+}

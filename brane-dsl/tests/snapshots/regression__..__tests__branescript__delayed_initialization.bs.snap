@@ -1,0 +1,179 @@
+---
+source: brane-dsl/tests/regression.rs
+expression: res
+---
+Program {
+    block: Block {
+        stmts: [
+            LetAssign {
+                name: Identifier {
+                    value: "test",
+                    range: TextRange {
+                        start: TextPos {
+                            line: 2,
+                            col: 5,
+                        },
+                        end: TextPos {
+                            line: 2,
+                            col: 9,
+                        },
+                    },
+                },
+                value: Literal {
+                    literal: Null {
+                        range: TextRange {
+                            start: TextPos {
+                                line: 2,
+                                col: 13,
+                            },
+                            end: TextPos {
+                                line: 2,
+                                col: 17,
+                            },
+                        },
+                    },
+                },
+                st_entry: None,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 2,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 2,
+                        col: 18,
+                    },
+                },
+            },
+            Assign {
+                name: Identifier {
+                    value: "test",
+                    range: TextRange {
+                        start: TextPos {
+                            line: 3,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 3,
+                            col: 5,
+                        },
+                    },
+                },
+                value: Literal {
+                    literal: Integer {
+                        value: 42,
+                        range: TextRange {
+                            start: TextPos {
+                                line: 3,
+                                col: 9,
+                            },
+                            end: TextPos {
+                                line: 3,
+                                col: 11,
+                            },
+                        },
+                    },
+                },
+                st_entry: None,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 3,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 3,
+                        col: 12,
+                    },
+                },
+            },
+            Expr {
+                expr: Call {
+                    expr: Identifier {
+                        name: Identifier {
+                            value: "println",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 4,
+                                    col: 1,
+                                },
+                                end: TextPos {
+                                    line: 4,
+                                    col: 8,
+                                },
+                            },
+                        },
+                        st_entry: None,
+                    },
+                    args: [
+                        VarRef {
+                            name: Identifier {
+                                value: "test",
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 4,
+                                        col: 9,
+                                    },
+                                    end: TextPos {
+                                        line: 4,
+                                        col: 13,
+                                    },
+                                },
+                            },
+                            st_entry: None,
+                        },
+                    ],
+                    st_entry: None,
+                    locations: All,
+                    input: {},
+                    result: {},
+                    metadata: {},
+                    range: TextRange {
+                        start: TextPos {
+                            line: 4,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 4,
+                            col: 14,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 4,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 4,
+                        col: 15,
+                    },
+                },
+            },
+        ],
+        table: RefCell {
+            value: SymbolTable {
+                parent: None,
+                functions: {},
+                classes: {},
+                variables: {},
+            },
+        },
+        ret_type: None,
+        attrs: [],
+        range: TextRange {
+            start: TextPos {
+                line: 2,
+                col: 1,
+            },
+            end: TextPos {
+                line: 4,
+                col: 15,
+            },
+        },
+    },
+    metadata: {},
+}
