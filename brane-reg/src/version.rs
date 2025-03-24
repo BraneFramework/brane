@@ -12,7 +12,7 @@
 //!   Implements the function(s) that handle the `/version` path(s).
 //
 
-use log::debug;
+use tracing::debug;
 use warp::http::HeaderValue;
 use warp::hyper::Body;
 use warp::reply::Response;

@@ -20,10 +20,10 @@ clap.workspace = true
 dotenvy.workspace = true
 enum-debug.workspace = true
 humanlog.workspace = true
-log.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["default", "rt", "macros"] }
+tracing.workspace = true
 
 # Brane
 brane-ast.workspace = true

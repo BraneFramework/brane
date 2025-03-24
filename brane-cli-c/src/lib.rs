@@ -35,12 +35,12 @@ use brane_exe::FullValue;
 use brane_tsk::api::{get_data_index, get_package_index};
 use console::style;
 use humanlog::{DebugMode, HumanLogger};
-use log::{debug, error, info, trace};
 use parking_lot::{Mutex, MutexGuard};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 use specifications::wir::Workflow;
 use tokio::runtime::{Builder, Runtime};
+use tracing::{debug, error, info, trace};
 
 
 /***** CONSTANTS *****/

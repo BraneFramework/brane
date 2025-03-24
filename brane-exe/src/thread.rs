@@ -21,7 +21,6 @@ use std::sync::{Arc, RwLock};
 use async_recursion::async_recursion;
 use enum_debug::EnumDebug as _;
 use futures::future::{BoxFuture, FutureExt};
-use log::debug;
 use specifications::data::{AccessKind, AvailabilityKind, DataName};
 use specifications::pc::ProgramCounter;
 use specifications::profiling::{ProfileScopeHandle, ProfileScopeHandleOwned};
@@ -33,6 +32,7 @@ use specifications::wir::merge_strategy::MergeStrategy;
 use specifications::wir::{ClassDef, ComputeTaskDef, Edge, EdgeInstr, FunctionDef, TaskDef, Workflow};
 use tokio::spawn;
 use tokio::task::JoinHandle;
+use tracing::debug;
 
 use crate::dbg_node;
 use crate::errors::ReturnEdge;

@@ -19,12 +19,12 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use std::time::{Duration, Instant};
 
 use brane_shr::formatters::BlockFormatter;
-use log::debug;
 use num_traits::AsPrimitive;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use reqwest::{Response, StatusCode};
 use specifications::address::Address;
 use specifications::wir::locations::Location;
+use tracing::debug;
 
 
 /***** CONSTANTS *****/

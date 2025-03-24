@@ -2,7 +2,7 @@ use anyhow::Result;
 use brane_clb::grpc::{CallbackKind, CallbackRequest, CallbackServiceClient};
 // use brane_job::interface::FailureResult;
 use libc::{strsignal, c_int, c_char};
-use log::debug;
+use tracing::debug;
 use std::error::Error;
 use std::ffi::CStr;
 use std::fmt::{Display, Formatter, Result as FResult};

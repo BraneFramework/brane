@@ -13,10 +13,10 @@
 //
 
 use brane_exe::FullValue;
-use log::debug;
 use specifications::common::Parameter;
 use specifications::package::PackageKind;
 use specifications::wir::data_type::DataType;
+use tracing::debug;
 
 use crate::errors::LetError;
 

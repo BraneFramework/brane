@@ -22,8 +22,8 @@ parking_lot = "0.12.1"
 
 # Workspace dependencies
 humanlog.workspace = true
-log.workspace = true
 tokio.workspace = true
+tracing.workspace = true
 
 # Brane
 brane-ast.workspace = true

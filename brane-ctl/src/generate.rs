@@ -35,7 +35,6 @@ use brane_shr::fs::set_executable;
 use console::style;
 use enum_debug::EnumDebug as _;
 use jsonwebtoken::jwk::{self, Jwk, JwkSet, KeyAlgorithm, OctetKeyParameters, OctetKeyType, PublicKeyUse};
-use log::{debug, info, warn};
 use policy_store::databases::sqlite::SQLiteDatabase;
 use rand::distr::Alphanumeric;
 use rand::rngs::OsRng;
@@ -44,6 +43,7 @@ use serde::Serialize;
 use specifications::address::{Address, Host};
 use specifications::package::Capability;
 use specifications::policy::generate_policy_token;
+use tracing::{debug, info, warn};
 
 pub use crate::errors::GenerateError as Error;
 use crate::spec::{GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, Pair};

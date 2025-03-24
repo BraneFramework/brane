@@ -23,11 +23,11 @@ tempfile = "3.10.1"
 # Workspace dependencies
 enum-debug.workspace = true
 humanlog.workspace = true
-log.workspace = true
 regex.workspace = true
 reqwest = { workspace = true, features = ["stream"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
+tracing.workspace = true
 
 specifications = { path = "../specifications" }
 

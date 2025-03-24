@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate anyhow;
 #[macro_use]
-extern crate log;
+extern crate tracing;
 #[macro_use]
 extern crate prettytable;
 #[macro_use]

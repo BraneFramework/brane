@@ -18,13 +18,13 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use async_trait::async_trait;
-use log::info;
 use specifications::data::{AccessKind, AvailabilityKind, DataName};
 use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileScopeHandle;
 use specifications::wir::data_type::DataType;
 use specifications::wir::locations::Location;
 use specifications::wir::{Edge, SymTable, Workflow};
+use tracing::info;
 
 pub use crate::errors::DummyVmError as Error;
 use crate::errors::VmError;

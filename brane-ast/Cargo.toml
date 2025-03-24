@@ -16,11 +16,11 @@ uuid = { version = "1.7.0", features = ["serde", "v4"] }
 
 # Workspace dependencies
 enum-debug.workspace = true
-log.workspace = true
 rand.workspace = true
 serde = { workspace = true, features = ["rc"] }
 strum = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
+tracing.workspace = true
 
 # Brane
 brane-dsl.workspace = true

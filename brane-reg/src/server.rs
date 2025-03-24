@@ -24,13 +24,13 @@ use std::time::Duration;
 
 use brane_cfg::certs::{load_certstore, load_keypair};
 use error_trace::trace;
-use log::{debug, error, info, warn};
 use rustls::server::{AllowAnyAnonymousOrAuthenticatedClient, ServerConfig, ServerConnection};
 use rustls::{Certificate, PrivateKey, RootCertStore};
 use tokio::net::TcpListener;
 use tokio::signal::unix::{Signal, SignalKind, signal};
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::server::TlsStream;
+use tracing::{debug, error, info, warn};
 use warp::hyper::server::conn::Http;
 use warp::hyper::service::{self, Service};
 use warp::{Filter, Reply};

@@ -16,9 +16,9 @@
 use std::path::Path;
 use std::{fs, io};
 
-use log::debug;
 use rustls::{Certificate, PrivateKey, RootCertStore};
 use rustls_pemfile::{Item, certs, rsa_private_keys};
+use tracing::debug;
 use x509_parser::certificate::X509Certificate;
 use x509_parser::prelude::FromDer;
 

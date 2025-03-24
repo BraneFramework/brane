@@ -14,10 +14,10 @@
 
 use std::str::FromStr;
 
-use log::debug;
 use reqwest::{Response, StatusCode};
 use specifications::arch::Arch;
 use specifications::version::BraneVersion;
+use tracing::debug;
 
 use crate::errors::VersionError;
 use crate::instance::InstanceInfo;

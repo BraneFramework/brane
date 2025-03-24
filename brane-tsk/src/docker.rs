@@ -28,7 +28,6 @@ use brane_exe::FullValue;
 use enum_debug::EnumDebug;
 use futures_util::StreamExt as _;
 use futures_util::stream::TryStreamExt as _;
-use log::debug;
 use serde::de::{Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
@@ -40,6 +39,7 @@ use tokio::fs::{self as tfs, File as TFile};
 use tokio::io::{self as tio, AsyncReadExt as _, AsyncWriteExt as _};
 use tokio_tar::Archive;
 use tokio_util::codec::{BytesCodec, FramedRead};
+use tracing::debug;
 
 pub use crate::errors::DockerError as Error;
 use crate::errors::{ClientVersionParseError, ExecuteError};

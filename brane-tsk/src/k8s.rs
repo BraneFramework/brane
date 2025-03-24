@@ -34,7 +34,7 @@ use k8s_openapi::api::core::v1::{ContainerState, ContainerStateRunning, Containe
 use kube::api::{Api, DeleteParams, LogParams, PostParams, Resource};
 use kube::config::{Kubeconfig, KubeConfigOptions};
 use kube::runtime::wait::await_condition;
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 use rand::Rng as _;
 use rand::distributions::Uniform;
 use serde::de::DeserializeOwned;

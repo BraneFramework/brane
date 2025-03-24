@@ -25,8 +25,9 @@ use brane_let::{exec_ecu, exec_nop};
 use clap::Parser;
 use cli::*;
 use dotenvy::dotenv;
-use log::{LevelFilter, debug, warn};
+use log::LevelFilter;
 use serde::de::DeserializeOwned;
+use tracing::{debug, warn};
 
 
 
@@ -35,8 +36,7 @@ use serde::de::DeserializeOwned;
 const OUTPUT_PREFIX_NAME: &str = "ENABLE_STDOUT_PREFIX";
 /// The thing we prefix to the output stdout so the Kubernetes engine can recognize valid output when it sees it.
 const OUTPUT_PREFIX: &str = "[OUTPUT] ";
-
-
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
 
 /***** ENTRYPOINT *****/
 #[tokio::main]
@@ -97,7 +97,7 @@ async fn main() {
     match run(sub_command).await {
         Ok(code) => process::exit(code),
         Err(err) => {
-            log::error!("{}", err);
+            tracing::error!("{}", err);
             process::exit(-1);
         },
     }
@@ -161,7 +161,7 @@ async fn run(
             // Gnerate the line divider
             let lines = (0..80).map(|_| '-').collect::<String>();
             // Print to stderr
-            log::error!(
+            tracing::error!(
                 "Internal package call return non-zero exit code {}\n\nstdout:\n{}\n{}\n{}\n\nstderr:\n{}\n{}\n{}\n\n",
                 code,
                 &lines,
@@ -183,7 +183,7 @@ async fn run(
             //     if let Err(err) = callback.stopped(signal).await { log::error!("Could not update driver on Stopped: {}", err); }
             // } else {
             // Print to stderr
-            log::error!("Internal package call was forcefully stopped with signal {}", signal);
+            tracing::error!("Internal package call was forcefully stopped with signal {}", signal);
             // }
 
             Ok(-1)

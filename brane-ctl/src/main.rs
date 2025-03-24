@@ -23,7 +23,7 @@ use cli::*;
 use dotenvy::dotenv;
 use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
-use log::error;
+use tracing::error;
 
 
 

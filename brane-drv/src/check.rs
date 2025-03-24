@@ -18,7 +18,6 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_shr::formatters::BlockFormatter;
 use enum_debug::EnumDebug as _;
-use log::{debug, info};
 use policy_reasoner::spec::reasonerconn::ReasonerResponse;
 use policy_reasoner::spec::reasons::ManyReason;
 use reqwest::{Client, Request, Response, StatusCode};
@@ -30,6 +29,7 @@ use specifications::wir::func_id::FunctionId;
 use specifications::wir::{Edge, Workflow};
 use specifications::working::JobServiceClient;
 use tokio::task::JoinHandle;
+use tracing::{debug, info};
 
 
 /***** TYPE ALIASES *****/
@@ -336,7 +336,7 @@ fn traverse_and_request(
         };
 
         // Match on the edge
-        log::trace!("Spawning requests in {:?}", edge.variant());
+        tracing::trace!("Spawning requests in {:?}", edge.variant());
         use Edge::*;
         match edge {
             Node { task: _, locs: _, at, input, result: _, metadata: _, next } => {

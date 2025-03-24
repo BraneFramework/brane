@@ -14,12 +14,12 @@ x509-parser = "0.17.0"
 # Workspace dependencies
 async-trait.workspace = true
 enum-debug.workspace = true
-log.workspace = true
 rustls.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tracing.workspace = true
 
 # Brane
 specifications.workspace = true

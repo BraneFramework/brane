@@ -23,11 +23,11 @@ use std::str::FromStr;
 use brane_shr::formatters::PrettyListFormatter;
 use console::{Alignment, pad_str, style};
 use dialoguer::Confirm;
-use log::{debug, info, warn};
 use prettytable::Table;
 use prettytable::format::FormatBuilder;
 use serde::{Deserialize, Serialize};
 use specifications::address::Address;
+use tracing::{debug, info, warn};
 
 pub use crate::errors::InstanceError as Error;
 use crate::spec::Hostname;

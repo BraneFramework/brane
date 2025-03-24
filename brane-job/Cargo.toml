@@ -30,6 +30,7 @@ serde_yaml.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, default-features = false, features = ["rt", "macros", "signal"] }
 tonic.workspace = true
+tracing.workspace = true
 
 # Brane
 brane-cfg.workspace = true

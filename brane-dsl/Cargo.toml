@@ -14,10 +14,10 @@ regex = "1.5.0"
 
 # Workspace dependencies
 enum-debug.workspace = true
-log.workspace = true
 rand.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
 
 # Brane
 brane-shr.workspace = true

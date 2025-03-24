@@ -28,8 +28,8 @@ use brane_shr::input::{FileHistory, confirm, input, input_map, input_path, selec
 use console::style;
 use dirs::config_dir;
 use enum_debug::EnumDebug as _;
-use log::{debug, info};
 use specifications::address::Address;
+use tracing::{debug, info};
 use validator::{FromStrValidator, MapValidator, PortValidator, RangeValidator};
 
 pub mod validator;

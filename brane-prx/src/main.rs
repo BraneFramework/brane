@@ -29,8 +29,9 @@ use brane_prx::spec::Context;
 use clap::Parser;
 use dotenvy::dotenv;
 use error_trace::trace;
-use log::{LevelFilter, debug, error, info, warn};
+use log::LevelFilter;
 use tokio::signal::unix::{Signal, SignalKind, signal};
+use tracing::{debug, error, info, warn};
 use warp::Filter;
 
 

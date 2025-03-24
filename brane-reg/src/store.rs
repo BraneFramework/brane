@@ -18,9 +18,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use log::{debug, warn};
 use specifications::data::AssetInfo;
 use tokio::fs as tfs;
+use tracing::{debug, warn};
 
 pub use crate::errors::StoreError as Error;
 

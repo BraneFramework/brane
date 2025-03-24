@@ -16,10 +16,10 @@ use std::fmt::{Display, Formatter, Result as FResult};
 
 use brane_dsl::ast::Program;
 use brane_dsl::{Error as ParseError, ParserOptions};
-use log::trace;
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 use specifications::wir::Workflow;
+use tracing::trace;
 
 use crate::ast_unresolved::UnresolvedWorkflow;
 pub use crate::errors::AstError as Error;
