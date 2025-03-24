@@ -14,81 +14,16 @@
 //
 
 use log::trace;
-use nom::InputLength;
-use nom::error::VerboseErrorKind;
+use nom::Input as _;
+use nom_language::error::VerboseErrorKind;
 use specifications::package::PackageIndex;
 
 use crate::errors;
 pub use crate::errors::ParseError as Error;
 use crate::parser::ast::Program;
-use crate::parser::{bakery, bscript};
+use crate::parser::bscript;
 use crate::scanner::{self, Span, Token, Tokens};
 use crate::spec::Language;
-
-
-/***** TESTS *****/
-#[cfg(test)]
-pub mod tests {
-    use brane_shr::utilities::{create_package_index, test_on_dsl_files};
-
-    use super::*;
-
-
-    /// Tests BraneScript files.
-    #[test]
-    fn test_bscript() {
-        // Simply pass to the compiler
-        test_on_dsl_files("BraneScript", |path, code| {
-            // Print the header always
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("File '{}' gave us:", path.display());
-
-            // Read the package index
-            let pindex: PackageIndex = create_package_index();
-
-            // Create a compiler and compile it;
-            let res: Program = match parse(code, &pindex, &ParserOptions::bscript()) {
-                Ok(res) => res,
-                Err(err) => {
-                    panic!("Failed to parse BraneScript file '{}': {}", path.display(), err);
-                },
-            };
-
-            // Print it for good measure
-            println!("{res:#?}");
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-        });
-    }
-
-    /// Tests Bakery files.
-    #[test]
-    fn test_bakery() {
-        // Simply pass to the compiler
-        test_on_dsl_files("Bakery", |path, code| {
-            // Print the header always
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("File '{}' gave us:", path.display());
-
-            // Read the package index
-            let pindex: PackageIndex = create_package_index();
-
-            // Create a compiler and compile it;
-            let res: Program = match parse(code, &pindex, &ParserOptions::bakery()) {
-                Ok(res) => res,
-                Err(err) => {
-                    panic!("Failed to parse Bakery file '{}': {}", path.display(), err);
-                },
-            };
-
-            // Print it for good measure
-            println!("{res:#?}");
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-        });
-    }
-}
-
-
-
 
 
 /***** AUXILLARY STRUCTS *****/
@@ -145,7 +80,7 @@ impl ParserOptions {
 ///
 /// # Errors
 /// This function may error if we could not read the reader or if the source code was somehow malformed.
-pub fn parse<S: AsRef<str>>(source: S, pindex: &PackageIndex, options: &ParserOptions) -> Result<Program, Error> {
+pub fn parse<S: AsRef<str>>(source: S, _pindex: &PackageIndex, options: &ParserOptions) -> Result<Program, Error> {
     let source: &str = source.as_ref();
 
     // Run that through the scanner
@@ -182,21 +117,11 @@ pub fn parse<S: AsRef<str>>(source: S, pindex: &PackageIndex, options: &ParserOp
             },
         },
 
-        Language::Bakery => match bakery::parse_ast(tks, pindex.clone()) {
-            Ok(ast) => ast,
-
-            Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
-                // Match the EOF-error
-                if e.errors[0].1 == VerboseErrorKind::Nom(nom::error::ErrorKind::Eof) {
-                    return Err(Error::Eof { lang: Language::BraneScript, err: errors::convert_parser_error(tks, e) });
-                }
-                return Err(Error::ParseError { lang: Language::Bakery, err: errors::convert_parser_error(tks, e) });
-            },
-            Err(err) => {
-                return Err(Error::ParserError { lang: Language::Bakery, err: format!("{err}") });
-            },
+        Language::Bakery => {
+            todo!("Support for the bakery language was removed as it was not functional anymore, this might be added back later");
         },
     };
+
     if remain.input_len() > 0 {
         return Err(Error::LeftoverTokensError { lang: options.lang });
     }

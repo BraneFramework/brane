@@ -14,8 +14,9 @@
 
 use nom::bytes::complete as bc;
 use nom::character::complete as cc;
-use nom::error::{ContextError, ParseError, VerboseError};
+use nom::error::{ContextError, ParseError};
 use nom::{IResult, Parser, branch, combinator as comb, multi, sequence as seq};
+use nom_language::error::VerboseError;
 
 use super::tokens::Token;
 use super::{Span, comments, literal};
@@ -37,7 +38,7 @@ const SEPARATORS: &str = " \n\t\r{}[]()-=+;:'\"\\|/?>.<,`~*&^%$#@!";
 ///
 /// # Returns
 /// A new function that implements the parser plus the wrapping whitespaces.
-fn ws0<'a, O, E: ParseError<Span<'a>>, F: Parser<Span<'a>, O, E>>(f: F) -> impl Parser<Span<'a>, O, E> {
+fn ws0<'a, O, E: ParseError<Span<'a>>, F: Parser<Span<'a>, Output = O, Error = E>>(f: F) -> impl Parser<Span<'a>, Output = O, Error = E> {
     seq::delimited(cc::multispace0, f, cc::multispace0)
 }
 
@@ -181,7 +182,7 @@ fn identifier<'a, E: ParseError<Span<'a>> + ContextError<Span<'a>>>(input: Span<
 /// # Errors
 /// This function may error if it failed to parse a separator.
 fn separator<'a, E: ParseError<Span<'a>> + ContextError<Span<'a>>>(input: Span<'a>) -> IResult<Span<'a>, char, E> {
-    branch::alt((cc::one_of(SEPARATORS), comb::map(comb::eof, |_| '\0')))(input)
+    branch::alt((cc::one_of(SEPARATORS), comb::map(comb::eof, |_| '\0'))).parse(input)
 }
 
 
