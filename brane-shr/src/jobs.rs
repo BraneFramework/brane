@@ -14,8 +14,6 @@
 //
 
 
-/// **Edited: added comments + synced with new events.**
-///
 /// Lists the possible states that a job can have from the brane-drv perspective.
 #[repr(u8)]
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -122,4 +120,3 @@ impl JobStatus {
 impl PartialEq<&JobStatus> for JobStatus {
     fn eq(&self, other: &&JobStatus) -> bool { self == *other }
 }
-/*******/

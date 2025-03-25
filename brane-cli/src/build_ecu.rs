@@ -172,8 +172,6 @@ async fn build(
     Ok(())
 }
 
-/// **Edited: now returning BuildErrors.**
-///
 /// Generates a new DockerFile that can be used to build the package into a Docker container.
 ///
 /// **Arguments**
@@ -277,8 +275,6 @@ fn generate_dockerfile(document: &ContainerInfo, context: &Path, override_branel
     Ok(contents)
 }
 
-/// **Edited: now returning BuildErrors.**
-///
 /// Prepares the build directory for building the package.
 ///
 /// **Arguments**

@@ -379,11 +379,9 @@ pub struct FunctionExt {
     pub version: Version,
 }
 
-/* TIM */
 impl std::fmt::Display for FunctionExt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "@{}()", self.name) }
 }
-/*******/
 
 
 

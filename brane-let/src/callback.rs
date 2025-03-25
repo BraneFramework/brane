@@ -59,8 +59,6 @@ pub struct Callback {
 }
 
 impl Callback {
-    /// **Edited: now returning CallbackErrors.**
-    /// 
     /// Constructor for the Callback.
     /// 
     /// **Arguments**
@@ -97,8 +95,6 @@ impl Callback {
         })
     }
 
-    /// **Edited: now returning CallbackErrors.**
-    /// 
     /// Performs a callback call to the remote callback.
     /// 
     /// **Arguments**
@@ -133,8 +129,6 @@ impl Callback {
         }
     }
 
-    /// **Edited: now returning CallbackErrors.**
-    /// 
     /// Sends a Ready callback to the remote callback node.
     /// 
     /// **Returns**  
@@ -155,8 +149,7 @@ impl Callback {
     pub async fn initialize_failed(&mut self, err: String) -> Result<(), CallbackError> {
         self.call(CallbackKind::InitializeFailed, Some(err.as_bytes().to_vec())).await
     }
-    /// **Edited: now returning CallbackErrors.**
-    /// 
+
     /// Sends an Initialized callback to the remote callback node.
     /// 
     /// **Returns**  
@@ -177,8 +170,7 @@ impl Callback {
     pub async fn start_failed(&mut self, err: String) -> Result<(), CallbackError> {
         self.call(CallbackKind::StartFailed, Some(err.as_bytes().to_vec())).await
     }
-    /// **Edited: now returning CallbackErrors.**
-    /// 
+
     /// Sends a Started callback to the remote callback node.
     /// 
     /// **Returns**  
@@ -188,8 +180,6 @@ impl Callback {
         self.call(CallbackKind::Started, None).await
     }
 
-    /// **Edited: now returning CallbackErrors.**
-    /// 
     /// Sends a Heartbeat callback to the remote callback node.
     /// 
     /// **Returns**  
@@ -198,6 +188,7 @@ impl Callback {
     pub async fn heartbeat(&mut self) -> Result<(), CallbackError> {
         self.call(CallbackKind::Heartbeat, None).await
     }
+
     /// Sends a CompleteFailed callback to the remote callback node.
     /// 
     /// **Arguments**
@@ -209,6 +200,7 @@ impl Callback {
     pub async fn complete_failed(&mut self, err: String) -> Result<(), CallbackError> {
         self.call(CallbackKind::CompleteFailed, Some(err.as_bytes().to_vec())).await
     }
+
     /// Sends a Completed callback to the remote callback node.
     /// 
     /// **Returns**  
@@ -229,8 +221,7 @@ impl Callback {
     pub async fn decode_failed(&mut self, err: String) -> Result<(), CallbackError> {
         self.call(CallbackKind::DecodeFailed, Some(err.as_bytes().to_vec())).await
     }
-    /// **Edited: now returning CallbackErrors.**
-    /// 
+
     /// Sends a Stopped callback to the remote callback node.
     /// 
     /// **Arguments**
@@ -259,8 +250,7 @@ impl Callback {
         // Write the string version of the signal
         self.call(CallbackKind::Stopped, Some(signal_name.as_bytes().to_vec())).await
     }
-    /// **Edited: now returning CallbackErrors.**
-    /// 
+
     /// Sends a Failed callback to the remote callback node.
     /// 
     /// **Arguments**
@@ -281,8 +271,7 @@ impl Callback {
         // Perform the call
         self.call(CallbackKind::Failed, Some(payload)).await
     }
-    /// **Edited: now returning CallbackErrors.**
-    /// 
+
     /// Sends a Finished callback to the remote callback node.
     /// 
     /// **Arguments**

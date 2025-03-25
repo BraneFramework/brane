@@ -338,9 +338,7 @@ impl PackageInfo {
         PackageInfo { created, id, digest: None, name, version, kind, owners, description, detached, functions, types }
     }
 
-    /// **Edited: changed to return appropriate errors. Also added docstring.**
-    ///
-    /// Constructor for the `PackageInfo` that tries to construct it from the file at the given location.
+    /// Constructor for the PackageInfo that tries to construct it from the file at the given location.
     ///
     /// **Arguments**
     ///  * `path`: The path to load.
@@ -364,9 +362,7 @@ impl PackageInfo {
         }
     }
 
-    /// **Edited: changed to return appropriate errors. Also added docstring.**
-    ///
-    /// Constructor for the `PackageInfo` that tries to deserialize it.
+    /// Constructor for the PackageInfo that tries to deserialize it.
     ///
     /// **Arguments**
     ///  * `contents`: The string that contains the contents for the `PackageInfo`.
@@ -569,7 +565,15 @@ impl PackageIndex {
         PackageIndex::from_reader(buf_reader)
     }
 
+<<<<<<< HEAD
     /// Tries to construct a new `PackageIndex` from the given reader.
+||||||| parent of e08ed90b (chore: Remove old redundant comments)
+    /// **Edited: Returns PackageIndexErrors now.**
+    ///
+    /// Tries to construct a new PackageIndex from the given reader.
+=======
+    /// Tries to construct a new PackageIndex from the given reader.
+>>>>>>> e08ed90b (chore: Remove old redundant comments)
     ///
     /// **Arguments**
     ///  * `r`: The reader that contains the data to construct the `PackageIndex` from.
@@ -589,7 +593,15 @@ impl PackageIndex {
         PackageIndex::from_value(v)
     }
 
+<<<<<<< HEAD
     /// Tries to construct a new `PackageIndex` from a JSON file at the given URL.
+||||||| parent of e08ed90b (chore: Remove old redundant comments)
+    /// **Edited: Returns PackageIndexErrors now.**
+    ///
+    /// Tries to construct a new PackageIndex from a JSON file at the given URL.
+=======
+    /// Tries to construct a new PackageIndex from a JSON file at the given URL.
+>>>>>>> e08ed90b (chore: Remove old redundant comments)
     ///
     /// **Arguments**
     ///  * `url`: The location of the JSON file to parse.
@@ -621,7 +633,15 @@ impl PackageIndex {
         PackageIndex::from_value(json)
     }
 
+<<<<<<< HEAD
     /// Tries to construct a new `PackageIndex` from the given JSON-parsed value.
+||||||| parent of e08ed90b (chore: Remove old redundant comments)
+    /// **Edited: Returns PackageIndexErrors now.**
+    ///
+    /// Tries to construct a new PackageIndex from the given JSON-parsed value.
+=======
+    /// Tries to construct a new PackageIndex from the given JSON-parsed value.
+>>>>>>> e08ed90b (chore: Remove old redundant comments)
     ///
     /// **Arguments**
     ///  * `v`: The JSON root value of the tree to parse.
@@ -641,7 +661,15 @@ impl PackageIndex {
         PackageIndex::from_packages(known_packages)
     }
 
+<<<<<<< HEAD
     /// Tries to construct a new `PackageIndex` from a list of [`PackageInfo`]s.
+||||||| parent of e08ed90b (chore: Remove old redundant comments)
+    /// **Edited: Returns PackageIndexErrors now.**
+    ///
+    /// Tries to construct a new PackageIndex from a list of PackageInfos.
+=======
+    /// Tries to construct a new PackageIndex from a list of PackageInfos.
+>>>>>>> e08ed90b (chore: Remove old redundant comments)
     ///
     /// **Arguments**
     ///  * `known_packages`: List of [`PackageInfo`]s to incorporate in the `PackageIndex`.
