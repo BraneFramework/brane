@@ -187,13 +187,10 @@ fn upgrade<T: Serialize>(
                     debug!("File '{}' is a v{} {} file", path.display(), version, what);
 
                     // Convert it to another file
-                    let parent: Cow<Path> = path.parent().map(Cow::Borrowed).unwrap_or_else(|| {
-                        if path.is_absolute() {
-                            Cow::Owned("/".into())
-                        } else {
-                            Cow::Owned("./".into())
-                        }
-                    });
+                    let parent: Cow<Path> = path
+                        .parent()
+                        .map(Cow::Borrowed)
+                        .unwrap_or_else(|| if path.is_absolute() { Cow::Owned("/".into()) } else { Cow::Owned("./".into()) });
                     if !dry_run && overwrite {
                         // We upgrade in-place
                         println!(
