@@ -19,12 +19,9 @@ dialoguer = "0.11.0"
 enum-debug.workspace = true
 futures-util = "0.3.30"
 graphql_client = "0.13.0"
-hyper = "1.5.1"
-indicatif = "0.17.0"
 log = "0.4.22"
 num-traits = "0.2.18"
 parking_lot = "0.12.1"
-prost = "0.12.0"
 rand = "0.8.5"
 reqwest = { version = "0.12.9", features = ["rustls-tls-manual-roots","json","stream","multipart"] }
 serde = "1.0.204"
@@ -36,8 +33,6 @@ tokio-tar = "0.3.0"
 tokio-util = "0.7.1"
 tonic = "0.11.0"
 uuid = { version = "1.7.0", features = ["v4"] }
-
-brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
 brane-exe = { path = "../brane-exe" }
 brane-shr = { path = "../brane-shr" }

@@ -15,7 +15,6 @@ dotenvy = "0.15.0"
 enum-debug.workspace = true
 env_logger = "0.10.0"
 error-trace.workspace = true
-futures-util = "0.3.30"
 log = "0.4.22"
 prost = "0.12.0"
 # rdkafka = { version = "0.31", features = ["cmake-build"] }
@@ -27,8 +26,6 @@ tokio-stream = "0.1.6"
 tonic = "0.11.0"
 
 policy-reasoner = { git = "https://github.com/epi-project/policy-reasoner", branch = "lib-refactor" }
-
-brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
 brane-exe = { path = "../brane-exe" }
 brane-prx = { path = "../brane-prx" }

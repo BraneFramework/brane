@@ -42,7 +42,6 @@ policy-store = { git = "https://github.com/epi-project/policy-store", features =
 
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
-brane-exe = { path = "../brane-exe" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
 
