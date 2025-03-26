@@ -22,10 +22,16 @@ use brane_prx::client::ProxyClient;
 use clap::Parser;
 use dotenvy::dotenv;
 use error_trace::trace;
-use log::{LevelFilter, debug, error, info, warn};
 use specifications::working::JobServiceServer;
 use tokio::signal::unix::{Signal, SignalKind, signal};
 use tonic::transport::Server;
+use tracing::{debug, error, info, warn};
+
+/***** CONSTANTS *****/
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: tracing::level_filters::LevelFilter = tracing::level_filters::LevelFilter::INFO;
+/// The environment variable used by env-filter in tracing subscriber
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_JOB_LOG";
 
 mod cli;
 
@@ -35,15 +41,9 @@ async fn main() {
     dotenv().ok();
     let opts = cli::Cli::parse();
 
-    // Configure logger.
-    let mut logger = env_logger::builder();
-    logger.format_module_path(false);
+    let cli_log_level = opts.logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
 
-    if opts.debug {
-        logger.filter_level(LevelFilter::Debug).init();
-    } else {
-        logger.filter_level(LevelFilter::Info).init();
-    }
     info!("Initializing brane-job v{}...", env!("CARGO_PKG_VERSION"));
 
     // Load the config, making sure it's a worker config

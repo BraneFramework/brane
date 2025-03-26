@@ -22,7 +22,6 @@ use brane_cfg::certs::{load_certstore, load_identity};
 use brane_cfg::info::Info as _;
 use brane_cfg::node::{NodeConfig, NodeSpecificConfig};
 use brane_cfg::proxy::ProxyProtocol;
-use log::{debug, error, info};
 use never_say_never::Never;
 use rustls::client::ClientConfig;
 use rustls::{Certificate, ConfigBuilder, PrivateKey, RootCertStore, ServerName};
@@ -31,6 +30,7 @@ use specifications::address::Address;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
+use tracing::{debug, error, info};
 use url::Url;
 
 pub use crate::errors::RedirectError as Error;

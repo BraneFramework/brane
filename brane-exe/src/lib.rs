@@ -38,7 +38,7 @@ pub use vm::Vm;
 #[cfg(feature = "print_exec_path")]
 macro_rules! dbg_node {
     ($($arg:tt)+) => {
-        { log::debug!($($arg)+); }
+        { tracing::debug!($($arg)+); }
     };
 }
 /// Macro that conditionally logs nodes that are being run.

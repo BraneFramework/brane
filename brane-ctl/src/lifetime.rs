@@ -32,100 +32,17 @@ use brane_cfg::node::{
 use brane_cfg::proxy;
 use brane_tsk::docker::{DockerOptions, ImageSource, ensure_image, get_digest};
 use console::style;
-use log::{debug, info};
 use rand::Rng;
 use rand::distr::Alphanumeric;
 use serde::{Deserialize, Serialize};
+use specifications::brane::{CentralKind, ServiceKind, WorkerKind};
 use specifications::container::Image;
 use specifications::version::Version;
 use strum::IntoEnumIterator;
+use tracing::{debug, info};
 
 pub use crate::errors::LifetimeError as Error;
 use crate::spec::{LogsOpts, StartOpts, StartSubcommand};
-
-#[derive(Copy, Clone)]
-pub enum ServiceKind {
-    Central(CentralKind),
-    Worker(WorkerKind),
-}
-
-impl ServiceKind {
-    #[inline]
-    pub fn to_service_name(&self) -> &'static str {
-        match self {
-            Self::Central(central_kind) => central_kind.to_service_name(),
-            Self::Worker(worker_kind) => worker_kind.to_service_name(),
-        }
-    }
-
-    #[inline]
-    pub fn to_env_var(&self) -> &'static str {
-        match self {
-            Self::Central(central_kind) => central_kind.to_env_var(),
-            Self::Worker(worker_kind) => worker_kind.to_env_var(),
-        }
-    }
-}
-
-#[derive(strum_macros::EnumIter, Copy, Clone)]
-pub enum CentralKind {
-    Api,
-    Drv,
-    Plr,
-    Prx,
-}
-
-impl CentralKind {
-    #[inline]
-    pub fn to_service_name(&self) -> &'static str {
-        match self {
-            Self::Api => "brane-api",
-            Self::Drv => "brane-drv",
-            Self::Plr => "brane-plr",
-            Self::Prx => "brane-prx",
-        }
-    }
-
-    #[inline]
-    pub fn to_env_var(&self) -> &'static str {
-        match self {
-            Self::Api => "BRANE_API",
-            Self::Drv => "BRANE_DRV",
-            Self::Plr => "BRANE_PLR",
-            Self::Prx => "BRANE_PRX",
-        }
-    }
-}
-
-#[derive(strum_macros::EnumIter, Copy, Clone)]
-pub enum WorkerKind {
-    Reg,
-    Job,
-    Chk,
-    Prx,
-}
-
-impl WorkerKind {
-    #[inline]
-    pub fn to_service_name(&self) -> &'static str {
-        match self {
-            Self::Reg => "brane-reg",
-            Self::Job => "brane-job",
-            Self::Chk => "brane-chk",
-            Self::Prx => "brane-prx",
-        }
-    }
-
-    #[inline]
-    pub fn to_env_var(&self) -> &'static str {
-        match self {
-            Self::Reg => "BRANE_REG",
-            Self::Job => "BRANE_JOB",
-            Self::Chk => "BRANE_CHK",
-            Self::Prx => "BRANE_PRX",
-        }
-    }
-}
 
 /***** HELPER STRUCTS *****/
 /// Defines a struct that writes to a valid compose file for overriding hostnames.
@@ -408,28 +325,6 @@ fn prepare_host(node_config: &NodeConfig) -> Result<(), Error> {
     }
 }
 
-fn get_log_level(service: ServiceKind) -> Option<String> {
-    let log_var = format!("{service_name}_LOG", service_name = service.to_env_var());
-
-    match std::env::var(&log_var) {
-        Ok(val) => return Some(val),
-        // TODO: Could use the trace! macro from error-trace.
-        Err(err) => tracing::trace!(
-            "Malformed log level set using environment variable `{log_var}`. Falling back to using `BRANE_LOG`, if it is set. Cause: \n{err:#}"
-        ),
-    };
-
-    match std::env::var("BRANE_LOG") {
-        Ok(val) => return Some(val),
-        // TODO: Could use the trace! macro from error-trace.
-        Err(err) => {
-            tracing::trace!("Malformed log level set using environment variable `BRANE_LOG`. Continuing with default logging. Cause: \n{err:#}")
-        },
-    };
-
-    None
-}
-
 /// Generate an additional, temporary `docker-compose.yml` file that adds additional hostnames and/or additional volumes.
 ///
 /// # Arguments
@@ -455,38 +350,43 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
     // Match on the kind of node
     let overridefile: ComposeOverrideFile = match &node_config.node {
         NodeSpecificConfig::Central(node) => {
-            let mut services = CentralKind::iter()
-                .map(|service| {
-                    let mut service_override = svc.clone();
+            let mut services = HashMap::new();
+            for service in CentralKind::iter() {
+                let mut service_override = svc.clone();
 
-                    println!("Log level?");
-                    if let Some(log_level) = get_log_level(ServiceKind::Central(service)) {
-                        service_override.environment.push(format!("RUST_LOG={}", log_level));
-                        tracing::warn!("Setting loglevel for {} to {}", service.to_service_name(), log_level);
-                    } else {
-                        tracing::warn!("Leaving loglevel for {} at its default", service.to_service_name());
-                    }
-                    (service.to_service_name(), service_override)
-                })
-                .collect::<HashMap<_, _>>();
-            {
-                // Prepare a proxy service override
-                let prx_svc = services.get_mut(CentralKind::Prx.to_service_name()).unwrap();
-                if let Some(proxy_path) = &node.paths.proxy {
-                    // Open the extra ports
+                let log_level = ServiceKind::Central(service).get_tracing_env_filter();
 
-                    // Read the proxy file to find the incoming ports
-                    let proxy: proxy::ProxyConfig = proxy::ProxyConfig::from_path(proxy_path).map_err(|source| Error::ProxyReadError { source })?;
+                info!(
+                    "Setting log level for service {service} to {log_level}",
+                    service = service.to_service_name(),
+                    // log_level = log_level.as_ref().map(|x| x.as_str()).unwrap_or("default")
+                    log_level = log_level.as_deref().unwrap_or("default")
+                );
 
-                    // Open both the management and the incoming ports now
-                    prx_svc.ports.reserve(proxy.incoming.len());
-                    for (port, _) in proxy.incoming {
-                        prx_svc.ports.push(format!("0.0.0.0:{port}:{port}"));
-                    }
-                } else {
-                    // Otherwise, add it won't start
-                    prx_svc.profiles = vec!["donotstart".into()];
+                if let Some(log_level) = log_level {
+                    service_override.environment.push(format!("{level_var}={level}", level_var = service.to_env_var(), level = log_level));
                 }
+
+                if matches!(service, CentralKind::Prx) {
+                    if let Some(proxy_path) = &node.paths.proxy {
+                        // Open the extra ports
+
+                        // Read the proxy file to find the incoming ports
+                        let proxy: proxy::ProxyConfig =
+                            proxy::ProxyConfig::from_path(proxy_path).map_err(|source| Error::ProxyReadError { source })?;
+
+                        // Open both the management and the incoming ports now
+                        service_override.ports.reserve(proxy.incoming.len());
+                        for (port, _) in proxy.incoming {
+                            service_override.ports.push(format!("0.0.0.0:{port}:{port}"));
+                        }
+                    } else {
+                        // Otherwise, add it won't start
+                        service_override.profiles = vec!["donotstart".into()];
+                    }
+                }
+
+                services.insert(service.to_service_name(), service_override);
             }
 
             // Generate the override file for this node
@@ -494,46 +394,47 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
         },
 
         NodeSpecificConfig::Worker(node) => {
-            let mut services = WorkerKind::iter()
-                .map(|service| {
-                    let mut service_override = svc.clone();
+            let mut services = HashMap::new();
+            for service in WorkerKind::iter() {
+                let mut service_override = svc.clone();
 
-                    if let Some(log_level) = get_log_level(ServiceKind::Worker(service)) {
-                        service_override.environment.push(format!("RUST_LOG={}", log_level));
-                        println!("Setting loglevel to {log_level}");
-                    }
-                    (service.to_service_name(), service_override)
-                })
-                .collect::<HashMap<_, _>>();
-            {
-                // Prepare a proxy service override
-                // Unwrap: This comes from an exhaustive iterator therefore there *MUST* be a
-                // checker.
-                let prx_svc = services.get_mut(WorkerKind::Prx.to_service_name()).unwrap();
-                if let Some(proxy_path) = &node.paths.proxy {
-                    // Open the extra ports
+                let log_level = ServiceKind::Worker(service).get_tracing_env_filter();
+                info!(
+                    "Setting log level for service {service} to {log_level}",
+                    service = service.to_service_name(),
+                    log_level = log_level.as_deref().unwrap_or("default")
+                );
 
-                    // Read the proxy file to find the incoming ports
-                    let proxy: proxy::ProxyConfig = proxy::ProxyConfig::from_path(proxy_path).map_err(|source| Error::ProxyReadError { source })?;
-
-                    // Open both the management and the incoming ports now
-                    prx_svc.ports.reserve(proxy.incoming.len());
-                    for (port, _) in proxy.incoming {
-                        prx_svc.ports.push(format!("0.0.0.0:{port}:{port}"));
-                    }
-                } else {
-                    // Otherwise, add it won't start
-                    prx_svc.profiles = vec!["donotstart".into()];
+                if let Some(log_level) = log_level {
+                    service_override.environment.push(format!("{level_var}={level}", level_var = service.to_env_var(), level = log_level));
                 }
-            }
-            {
-                // Also a checker override
-                // Unwrap: This comes from an exhaustive iterator therefore there *MUST* be a
-                // checker.
-                let chk_svc = services.get_mut(WorkerKind::Chk.to_service_name()).unwrap();
-                if let Some(policy_audit_log) = &node.paths.policy_audit_log {
-                    chk_svc.volumes.push(format!("{}:/audit-log.log", policy_audit_log.display()));
+
+                if matches!(service, WorkerKind::Prx) {
+                    if let Some(proxy_path) = &node.paths.proxy {
+                        // Open the extra ports
+
+                        // Read the proxy file to find the incoming ports
+                        let proxy: proxy::ProxyConfig =
+                            proxy::ProxyConfig::from_path(proxy_path).map_err(|source| Error::ProxyReadError { source })?;
+
+                        // Open both the management and the incoming ports now
+                        service_override.ports.reserve(proxy.incoming.len());
+                        for (port, _) in proxy.incoming {
+                            service_override.ports.push(format!("0.0.0.0:{port}:{port}"));
+                        }
+                    } else {
+                        // Otherwise, add it won't start
+                        service_override.profiles = vec!["donotstart".into()];
+                    }
                 }
+
+                if matches!(service, WorkerKind::Chk) {
+                    if let Some(policy_audit_log) = &node.paths.policy_audit_log {
+                        service_override.volumes.push(format!("{}:/audit-log.log", policy_audit_log.display()));
+                    }
+                }
+
+                services.insert(service.to_service_name(), service_override);
             }
 
             // Generate the override file for this node

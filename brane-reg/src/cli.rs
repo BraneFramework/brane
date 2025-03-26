@@ -6,8 +6,8 @@ use clap::Parser;
 #[derive(Parser)]
 #[clap(name = "brane-reg", version, author)]
 pub(crate) struct Cli {
-    #[clap(long, action, help = "If given, provides additional debug prints on the logger.", env = "DEBUG")]
-    pub(crate) debug: bool,
+    #[clap(flatten)]
+    pub(crate) logging: specifications::cli::Tracing,
 
     /// Load everything from the node.yml file
     #[clap(

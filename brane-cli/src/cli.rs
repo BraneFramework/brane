@@ -12,10 +12,11 @@ use specifications::version::Version as SemVersion;
 #[derive(Parser)]
 #[clap(name = "brane", version, about)]
 pub(crate) struct Cli {
-    #[clap(long, global = true, action, help = "Enable debug mode")]
-    pub(crate) debug: bool,
+    #[clap(flatten)]
+    pub logging: specifications::cli::Tracing,
+
     #[clap(long, action, help = "Skip dependencies check")]
-    pub(crate) skip_check: bool,
+    pub(crate) skip_check:  bool,
     #[clap(subcommand)]
     pub(crate) sub_command: SubCommand,
 }

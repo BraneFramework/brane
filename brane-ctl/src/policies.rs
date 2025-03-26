@@ -25,7 +25,6 @@ use console::style;
 use dialoguer::theme::ColorfulTheme;
 use enum_debug::EnumDebug;
 use error_trace::trace;
-use log::{debug, info};
 use policy::{Policy, PolicyVersion};
 use rand::Rng;
 use rand::distr::Alphanumeric;
@@ -37,6 +36,7 @@ use specifications::checking::{
 };
 use srv::models::{AddPolicyPostModel, PolicyContentPostModel, SetVersionPostModel};
 use tokio::fs::{self as tfs, File as TFile};
+use tracing::{debug, info};
 
 use crate::spec::PolicyInputLanguage;
 

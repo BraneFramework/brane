@@ -549,7 +549,6 @@ dependencies = [
  "console",
  "enum-debug",
  "lazy_static",
- "log",
  "num-traits",
  "rand 0.9.0",
  "serde",
@@ -557,6 +556,7 @@ dependencies = [
  "specifications 3.0.0",
  "strum 0.27.1",
  "thiserror 2.0.12",
+ "tracing",
  "uuid",
 ]
 
@@ -593,12 +593,12 @@ dependencies = [
  "enum-debug",
  "expanduser",
  "human-panic 2.0.2",
- "humanlog",
- "log",
  "serde_json",
  "specifications 3.0.0",
  "thiserror 2.0.12",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "url",
 ]
 
@@ -608,7 +608,6 @@ version = "3.0.0"
 dependencies = [
  "async-trait",
  "enum-debug",
- "log",
  "rustls 0.21.12",
  "rustls-pemfile 1.0.4",
  "serde",
@@ -616,6 +615,7 @@ dependencies = [
  "specifications 3.0.0",
  "thiserror 2.0.12",
  "tokio",
+ "tracing",
  "x509-parser",
 ]
 
@@ -646,11 +646,9 @@ dependencies = [
  "futures-util",
  "graphql_client",
  "human-panic 2.0.2",
- "humanlog",
  "hyper 1.6.0",
  "indicatif",
  "lazy_static",
- "log",
  "names",
  "parking_lot",
  "path-clean",
@@ -671,6 +669,8 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tonic 0.12.3",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
  "x509-parser",
 ]
@@ -684,12 +684,11 @@ dependencies = [
  "brane-exe 3.0.0",
  "brane-tsk",
  "console",
- "humanlog",
  "libc",
- "log",
  "parking_lot",
  "specifications 3.0.0",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -714,11 +713,9 @@ dependencies = [
  "error-trace",
  "hex-literal",
  "human-panic 2.0.2",
- "humanlog",
  "humantime",
  "jsonwebtoken",
  "lazy_static",
- "log",
  "names",
  "policy",
  "rand 0.9.0",
@@ -729,12 +726,12 @@ dependencies = [
  "shlex",
  "specifications 3.0.0",
  "srv",
- "strum 0.26.3",
- "strum_macros 0.26.4",
+ "strum 0.27.1",
  "tempfile",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -754,7 +751,6 @@ dependencies = [
  "enum-debug",
  "env_logger 0.11.7",
  "error-trace",
- "log",
  "reqwest 0.12.14",
  "serde_json",
  "serde_json_any_key",
@@ -763,6 +759,8 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic 0.12.3",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -771,7 +769,6 @@ version = "3.0.0"
 dependencies = [
  "brane-shr 3.0.0",
  "enum-debug",
- "log",
  "nom",
  "nom_locate",
  "rand 0.9.0",
@@ -779,6 +776,7 @@ dependencies = [
  "serde",
  "specifications 3.0.0",
  "thiserror 2.0.12",
+ "tracing",
 ]
 
 [[package]]
@@ -813,15 +811,14 @@ dependencies = [
  "console",
  "enum-debug",
  "futures",
- "humanlog",
  "lazy_static",
- "log",
  "num-traits",
  "serde",
  "serde_json",
  "specifications 3.0.0",
  "thiserror 2.0.12",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -868,7 +865,6 @@ dependencies = [
  "error-trace",
  "futures-util",
  "hyper 1.6.0",
- "log",
  "reqwest 0.12.14",
  "serde",
  "serde_json",
@@ -879,6 +875,8 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic 0.12.3",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -893,7 +891,6 @@ dependencies = [
  "dotenvy",
  "env_logger 0.11.7",
  "libc",
- "log",
  "serde",
  "serde_json",
  "serde_yml",
@@ -901,6 +898,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tonic 0.12.3",
+ "tracing",
  "yaml-rust2",
 ]
 
@@ -916,8 +914,6 @@ dependencies = [
  "clap",
  "dotenvy",
  "error-trace",
- "humanlog",
- "log",
  "parking_lot",
  "rand 0.9.0",
  "reqwest 0.12.14",
@@ -925,6 +921,8 @@ dependencies = [
  "specifications 3.0.0",
  "tokio",
  "tonic 0.12.3",
+ "tracing",
+ "tracing-subscriber",
  "warp",
 ]
 
@@ -939,7 +937,6 @@ dependencies = [
  "dotenvy",
  "env_logger 0.11.7",
  "error-trace",
- "log",
  "never-say-never",
  "reqwest 0.12.14",
  "rustls 0.21.12",
@@ -950,6 +947,8 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tokio-rustls 0.24.1",
+ "tracing",
+ "tracing-subscriber",
  "url",
  "warp",
 ]
@@ -969,7 +968,6 @@ dependencies = [
  "enum-debug",
  "env_logger 0.11.7",
  "error-trace",
- "log",
  "reqwest 0.12.14",
  "rustls 0.21.12",
  "serde",
@@ -980,6 +978,8 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tokio-rustls 0.24.1",
+ "tracing",
+ "tracing-subscriber",
  "warp",
 ]
 
@@ -993,9 +993,7 @@ dependencies = [
  "enum-debug",
  "fs2",
  "hex",
- "humanlog",
  "indicatif",
- "log",
  "rand 0.9.0",
  "regex",
  "reqwest 0.12.14",
@@ -1006,6 +1004,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-tar",
+ "tracing",
  "url",
 ]
 
@@ -1054,9 +1053,7 @@ dependencies = [
  "enum-debug",
  "futures-util",
  "graphql_client",
- "humanlog",
  "lazy_static",
- "log",
  "num-traits",
  "parking_lot",
  "rand 0.9.0",
@@ -1071,6 +1068,7 @@ dependencies = [
  "tokio-tar",
  "tokio-util",
  "tonic 0.12.3",
+ "tracing",
  "uuid",
 ]
 
@@ -1158,9 +1156,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.46"
+version = "4.5.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5c5508ea23c5366f77e53f5a0070e5a84e51687ec3ef9e0464c86dc8d13ce98"
+checksum = "c06f5378ea264ad4f82bbc826628b5aad714a75abf6ece087e923010eb937fb6"
 dependencies = [
  "clap",
 ]
@@ -4473,11 +4471,11 @@ dependencies = [
  "base64 0.22.1",
  "base64ct",
  "chrono",
+ "clap",
  "const_format",
  "enum-debug",
  "futures",
  "jsonwebtoken",
- "log",
  "parking_lot",
  "prost 0.13.5",
  "reqwest 0.12.14",
@@ -4488,9 +4486,10 @@ dependencies = [
  "serde_with",
  "serde_yml",
  "strum 0.27.1",
- "strum_macros 0.27.1",
  "thiserror 2.0.12",
  "tonic 0.12.3",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -4608,12 +4607,6 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.26.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
-
-[[package]]
-name = "strum"
 version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f64def088c51c9510a8579e3c5d67c65349dcf755e5479ad3d010aa6454e2c32"
@@ -4654,19 +4647,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23dc1fa9ac9c169a78ba62f0b841814b7abae11bdd047b9c58f893439e309ea0"
 dependencies = [
  "heck 0.4.1",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 2.0.100",
-]
-
-[[package]]
-name = "strum_macros"
-version = "0.26.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
-dependencies = [
- "heck 0.5.0",
  "proc-macro2",
  "quote",
  "rustversion",

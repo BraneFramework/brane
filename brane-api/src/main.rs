@@ -32,10 +32,13 @@ use juniper::EmptySubscription;
 use scylla::{Session, SessionBuilder};
 use tokio::signal::unix::{Signal, SignalKind, signal};
 use tracing::{debug, error, info, warn};
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 use warp::Filter;
 
+/***** CONSTANTS *****/
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: tracing::level_filters::LevelFilter = tracing::level_filters::LevelFilter::INFO;
+/// The environment variable used by env-filter in tracing subscriber
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_API_LOG";
 
 /***** ENTRYPOINT *****/
 #[tokio::main]
@@ -43,12 +46,10 @@ async fn main() {
     dotenv().ok();
     let opts = cli::Cli::parse();
 
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::EnvFilter::builder().with_default_directive(tracing::level_filters::LevelFilter::WARN.into()).from_env_lossy())
-        .init();
+    let cli_log_level = opts.logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
 
-    tracing::info!("Initializing brane-job v{}...", env!("CARGO_PKG_VERSION"));
+    info!("Initializing brane-job v{}...", env!("CARGO_PKG_VERSION"));
 
     // Load the config, making sure it's a worker config
     debug!("Loading node.yml file '{}'...", opts.node_config_path.display());

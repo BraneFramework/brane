@@ -28,13 +28,13 @@ use brane_tsk::spec::AppId;
 use dashmap::DashMap;
 use enum_debug::EnumDebug as _;
 use error_trace::{ErrorTrace as _, trace};
-use log::{debug, error, info};
 use specifications::driving::{CheckReply, CheckRequest, CreateSessionReply, CreateSessionRequest, DriverService, ExecuteReply, ExecuteRequest};
 use specifications::profiling::ProfileReport;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
+use tracing::{debug, error, info};
 
 use crate::check::RequestOutput;
 use crate::errors::RemoteVmError;
@@ -48,21 +48,21 @@ use crate::{check, gc};
 macro_rules! fatal_err {
     ($tx:ident,Status:: $status:ident, $err:expr) => {{
         // Always log to stderr
-        log::error!("{}", $err.trace());
+        tracing::error!("{}", $err.trace());
         // Attempt to log on tx
         let serr: String = $err.to_string();
         if let Err(err) = $tx.send(Err(Status::$status(serr))).await {
-            log::error!("{}", trace!(("Failed to notify client of error"), err));
+            tracing::error!("{}", trace!(("Failed to notify client of error"), err));
         }
         // Return
         return;
     }};
     ($tx:ident, $status:expr) => {{
         // Always log to stderr
-        log::error!("Aborting incoming request: {}", $status);
+        tracing::error!("Aborting incoming request: {}", $status);
         // Attempt to log on tx
         if let Err(err) = $tx.send(Err($status)).await {
-            log::error!("{}", trace!(("Failed to notify client of error"), err));
+            tracing::error!("{}", trace!(("Failed to notify client of error"), err));
         }
         // Return
         return;
@@ -70,20 +70,20 @@ macro_rules! fatal_err {
 
     ($tx:ident, $rx:ident,Status:: $status:ident, $err:expr) => {{
         // Always log to stderr
-        log::error!("{}", $err.trace());
+        tracing::error!("{}", $err.trace());
         // Attempt to log on tx
         if let Err(err) = $tx.send(Err(Status::$status($err.to_string()))).await {
-            log::error!("{}", trace!(("Failed to notify client of error"), err));
+            tracing::error!("{}", trace!(("Failed to notify client of error"), err));
         }
         // Return
         return Ok(Response::new(ReceiverStream::new($rx)));
     }};
     ($tx:ident, $rx:ident, $status:expr) => {{
         // Always log to stderr
-        log::error!("Aborting incoming request: {}", $status);
+        tracing::error!("Aborting incoming request: {}", $status);
         // Attempt to log on tx
         if let Err(err) = $tx.send(Err($status)).await {
-            log::error!("{}", trace!(("Failed to notify client of error"), err));
+            tracing::error!("{}", trace!(("Failed to notify client of error"), err));
         }
         // Return
         return Ok(Response::new(ReceiverStream::new($rx)));

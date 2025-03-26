@@ -23,7 +23,7 @@ use std::fmt::{Debug, Display, Formatter, Result as FResult};
 use std::fs::{self, DirEntry, ReadDir};
 use std::path::{Path, PathBuf};
 
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 use reqwest::StatusCode;
 use reqwest::blocking as breqwest;
 use tokio::fs::{self as tfs, DirEntry as TDirEntry, ReadDir as TReadDir};
