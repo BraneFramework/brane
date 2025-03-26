@@ -14,9 +14,9 @@
 
 use std::num::NonZeroUsize;
 
-use log::trace;
 use nom::error::{ContextError, ParseError};
 use nom::{IResult, Parser, branch, combinator as comb, sequence as seq};
+use tracing::trace;
 
 use super::ast::{BinOp, Operator, UnaOp};
 use crate::scanner::{Token, Tokens};

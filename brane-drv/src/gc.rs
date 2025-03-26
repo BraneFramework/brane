@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use brane_tsk::spec::AppId;
 use dashmap::DashMap;
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 
 use crate::vm::InstanceVm;
 

@@ -23,8 +23,8 @@ use brane_dsl::ast as dsl;
 use brane_dsl::spec::MergeStrategy;
 use brane_dsl::symbol_table::{FunctionEntry, VarEntry};
 use enum_debug::EnumDebug as _;
-use log::warn;
 use specifications::data::DataName;
+use tracing::warn;
 
 use crate::ast;
 use crate::ast_unresolved::UnresolvedWorkflow;

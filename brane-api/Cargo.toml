@@ -11,10 +11,7 @@ authors.workspace = true
 async-compression = { version = "0.4.0", features = ["tokio","gzip"] }
 bytes = "1.2.0"
 chrono = "0.4.35"
-clap = { version = "4.5.6", features = ["derive","env"] }
 dotenvy = "0.15"
-enum-debug.workspace = true
-error-trace.workspace = true
 juniper = { version = "0.16.1", features = ["chrono"] }
 juniper_warp = "0.8.0"
 # k8s-openapi = { version = "0.14", default-features = false, features = ["v1_23"] }
@@ -32,8 +29,12 @@ tokio-tar = "0.3.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 warp = "0.3.2"
 
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+# Workspace dependencies
+clap.workspace = true
+enum-debug.workspace = true
+error-trace.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 brane-cfg      = { path = "../brane-cfg" }
 brane-prx      = { path = "../brane-prx" }

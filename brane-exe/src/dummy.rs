@@ -21,9 +21,9 @@ use async_trait::async_trait;
 use brane_ast::ast::{Edge, SymTable};
 use brane_ast::locations::Location;
 use brane_ast::{DataType, Workflow};
-use log::info;
 use specifications::data::{AccessKind, AvailabilityKind, DataName};
 use specifications::profiling::ProfileScopeHandle;
+use tracing::info;
 
 pub use crate::errors::DummyVmError as Error;
 use crate::errors::VmError;

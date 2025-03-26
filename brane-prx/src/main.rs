@@ -29,9 +29,15 @@ use brane_prx::spec::Context;
 use clap::Parser;
 use dotenvy::dotenv;
 use error_trace::trace;
-use log::{LevelFilter, debug, error, info, warn};
 use tokio::signal::unix::{Signal, SignalKind, signal};
+use tracing::{debug, error, info, warn};
 use warp::Filter;
+
+/***** CONSTANTS *****/
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: tracing::level_filters::LevelFilter = tracing::level_filters::LevelFilter::INFO;
+/// The environment variable used by env-filter in tracing subscriber
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_PRX_LOG";
 
 
 
@@ -41,15 +47,9 @@ async fn main() {
     dotenv().ok();
     let args = cli::Cli::parse();
 
-    // Configure logger.
-    let mut logger = env_logger::builder();
-    logger.format_module_path(false);
+    let cli_log_level = args.logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
 
-    if args.debug {
-        logger.filter_level(LevelFilter::Debug).init();
-    } else {
-        logger.filter_level(LevelFilter::Info).init();
-    }
     info!("Initializing brane-prx v{}...", env!("CARGO_PKG_VERSION"));
 
     // Load the config, making sure it's a worker config
@@ -115,7 +115,8 @@ async fn main() {
         .and(warp::path::end())
         .and(warp::body::bytes())
         .and(context.clone())
-        .and_then(manage::new_outgoing_path);
+        .and_then(manage::new_outgoing_path)
+        .with(warp::trace::request());
 
     // Extract the proxy address
     let bind_addr: SocketAddr = match node_config.node {

@@ -16,7 +16,7 @@
 use std::cell::Ref;
 use std::collections::HashMap;
 
-use log::debug;
+use tracing::debug;
 
 use crate::ast::{Edge, SymTable, Workflow};
 use crate::ast_unresolved::UnresolvedWorkflow;

@@ -13,7 +13,6 @@
 //
 
 pub mod cli;
-
 use brane_cfg::proxy::ForwardConfig;
 use brane_ctl::spec::{LogsOpts, StartOpts};
 use brane_ctl::{download, generate, lifetime, packages, policies, unpack, upgrade, wizard};
@@ -22,10 +21,15 @@ use clap::Parser;
 use cli::*;
 use dotenvy::dotenv;
 use error_trace::ErrorTrace as _;
-use humanlog::{DebugMode, HumanLogger};
-use log::error;
+use tracing::error;
+use tracing::level_filters::LevelFilter;
 
 
+/***** CONSTANTS *****/
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: LevelFilter = LevelFilter::WARN;
+/// The environment variable used by env-filter in tracing subscriber
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_CTL_LOG";
 
 /***** ENTYRPOINT *****/
 #[tokio::main(flavor = "current_thread")]
@@ -36,21 +40,12 @@ async fn main() {
     // Parse the arguments
     let args = cli::Cli::parse();
 
-    // Initialize the logger
-    if let Err(err) = HumanLogger::terminal(if args.trace {
-        DebugMode::Full
-    } else if args.debug {
-        DebugMode::Debug
-    } else {
-        DebugMode::HumanFriendly
-    })
-    .init()
-    {
-        eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
-    }
+    // Note that this can still be overriden by an environment variable
+    let cli_log_level = args.logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
 
     // Setup the friendlier version of panic
-    if !args.trace && !args.debug {
+    if !args.logging.trace && !args.logging.debug {
         human_panic::setup_panic!();
     }
 
@@ -201,7 +196,8 @@ async fn main() {
                 file,
                 args.node_config,
                 DockerOptions { socket: docker_socket, version: docker_version },
-                StartOpts { compose_verbose: args.debug || args.trace, version, image_dir, local_aux, skip_import, profile_dir },
+                // FIXME: Drop compose verbose?
+                StartOpts { compose_verbose: args.logging.debug || args.logging.trace, version, image_dir, local_aux, skip_import, profile_dir },
                 *kind,
             )
             .await
@@ -211,13 +207,17 @@ async fn main() {
             }
         },
         CtlSubcommand::Stop { exe, file } => {
-            if let Err(err) = lifetime::stop(args.debug || args.trace, exe, file, args.node_config) {
+            // FIXME: Drop compose verbose?
+            if let Err(err) = lifetime::stop(args.logging.debug || args.logging.trace, exe, file, args.node_config) {
                 error!("{}", err.trace());
                 std::process::exit(1);
             }
         },
         CtlSubcommand::Logs { exe, file } => {
-            if let Err(err) = lifetime::logs(exe, file, args.node_config, LogsOpts { compose_verbose: args.debug || args.trace }).await {
+            // FIXME: Drop compose verbose?
+            if let Err(err) =
+                lifetime::logs(exe, file, args.node_config, LogsOpts { compose_verbose: args.logging.debug || args.logging.trace }).await
+            {
                 error!("{}", err.trace());
                 std::process::exit(1);
             }

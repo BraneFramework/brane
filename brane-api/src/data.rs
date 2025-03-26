@@ -21,7 +21,7 @@ use brane_cfg::node::NodeConfig;
 use brane_prx::spec::NewPathRequestTlsOptions;
 use reqwest::StatusCode;
 use specifications::data::{AssetInfo, DataInfo};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 use warp::http::{HeaderValue, Response};
 use warp::hyper::Body;
 use warp::{Rejection, Reply};

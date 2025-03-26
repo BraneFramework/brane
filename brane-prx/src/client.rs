@@ -17,12 +17,12 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use log::{debug, info};
 use reqwest::{Client, Request, Response};
 use serde::Serialize;
 use specifications::address::Address;
 use specifications::package::PackageIndex;
 use specifications::working::{Error as JobServiceError, JobServiceClient};
+use tracing::{debug, info};
 use url::Url;
 
 pub use crate::errors::ClientError as Error;

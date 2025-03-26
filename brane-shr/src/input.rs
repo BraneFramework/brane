@@ -25,7 +25,7 @@ use std::{error, mem};
 
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Completion, Confirm, History, Input, Select};
-use log::warn;
+use tracing::warn;
 
 
 /***** ERRORS *****/

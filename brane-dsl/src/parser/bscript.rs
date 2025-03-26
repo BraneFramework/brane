@@ -16,9 +16,9 @@
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
-use log::trace;
 use nom::error::{ContextError, ErrorKind, ParseError, VerboseError};
 use nom::{IResult, Parser, branch, combinator as comb, multi, sequence as seq};
+use tracing::trace;
 
 use super::ast::{Block, Identifier, Literal, Node, Program, Property, Stmt};
 use crate::ast::Attribute;

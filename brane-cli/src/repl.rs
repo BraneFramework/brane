@@ -22,7 +22,6 @@ use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_tsk::docker::DockerOptions;
 use brane_tsk::spec::AppId;
-use log::warn;
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{CmdKind, Highlighter, MatchingBracketHighlighter};
@@ -31,6 +30,7 @@ use rustyline::history::DefaultHistory;
 use rustyline::validate::{self, MatchingBracketValidator, Validator};
 use rustyline::{CompletionType, Config, Context, EditMode, Editor};
 use rustyline_derive::Helper;
+use tracing::warn;
 
 pub use crate::errors::ReplError as Error;
 use crate::instance::InstanceInfo;

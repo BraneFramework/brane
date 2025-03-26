@@ -26,11 +26,11 @@ use brane_ast::spec::{BuiltinClasses, BuiltinFunctions};
 use brane_ast::{DataType, MergeStrategy, Workflow};
 use enum_debug::EnumDebug as _;
 use futures::future::{BoxFuture, FutureExt};
-use log::debug;
 use specifications::data::{AccessKind, AvailabilityKind, DataName};
 use specifications::profiling::{ProfileScopeHandle, ProfileScopeHandleOwned};
 use tokio::spawn;
 use tokio::task::JoinHandle;
+use tracing::debug;
 
 use crate::dbg_node;
 use crate::errors::ReturnEdge;
@@ -60,12 +60,6 @@ mod tests {
     /// Tests the traversal by generating symbol tables for every file.
     #[tokio::test]
     async fn test_thread() {
-        // Setup the simple logger
-        #[cfg(feature = "test_logging")]
-        if let Err(err) = humanlog::HumanLogger::terminal(humanlog::DebugMode::Debug).init() {
-            eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
-        }
-
         // Run the tests on all the files
         test_on_dsl_files_async("BraneScript", |path, code| {
             async move {

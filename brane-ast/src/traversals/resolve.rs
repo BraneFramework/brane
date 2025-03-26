@@ -23,10 +23,10 @@ use brane_dsl::spec::MergeStrategy;
 use brane_dsl::symbol_table::{ClassEntry, FunctionEntry, SymbolTableEntry, VarEntry};
 use brane_dsl::{DataType, SymbolTable, TextRange};
 use enum_debug::EnumDebug as _;
-use log::trace;
 use specifications::data::DataIndex;
 use specifications::package::{PackageIndex, PackageInfo};
 use specifications::version::Version;
+use tracing::trace;
 
 use crate::errors::AstError;
 pub use crate::errors::ResolveError as Error;
