@@ -1183,6 +1183,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
+name = "clap_mangen"
+version = "0.2.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "724842fa9b144f9b89b3f3d371a89f3455eea660361d13a554f68f8ae5d6c13a"
+dependencies = [
+ "clap",
+ "roff",
+]
+
+[[package]]
 name = "clipboard-win"
 version = "5.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3843,6 +3853,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "roff"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88f8660c1ff60292143c98d08fc6e2f654d722db50410e3f3797d40baaf9d8f3"
+
+[[package]]
 name = "rust-argon2"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5818,6 +5834,23 @@ checksum = "0d65cbf2f12c15564212d48f4e3dfb87923d25d611f2aed18f4cb23f0413d89e"
 dependencies = [
  "libc",
  "rustix",
+]
+
+[[package]]
+name = "xtask"
+version = "3.0.0"
+dependencies = [
+ "brane-cfg",
+ "brane-cli",
+ "brane-ctl",
+ "brane-shr 3.0.0",
+ "brane-tsk",
+ "clap",
+ "clap_complete",
+ "clap_mangen",
+ "humantime",
+ "jsonwebtoken",
+ "specifications 3.0.0",
 ]
 
 [[package]]

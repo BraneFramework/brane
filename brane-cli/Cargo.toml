@@ -12,11 +12,6 @@ license.workspace = true
 name = "brane"
 path = "src/main.rs"
 
-[[bin]]
-name = "brane-completions"
-path = "src/completions.rs"
-doc = false
-
 [dependencies]
 anyhow = "1.0.66"
 async-trait = "0.1.67"
