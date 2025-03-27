@@ -12,11 +12,6 @@ license.workspace = true
 name = "branectl"
 path = "src/main.rs"
 
-[[bin]]
-name = "branectl-completions"
-path = "src/completions.rs"
-doc = false
-
 [dependencies]
 base64ct = "1.6.0"
 bollard = "0.18.0"

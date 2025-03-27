@@ -1,0 +1,27 @@
+[package]
+name = "xtask"
+rust-version = "1.82.0"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+documentation.workspace = true
+license.workspace = true
+
+[dependencies]
+clap = "4.0.0"
+humantime = "2.0.0"
+jsonwebtoken = "9.0.0"
+clap_complete = "4.0.0"
+
+brane-cfg = { path = "../brane-cfg" }
+brane-ctl = { path = "../brane-ctl" }
+brane-cli = { path = "../brane-cli" }
+brane-shr = { path = "../brane-shr" }
+brane-tsk = { path = "../brane-tsk" }
+specifications = { path = "../specifications" }
+clap_mangen = "0.2.26"
+
+[lints]
+workspace = true
