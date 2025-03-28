@@ -1,4 +1,3 @@
-//! This module contains all logic and structures with respect to argument handling and invocation of this command
 use std::path::PathBuf;
 
 use clap::Parser;

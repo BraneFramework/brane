@@ -1512,6 +1512,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "directories"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16f5094c54661b38d03bd7e50df373292118db60b585c08a411c6d840017fe7d"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5840,17 +5849,27 @@ dependencies = [
 name = "xtask"
 version = "3.0.0"
 dependencies = [
+ "anyhow",
+ "async-compression 0.4.20",
+ "brane-cc",
  "brane-cfg",
  "brane-cli",
  "brane-ctl",
+ "brane-dsl 3.0.0",
  "brane-shr 3.0.0",
  "brane-tsk",
  "clap",
  "clap_complete",
  "clap_mangen",
+ "directories",
+ "flate2",
  "humantime",
  "jsonwebtoken",
  "specifications 3.0.0",
+ "strum 0.27.1",
+ "tar",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
