@@ -13,13 +13,15 @@
 //
 
 use std::borrow::Cow;
-use std::fs::{self, DirEntry, ReadDir};
+use std::fs::{self, DirEntry, File, ReadDir};
 use std::future::Future;
-use std::path::{Path, PathBuf};
+use std::io::Write as _;
+use std::path::{Component, Path, PathBuf};
 
 use humanlog::{DebugMode, HumanLogger};
 use log::{debug, warn};
-use regex::Regex;
+use regex::{Regex, RegexSet};
+use specifications::arch::Arch;
 use specifications::container::ContainerInfo;
 use specifications::data::{AssetInfo, DataIndex, DataInfo};
 use specifications::package::{PackageIndex, PackageInfo};
@@ -418,8 +420,272 @@ where
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum CreateDirWithCacheTagError {
+    /// Failed to create a new CACHEDIR.TAG
+    #[error("Failed to create CACHEDIR.TAG file '{}'", path.display())]
+    CachedirTagCreate { path: PathBuf, source: std::io::Error },
+    /// Failed to write to a new CACHEDIR.TAG
+    #[error("Failed to write to CACHEDIR.TAG file '{}'", path.display())]
+    CachedirTagWrite { path: PathBuf, source: std::io::Error },
+    /// Could not create a new directory at the given location.
+    #[error("Failed to create {} directory '{}'", what, path.display())]
+    DirCreate { what: &'static str, path: PathBuf, source: std::io::Error },
+}
+
+pub fn create_dir_with_cachedirtag(path: impl AsRef<Path>) -> Result<(), CreateDirWithCacheTagError> {
+    let path = path.as_ref();
+
+    // Fix the missing directories, if any.
+    if !path.exists() {
+        // Else, generate the directory tree one-by-one. We place a CACHEDIR.TAG in the highest one we create.
+        let mut first: bool = true;
+        let mut stack: PathBuf = PathBuf::new();
+        for comp in path.components() {
+            match comp {
+                Component::RootDir => {
+                    stack = PathBuf::from("/");
+                    continue;
+                },
+                Component::Prefix(comp) => {
+                    stack = PathBuf::from(comp.as_os_str());
+                    continue;
+                },
+
+                Component::CurDir => continue,
+                Component::ParentDir => {
+                    stack.pop();
+                    continue;
+                },
+                Component::Normal(comp) => {
+                    stack.push(comp);
+                    if !stack.exists() {
+                        // Create the directory first
+                        fs::create_dir(&stack).map_err(|source| CreateDirWithCacheTagError::DirCreate {
+                            what: "output",
+                            path: stack.clone(),
+                            source,
+                        })?;
+
+                        // Then create the CACHEDIR.TAG if we haven't already
+                        if first {
+                            let tag_path: PathBuf = stack.join("CACHEDIR.TAG");
+                            let mut handle: File = File::create(&tag_path)
+                                .map_err(|source| CreateDirWithCacheTagError::CachedirTagCreate { path: tag_path.clone(), source })?;
+                            handle.write(
+                                b"Signature: 8a477f597d28d172789f06886806bc55\n# This file is a cache directory tag created by BRANE's `branectl`.\n# For information about cache directory tags, see:\n#	    https://www.brynosaurus.com/cachedir/\n",
+                            ).map_err(|source| CreateDirWithCacheTagError::CachedirTagWrite { path: tag_path, source })?;
+                            first = false;
+                        }
+                    }
+                    continue;
+                },
+            }
+        }
+    }
+
+    Ok(())
+}
 
 
+#[derive(Debug, Eq, PartialEq)]
+pub enum ContainerImageSource {
+    RegistryImage(RegistryImage),
+    RepositoryRelease(RepositoryRelease),
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct RepositoryRelease {
+    pub platform: RepositoryReleasePlatform,
+    pub namespace: String,
+    pub repository: String,
+    pub artifact: String,
+    pub version: String,
+    pub arch: Arch,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct RegistryImage {
+    pub platform:  RegistryImagePlatform,
+    pub namespace: String,
+    pub image:     String,
+    pub version:   String,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum RepositoryReleasePlatform {
+    GitHub,
+    GitLab,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum RegistryImagePlatform {
+    DockerHub,
+    GitHubContainerRegistry,
+}
+
+
+#[derive(Debug, thiserror::Error, Eq, PartialEq)]
+pub enum ContainerImageSourceError {
+    #[error("Could not get any capture group")]
+    NoMatch,
+    #[error("Unknown platform: {platform}")]
+    UnknownPlatform { platform: String },
+}
+
+impl ContainerImageSource {
+    pub fn from_identifier(identifier: &str, arch: Arch) -> Result<Self, ContainerImageSourceError> {
+        let set = RegexSet::new([REPOSITORYRELEASE_REGEX, REGISTRY_REGEX]).unwrap();
+
+        let matches: Vec<_> = set.matches(identifier).into_iter().map(|index| &set.patterns()[index]).collect();
+
+        if matches.is_empty() {
+            return Err(ContainerImageSourceError::NoMatch);
+        }
+
+        if matches.len() > 1 {
+            log::warn!("Image source was ambigious, assuming our first match");
+        }
+
+        Ok(match matches[0].as_str() {
+            REGISTRY_REGEX => ContainerImageSource::RegistryImage(RegistryImage::from_identifier(identifier, arch)?),
+            REPOSITORYRELEASE_REGEX => ContainerImageSource::RepositoryRelease(RepositoryRelease::from_identifier(identifier, arch)?),
+
+            _ => unreachable!(),
+        })
+    }
+}
+
+// FIXME: choose right charset for all capture groups
+const REGISTRY_REGEX: &str =
+    r"^(?:(?<platform>docker|dockerhub|dh|githubregistry|ghcr):)?(?:(?<owner>[A-Za-z0-9]+)/)?(?<image>[A-Za-z]+)(?::(?<version>[a-z0-9.]+))?$";
+const REPOSITORYRELEASE_REGEX: &str =
+    r"^(?:(?<platform>github|gitlab):)?(?:(?:(?<owner>[A-Za-z0-9]+)/)?(?<repo>[A-Za-z]+)/)?(?<artifact>[A-Za-z0-9\-_]+)(?::(?<version>[a-z0-9.]+))?$";
+
+impl RegistryImage {
+    pub fn from_identifier(identifier: &str, arch: Arch) -> Result<Self, ContainerImageSourceError> {
+        // Unwrap is possibly because Regex::new is not input-dependent and can only create compile-time errors
+        let re = Regex::new(REGISTRY_REGEX).unwrap();
+
+        let Some(capture) = re.captures(identifier) else {
+            return Err(ContainerImageSourceError::NoMatch);
+        };
+
+        let Some(image) = capture.name("image") else {
+            unreachable!(
+                "Artifact is not an optional capture group, so having no artifact in the identifier will result in a \
+                 ContainerImageSourceError::NoCapture instead of a None match option here."
+            )
+        };
+
+        let platform = match capture.name("platform") {
+            Some(platform_match) => {
+                let platform = platform_match.as_str().to_owned();
+                match platform.as_str() {
+                    "docker" | "dockerhub" | "dh" => RegistryImagePlatform::DockerHub,
+                    "githubregistry" | "ghcr" => RegistryImagePlatform::GitHubContainerRegistry,
+                    _ => return Err(ContainerImageSourceError::UnknownPlatform { platform }),
+                }
+            },
+            None => RegistryImagePlatform::DockerHub,
+        };
+
+        Ok(Self {
+            platform,
+            namespace: match capture.name("owner") {
+                Some(owner) => owner.as_str().to_owned(),
+                None => String::from("braneframework"),
+            },
+            image: image.as_str().to_owned(),
+            version: match capture.name("version") {
+                Some(version) => version.as_str().to_owned(),
+                None => String::from("latest"),
+            },
+        })
+    }
+
+    pub fn identifier(&self) -> String {
+        match self.platform {
+            RegistryImagePlatform::DockerHub => {
+                format!("{namespace}/{image}:{version}", namespace = self.namespace, image = self.image, version = self.version)
+            },
+            RegistryImagePlatform::GitHubContainerRegistry => {
+                format!("ghrc.io/{namespace}/{image}:{version}", namespace = self.namespace, image = self.image, version = self.version)
+            },
+        }
+    }
+}
+
+impl RepositoryRelease {
+    pub fn from_identifier(identifier: &str, arch: Arch) -> Result<Self, ContainerImageSourceError> {
+        // Unwrap is possibly because Regex::new is not input-dependent and can only create compile-time errors
+        let re = Regex::new(REPOSITORYRELEASE_REGEX).unwrap();
+
+        let Some(capture) = re.captures(identifier) else {
+            return Err(ContainerImageSourceError::NoMatch);
+        };
+
+        let Some(artifact) = capture.name("artifact") else {
+            unreachable!(
+                "Artifact is not an optional capture group, so having no artifact in the identifier will result in a \
+                 ContainerImageSourceError::NoCapture instead of a None match option here."
+            )
+        };
+
+        let platform = match capture.name("platform") {
+            Some(platform_match) => {
+                let platform = platform_match.as_str().to_owned();
+                match platform.as_str() {
+                    "github" => RepositoryReleasePlatform::GitHub,
+                    "gitlab" => RepositoryReleasePlatform::GitLab,
+                    _ => return Err(ContainerImageSourceError::UnknownPlatform { platform }),
+                }
+            },
+            None => RepositoryReleasePlatform::GitHub,
+        };
+
+        Ok(Self {
+            platform,
+            namespace: match capture.name("owner") {
+                Some(owner) => owner.as_str().to_owned(),
+                None => String::from("braneframework"),
+            },
+            repository: match capture.name("repo") {
+                Some(repository) => repository.as_str().to_owned(),
+                None => String::from("brane"),
+            },
+            artifact: artifact.as_str().to_owned(),
+            version: match capture.name("version") {
+                Some(version) => version.as_str().to_owned(),
+                None => String::from("latest"),
+            },
+            arch,
+        })
+    }
+
+    pub fn url(&self) -> String {
+        match self.platform {
+            RepositoryReleasePlatform::GitHub => {
+                format!(
+                    "https://github.com/{namespace}/{repository}/releases/download/{version}/{filename}",
+                    namespace = self.namespace,
+                    repository = self.repository,
+                    version = self.version,
+                    filename = format_args!("{artifact}-{arch}.tar.gz", artifact = self.artifact, arch = self.arch.brane())
+                )
+            },
+            RepositoryReleasePlatform::GitLab => {
+                format!(
+                    "https://gitlab.com/{namespace}/{project}/-/releases/{version}/downloads/{filename}",
+                    namespace = self.namespace,
+                    project = self.repository,
+                    version = self.version,
+                    filename = format_args!("{artifact}-{arch}.tar.gz", artifact = self.artifact, arch = self.arch.brane())
+                )
+            },
+        }
+    }
+}
 
 
 /***** ADDRESS CHECKING *****/
@@ -501,5 +767,62 @@ mod tests {
 
         let url = ensure_http_schema("https://localhost", false).unwrap();
         assert_eq!(url, "https://localhost");
+    }
+
+    #[test]
+    fn test_repository_release_from_identifier() {
+        assert_eq!(
+            RepositoryRelease::from_identifier("worker"),
+            Ok(RepositoryRelease {
+                platform:   RepositoryReleasePlatform::GitHub,
+                namespace:  String::from("braneframework"),
+                repository: String::from("brane"),
+                artifact:   String::from("worker"),
+                version:    String::from("latest"),
+            })
+        );
+
+        assert_eq!(
+            RepositoryRelease::from_identifier("worker:1.2.3"),
+            Ok(RepositoryRelease {
+                platform:   RepositoryReleasePlatform::GitHub,
+                namespace:  String::from("braneframework"),
+                repository: String::from("brane"),
+                artifact:   String::from("worker"),
+                version:    String::from("1.2.3"),
+            })
+        );
+        assert_eq!(
+            RepositoryRelease::from_identifier("github:worker"),
+            Ok(RepositoryRelease {
+                platform:   RepositoryReleasePlatform::GitHub,
+                namespace:  String::from("braneframework"),
+                repository: String::from("brane"),
+                artifact:   String::from("worker"),
+                version:    String::from("latest"),
+            })
+        );
+        assert_eq!(
+            RepositoryRelease::from_identifier("DanielVoogsgerd/brane/worker:nightly"),
+            Ok(RepositoryRelease {
+                platform:   RepositoryReleasePlatform::GitHub,
+                namespace:  String::from("DanielVoogsgerd"),
+                repository: String::from("brane"),
+                artifact:   String::from("worker"),
+                version:    String::from("nightly"),
+            })
+        );
+        assert_eq!(
+            RepositoryRelease::from_identifier("gitlab:lut99/brane/worker:2.0.0"),
+            Ok(RepositoryRelease {
+                platform:   RepositoryReleasePlatform::GitLab,
+                namespace:  String::from("lut99"),
+                repository: String::from("brane"),
+                artifact:   String::from("worker"),
+                version:    String::from("2.0.0"),
+            })
+        );
+        assert_eq!(RepositoryRelease::from_identifier("github:braneframework/brane/"), Err(ContainerImageSourceError::NoMatch));
+        assert_eq!(RepositoryRelease::from_identifier("github:braneframework/brane/:latest"), Err(ContainerImageSourceError::NoMatch));
     }
 }

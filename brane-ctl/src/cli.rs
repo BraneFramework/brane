@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use brane_cfg::proxy::ProxyProtocol;
 use brane_ctl::spec::{
-    API_DEFAULT_VERSION, DownloadServicesSubcommand, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, InclusiveRange,
-    Pair, PolicyInputLanguage, ResolvableNodeKind, StartSubcommand, VersionFix,
+    API_DEFAULT_VERSION, GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, ImageGroup, InclusiveRange, Pair,
+    PolicyInputLanguage, ResolvableNodeKind, StartSubcommand, VersionFix,
 };
 use brane_tsk::docker::ClientVersion;
 use clap::{Parser, Subcommand};
@@ -14,6 +14,8 @@ use specifications::address::{Address, AddressOpt};
 use specifications::arch::Arch;
 use specifications::package::Capability;
 use specifications::version::Version;
+
+const DEFAULT_DOCKER_HOST: &str = "/var/run/docker.sock";
 
 /***** ARGUMENTS *****/
 /// Defines the toplevel arguments for the `branectl` tool.
@@ -190,10 +192,7 @@ pub(crate) enum DownloadSubcommand {
             global = true,
             help = "The processor architecture for which to download the images. Specify '$LOCAL' to use the architecture of the current machine."
         )]
-        arch:    Arch,
-        /// The version of the services to download.
-        #[clap(short, long, default_value=env!("CARGO_PKG_VERSION"), global=true, help="The version of the images to download from GitHub. You can specify 'latest' to download the latest version (but that might be incompatible with this CTL version)")]
-        version: Version,
+        arch:  Arch,
         /// Whether to overwrite existing images or not.
         #[clap(
             short = 'F',
@@ -202,11 +201,19 @@ pub(crate) enum DownloadSubcommand {
             help = "If given, will overwrite services that are already there. Otherwise, these are not overwritten. Note that regardless, a \
                     download will still be performed."
         )]
-        force:   bool,
+        force: bool,
+
+        /// The path of the Docker socket.
+        #[clap(long, default_value = DEFAULT_DOCKER_HOST, env="DOCKER_HOST", help = "The path of the Docker socket to connect to.")]
+        docker_socket: PathBuf,
+        /// The client version to connect with.
+        #[clap(long, default_value=API_DEFAULT_VERSION.as_str(), env="DOCKER_API_VERSION", help="The client version to connect to the Docker instance with.")]
+        docker_client_version: ClientVersion,
 
         /// Whether to download the central or the worker VMs.
-        #[clap(subcommand)]
-        kind: DownloadServicesSubcommand,
+        /// TODO: Enhance docs
+        #[clap(help = "The collection of images")]
+        kind: String,
     },
 }
 

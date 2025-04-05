@@ -19,7 +19,7 @@ use std::str::FromStr;
 
 use brane_cfg::node::NodeKind;
 use brane_tsk::docker::{ClientVersion, ImageSource};
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 use enum_debug::EnumDebug;
 use specifications::address::Address;
 use specifications::version::Version;
@@ -300,30 +300,17 @@ pub struct LogsOpts {
     pub compose_verbose: bool,
 }
 
-
-
-/// A bit awkward here, but defines the subcommand for downloading service images from the repo.
-#[derive(Debug, EnumDebug, Subcommand)]
-pub enum DownloadServicesSubcommand {
+#[derive(Clone, Debug, EnumDebug, ValueEnum)]
+pub enum ImageGroup {
     /// Download the services for a central node.
-    #[clap(name = "central", about = "Downloads the central node services (brane-api, brane-drv, brane-plr, brane-prx)")]
+    #[clap(name = "central")]
     Central,
     /// Download the services for a worker node.
-    #[clap(name = "worker", about = "Downloads the worker node services (brane-reg, brane-job, brane-prx)")]
+    #[clap(name = "worker")]
     Worker,
     /// Download the auxillary services for the central node.
-    #[clap(
-        name = "auxillary",
-        about = "Downloads the auxillary services for the central node. Note that most of these are actually downloaded using Docker."
-    )]
-    Auxillary {
-        /// The path of the Docker socket.
-        #[clap(short, long, default_value = "/var/run/docker.sock", help = "The path of the Docker socket to connect to.")]
-        socket: PathBuf,
-        /// The client version to connect with.
-        #[clap(short, long, default_value=API_DEFAULT_VERSION.as_str(), help="The client version to connect to the Docker instance with.")]
-        client_version: ClientVersion,
-    },
+    #[clap(name = "auxillary")]
+    Auxillary,
 }
 
 /// A bit awkward here, but defines the generate subcommand for the node file. This basically defines the possible kinds of nodes to generate.
