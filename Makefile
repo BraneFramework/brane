@@ -4,26 +4,52 @@
 #
 CENTRAL_SERVICES := brane-api brane-drv brane-plr
 WORKER_SERVICES := brane-job brane-reg brane-chk
+PROXY_SERVICES :=
 SHARED_SERVICES := brane-prx
 
-BINARY_TARGETS := brane-ctl brane-cli brane-let
+BINARY_TARGETS := brane-ctl brane-cli brane-cc
+
+ifeq ($(UNAME_S),Linux)
+	BINARY_TARGETS += brane-let
+endif
+
+DYNAMIC_LIBRARES := brane-cli-c
 
 BUILD_DIR := target
-IMAGE_DIR := $(BUILD_DIR)/debug
-BIN_DIR := $(BUILD_DIR)/debug
 
 WORKSPACE_MEMBERS := $(sort $(CENTRAL_SERVICES) $(WORKER_SERVICES) $(SHARED_SERVICES))
 
 BUILDX_ARGS := build 
 CARGO_BUILD_ARGS := 
-IMAGE_DOCKER_FILE := ./Dockerfile.dev
+
+ifndef RUST_ARCH
+	SARCH := $(shell uname -m)
+	ifeq ($(SARCH),amd64)
+		RUST_ARCH := x86_64
+	else ifeq ($(SARCH),x86_64)
+		RUST_ARCH := x86_64
+	else ifeq ($(SARCH),x86-64)
+		RUST_ARCH := x86_64
+	else ifeq ($(SARCH),aarch64)
+		RUST_ARCH := aarch64
+	else ifeq ($(SARCH),arm64)
+		RUST_ARCH := aarch64
+	else
+		RUST_ARCH := UNKNOWN
+	endif
+endif
 
 # The binaries we can build in either debug or release mode
-ifeq ($(PROFILE),release)
+ifeq ($(PROFILE),debug)
+	IMAGE_DOCKER_FILE := ./Dockerfile.dev
+	IMAGE_DIR := $(BUILD_DIR)/debug
+	BIN_DIR := $(BUILD_DIR)/debug
+else
 	CARGO_BUILD_ARGS += --release
 	IMAGE_DOCKER_FILE := ./Dockerfile.rls
 	IMAGE_DIR := $(BUILD_DIR)/release
 	BIN_DIR := $(BUILD_DIR)/release
+	LIB_DIR := $(BUILD_DIR)/release
 endif
 
 # Sometimes docker buildx can take a cached version while there are actually some changes. With
@@ -39,7 +65,7 @@ endif
 
 # Universal targets
 .PHONY: all
-all: $(WORKSPACE_MEMBERS)
+all: $(WORKSPACE_MEMBERS) $(BINARY_TARGETS)
 
 .PHONY: binaries
 binaries: $(BINARY_TARGETS)
@@ -53,6 +79,12 @@ worker-images: $(WORKER_SERVICES) $(SHARED_SERVICES)
 .PHONY: central-images
 central-images: $(CENTRAL_SERVICES) $(SHARED_SERVICES)
 
+.PHONY: proxy-images
+proxy-images: $(PROXY_SERVICES) $(SHARED_SERVICES)
+
+.PHONY: dynamic-libraries
+dynamic-libraries: $(DYNAMIC_LIBRARES)
+
 # Compilation of images
 # Building of images relies heavily on docker buildx. This is due to the dynamic linking requirements of Brane
 # This way we can compile Brane in a similar/identical environment as we will end up running them.
@@ -63,7 +95,18 @@ $(WORKSPACE_MEMBERS): $(IMAGE_DIR)
 
 # Compilation of binaries
 .PHONY: $(BINARY_TARGETS)
+
+brane-let: $(BIN_DIR)
+	@echo "Building $@"
+	cargo build $(CARGO_BUILD_ARGS) --target $(RUST_ARCH)-unknown-linux-musl --package $@
+
 $(BINARY_TARGETS): $(BIN_DIR)
+	@echo "Building $@"
+	cargo build $(CARGO_BUILD_ARGS) --package $@
+
+# Compilation of dynamic libraries
+.PHONY: $(DYNAMIC_LIBRARES)
+$(DYNAMIC_LIBRARES): $(LIB_DIR)
 	@echo "Building $@"
 	cargo build $(CARGO_BUILD_ARGS) --package $@
 
@@ -80,5 +123,9 @@ $(IMAGE_DIR): $(BUILD_DIR)
 	mkdir $(IMAGE_DIR) || echo "Directory $(IMAGE_DIR) already exists"
 
 .PHONY: $(BIN_DIR)
+$(BIN_DIR): $(BUILD_DIR)
+	mkdir $(BIN_DIR) || echo "Directory $(BIN_DIR) already exists"
+
+.PHONY: $(LIB_DIR)
 $(BIN_DIR): $(BUILD_DIR)
 	mkdir $(BIN_DIR) || echo "Directory $(BIN_DIR) already exists"
