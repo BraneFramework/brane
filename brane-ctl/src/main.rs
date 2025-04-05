@@ -57,9 +57,9 @@ async fn main() {
     // Now match on the command
     match args.subcommand {
         CtlSubcommand::Download(subcommand) => match *subcommand {
-            DownloadSubcommand::Services { fix_dirs, path, arch, version, force, kind } => {
+            DownloadSubcommand::Services { fix_dirs, path, arch, force, docker_socket, docker_client_version, kind } => {
                 // Run the subcommand
-                if let Err(err) = download::services(fix_dirs, path, arch, version, force, kind).await {
+                if let Err(err) = download::services(fix_dirs, path, arch, force, docker_socket, docker_client_version, kind).await {
                     error!("{}", err.trace());
                     std::process::exit(1);
                 }

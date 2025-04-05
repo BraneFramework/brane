@@ -19,7 +19,8 @@ use std::io::Write as _;
 use std::path::{Component, Path, PathBuf};
 
 use brane_shr::fs::{DownloadSecurity, download_file_async, move_path_async, unarchive_async};
-use brane_tsk::docker::{Docker, DockerOptions, ImageSource, connect_local, ensure_image, save_image};
+use brane_shr::utilities::{ContainerImageSource, RepositoryRelease, create_dir_with_cachedirtag};
+use brane_tsk::docker::{ClientVersion, Docker, DockerOptions, ImageSource, connect_local, ensure_image, save_image};
 use console::{Style, style};
 use enum_debug::EnumDebug as _;
 use log::{debug, info, warn};
@@ -29,7 +30,7 @@ use specifications::version::Version;
 use tempfile::TempDir;
 
 pub use crate::errors::DownloadError as Error;
-use crate::spec::DownloadServicesSubcommand;
+use crate::spec::ImageGroup;
 
 
 /***** CONSTANTS *****/
@@ -153,6 +154,8 @@ async fn download_brane_services(address: impl AsRef<str>, path: impl AsRef<Path
 
 
 /***** LIBRARY *****/
+
+
 /// Downloads the service images to the local machine from the GitHub repo.
 ///
 /// # Arguments
@@ -169,126 +172,78 @@ pub async fn services(
     fix_dirs: bool,
     path: impl AsRef<Path>,
     arch: Arch,
-    version: Version,
     force: bool,
-    kind: DownloadServicesSubcommand,
+    docker_client: PathBuf,
+    docker_version: ClientVersion,
+    identifier: String,
 ) -> Result<(), Error> {
     let path: &Path = path.as_ref();
-    info!("Downloading {} service images...", kind.variant());
+    let image_source =
+        ContainerImageSource::from_identifier(&identifier, arch).map_err(|source| Error::InvalidDownloadIdentifier { identifier, source })?;
 
-    // Fix the missing directories, if any.
-    if !path.exists() {
-        // We are paralyzed if the user told us not to do anything
-        if !fix_dirs {
-            return Err(Error::DirNotFound { what: "output", path: path.into() });
-        }
+    info!("Downloading images");
 
-        // Else, generate the directory tree one-by-one. We place a CACHEDIR.TAG in the highest one we create.
-        let mut first: bool = true;
-        let mut stack: PathBuf = PathBuf::new();
-        for comp in path.components() {
-            match comp {
-                Component::RootDir => {
-                    stack = PathBuf::from("/");
-                    continue;
-                },
-                Component::Prefix(comp) => {
-                    stack = PathBuf::from(comp.as_os_str());
-                    continue;
-                },
-
-                Component::CurDir => continue,
-                Component::ParentDir => {
-                    stack.pop();
-                    continue;
-                },
-                Component::Normal(comp) => {
-                    stack.push(comp);
-                    if !stack.exists() {
-                        // Create the directory first
-                        fs::create_dir(&stack).map_err(|source| Error::DirCreateError { what: "output", path: stack.clone(), source })?;
-
-                        // Then create the CACHEDIR.TAG if we haven't already
-                        if first {
-                            let tag_path: PathBuf = stack.join("CACHEDIR.TAG");
-                            let mut handle: File =
-                                File::create(&tag_path).map_err(|source| Error::CachedirTagCreate { path: tag_path.clone(), source })?;
-                            handle.write(
-                                b"Signature: 8a477f597d28d172789f06886806bc55\n# This file is a cache directory tag created by BRANE's `branectl`.\n# For information about cache directory tags, see:\n#	    https://www.brynosaurus.com/cachedir/\n",
-                            ).map_err(|source| Error::CachedirTagWrite { path: tag_path, source })?;
-                            first = false;
-                        }
-                    }
-                    continue;
-                },
-            }
-        }
+    // We are paralyzed if the user told us not to do anything
+    if !path.exists() && !fix_dirs {
+        return Err(Error::DirNotFound { what: "output", path: path.into() });
     }
+
     if !path.is_dir() {
         return Err(Error::DirNotADir { what: "output", path: path.into() });
     }
 
-    // Now match on what we are downloading
-    match &kind {
-        DownloadServicesSubcommand::Central => {
-            // Resolve the address to use
-            let address: String = if version.is_latest() {
-                format!("https://github.com/braneframework/brane/releases/latest/download/instance-{}.tar.gz", arch.brane())
-            } else {
-                format!("https://github.com/braneframework/brane/releases/download/v{}/instance-{}.tar.gz", version, arch.brane())
-            };
-            debug!("Will download from: {}", address);
+    create_dir_with_cachedirtag(path)?;
 
-            // Hand it over the shared code
-            download_brane_services(address, path, format!("instance-{}", arch.brane()), force).await?;
-        },
-
-        DownloadServicesSubcommand::Worker => {
-            // Resolve the address to use
-            let address: String = if version.is_latest() {
-                format!("https://github.com/braneframework/brane/releases/latest/download/worker-instance-{}.tar.gz", arch.brane())
-            } else {
-                format!("https://github.com/braneframework/brane/releases/download/v{}/worker-instance-{}.tar.gz", version, arch.brane())
-            };
-            debug!("Will download from: {}", address);
-
-            // Hand it over the shared code
-            download_brane_services(address, path, format!("worker-instance-{}", arch.brane()), force).await?;
-        },
-
-        DownloadServicesSubcommand::Auxillary { socket, client_version } => {
+    match image_source {
+        ContainerImageSource::RegistryImage(registry_image) => {
             // Attempt to connect to the local Docker daemon.
-            let docker: Docker = connect_local(DockerOptions { socket: socket.clone(), version: *client_version })
+            let docker: Docker = connect_local(DockerOptions { socket: docker_client.clone(), version: docker_version })
                 .map_err(|source| Error::DockerConnectError { source })?;
 
-            // Download the pre-determined set of auxillary images
-            for (name, image) in AUXILLARY_DOCKER_IMAGES {
-                // We can skip it if it already exists
-                let image_path: PathBuf = path.join(format!("{name}.tar"));
-                if !force && image_path.exists() {
-                    debug!("Image '{}' already exists (skipping)", image_path.display());
-                    continue;
-                }
+            let name = registry_image.image.clone();
+            let image = registry_image.identifier();
 
+            // Download the pre-determined set of auxillary images
+            // We can skip it if it already exists
+            let image_path: PathBuf = path.join(format!("{name}.tar"));
+            if !force && image_path.exists() {
+                println!("Image '{}' already exists (skipping)", image_path.display());
+            } else {
                 // Make sure the image is pulled
-                println!("Downloading auxillary image {}...", style(image).bold().green());
-                ensure_image(&docker, Image::new(name, None::<&str>, None::<&str>), ImageSource::Registry(image.into()))
+                println!("Downloading auxillary image {}...", style(&image).bold().green());
+                ensure_image(&docker, Image::new(name.clone(), None::<&str>, None::<&str>), ImageSource::Registry(image.clone()))
                     .await
-                    .map_err(|source| Error::PullError { name: name.into(), image: image.into(), source })?;
+                    .map_err(|source| Error::PullError { name: name.clone(), image: image.clone(), source })?;
 
                 // Save the image to the correct path
-                println!("Exporting auxillary image {}...", style(name).bold().green());
-                save_image(&docker, Image::from(image), &image_path).await.map_err(|source| Error::SaveError {
-                    name: name.into(),
-                    image: image.into(),
+                println!("Exporting auxillary image {}...", style(&name).bold().green());
+                save_image(&docker, Image::from(image.clone()), &image_path).await.map_err(|source| Error::SaveError {
+                    name: name.clone(),
+                    image: image.clone(),
                     path: image_path,
                     source,
                 })?;
             }
         },
+        ContainerImageSource::RepositoryRelease(artifact) => {
+            let address = &artifact.url();
+
+            let archive_dir = address
+                .rsplit_once('/')
+                .ok_or_else(|| Error::InvalidDownloadUrl { url: address.clone() })?
+                .1
+                .strip_suffix(".tar.gz")
+                .ok_or_else(|| Error::InvalidDownloadUrl { url: address.clone() })?
+                .to_owned();
+
+            debug!("Will download from: {}", address);
+
+            // Hand it over the shared code
+            download_brane_services(address, path, archive_dir, force).await?;
+        },
     }
 
     // Done!
-    println!("Successfully downloaded {} services to {}", kind.variant().to_string().to_lowercase(), style(path.display()).bold().green());
+    // println!("Successfully downloaded {} services to {}", kind.variant().to_string().to_lowercase(), style(path.display()).bold().green());
     Ok(())
 }
