@@ -35,6 +35,9 @@ pub(crate) mod xtask {
         Package {
             kind: PackageKind,
         },
+        Build {
+            targets: Vec<String>,
+        },
     }
 
     #[derive(ValueEnum, Debug, Clone)]

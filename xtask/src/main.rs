@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod build;
 mod cli;
 mod package;
 mod registry;
@@ -55,6 +56,9 @@ async fn main() -> anyhow::Result<()> {
             cli::xtask::PackageKind::GitHub => {
                 package::create_github_package().await.context("Could not create package for GitHub")?;
             },
+        },
+        XTaskSubcommand::Build { targets } => {
+            build::build(&targets).context("Could not build all targets")?;
         },
     }
 
