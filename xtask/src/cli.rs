@@ -38,6 +38,14 @@ pub(crate) mod xtask {
         Build {
             targets: Vec<String>,
         },
+        SetVersion {
+            #[clap(short, long)]
+            semver:     Option<String>,
+            #[clap(short, long)]
+            prerelease: Option<String>,
+            #[clap(short, long)]
+            metadata:   Option<String>,
+        },
     }
 
     #[derive(ValueEnum, Debug, Clone)]

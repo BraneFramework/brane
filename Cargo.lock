@@ -5869,6 +5869,7 @@ dependencies = [
  "strum 0.27.1",
  "tar",
  "tokio",
+ "toml",
  "tracing",
 ]
 

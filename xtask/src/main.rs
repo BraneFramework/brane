@@ -4,6 +4,7 @@ mod build;
 mod cli;
 mod package;
 mod registry;
+mod set_version;
 mod utilities;
 
 #[cfg(feature = "cli")]
@@ -59,6 +60,9 @@ async fn main() -> anyhow::Result<()> {
         },
         XTaskSubcommand::Build { targets } => {
             build::build(&targets).context("Could not build all targets")?;
+        },
+        XTaskSubcommand::SetVersion { semver, prerelease, metadata } => {
+            set_version::set_version(semver, prerelease, metadata).context("Could not rewrite version")?;
         },
     }
 
