@@ -6,7 +6,7 @@ use anyhow::Context as _;
 use clap::ValueEnum;
 use clap_complete::{Generator, Shell};
 
-use crate::registry::{REGISTRY, Target, build_registry};
+use crate::registry::{self, Target};
 use crate::utilities::ensure_dir_with_cachetag;
 
 pub(crate) fn generate(target: Option<Target>, shell: Option<Shell>) -> anyhow::Result<()> {
@@ -20,7 +20,7 @@ pub(crate) fn generate(target: Option<Target>, shell: Option<Shell>) -> anyhow::
 
     let targets_to_do = match target {
         Some(target) => &[target][..],
-        None => &REGISTRY.get_or_init(build_registry).list_targets(OS, ARCH).cloned().collect::<Vec<_>>(),
+        None => &registry::registry().list_targets(OS, ARCH).cloned().collect::<Vec<_>>(),
     };
 
     for shell in shells_to_do {

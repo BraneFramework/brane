@@ -5,13 +5,13 @@ use std::path::PathBuf;
 use anyhow::Context;
 use clap::Command;
 
-use crate::registry::{REGISTRY, Target, build_registry};
+use crate::registry::{self, Target};
 use crate::utilities::ensure_dir_with_cachetag;
 
 pub(crate) fn create(target: Option<Target>, compressed: bool) -> anyhow::Result<()> {
     let targets = match target {
         Some(target) => &[target][..],
-        None => &REGISTRY.get_or_init(build_registry).list_targets(OS, ARCH).cloned().collect::<Vec<_>>(),
+        None => &registry::registry().list_targets(OS, ARCH).cloned().collect::<Vec<_>>(),
     };
 
     for target in targets {

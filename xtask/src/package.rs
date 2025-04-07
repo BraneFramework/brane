@@ -9,7 +9,7 @@ use crate::utilities::{compress_file, create_tar_gz, format_release_binary_name,
 pub(crate) async fn create_github_package() -> anyhow::Result<()> {
     eprintln!("Creating a package for: {os} {arch}", os = OS, arch = ARCH);
 
-    let registry = registry::REGISTRY.get_or_init(registry::build_registry);
+    let registry = registry::registry();
 
     let src_dir = PathBuf::from("target/release");
     let dst_dir = PathBuf::from("target/package/release");

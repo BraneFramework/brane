@@ -1,12 +1,14 @@
 #[cfg(feature = "cli")]
 use {
-    crate::registry::{REGISTRY, Target, build_registry},
+    crate::registry::Target,
     clap::{ValueEnum, builder::PossibleValue},
     std::{
         env::consts::{ARCH, OS},
         sync::OnceLock,
     },
 };
+
+use crate::registry;
 
 pub(crate) mod xtask {
     use clap::{Parser, Subcommand, ValueEnum};
@@ -96,7 +98,7 @@ impl ValueEnum for ClapTarget {
         static INSTANCE: OnceLock<Box<[ClapTarget]>> = OnceLock::new();
 
         let targets = INSTANCE.get_or_init(|| {
-            let reg = REGISTRY.get_or_init(build_registry);
+            let reg = registry::registry();
             reg.list_targets(OS, ARCH).filter(|target| target.command.is_some()).cloned().map(Self).collect()
         });
 

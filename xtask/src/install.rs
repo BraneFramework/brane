@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use anyhow::{Context as _, bail};
 use clap_complete::{Generator, Shell, generate};
 
-use crate::registry::{REGISTRY, build_registry};
+use crate::registry;
 
 pub(crate) fn completions(force: bool) -> anyhow::Result<()> {
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
@@ -25,7 +25,7 @@ pub(crate) fn completions(force: bool) -> anyhow::Result<()> {
 
         // We do not need completions for the binaries ran inside the images, as we cannot
         // auto-complete those anyway.
-        for target in REGISTRY.get_or_init(build_registry).search_for_system("binaries", OS, ARCH) {
+        for target in registry::registry().search_for_system("binaries", OS, ARCH) {
             let Some(mut command) = target.command else {
                 continue;
             };
@@ -58,7 +58,7 @@ pub(crate) fn binaries(force: bool) -> anyhow::Result<()> {
         }
     }
 
-    for target in REGISTRY.get_or_init(build_registry).search_for_system("binaries", OS, ARCH) {
+    for target in registry::registry().search_for_system("binaries", OS, ARCH) {
         let Some(command) = target.command else {
             continue;
         };

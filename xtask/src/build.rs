@@ -2,10 +2,10 @@ use std::collections::HashSet;
 use std::env::consts::{ARCH, OS};
 use std::path::PathBuf;
 
-use crate::registry::{self, BuildFuncInfo, build_registry};
+use crate::registry::{self, BuildFuncInfo};
 
 pub fn build(targets: &[String]) -> anyhow::Result<()> {
-    let registry = registry::REGISTRY.get_or_init(build_registry);
+    let registry = registry::registry();
     let build_targets: HashSet<_> = targets
         .iter()
         .flat_map(|target| {

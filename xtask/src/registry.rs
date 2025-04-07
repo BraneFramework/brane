@@ -8,7 +8,9 @@ use crate::external_cli::{
 };
 use crate::utilities::ensure_dir_with_cachetag;
 
-pub static REGISTRY: OnceLock<Registry> = OnceLock::new();
+static REGISTRY: OnceLock<Registry> = OnceLock::new();
+
+pub fn registry() -> &'static Registry { REGISTRY.get_or_init(build_registry) }
 
 pub type BuildFunc = dyn Fn(BuildFuncInfo) -> anyhow::Result<()> + Sync + Send;
 
@@ -120,7 +122,6 @@ pub fn build_registry() -> Registry {
         build_binary_builder("brane-cc"),
         get_cc_command(),
     ));
-
     registry.register(Target::new(
         "brane-cli",
         "brane",
