@@ -26,32 +26,47 @@ pub(crate) mod xtask {
     #[derive(Debug, Subcommand)]
     pub(crate) enum XTaskSubcommand {
         #[cfg(feature = "cli")]
+        /// Builds completion files for shells for either specified or all binaries
         Completions {
             #[clap(short, long)]
+            /// The shell for which to build the completion
             shell:  Option<Shell>,
             #[clap(short, long)]
+            /// The binary for which to build the completion
             target: Option<ClapTarget>,
         },
         #[cfg(feature = "cli")]
+        /// Builds man pages for all Brane binaries
         Man {
+            /// What target to create a manpage for
             #[clap(short, long)]
             target:     Option<ClapTarget>,
+            /// Whether or not to compress the generated manpages
             #[clap(short, long)]
             compressed: bool,
         },
         #[cfg(feature = "cli")]
+        /// Installs Brane in the relevant user directories
         Install {
-            #[clap(short, long, help = "Create all necessary directories")]
+            /// Whether or not to create all necessary directories if they don't exist
+            #[clap(short, long)]
             force: bool,
         },
+        /// Packages brane for the specified platform
         Package {
             /// The platform the package is built for
             platform: PackagePlatform,
         },
+        /// Builds a set of predefined targets for Brane
         Build {
+            /// The targets to build
             targets: Vec<String>,
         },
         #[cfg(feature = "ci")]
+        /// Sets updates the verion of the package.
+        /// Warning: This command was made for CI, and will restructure your Cargo.toml, this is
+        /// fine in ephemeral environments like CI, but is probably a dealbreaking in user
+        /// environments
         SetVersion {
             #[clap(short, long)]
             semver:     Option<String>,
@@ -70,6 +85,8 @@ pub(crate) mod xtask {
 }
 
 #[cfg(feature = "cli")]
+/// Wrapper for [`Target`]s that contain a [`clap::Command`]. This implements [`ValueEnum`], so we can
+/// use clap to filter which targets have a clap CLI that we can parse, e.g. for creating manpages.
 #[derive(Debug, Clone)]
 pub(crate) struct ClapTarget(pub Target);
 

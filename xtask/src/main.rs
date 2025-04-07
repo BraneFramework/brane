@@ -19,9 +19,6 @@ mod set_version;
 
 use anyhow::Context as _;
 use clap::Parser;
-use clap_complete::shells::Shell;
-
-const SHELLS: [Shell; 3] = [Shell::Bash, Shell::Fish, Shell::Zsh];
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {

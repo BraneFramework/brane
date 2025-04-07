@@ -3,9 +3,9 @@ use std::fs::File;
 use std::path::Path;
 
 use anyhow::Context as _;
+use clap::ValueEnum;
 use clap_complete::{Generator, Shell};
 
-use crate::SHELLS;
 use crate::registry::{REGISTRY, Target, build_registry};
 use crate::utilities::ensure_dir_with_cachetag;
 
@@ -15,7 +15,7 @@ pub(crate) fn generate(target: Option<Target>, shell: Option<Shell>) -> anyhow::
 
     let shells_to_do = match shell {
         Some(shell) => &[shell][..],
-        None => &SHELLS[..],
+        None => Shell::value_variants(),
     };
 
     let targets_to_do = match target {

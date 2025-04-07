@@ -2,6 +2,9 @@
 use clap::CommandFactory;
 use paste::paste;
 
+/// This macro is used to import clap interfaces from other crates in the workspace. Additionally,
+/// we create an accessor get_<..>_command which can be used both with and without cli feature
+/// flag to obtain the clap::Command (if there is any).
 #[macro_export]
 macro_rules! include_cli {
     ($x:ident) => {
