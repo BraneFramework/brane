@@ -5,7 +5,6 @@ mod cli;
 mod external_cli;
 mod package;
 mod registry;
-mod set_version;
 mod utilities;
 
 #[cfg(feature = "cli")]
@@ -14,6 +13,9 @@ mod completions;
 mod install;
 #[cfg(feature = "cli")]
 mod man;
+
+#[cfg(feature = "ci")]
+mod set_version;
 
 use anyhow::Context as _;
 use clap::Parser;
@@ -45,6 +47,7 @@ async fn main() -> anyhow::Result<()> {
         XTaskSubcommand::Build { targets } => {
             build::build(&targets).context("Could not build all targets")?;
         },
+        #[cfg(feature = "ci")]
         XTaskSubcommand::SetVersion { semver, prerelease, metadata } => {
             set_version::set_version(semver, prerelease, metadata).context("Could not rewrite version")?;
         },

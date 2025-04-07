@@ -51,6 +51,7 @@ pub(crate) mod xtask {
         Build {
             targets: Vec<String>,
         },
+        #[cfg(feature = "ci")]
         SetVersion {
             #[clap(short, long)]
             semver:     Option<String>,

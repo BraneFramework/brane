@@ -48,6 +48,7 @@ cli = [
     "dep:humantime",
     "dep:jsonwebtoken",
 ]
+ci = []
 
 [lints]
 workspace = true
