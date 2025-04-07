@@ -1,15 +1,34 @@
+use std::env::consts::{ARCH, OS};
 use std::io::BufWriter;
 use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::Command;
 
-pub(crate) fn create_recursive(command: Command, prefix: &str, compressed: bool) -> anyhow::Result<()> {
-    let out_dir = PathBuf::from("./manpages");
+use crate::registry::{REGISTRY, Target, build_registry};
+use crate::utilities::ensure_dir_with_cachetag;
 
-    if !out_dir.exists() {
-        std::fs::create_dir(&out_dir).context("Creating output directory failed")?;
+pub(crate) fn create(target: Option<Target>, compressed: bool) -> anyhow::Result<()> {
+    let targets = match target {
+        Some(target) => &[target][..],
+        None => &REGISTRY.get_or_init(build_registry).list_targets(OS, ARCH).cloned().collect::<Vec<_>>(),
+    };
+
+    for target in targets {
+        // clap will ensure the target contains a command if a target is specified
+        let Some(command) = target.clone().command else {
+            continue;
+        };
+        create_recursive(command, "", compressed)?;
     }
+
+    Ok(())
+}
+
+pub(crate) fn create_recursive(command: Command, prefix: &str, compressed: bool) -> anyhow::Result<()> {
+    let out_dir = PathBuf::from("./target/man");
+
+    ensure_dir_with_cachetag(&out_dir).context("Creating output directory failed")?;
 
     let subcommand_name = command.get_name();
     let total_command_name = if prefix.is_empty() { String::from(subcommand_name) } else { format!("{prefix}-{subcommand_name}") };

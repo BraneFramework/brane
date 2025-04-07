@@ -1,11 +1,11 @@
+use std::env::consts::{ARCH, OS};
 use std::fs::File;
 use std::path::PathBuf;
 
 use anyhow::{Context as _, bail};
 use clap_complete::{Generator, Shell, generate};
-use strum::IntoEnumIterator;
 
-use crate::Binary;
+use crate::registry::{REGISTRY, build_registry};
 
 pub(crate) fn completions(force: bool) -> anyhow::Result<()> {
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
@@ -23,8 +23,13 @@ pub(crate) fn completions(force: bool) -> anyhow::Result<()> {
             }
         }
 
-        for binary in Binary::iter() {
-            let mut command = binary.to_command();
+        // We do not need completions for the binaries ran inside the images, as we cannot
+        // auto-complete those anyway.
+        for target in REGISTRY.get_or_init(build_registry).search_for_system("binaries", OS, ARCH) {
+            let Some(mut command) = target.command else {
+                continue;
+            };
+
             let bin_name = command.get_name().to_owned();
 
             let completion_filename = shell.file_name(&bin_name);
@@ -53,8 +58,12 @@ pub(crate) fn binaries(force: bool) -> anyhow::Result<()> {
         }
     }
 
-    for binary in Binary::iter() {
-        let bin_name = binary.to_command().get_name().to_owned();
+    for target in REGISTRY.get_or_init(build_registry).search_for_system("binaries", OS, ARCH) {
+        let Some(command) = target.command else {
+            continue;
+        };
+
+        let bin_name = command.get_name().to_owned();
         let src_path = target_directory.join(&bin_name);
 
         eprintln!("{src_path:?} -> {dest_dir:?}");

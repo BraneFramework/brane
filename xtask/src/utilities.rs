@@ -60,7 +60,7 @@ pub fn create_tar_gz(archive_name: impl AsRef<Path>, files: impl IntoIterator<It
     Ok(())
 }
 
-pub fn create_dir_with_cachetag(path: impl AsRef<Path>) -> anyhow::Result<()> {
+pub fn ensure_dir_with_cachetag(path: impl AsRef<Path>) -> anyhow::Result<()> {
     let path = path.as_ref();
     let absolute_path = std::env::current_dir().context("Could not get current directory")?.join(path);
 
@@ -68,7 +68,14 @@ pub fn create_dir_with_cachetag(path: impl AsRef<Path>) -> anyhow::Result<()> {
         if !absolute_path.is_dir() {
             anyhow::bail!("Output directory location exists, but is not a directory");
         }
-        // Nothing to do
+
+        // FIXME: Do proper check
+        if !absolute_path.join("CACHEDIR.TAG").exists() {
+            // TODO: if a cachetag exists in the provided relative path, we don't have to create a new
+            // cachetag
+            std::fs::write(absolute_path.join("CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n# Created by brane-xtask")?;
+        }
+
         return Ok(());
     }
 
