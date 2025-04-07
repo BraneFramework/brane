@@ -1,3 +1,4 @@
+//! Module containing logic to create manpages for all workspace members using the clap CLI.
 use std::env::consts::{ARCH, OS};
 use std::io::BufWriter;
 use std::path::PathBuf;

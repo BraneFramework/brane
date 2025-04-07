@@ -1,3 +1,4 @@
+//! Module containing all logic to install Brane locally.
 use std::env::consts::{ARCH, OS};
 use std::fs::File;
 use std::path::PathBuf;

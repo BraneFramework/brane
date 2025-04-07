@@ -1,3 +1,4 @@
+//! Module containing several utility functions to use in xtask.
 use std::env::consts::*;
 use std::path::{Path, PathBuf};
 
@@ -6,16 +7,23 @@ use tar::Builder;
 use tokio::fs::File;
 use tokio::io::BufReader;
 
+/// Format the name of a binary as used in the GitHub release.
 pub fn format_release_binary_name(name: &str) -> String { format!("{name}-{os}-{arch}{suffix}", os = OS, arch = ARCH, suffix = EXE_SUFFIX) }
 
+/// Format the name of a binary as stored after compilation. It will handle the OS-dependent
+/// suffixes, e.g. '.exe' for Windows.
 pub fn format_src_binary_name(name: &str) -> String { format!("{name}{suffix}", suffix = EXE_SUFFIX) }
 
+/// Format the name of a library as used in the GitHub release.
 pub fn format_release_library_name(name: &str) -> String {
     format!("{prefix}{name}-{os}-{arch}{suffix}.gz", os = OS, arch = ARCH, prefix = DLL_PREFIX, suffix = DLL_SUFFIX)
 }
 
+/// Format the name of a library as stored after compilation. It will handle OS-dependent prefixes
+/// and suffixes.
 pub fn format_src_library_name(name: &str) -> String { format!("{prefix}{name}{suffix}", prefix = DLL_PREFIX, suffix = DLL_SUFFIX) }
 
+/// Compress a file using Gzip encoding.
 pub async fn compress_file(path: impl AsRef<Path>, dest: impl AsRef<Path>) -> anyhow::Result<()> {
     let path = path.as_ref();
     let dest = dest.as_ref();
@@ -28,6 +36,9 @@ pub async fn compress_file(path: impl AsRef<Path>, dest: impl AsRef<Path>) -> an
     Ok(())
 }
 
+/// Create a .tar.gz compressed archive from a list of files. Inside the archive, a directory will
+/// be created named `archive_name`, without the '.tar.gz' extension. Inside that directory, or
+/// given files will be stored in a flat structure.
 pub fn create_tar_gz(archive_name: impl AsRef<Path>, files: impl IntoIterator<Item = PathBuf>) -> anyhow::Result<()> {
     let archive_name = archive_name.as_ref();
     let file = std::io::BufWriter::new(std::fs::File::create(archive_name).context("Couldn't create the archive")?);
@@ -60,6 +71,10 @@ pub fn create_tar_gz(archive_name: impl AsRef<Path>, files: impl IntoIterator<It
     Ok(())
 }
 
+/// Ensure that a given directory contains a CACHEDIR.TAG. If the directory does not yet exist, the
+/// function will create the directory. The most 'parent' newly created directory will store the
+/// CACHEDIR.TAG. If no directories have to be created, it will try to create a CACHEDIR.TAG in the
+/// requested directory.
 pub fn ensure_dir_with_cachetag(path: impl AsRef<Path>) -> anyhow::Result<()> {
     let path = path.as_ref();
     let absolute_path = std::env::current_dir().context("Could not get current directory")?.join(path);

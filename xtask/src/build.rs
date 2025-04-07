@@ -1,9 +1,16 @@
+//! Module with all things related to building Brane targets.
 use std::collections::HashSet;
 use std::env::consts::{ARCH, OS};
 use std::path::PathBuf;
 
 use crate::registry::{self, BuildFuncInfo};
 
+/// Build all given targets for the current operating system and architecture.
+/// # Arguments
+/// - `targets`: A list of targets to build.
+///
+/// Note that a target can be both a package name (e.g. 'brane-ctl') or a group name (e.g.
+/// 'binaries').
 pub fn build(targets: &[String]) -> anyhow::Result<()> {
     let registry = registry::registry();
     let build_targets: HashSet<_> = targets

@@ -1,3 +1,4 @@
+//! Module with everything related to creating packages for various platforms / distributions.
 use std::env::consts::*;
 use std::path::PathBuf;
 

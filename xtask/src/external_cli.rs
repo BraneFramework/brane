@@ -1,3 +1,5 @@
+//! Module wherein CLIs from other workspace members are imported. Note that this does not include
+//! the CLI from xtask itself, which is defined in [`crate::cli`].
 #[cfg(feature = "cli")]
 use clap::CommandFactory;
 use paste::paste;

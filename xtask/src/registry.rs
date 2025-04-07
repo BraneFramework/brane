@@ -1,3 +1,6 @@
+//! Module containing the Brane workspace [`Registry`]. This includes all binaries, images, and
+//! such. It exposes a static [`REGISTRY`] and can be build with [`build_registry`]. Most of all,
+//! this registry functions as a database for this information.
 use std::hash::Hash;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
@@ -8,26 +11,42 @@ use crate::external_cli::{
 };
 use crate::utilities::ensure_dir_with_cachetag;
 
+/// The registry containing all binaries, images, and other outputs of the Brane framework. This
+/// can be used by xtask to query those outputs in various ways.
+/// NOTE: You probably don't mean to use this, use the accessor ([`registry`]) instead.
 static REGISTRY: OnceLock<Registry> = OnceLock::new();
 
+/// The registry containing all binaries, images, and other outputs of the Brane framework. This
+/// can be used by xtask to query those outputs in various ways.
 pub fn registry() -> &'static Registry { REGISTRY.get_or_init(build_registry) }
 
+/// The signature of the function that build a given [`Target`] in Brane.
 pub type BuildFunc = dyn Fn(BuildFuncInfo) -> anyhow::Result<()> + Sync + Send;
 
+/// The information provided to a [`Target`] build command.
 pub struct BuildFuncInfo {
+    /// The output directory for the build.
     pub out_dir:     PathBuf,
+    /// The architecture of the system to build for.
     pub target_arch: String,
 }
 
+/// A unit that can be compiled using xtask.
 #[derive(Clone)]
 pub struct Target {
+    /// Name of the package inside the workspace.
     pub package_name: String,
+    /// Destination file name of the compilation.
     pub output_name:  String,
 
+    /// Platforms on which this `Target` package is supported.
     pub platforms: Vec<(String, String)>,
+    /// Groups that this `Target` belongs to.
     pub groups:    Vec<String>,
 
+    /// Command to build this `Target`.
     pub build_command: Arc<BuildFunc>,
+    /// The clap command that is used during manpage and completions generation.
     pub command: Option<clap::Command>,
 }
 
@@ -65,6 +84,7 @@ impl PartialEq for Target {
 impl Eq for Target {}
 
 impl Target {
+    /// Constructs a new `Target`.
     pub fn new(
         name: &str,
         output_name: &str,
@@ -84,26 +104,33 @@ impl Target {
     }
 }
 
+/// Registry containing all [`Target`]s of the Brane Framework.
 pub struct Registry {
+    /// Targets of the Brane Framework.
     targets: Vec<Target>,
 }
 
 impl Registry {
+    /// Constructs a new (empty) `Registry`.
     pub fn new() -> Self { Self { targets: Default::default() } }
 
+    /// Registers a [`Target`] in the `Registry`.
     pub fn register(&mut self, target: Target) { self.targets.push(target) }
 
+    /// Search for [`Target`]s in the `Registry`, matching on both package name and groups.
     pub fn search(&self, name: impl Into<String>) -> impl Iterator<Item = Target> + '_ {
         let name = name.into();
         self.targets.iter().filter(move |target| target.package_name == name || target.groups.iter().any(|group| group == &name)).cloned()
     }
 
+    /// Similar to `search`, but only giving [`Target`]s supported on the given OS and architecture.
     pub fn search_for_system(&self, name: impl Into<String>, os: impl Into<String>, arch: impl Into<String>) -> impl Iterator<Item = Target> + '_ {
         let os = os.into();
         let arch = arch.into();
         self.search(name).filter(move |target| target.platforms.iter().any(|(a_os, a_arch)| a_os == &os && a_arch == &arch))
     }
 
+    /// List all available [`Target`]s in the `Registry` for the given OS and architecture.
     pub fn list_targets(&self, os: impl Into<String>, arch: impl Into<String>) -> impl Iterator<Item = &Target> + '_ {
         let os = os.into();
         let arch = arch.into();
@@ -111,6 +138,7 @@ impl Registry {
     }
 }
 
+/// Populate the registry with Brane Framework targets.
 pub fn build_registry() -> Registry {
     let mut registry = Registry::new();
 
@@ -218,6 +246,8 @@ pub fn build_registry() -> Registry {
     registry
 }
 
+/// A higher-order function that creates the function which in turn builds images in the Brane
+/// Framework.
 pub fn build_image_builder(package: &str) -> Arc<BuildFunc> {
     let package = package.to_owned();
 
@@ -252,6 +282,8 @@ pub fn build_image_builder(package: &str) -> Arc<BuildFunc> {
     })
 }
 
+/// A higher-order function that creates a function that in turn builds binaries in the Brane
+/// Framework.
 pub fn build_binary_builder(package: &str) -> Arc<BuildFunc> {
     let package = package.to_owned();
 

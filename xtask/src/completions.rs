@@ -1,3 +1,5 @@
+//! Module containing all logic needed for generating completions from the clap CLI interface for
+//! all workspace members.
 use std::env::consts::{ARCH, OS};
 use std::fs::File;
 use std::path::Path;

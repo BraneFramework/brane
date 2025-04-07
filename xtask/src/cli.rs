@@ -1,3 +1,5 @@
+//! Module with the command line interface for xtask. Note that this is different from the external
+//! CLIs from other packages, which are defined in module [`crate::external_cli`].
 #[cfg(feature = "cli")]
 use {
     crate::registry::Target,
@@ -10,6 +12,7 @@ use {
 
 use crate::registry;
 
+/// Module containing the command line interface of xtask.
 pub(crate) mod xtask {
     use clap::{Parser, Subcommand, ValueEnum};
     #[cfg(feature = "cli")]
@@ -18,13 +21,17 @@ pub(crate) mod xtask {
     #[cfg(feature = "cli")]
     use super::ClapTarget;
 
+    // xtask is the main build tool for Brane. If there is something you have to repeatedly or
+    // something you have to do in CI, this is probably the place to do so.
     #[derive(Debug, Parser)]
     #[clap(name = "xtask")]
     pub(crate) struct Cli {
+        /// The various actions xtask can perform for you.
         #[clap(subcommand)]
         pub(crate) subcommand: XTaskSubcommand,
     }
 
+    /// The various actions xtask can perform.
     #[derive(Debug, Subcommand)]
     pub(crate) enum XTaskSubcommand {
         #[cfg(feature = "cli")]
@@ -70,10 +77,15 @@ pub(crate) mod xtask {
         /// fine in ephemeral environments like CI, but is probably a dealbreaking in user
         /// environments
         SetVersion {
+            /// The semantic version to use.
             #[clap(short, long)]
             semver:     Option<String>,
+            /// The prerelease to use, added after the semantic version with a '-' delimiter.
             #[clap(short, long)]
+            // FIXME: Restrict allowed characters
             prerelease: Option<String>,
+            /// The metadata to use, added after the prerelease with a '+' delimiter.
+            // FIXME: Restrict allowed characters
             #[clap(short, long)]
             metadata:   Option<String>,
         },
@@ -81,6 +93,7 @@ pub(crate) mod xtask {
 
     #[derive(ValueEnum, Debug, Clone)]
     pub(crate) enum PackagePlatform {
+        /// For GitHub releases.
         #[clap(name = "github")]
         GitHub,
     }
