@@ -5,7 +5,7 @@ use clap::Parser;
 
 /// Defines the arguments that may be given to the service.
 #[derive(Parser)]
-#[clap(version = env!("CARGO_PKG_VERSION"))]
+#[clap(name = "brane-drv", version, author)]
 pub(crate) struct Cli {
     /// Print debug info
     #[clap(short, long, action, help = "If given, prints additional logging information.", env = "DEBUG")]

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 
 #[derive(Parser)]
-#[clap(version = env!("CARGO_PKG_VERSION"))]
+#[clap(name = "brane-plr", version, author)]
 pub(crate) struct Cli {
     /// Print debug info
     #[clap(short, long, action, help = "If given, prints additional logging information.", env = "TRACE")]

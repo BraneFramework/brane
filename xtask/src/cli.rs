@@ -22,7 +22,7 @@ pub(crate) mod xtask {
     // xtask is the main build tool for Brane. If there is something you have to repeatedly or
     // something you have to do in CI, this is probably the place to do so.
     #[derive(Debug, Parser)]
-    #[clap(name = "xtask")]
+    #[clap(name = "xtask", version, author)]
     pub(crate) struct Cli {
         /// The various actions xtask can perform for you.
         #[clap(subcommand)]

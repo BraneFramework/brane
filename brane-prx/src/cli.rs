@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
+/// A rudimentary, SOCKS-as-a-Service proxy service for outgoing connections from a domain.
 #[derive(Parser)]
-#[clap(name = "Brane proxy service", version = env!("CARGO_PKG_VERSION"), author, about = "A rudimentary, SOCKS-as-a-Service proxy service for outgoing connections from a domain.")]
+#[clap(name = "brane-prx", version, author)]
 pub(crate) struct Cli {
     /// Print debug info
     #[clap(long, action, help = "If given, shows additional logging information.", env = "DEBUG")]
