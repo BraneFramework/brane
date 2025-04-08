@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use clap::Command;
+use tracing::{info, warn};
 
 use crate::registry::{self, Target};
 use crate::utilities::SubCommandIter;
@@ -45,12 +46,13 @@ pub(crate) fn generate_by_target(target: Option<Target>, destination: impl AsRef
 /// - compressed: Whether or not to compress the man pages using gzip encoding
 /// - force: Overwrites the old files if they already exist
 pub(crate) fn generate_recursively(command: Command, destination: impl AsRef<Path>, compressed: bool, force: bool) -> anyhow::Result<()> {
+    info!("Generating manpages for {}", command.get_name());
     let destination = destination.as_ref();
 
     for command in SubCommandIter::new(command) {
         match generate(command, destination, compressed, force) {
             Ok(()) => (),
-            Err(err @ ManGenerateError::FileExists { .. }) => eprintln!("{err}, skipping"),
+            Err(err @ ManGenerateError::FileExists { .. }) => warn!("{err}, skipping"),
             e @ Err(_) => return e.context("Could not generate man file"),
         }
     }

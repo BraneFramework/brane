@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context as _, bail};
 use clap_complete::{Generator, Shell, generate};
+use tracing::{debug, info, warn};
 
 use crate::registry;
 use crate::utilities::{CopyError, SubCommandIter, copy};
@@ -26,6 +27,7 @@ pub fn completion_locations() -> anyhow::Result<[(Shell, PathBuf); 3]> {
 /// - parents: Creates the relevant directories if they don't exist yet
 /// - force: overwrite files if they already exist
 pub(crate) fn completions(parents: bool, force: bool) -> anyhow::Result<()> {
+    info!("Installing completions");
     let completion_locations = completion_locations().expect("Could not get completion locations");
 
     for (shell, location) in completion_locations {
@@ -49,10 +51,10 @@ pub(crate) fn completions(parents: bool, force: bool) -> anyhow::Result<()> {
             let completion_filename = shell.file_name(&bin_name);
 
             let path = location.join(completion_filename);
-            tracing::debug!("Creating {path:?}");
+            debug!("Creating {path:?}");
 
             if !force && path.exists() {
-                eprintln!("File: {path} already exists and --force (-f) was not provided, skipping", path = path.display());
+                warn!("File: {path} already exists and --force (-f) was not provided, skipping.", path = path.display());
             } else {
                 let mut file = File::create(path).context("Attempted to create completion file")?;
                 generate(shell, &mut command, bin_name, &mut file);
@@ -69,6 +71,7 @@ pub(crate) fn completions(parents: bool, force: bool) -> anyhow::Result<()> {
 /// - parents: Creates the relevant directories if they don't exist yet
 /// - force: overwrite files if they already exist
 pub(crate) fn binaries(parents: bool, force: bool) -> anyhow::Result<()> {
+    info!("Installing binaries");
     let target_directory = PathBuf::from("./target/release");
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
     let dest_dir = base_dir.executable_dir().context("Could not determine the directories in which to install")?;
@@ -79,12 +82,12 @@ pub(crate) fn binaries(parents: bool, force: bool) -> anyhow::Result<()> {
         let bin_name = command.get_name().to_owned();
         let src_path = target_directory.join(&bin_name);
 
-        tracing::debug!("Copying: {src_path:?} -> {dest_dir:?}");
         let dest_path = dest_dir.join(&bin_name);
+        debug!("Installing to {}", dest_path.display());
 
         match copy(src_path, dest_path, force, parents) {
             Ok(_) => (),
-            Err(ref err @ CopyError::FileAlreadyExists { .. }) => eprintln!("{err}, Skipping"),
+            Err(ref err @ CopyError::FileAlreadyExists { .. }) => warn!("{err}, Skipping"),
             _ => {},
         }
     }
@@ -98,11 +101,13 @@ pub(crate) fn binaries(parents: bool, force: bool) -> anyhow::Result<()> {
 /// - parents: Creates the relevant directories if they don't exist yet
 /// - force: overwrite files if they already exist
 pub(crate) fn manpages(parents: bool, force: bool) -> anyhow::Result<()> {
+    info!("Installing manpages");
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
     let dest_dir = base_dir.data_local_dir().join("man/man1");
 
     if !dest_dir.exists() {
         if parents {
+            debug!("Creating directory {}", dest_dir.display());
             std::fs::create_dir_all(&dest_dir).context("Could not create man page target directory")?;
         } else {
             anyhow::bail!("target directory did not exist and --parents (-p) was not provided");
@@ -123,6 +128,7 @@ pub(crate) fn manpages(parents: bool, force: bool) -> anyhow::Result<()> {
 /// Note that Brane does not know if those files are actually created by Brane, so if something
 /// else is stored at any location Brane will install, that file will be deleted.
 pub(crate) fn uninstall() -> anyhow::Result<()> {
+    info!("Uninstalling Brane");
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to uninstall")?;
 
     // Removing binaries
@@ -131,6 +137,7 @@ pub(crate) fn uninstall() -> anyhow::Result<()> {
         let path = dest_dir.join(target.output_name);
 
         if path.exists() {
+            debug!("Removing file {}", path.display());
             std::fs::remove_file(&path).with_context(|| format!("Unable to remove: {}", path.display()))?;
         }
     }
@@ -143,6 +150,7 @@ pub(crate) fn uninstall() -> anyhow::Result<()> {
             let path = directory.join(shell.file_name(command.get_name()));
 
             if path.exists() {
+                debug!("Removing file {}", path.display());
                 std::fs::remove_file(&path).with_context(|| format!("Unable to remove: {}", path.display()))?;
             }
         }
@@ -160,12 +168,14 @@ pub(crate) fn uninstall() -> anyhow::Result<()> {
 
             let path = man_dir.join(&filename);
             if path.exists() {
+                debug!("Removing file {}", path.display());
                 std::fs::remove_file(&path).with_context(|| format!("Unable to remove: {}", path.display()))?;
             }
 
             filename.push_str(".gz");
             let path = man_dir.join(&filename);
             if path.exists() {
+                debug!("Removing file {}", path.display());
                 std::fs::remove_file(&path).with_context(|| format!("Unable to remove: {}", path.display()))?;
             }
         }

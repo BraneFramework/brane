@@ -7,6 +7,7 @@ use anyhow::Context as _;
 use tar::Builder;
 use tokio::fs::File;
 use tokio::io::BufReader;
+use tracing::{debug, trace};
 
 /// Format the name of a binary as used in the GitHub release.
 pub fn format_release_binary_name(name: &str) -> String { format!("{name}-{os}-{arch}{suffix}", os = OS, arch = ARCH, suffix = EXE_SUFFIX) }
@@ -27,6 +28,8 @@ pub fn format_src_library_name(name: &str) -> String { format!("{prefix}{name}{s
 /// Compress a file using Gzip encoding.
 pub async fn compress_file(path: impl AsRef<Path>, dest: impl AsRef<Path>) -> anyhow::Result<()> {
     let path = path.as_ref();
+    trace!("Compressing: {}", path.display());
+
     let dest = dest.as_ref();
     let file = File::open(path).await.with_context(|| format!("Could not open source file: {}", path.display()))?;
     let mut reader = BufReader::new(file);
@@ -54,7 +57,7 @@ pub fn create_tar_gz(archive_name: impl AsRef<Path>, files: impl IntoIterator<It
         .ok_or_else(|| anyhow::anyhow!("Could not extract directory name from archive name"))?
         .into();
 
-    eprintln!("Creating archive: {dirname:?}");
+    trace!("Creating archive: {dirname:?}");
 
     for file in files {
         let filename = file
@@ -89,6 +92,7 @@ pub fn ensure_dir_with_cachetag(path: impl AsRef<Path>) -> anyhow::Result<()> {
         if !absolute_path.join("CACHEDIR.TAG").exists() {
             // TODO: if a cachetag exists in the provided relative path, we don't have to create a new
             // cachetag
+            debug!("Creating CACHEDIR.TAG in {}", absolute_path.display());
             std::fs::write(absolute_path.join("CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n# Created by brane-xtask")?;
         }
 
@@ -103,6 +107,7 @@ pub fn ensure_dir_with_cachetag(path: impl AsRef<Path>) -> anyhow::Result<()> {
             // the loop), we have found the most ancient directory to be created
             std::fs::create_dir(child).with_context(|| format!("Could not create new directory {path}", path = child.display()))?;
 
+            debug!("Creating CACHEDIR.TAG in {}", child.display());
             std::fs::write(child.join("CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n# Created by brane-xtask")
                 .context("Could not create CACHEDIR.TAG")?;
             break;
@@ -112,6 +117,7 @@ pub fn ensure_dir_with_cachetag(path: impl AsRef<Path>) -> anyhow::Result<()> {
         cursor = cursor.parent().unwrap();
     }
 
+    debug!("recursively creating directory {}", absolute_path.display());
     std::fs::create_dir_all(absolute_path).context("Could not create all remaining directories")?;
 
     Ok(())
@@ -188,6 +194,7 @@ pub(crate) fn copy(src: impl AsRef<Path>, dest: impl AsRef<Path>, force: bool, p
 
     if !dest_dir.exists() {
         if parents {
+            debug!("Recursively creating dir {}", dest_dir.display());
             std::fs::create_dir_all(dest_dir).map_err(|source| CopyError::FsDirCreate { source })?;
         } else {
             return Err(CopyError::MissingParentDirectory { parent: dest_dir.to_path_buf() });
@@ -202,6 +209,7 @@ pub(crate) fn copy(src: impl AsRef<Path>, dest: impl AsRef<Path>, force: bool, p
         return Err(CopyError::FileAlreadyExists { path: dest.to_path_buf() });
     }
 
+    trace!("Copying {} to {}", src.as_ref().display(), dest.display());
     std::fs::copy(src, dest).map_err(|source| CopyError::FsCopy { source })?;
 
     Ok(())

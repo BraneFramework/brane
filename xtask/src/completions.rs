@@ -7,6 +7,7 @@ use std::path::Path;
 use anyhow::Context as _;
 use clap::{Command, ValueEnum};
 use clap_complete::{Generator, Shell};
+use tracing::info;
 
 use crate::registry::{self, Target};
 
@@ -41,6 +42,7 @@ pub(crate) fn generate_by_target(target: Option<Target>, shell: Option<Shell>, d
 
 pub(crate) fn generate(mut command: Command, shell: &Shell, destination: impl AsRef<Path>) -> anyhow::Result<()> {
     let destination = destination.as_ref();
+    info!("Generating {} completions for {} (in {}).", shell, command.get_name(), destination.display());
 
     let bin_name = command.get_name().to_owned();
     let mut file = File::create(destination.join(shell.file_name(&bin_name)))

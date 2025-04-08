@@ -3,6 +3,7 @@ use std::env::consts::*;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use tracing::info;
 
 use crate::registry;
 use crate::utilities::{
@@ -17,7 +18,7 @@ use crate::utilities::{
 /// Note that this function does not build any packages itself. If you want to build the packages
 /// take a look at: [`crate::build::build()`].
 pub(crate) async fn create_github_package() -> anyhow::Result<()> {
-    eprintln!("Creating a package for: {os} {arch}", os = OS, arch = ARCH);
+    info!("Creating a GitHub package for: {os} {arch}", os = OS, arch = ARCH);
 
     let registry = registry::registry();
 

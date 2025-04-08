@@ -22,6 +22,7 @@ tar = "0.4.21"
 tokio = "1.38.0"
 toml = "0.8.8"
 tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.10", features = ["env-filter"] }
 paste = "1.0.0"
 thiserror = "2.0.0"
 

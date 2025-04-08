@@ -6,6 +6,8 @@ use std::hash::Hash;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
+use tracing::trace;
+
 use crate::external_cli::{
     get_api_command, get_cc_command, get_cli_command, get_ctl_command, get_drv_command, get_job_command, get_let_command, get_plr_command,
     get_prx_command, get_reg_command,
@@ -139,6 +141,7 @@ impl Registry {
 
 /// Populate the registry with Brane Framework targets.
 pub fn build_registry() -> Registry {
+    trace!("Building registry");
     let mut registry = Registry::new();
 
     registry.register(Target::new(

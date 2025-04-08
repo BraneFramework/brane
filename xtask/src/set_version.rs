@@ -1,6 +1,7 @@
 use std::process::Stdio;
 
 use anyhow::Context as _;
+use tracing::warn;
 
 /// Sets the version of the current project to the provided version.
 ///
@@ -13,6 +14,7 @@ use anyhow::Context as _;
 // TODO: Maybe use the semver crate to ensure that the pre-release and metadata are well formatted
 // This is not currently checked
 pub fn set_version(semver: Option<String>, prerelease: Option<String>, metadata: Option<String>) -> anyhow::Result<()> {
+    warn!("set_version can restructure your Cargo.toml. Handle with care.");
     let mut table = std::fs::read_to_string("Cargo.toml").context("Could not read Cargo.toml")?.parse::<toml::Table>()?;
     let version = table
         .get_mut("workspace")
