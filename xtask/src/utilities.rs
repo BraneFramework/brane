@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Module containing several utility functions to use in xtask.
 use std::env::consts::*;
 use std::path::{Path, PathBuf};
@@ -112,6 +113,96 @@ pub fn ensure_dir_with_cachetag(path: impl AsRef<Path>) -> anyhow::Result<()> {
     }
 
     std::fs::create_dir_all(absolute_path).context("Could not create all remaining directories")?;
+
+    Ok(())
+}
+
+
+/// Iterator that iterates over all man pages that could be generated from this clap::Command
+/// For reference, clap::Commands can contain subcommands, recursively, which all can have their
+/// own man page.
+///
+/// The order of this iterator is in-order
+// TODO: This iterator is made entirely out of too many allocations
+pub struct SubCommandIter {
+    // Yeah, we should not allocate here
+    todo: Vec<clap::Command>,
+}
+
+impl SubCommandIter {
+    pub fn new(command: clap::Command) -> Self { Self { todo: vec![command] } }
+}
+
+impl Iterator for SubCommandIter {
+    type Item = clap::Command;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = self.todo.pop();
+
+        if let Some(ref item) = item {
+            let subcommands = item.get_subcommands().cloned().map(|command| {
+                // Add the super-commands name as a prefix
+                let subcommand_name = command.get_name();
+                let supercommand_name = item.get_name();
+                let new_name = format!("{supercommand_name}-{subcommand_name}");
+                command.name(new_name)
+            });
+
+            self.todo.extend(subcommands);
+        }
+
+        item.clone()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum CopyError {
+    #[error("Could not create directories")]
+    FsDirCreate { source: std::io::Error },
+    #[error("Could not copy file")]
+    FsCopy { source: std::io::Error },
+
+    #[error("Parent directory: {parent} does not exist and --parents (-p) was not provided")]
+    MissingParentDirectory { parent: PathBuf },
+
+    #[error("\"Directory\": {parent} in which to install is not a directory")]
+    ParentNotDirectory { parent: PathBuf },
+    #[error("File {path} already exists and --force (-f) was not provided")]
+    FileAlreadyExists { path: PathBuf },
+}
+
+/// This function is basically a wrapper around std::fs::copy, but it wraps some logic around
+/// creating directories, force overwriting existing files.
+///
+/// # Arguments:
+/// - src: The source path of the file
+/// - dest: The destination path of the *file*,
+///   Note: do not supply the directory as often done in commands like `cp(1)`
+/// - force: In case the destination already exists, overwrite the file anyway
+/// - parents: Create directories in the path towards dest, akin to `mkdir -p`
+#[inline(always)]
+pub(crate) fn copy(src: impl AsRef<Path>, dest: impl AsRef<Path>, force: bool, parents: bool) -> Result<(), CopyError> {
+    let dest = dest.as_ref();
+
+    let dest_dir = dest.parent().unwrap();
+
+    if !dest_dir.exists() {
+        if parents {
+            std::fs::create_dir_all(dest_dir).map_err(|source| CopyError::FsDirCreate { source })?;
+        } else {
+            return Err(CopyError::MissingParentDirectory { parent: dest_dir.to_path_buf() });
+        }
+    } else if !dest_dir.is_dir() {
+        return Err(CopyError::ParentNotDirectory { parent: dest_dir.to_path_buf() });
+    }
+
+    let exists = dest.exists();
+
+    if !force && exists {
+        return Err(CopyError::FileAlreadyExists { path: dest.to_path_buf() });
+    }
+
+    std::fs::copy(src, dest).map_err(|source| CopyError::FsCopy { source })?;
 
     Ok(())
 }

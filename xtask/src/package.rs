@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use anyhow::Context;
 
 use crate::registry;
-use crate::utilities::{compress_file, create_tar_gz, format_release_binary_name, format_src_binary_name, format_src_library_name};
+use crate::utilities::{
+    compress_file, create_tar_gz, format_release_binary_name, format_release_library_name, format_src_binary_name, format_src_library_name,
+};
 
 pub(crate) async fn create_github_package() -> anyhow::Result<()> {
     eprintln!("Creating a package for: {os} {arch}", os = OS, arch = ARCH);
@@ -29,7 +31,7 @@ pub(crate) async fn create_github_package() -> anyhow::Result<()> {
 
     // CREATE LIBRARIES
     for target in registry.search_for_system("library", OS, ARCH) {
-        compress_file(src_dir.join(format_src_library_name(&target.output_name)), dst_dir.join(format_src_library_name(&target.output_name)))
+        compress_file(src_dir.join(format_src_library_name(&target.output_name)), dst_dir.join(format_release_library_name(&target.output_name)))
             .await
             .with_context(|| format!("Could not compress {library_name}", library_name = target.output_name))?;
     }

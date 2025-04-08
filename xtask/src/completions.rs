@@ -5,15 +5,13 @@ use std::fs::File;
 use std::path::Path;
 
 use anyhow::Context as _;
-use clap::ValueEnum;
+use clap::{Command, ValueEnum};
 use clap_complete::{Generator, Shell};
 
 use crate::registry::{self, Target};
-use crate::utilities::ensure_dir_with_cachetag;
 
-pub(crate) fn generate(target: Option<Target>, shell: Option<Shell>) -> anyhow::Result<()> {
-    let out_dir = Path::new("./target/completions");
-    ensure_dir_with_cachetag(out_dir).context("Could not ensure dir with cachetag")?;
+pub(crate) fn generate_by_target(target: Option<Target>, shell: Option<Shell>, destination: impl AsRef<Path>) -> anyhow::Result<()> {
+    let destination = destination.as_ref();
 
     let shells_to_do = match shell {
         Some(shell) => &[shell][..],
@@ -27,13 +25,21 @@ pub(crate) fn generate(target: Option<Target>, shell: Option<Shell>) -> anyhow::
 
     for shell in shells_to_do {
         for target in targets_to_do {
-            let Some(mut command) = target.command.clone() else { continue };
-            let bin_name = command.get_name().to_owned();
-            let mut file = File::create(out_dir.join(shell.file_name(&bin_name)))
-                .with_context(|| format!("Could not open/create completions file for {bin_name}"))?;
-            clap_complete::generate(*shell, &mut command, &bin_name, &mut file);
+            let Some(command) = target.command.clone() else { continue };
+            generate(command, shell, destination)?
         }
     }
+
+    Ok(())
+}
+
+pub(crate) fn generate(mut command: Command, shell: &Shell, destination: impl AsRef<Path>) -> anyhow::Result<()> {
+    let destination = destination.as_ref();
+
+    let bin_name = command.get_name().to_owned();
+    let mut file = File::create(destination.join(shell.file_name(&bin_name)))
+        .with_context(|| format!("Could not open/create completions file for {bin_name}"))?;
+    clap_complete::generate(*shell, &mut command, &bin_name, &mut file);
 
     Ok(())
 }

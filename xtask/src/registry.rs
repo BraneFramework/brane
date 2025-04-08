@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Module containing the Brane workspace [`Registry`]. This includes all binaries, images, and
 //! such. It exposes a static [`REGISTRY`] and can be build with [`build_registry`]. Most of all,
 //! this registry functions as a database for this information.
@@ -26,9 +27,7 @@ pub type BuildFunc = dyn Fn(BuildFuncInfo) -> anyhow::Result<()> + Sync + Send;
 /// The information provided to a [`Target`] build command.
 pub struct BuildFuncInfo {
     /// The output directory for the build.
-    pub out_dir:     PathBuf,
-    /// The architecture of the system to build for.
-    pub target_arch: String,
+    pub out_dir: PathBuf,
 }
 
 /// A unit that can be compiled using xtask.

@@ -28,7 +28,7 @@ pub fn build(targets: &[String]) -> anyhow::Result<()> {
 
     for target in build_targets {
         eprintln!("Building {target}", target = target.package_name);
-        (target.build_command)(BuildFuncInfo { target_arch: String::from(std::env::consts::ARCH), out_dir: PathBuf::from("./target/release") })?
+        (target.build_command)(BuildFuncInfo { out_dir: PathBuf::from("./target/release") })?
     }
 
     Ok(())

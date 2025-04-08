@@ -20,6 +20,8 @@ mod set_version;
 
 use anyhow::Context as _;
 use clap::Parser;
+#[cfg(feature = "cli")]
+use {std::path::PathBuf, utilities::ensure_dir_with_cachetag};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
@@ -28,14 +30,21 @@ async fn main() -> anyhow::Result<()> {
     match opts.subcommand {
         #[cfg(feature = "cli")]
         XTaskSubcommand::Completions { target, shell } => {
-            completions::generate(target.map(|x| x.0), shell)?;
+            let destination = PathBuf::from("./target/completions");
+            ensure_dir_with_cachetag(&destination).context("Could not create directory with CACHEDIR.TAG")?;
+            completions::generate_by_target(target.map(|x| x.0), shell, destination)?;
         },
         #[cfg(feature = "cli")]
-        XTaskSubcommand::Man { target, compressed } => man::create(target.map(|x| x.0), compressed)?,
+        XTaskSubcommand::Man { target, compressed } => {
+            let destination = PathBuf::from("./target/man");
+            ensure_dir_with_cachetag(&destination).context("Could not create directory with CACHEDIR.TAG")?;
+            man::generate_by_target(target.map(|x| x.0), destination, compressed, true)?
+        },
         #[cfg(feature = "cli")]
-        XTaskSubcommand::Install { force } => {
-            install::completions(force)?;
-            install::binaries(force)?;
+        XTaskSubcommand::Install { parents, force } => {
+            install::completions(parents, force)?;
+            install::binaries(parents, force)?;
+            install::manpages(parents, force)?;
         },
         XTaskSubcommand::Package { platform } => match platform {
             cli::xtask::PackagePlatform::GitHub => {

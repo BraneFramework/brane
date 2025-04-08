@@ -2,15 +2,13 @@
 //! CLIs from other packages, which are defined in module [`crate::external_cli`].
 #[cfg(feature = "cli")]
 use {
-    crate::registry::Target,
+    crate::registry::{self, Target},
     clap::{ValueEnum, builder::PossibleValue},
     std::{
         env::consts::{ARCH, OS},
         sync::OnceLock,
     },
 };
-
-use crate::registry;
 
 /// Module containing the command line interface of xtask.
 pub(crate) mod xtask {
@@ -57,9 +55,12 @@ pub(crate) mod xtask {
         #[cfg(feature = "cli")]
         /// Installs Brane in the relevant user directories
         Install {
-            /// Whether or not to create all necessary directories if they don't exist
+            /// Create all necessary directories if they don't exist
             #[clap(short, long)]
-            force: bool,
+            parents: bool,
+            /// Overwrite files if they already exist
+            #[clap(short, long)]
+            force:   bool,
         },
         /// Packages brane for the specified platform
         Package {
