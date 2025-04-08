@@ -85,15 +85,15 @@ pub(crate) mod xtask {
         SetVersion {
             /// The semantic version to use.
             #[clap(short, long)]
-            semver:     Option<String>,
+            semver:     Option<semver::Version>,
             /// The prerelease to use, added after the semantic version with a '-' delimiter.
             #[clap(short, long)]
             // FIXME: Restrict allowed characters
-            prerelease: Option<String>,
+            prerelease: Option<semver::Prerelease>,
             /// The metadata to use, added after the prerelease with a '+' delimiter.
             // FIXME: Restrict allowed characters
             #[clap(short, long)]
-            metadata:   Option<String>,
+            metadata:   Option<crate::set_version::SpecialBuildMetadata>,
         },
     }
 

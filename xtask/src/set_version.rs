@@ -11,9 +11,11 @@ use tracing::warn;
 /// - semver: If provided updates the semver x.y.z portion of the version
 /// - prerelease: If provided updates the prerelease portion of the version
 /// - metadata: If provided udpates the metadata portion of the version
-// TODO: Maybe use the semver crate to ensure that the pre-release and metadata are well formatted
-// This is not currently checked
-pub fn set_version(semver: Option<String>, prerelease: Option<String>, metadata: Option<String>) -> anyhow::Result<()> {
+pub fn set_version(
+    semver: Option<semver::Version>,
+    prerelease: Option<semver::Prerelease>,
+    metadata: Option<SpecialBuildMetadata>,
+) -> anyhow::Result<()> {
     warn!("set_version can restructure your Cargo.toml. Handle with care.");
     let mut table = std::fs::read_to_string("Cargo.toml").context("Could not read Cargo.toml")?.parse::<toml::Table>()?;
     let version = table
@@ -25,13 +27,9 @@ pub fn set_version(semver: Option<String>, prerelease: Option<String>, metadata:
         .context("Could not find field 'version' in workspace.package")?;
     let version_str = version.as_str().context("Could not convert package version to str")?;
 
-    let metadata = match metadata {
-        Some(m) => Some(m.replace("$git_hash", &get_git_hash()?[..8]).replace("$git_dirty", if get_git_dirty()? { ".dirty" } else { "" })),
-        None => None,
-    };
-
-    let new_version = rewrite_version(version_str, semver.as_deref(), prerelease.as_deref(), metadata.as_deref());
-    *version = new_version.into();
+    let metadata = metadata.map(|x| x.0);
+    let new_version = rewrite_version(version_str, semver, prerelease, metadata)?;
+    *version = new_version.to_string().into();
 
     std::fs::write("Cargo.toml", table.to_string()).context("Could not write to Cargo.toml")?;
 
@@ -63,66 +61,42 @@ fn get_git_dirty() -> anyhow::Result<bool> {
         .success())
 }
 
-/// A rudimentary parser for the three semver sections
-// TODO: Maybe this can be handled by the semver crate as well
-fn parse_version(version_str: &str) -> (&str, Option<&str>, Option<&str>) {
-    if let Some((semver, remainder)) = version_str.split_once('-') {
-        if let Some((prerelease, metadata)) = remainder.split_once('+') {
-            (semver, Some(prerelease), Some(metadata))
-        } else {
-            (semver, Some(remainder), None)
-        }
-    } else if let Some((semver, metadata)) = version_str.split_once('+') {
-        (semver, None, Some(metadata))
-    } else {
-        (version_str, None, None)
-    }
-}
-
 /// Alters the provided sections of the version string,
 /// If a section is not provided it is not altered, if it is given an empty string, it will omit
 /// the section entirely.
-fn rewrite_version(version_str: &str, semver: Option<&str>, prerelease: Option<&str>, metadata: Option<&str>) -> String {
-    let (semver_old, prerelease_old, metadata_old) = parse_version(version_str);
+fn rewrite_version(
+    version_str: &str,
+    semver: Option<semver::Version>,
+    prerelease: Option<semver::Prerelease>,
+    metadata: Option<semver::BuildMetadata>,
+) -> anyhow::Result<semver::Version> {
+    let old_version = semver::Version::parse(version_str).context("Could not parse Cargo.toml version as semver")?;
 
-    let mut new_version = semver.unwrap_or(semver_old).to_owned();
+    let mut new_version = semver::Version::new(old_version.major, old_version.minor, old_version.patch);
 
-    if let Some(prerelease) = prerelease.or(prerelease_old) {
-        if !prerelease.is_empty() {
-            new_version.push('-');
-            new_version.push_str(prerelease);
+    if let Some(new_semver) = semver {
+        if new_semver.pre != semver::Prerelease::EMPTY || new_semver.build != semver::BuildMetadata::EMPTY {
+            anyhow::bail!("semver parameter may not contain prerelease or metadata");
         }
-    }
-    if let Some(metadata) = metadata.or(metadata_old) {
-        if !metadata.is_empty() {
-            new_version.push('+');
-            new_version.push_str(metadata);
-        }
+        new_version.major = new_semver.major;
+        new_version.minor = new_semver.minor;
+        new_version.patch = new_semver.patch;
     }
 
-    new_version
+    new_version.pre = prerelease.unwrap_or(old_version.pre);
+    new_version.build = metadata.unwrap_or(old_version.build);
+
+    Ok(new_version)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Clone, Debug)]
+pub(crate) struct SpecialBuildMetadata(semver::BuildMetadata);
 
-    #[test]
-    fn test_parse_version() {
-        assert_eq!(parse_version("1.2.3"), ("1.2.3", None, None));
-        assert_eq!(parse_version("1.2.3-nightly"), ("1.2.3", Some("nightly"), None));
-        assert_eq!(parse_version("1.2.3-nightly+abcdef"), ("1.2.3", Some("nightly"), Some("abcdef")));
-        assert_eq!(parse_version("1.2.3+abcdef"), ("1.2.3", None, Some("abcdef")));
-        assert_eq!(parse_version("1.2.3-nightly-release"), ("1.2.3", Some("nightly-release"), None));
-    }
+impl std::str::FromStr for SpecialBuildMetadata {
+    type Err = anyhow::Error;
 
-    #[test]
-    fn test_rewrite_version() {
-        assert_eq!(rewrite_version("1.2.3", None, Some("nightly"), None), String::from("1.2.3-nightly"));
-        assert_eq!(rewrite_version("1.2.3-nightly", None, Some("rc.1"), None), String::from("1.2.3-rc.1"));
-        assert_eq!(rewrite_version("1.2.3-nightly+abcdef", None, Some("rc.1"), None), String::from("1.2.3-rc.1+abcdef"));
-        assert_eq!(rewrite_version("1.2.3-nightly+abcdef", None, None, Some("123456")), String::from("1.2.3-nightly+123456"));
-        assert_eq!(rewrite_version("1.2.3-nightly+abcdef", None, Some("rc.1"), Some("123456")), String::from("1.2.3-rc.1+123456"));
-        assert_eq!(rewrite_version("1.2.3-nightly+abcdef", Some("2.0.0"), Some(""), Some("")), String::from("2.0.0"));
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let replaced_version = s.replace("$git_hash", &get_git_hash()?[..8]).replace("$git_dirty", if get_git_dirty()? { ".dirty" } else { "" });
+        Ok(Self(semver::BuildMetadata::new(&replaced_version)?))
     }
 }

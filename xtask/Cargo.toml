@@ -37,6 +37,8 @@ brane-cc = { path = "../brane-cc", optional = true }
 humantime = { version = "2.1.0", optional = true }
 jsonwebtoken = { version = "9.2.0", optional = true }
 
+semver = { version = "1.0.0", optional = true }
+
 [features]
 default = ["cli"]
 cli = [
@@ -50,7 +52,9 @@ cli = [
     "dep:humantime",
     "dep:jsonwebtoken",
 ]
-ci = []
+ci = [
+    "dep:semver",
+]
 
 [lints]
 workspace = true
