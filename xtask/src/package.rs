@@ -9,6 +9,13 @@ use crate::utilities::{
     compress_file, create_tar_gz, format_release_binary_name, format_release_library_name, format_src_binary_name, format_src_library_name,
 };
 
+/// Collects all files from a previous build and collects copies them over into a file structure as
+/// used in GitHub releases.
+///
+/// This function allows CD to generate the releases
+///
+/// Note that this function does not build any packages itself. If you want to build the packages
+/// take a look at: [`crate::build::build()`].
 pub(crate) async fn create_github_package() -> anyhow::Result<()> {
     eprintln!("Creating a package for: {os} {arch}", os = OS, arch = ARCH);
 

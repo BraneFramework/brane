@@ -10,6 +10,12 @@ use clap_complete::{Generator, Shell};
 
 use crate::registry::{self, Target};
 
+/// Queryies the registry and builds completion files for the specified targets
+///
+/// # Arguments:
+/// - target: Either a group or a package for which to build the completions
+/// - shell: The shell for which to build the completions, will build for all of them if omitted
+/// - destination: The directory in which to put the generated completion files
 pub(crate) fn generate_by_target(target: Option<Target>, shell: Option<Shell>, destination: impl AsRef<Path>) -> anyhow::Result<()> {
     let destination = destination.as_ref();
 

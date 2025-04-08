@@ -9,6 +9,7 @@ use clap_complete::{Generator, Shell, generate};
 use crate::registry;
 use crate::utilities::{CopyError, SubCommandIter, copy};
 
+/// Provides a map for the various user locations where shell completions are stored.
 pub fn completion_locations() -> anyhow::Result<[(Shell, PathBuf); 3]> {
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
 
@@ -19,6 +20,11 @@ pub fn completion_locations() -> anyhow::Result<[(Shell, PathBuf); 3]> {
     ])
 }
 
+/// Installs the completion files in the relevant user directories
+///
+/// # Arguments
+/// - parents: Creates the relevant directories if they don't exist yet
+/// - force: overwrite files if they already exist
 pub(crate) fn completions(parents: bool, force: bool) -> anyhow::Result<()> {
     let completion_locations = completion_locations().expect("Could not get completion locations");
 
@@ -57,6 +63,11 @@ pub(crate) fn completions(parents: bool, force: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Installs the Brane binaries in the relevant user directories
+///
+/// # Arguments
+/// - parents: Creates the relevant directories if they don't exist yet
+/// - force: overwrite files if they already exist
 pub(crate) fn binaries(parents: bool, force: bool) -> anyhow::Result<()> {
     let target_directory = PathBuf::from("./target/release");
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
@@ -81,6 +92,11 @@ pub(crate) fn binaries(parents: bool, force: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Installs the Brane man pages in the relevant usre directories
+///
+/// # Arguments
+/// - parents: Creates the relevant directories if they don't exist yet
+/// - force: overwrite files if they already exist
 pub(crate) fn manpages(parents: bool, force: bool) -> anyhow::Result<()> {
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
     let dest_dir = base_dir.data_local_dir().join("man/man1");
@@ -102,6 +118,10 @@ pub(crate) fn manpages(parents: bool, force: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Uninstall Brane from all installation locations we could have installed.
+///
+/// Note that Brane does not know if those files are actually created by Brane, so if something
+/// else is stored at any location Brane will install, that file will be deleted.
 pub(crate) fn uninstall() -> anyhow::Result<()> {
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to uninstall")?;
 

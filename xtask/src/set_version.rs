@@ -2,6 +2,16 @@ use std::process::Stdio;
 
 use anyhow::Context as _;
 
+/// Sets the version of the current project to the provided version.
+///
+/// The supports the full semver version format.
+///
+/// # Arguments:
+/// - semver: If provided updates the semver x.y.z portion of the version
+/// - prerelease: If provided updates the prerelease portion of the version
+/// - metadata: If provided udpates the metadata portion of the version
+// TODO: Maybe use the semver crate to ensure that the pre-release and metadata are well formatted
+// This is not currently checked
 pub fn set_version(semver: Option<String>, prerelease: Option<String>, metadata: Option<String>) -> anyhow::Result<()> {
     let mut table = std::fs::read_to_string("Cargo.toml").context("Could not read Cargo.toml")?.parse::<toml::Table>()?;
     let version = table
@@ -26,6 +36,7 @@ pub fn set_version(semver: Option<String>, prerelease: Option<String>, metadata:
     Ok(())
 }
 
+/// Gets the git hash of the project in the current directory
 fn get_git_hash() -> anyhow::Result<String> {
     let bytes = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
@@ -38,6 +49,7 @@ fn get_git_hash() -> anyhow::Result<String> {
     String::from_utf8(bytes).context("Could not convert git hash to unicode string")
 }
 
+/// Checks if the current working tree is dirty or contains staged changes.
 fn get_git_dirty() -> anyhow::Result<bool> {
     Ok(!std::process::Command::new("git")
         .args(["diff-index", "--quiet", "HEAD", "--"])
@@ -49,6 +61,8 @@ fn get_git_dirty() -> anyhow::Result<bool> {
         .success())
 }
 
+/// A rudimentary parser for the three semver sections
+// TODO: Maybe this can be handled by the semver crate as well
 fn parse_version(version_str: &str) -> (&str, Option<&str>, Option<&str>) {
     if let Some((semver, remainder)) = version_str.split_once('-') {
         if let Some((prerelease, metadata)) = remainder.split_once('+') {
@@ -63,6 +77,9 @@ fn parse_version(version_str: &str) -> (&str, Option<&str>, Option<&str>) {
     }
 }
 
+/// Alters the provided sections of the version string,
+/// If a section is not provided it is not altered, if it is given an empty string, it will omit
+/// the section entirely.
 fn rewrite_version(version_str: &str, semver: Option<&str>, prerelease: Option<&str>, metadata: Option<&str>) -> String {
     let (semver_old, prerelease_old, metadata_old) = parse_version(version_str);
 
