@@ -7,7 +7,7 @@ use anyhow::{Context as _, bail};
 use clap_complete::{Generator, Shell, generate};
 
 use crate::registry;
-use crate::utilities::{CopyError, copy};
+use crate::utilities::{CopyError, SubCommandIter, copy};
 
 pub fn completion_locations() -> anyhow::Result<[(Shell, PathBuf); 3]> {
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
@@ -97,6 +97,58 @@ pub(crate) fn manpages(parents: bool, force: bool) -> anyhow::Result<()> {
         let Some(command) = target.command else { continue };
 
         crate::man::generate_recursively(command, &dest_dir, true, force)?;
+    }
+
+    Ok(())
+}
+
+pub(crate) fn uninstall() -> anyhow::Result<()> {
+    let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to uninstall")?;
+
+    // Removing binaries
+    let dest_dir = base_dir.executable_dir().context("Could not determine the directories in which to uninstall")?;
+    for target in registry::registry().search("binaries") {
+        let path = dest_dir.join(target.output_name);
+
+        if path.exists() {
+            std::fs::remove_file(&path).with_context(|| format!("Unable to remove: {}", path.display()))?;
+        }
+    }
+
+    // Removing completion files
+    for target in registry::registry().search("binaries") {
+        let Some(command) = target.command else { continue };
+
+        for (shell, directory) in completion_locations().context("Could not get completion locations")? {
+            let path = directory.join(shell.file_name(command.get_name()));
+
+            if path.exists() {
+                std::fs::remove_file(&path).with_context(|| format!("Unable to remove: {}", path.display()))?;
+            }
+        }
+    }
+
+    // Removing man page files
+    let data_dir = base_dir.data_local_dir();
+    let man_dir = data_dir.join("man/man1/");
+    for target in registry::registry().search("binaries") {
+        let Some(command) = target.command else { continue };
+
+        for command in SubCommandIter::new(command) {
+            let man = clap_mangen::Man::new(command.clone());
+            let mut filename = man.get_filename();
+
+            let path = man_dir.join(&filename);
+            if path.exists() {
+                std::fs::remove_file(&path).with_context(|| format!("Unable to remove: {}", path.display()))?;
+            }
+
+            filename.push_str(".gz");
+            let path = man_dir.join(&filename);
+            if path.exists() {
+                std::fs::remove_file(&path).with_context(|| format!("Unable to remove: {}", path.display()))?;
+            }
+        }
     }
 
     Ok(())

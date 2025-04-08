@@ -53,6 +53,11 @@ pub(crate) mod xtask {
             compressed: bool,
         },
         #[cfg(feature = "cli")]
+        /// Uninstall Brane from all the relevant user directories
+        /// Note that this does not care what is placed there, if Brane would install there, its
+        /// now gone
+        Uninstall {},
+        #[cfg(feature = "cli")]
         /// Installs Brane in the relevant user directories
         Install {
             /// Create all necessary directories if they don't exist

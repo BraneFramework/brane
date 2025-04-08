@@ -46,6 +46,10 @@ async fn main() -> anyhow::Result<()> {
             install::binaries(parents, force)?;
             install::manpages(parents, force)?;
         },
+        #[cfg(feature = "cli")]
+        XTaskSubcommand::Uninstall {} => {
+            install::uninstall()?;
+        },
         XTaskSubcommand::Package { platform } => match platform {
             cli::xtask::PackagePlatform::GitHub => {
                 package::create_github_package().await.context("Could not create package for GitHub")?;
