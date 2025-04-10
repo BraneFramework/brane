@@ -5453,7 +5453,7 @@ dependencies = [
  "enum-debug",
  "log",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.9.0",
  "serde",
  "specifications",
  "transform",

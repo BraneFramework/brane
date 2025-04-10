@@ -46,7 +46,6 @@ parking_lot = "0.12.1"
 path-clean = "1.0.0"
 prettytable-rs = "0.10.0"
 rand = "0.9.0"
-reqwest = {version = "0.12.0", features = ["rustls-tls-manual-roots","json", "stream", "multipart", "rustls-tls"], default-features = false }
 rustls = "0.21.6"
 rustyline = "15.0.0"
 rustyline-derive = "0.11.0"
@@ -62,6 +61,9 @@ tokio-util = { version = "0.7.1", features = ["codec"] }
 tonic = "0.12.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 x509-parser = "0.17.0"
+
+# Workspace dependencies
+reqwest = { workspace = true, features = ["json", "stream", "multipart"] }
 
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
