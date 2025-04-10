@@ -1,0 +1,155 @@
+---
+source: brane-dsl/tests/regression.rs
+expression: res
+---
+Program {
+    block: Block {
+        stmts: [
+            Import {
+                name: Identifier {
+                    value: "test",
+                    range: TextRange {
+                        start: TextPos {
+                            line: 2,
+                            col: 8,
+                        },
+                        end: TextPos {
+                            line: 2,
+                            col: 12,
+                        },
+                    },
+                },
+                version: Semver {
+                    value: "latest",
+                    range: TextRange {
+                        start: TextPos {
+                            line: 18446744073709551615,
+                            col: 18446744073709551615,
+                        },
+                        end: TextPos {
+                            line: 18446744073709551615,
+                            col: 18446744073709551615,
+                        },
+                    },
+                },
+                st_funcs: None,
+                st_classes: None,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 2,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 2,
+                        col: 13,
+                    },
+                },
+            },
+            Expr {
+                expr: Call {
+                    expr: Identifier {
+                        name: Identifier {
+                            value: "println",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 12,
+                                    col: 1,
+                                },
+                                end: TextPos {
+                                    line: 12,
+                                    col: 8,
+                                },
+                            },
+                        },
+                        st_entry: None,
+                    },
+                    args: [
+                        Call {
+                            expr: Identifier {
+                                name: Identifier {
+                                    value: "hello_world",
+                                    range: TextRange {
+                                        start: TextPos {
+                                            line: 12,
+                                            col: 9,
+                                        },
+                                        end: TextPos {
+                                            line: 12,
+                                            col: 20,
+                                        },
+                                    },
+                                },
+                                st_entry: None,
+                            },
+                            args: [],
+                            st_entry: None,
+                            locations: All,
+                            input: {},
+                            result: {},
+                            metadata: {},
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 12,
+                                    col: 9,
+                                },
+                                end: TextPos {
+                                    line: 12,
+                                    col: 22,
+                                },
+                            },
+                        },
+                    ],
+                    st_entry: None,
+                    locations: All,
+                    input: {},
+                    result: {},
+                    metadata: {},
+                    range: TextRange {
+                        start: TextPos {
+                            line: 12,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 12,
+                            col: 23,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 12,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 12,
+                        col: 24,
+                    },
+                },
+            },
+        ],
+        table: RefCell {
+            value: SymbolTable {
+                parent: None,
+                functions: {},
+                classes: {},
+                variables: {},
+            },
+        },
+        ret_type: None,
+        attrs: [],
+        range: TextRange {
+            start: TextPos {
+                line: 2,
+                col: 1,
+            },
+            end: TextPos {
+                line: 12,
+                col: 24,
+            },
+        },
+    },
+    metadata: {},
+}
