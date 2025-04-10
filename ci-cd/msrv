@@ -7,7 +7,7 @@ echo "Running Cargo MSRV on the entire workspace"
 for dir in $(tomlq -r < Cargo.toml .workspace.members.[]); do
     echo "::group::${dir}"
     pushd $dir
-    if ! cargo msrv verify --output-format json; then
+    if ! cargo msrv verify --all-features --output-format json; then
         ret=1
     fi
     popd
