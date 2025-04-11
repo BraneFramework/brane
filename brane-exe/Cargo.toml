@@ -12,27 +12,27 @@ async-recursion = "1.0.0"
 async-trait = "0.1.67"
 base64 = "0.22.0"
 console = "0.15.5"
-enum-debug.workspace = true
 futures = "0.3.24"
 lazy_static = "1.4.0"
-log = "0.4.22"
 num-traits = "0.2.18"
 serde = "1.0.204"
 serde_json = "1.0.120"
-thiserror = "2.0.0"
 tokio = { version = "1.38.0", features = [] }
+
+# Workspace dependencies
+enum-debug.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
 
 brane-ast = { path = "../brane-ast" }
 brane-shr = { path = "../brane-shr" }
 specifications = { path = "../specifications" }
 
 [dev-dependencies]
-humanlog.workspace = true
 brane-shr = { path = "../brane-shr" }
 
 [features]
 print_exec_path = []
-test_logging    = []
 
 [lints]
 workspace = true

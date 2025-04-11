@@ -32,7 +32,6 @@ use brane_prx::client::ProxyClient;
 use brane_tsk::errors::{CommitError, ExecuteError, PreprocessError, StdoutError, StringError};
 use brane_tsk::spec::{AppId, JobStatus};
 use enum_debug::EnumDebug as _;
-use log::{debug, info, warn};
 use serde_json_any_key::MapIterToJson;
 use specifications::address::Address;
 use specifications::data::{AccessKind, DataName, PreprocessKind};
@@ -41,6 +40,7 @@ use specifications::working::TransferRegistryTar;
 use specifications::{driving as driving_grpc, working as working_grpc};
 use tokio::sync::mpsc::Sender;
 use tonic::{Response, Status, Streaming};
+use tracing::{debug, info, warn};
 
 pub use crate::errors::RemoteVmError as Error;
 use crate::planner::InstancePlanner;

@@ -6,6 +6,8 @@ use clap::Parser;
 #[derive(Parser)]
 #[clap(version = env!("CARGO_PKG_VERSION"))]
 pub(crate) struct Cli {
+    #[clap(flatten)]
+    pub(crate) logging: specifications::cli::Tracing,
     #[clap(short, long, env = "BRANE_APPLICATION_ID")]
     pub(crate) application_id: String,
     #[clap(short, long, env = "BRANE_LOCATION_ID")]
@@ -18,9 +20,6 @@ pub(crate) struct Cli {
     pub(crate) proxy_address: Option<String>,
     #[clap(short, long, env = "BRANE_MOUNT_DFS")]
     pub(crate) mount_dfs: Option<String>,
-    /// Prints debug info
-    #[clap(short, long, action, env = "DEBUG")]
-    pub(crate) debug: bool,
     #[clap(subcommand)]
     pub(crate) sub_command: SubCommand,
 }

@@ -7,9 +7,8 @@ use clap::Parser;
 #[derive(Parser)]
 #[clap(version = env!("CARGO_PKG_VERSION"))]
 pub(crate) struct Cli {
-    /// Print debug info
-    #[clap(short, long, action, help = "If given, prints additional logging information.", env = "DEBUG")]
-    pub(crate) debug:    bool,
+    #[clap(flatten)]
+    pub(crate) logging:  specifications::cli::Tracing,
     /// Consumer group id
     #[clap(short, long, default_value = "brane-drv", help = "The group ID of this service's consumer")]
     pub(crate) group_id: String,

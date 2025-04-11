@@ -31,14 +31,20 @@ use clap::Parser;
 use cli::*;
 use dotenvy::dotenv;
 use error_trace::ErrorTrace as _;
-use humanlog::{DebugMode, HumanLogger};
-// use git2::Repository;
-use log::{error, info};
 use specifications::arch::Arch;
 use specifications::package::PackageKind;
 use specifications::version::Version as SemVersion;
 use tempfile::TempDir;
+use tracing::level_filters::LevelFilter;
+// use git2::Repository;
+use tracing::{error, info};
 
+
+// Constants
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: LevelFilter = LevelFilter::INFO;
+/// Tracing log filter used by brane-cli
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_CLI_LOG";
 
 
 /***** ENTRYPOINT *****/
@@ -48,14 +54,13 @@ async fn main() -> Result<()> {
     dotenv().ok();
     let options = cli::Cli::parse();
 
-    // Prepare the logger
-    if let Err(err) = HumanLogger::terminal(if options.debug { DebugMode::Debug } else { DebugMode::HumanFriendly }).init() {
-        eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
-    }
+    let cli_log_level = options.logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
+
     info!("{} - v{}", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION"));
 
     // Also setup humanpanic
-    if !options.debug {
+    if !options.logging.debug {
         setup_panic!();
     }
 

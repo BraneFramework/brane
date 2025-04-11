@@ -16,7 +16,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::mem;
 use std::ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
-use log::warn;
+use tracing::warn;
 
 pub use crate::errors::StackError as Error;
 use crate::value::Value;

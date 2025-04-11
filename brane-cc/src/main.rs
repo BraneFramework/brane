@@ -30,11 +30,15 @@ use dotenvy::dotenv;
 #[cfg(unix)]
 use expanduser::expanduser;
 use human_panic::setup_panic;
-use humanlog::{DebugMode, HumanLogger};
-use log::{debug, error, info, warn};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
+use tracing::{debug, error, info, warn};
 
+/***** CONSTANTS *****/
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: tracing::level_filters::LevelFilter = tracing::level_filters::LevelFilter::INFO;
+/// The environment variable used by env-filter in tracing subscriber
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_CC_LOG";
 
 
 /***** ENTRYPOINT *****/
@@ -47,13 +51,13 @@ async fn main() {
     let mut args = cli::Cli::parse();
 
     // Setup the logger
-    if let Err(err) = HumanLogger::terminal(DebugMode::from_flags(args.trace, args.debug)).init() {
-        eprintln!("WARNING: Failed to setup logger: {err} (logging disabled for this session)");
-    }
+    let cli_log_level = args.logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
+
     info!("Initializing branec v{}", env!("CARGO_PKG_VERSION"));
 
     // Setup the panic mode
-    if !args.trace && !args.debug {
+    if !args.logging.trace && !args.logging.debug {
         setup_panic!();
     }
 

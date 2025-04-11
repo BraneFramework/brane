@@ -24,9 +24,15 @@ use brane_reg::{check, data, health, infra, version};
 use clap::Parser;
 use dotenvy::dotenv;
 use error_trace::{ErrorTrace as _, trace};
-use log::{LevelFilter, debug, error, info};
 use rustls::Certificate;
+use tracing::{debug, error, info};
 use warp::Filter;
+
+/***** CONSTANTS *****/
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: tracing::level_filters::LevelFilter = tracing::level_filters::LevelFilter::INFO;
+/// The environment variable used by env-filter in tracing subscriber
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_REG_LOG";
 
 
 
@@ -37,14 +43,9 @@ async fn main() {
     dotenv().ok();
     let args = cli::Cli::parse();
 
-    // Setup the logger according to the debug flag
-    let mut logger = env_logger::builder();
-    logger.format_module_path(false);
-    if args.debug {
-        logger.filter_level(LevelFilter::Debug).init();
-    } else {
-        logger.filter_level(LevelFilter::Info).init();
-    }
+    let cli_log_level = args.logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
+
     info!("Initializing brane-reg v{}...", env!("CARGO_PKG_VERSION"));
 
     // Load the config, making sure it's a worker config
@@ -128,7 +129,8 @@ async fn main() {
         .or(check_result)
         .or(infra_capabilities)
         .or(version)
-        .or(health);
+        .or(health)
+        .with(warp::trace::request());
 
     // Extract the things we need from the config
     let worker: &WorkerConfig = match node_config.node.try_worker() {

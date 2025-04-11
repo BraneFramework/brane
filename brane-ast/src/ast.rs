@@ -25,7 +25,6 @@ use std::sync::Arc;
 use brane_dsl::ParserOptions;
 use brane_dsl::spec::MergeStrategy;
 use enum_debug::EnumDebug;
-use log::debug;
 use rand::Rng as _;
 use rand::distr::Alphanumeric;
 use serde::de::{self, Deserializer, Visitor};
@@ -35,6 +34,7 @@ use serde_json_any_key::any_key_map;
 use specifications::data::{AvailabilityKind, DataIndex, DataName};
 use specifications::package::{Capability, PackageIndex};
 use specifications::version::Version;
+use tracing::debug;
 
 use crate::data_type::DataType;
 use crate::errors::CompileError;
@@ -197,9 +197,10 @@ impl Workflow {
             },
         };
         debug!("Compiled to workflow:\n\n");
-        if log::max_level() == log::LevelFilter::Debug {
-            crate::traversals::print::ast::do_traversal(&workflow, std::io::stdout()).unwrap();
-        }
+        // TODO: Implement tracing
+        // if tracing::max_level() == tracing::LevelFilter::Debug {
+        //     crate::traversals::print::ast::do_traversal(&workflow, std::io::stdout()).unwrap();
+        // }
 
         // Return
         Ok(workflow)

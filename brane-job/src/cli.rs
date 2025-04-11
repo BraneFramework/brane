@@ -5,9 +5,8 @@ use clap::Parser;
 #[derive(Parser)]
 #[clap(version = env!("CARGO_PKG_VERSION"))]
 pub(crate) struct Cli {
-    /// Print debug info
-    #[clap(long, action, help = "If given, shows additional logging information.", env = "DEBUG")]
-    pub(crate) debug: bool,
+    #[clap(flatten)]
+    pub(crate) logging: specifications::cli::Tracing,
     /// Whether to keep containers after execution or not.
     #[clap(long, action, help = "If given, will not remove job containers after removing them.", env = "KEEP_CONTAINERS")]
     pub(crate) keep_containers: bool,

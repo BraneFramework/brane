@@ -16,10 +16,8 @@ bollard = "0.18.0"
 chrono = "0.4.35"
 console = "0.15.5"
 dialoguer = "0.11.0"
-enum-debug.workspace = true
 futures-util = "0.3.30"
 graphql_client = "0.14.0"
-log = "0.4.22"
 num-traits = "0.2.18"
 parking_lot = "0.12.1"
 rand = "0.9.0"
@@ -28,12 +26,16 @@ serde = "1.0.204"
 serde_json = "1.0.120"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
 sha2 = "0.10.6"
-thiserror = "2.0.0"
 tokio = "1.38.0"
 tokio-tar = "0.3.0"
 tokio-util = "0.7.1"
 tonic = "0.12.0"
 uuid = { version = "1.7.0", features = ["v4"] }
+
+# Workspace dependencies
+enum-debug.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
 
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
@@ -43,8 +45,7 @@ specifications = { path = "../specifications" }
 
 
 [dev-dependencies]
-clap = { version = "4.4.0", features = ["derive"] }
-humanlog.workspace = true
+clap.workspace = true
 lazy_static = "1.4.0"
 
 

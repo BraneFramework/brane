@@ -11,26 +11,29 @@ license.workspace = true
 base64 = "0.22.0"
 bollard = "0.18.0"
 chrono = "0.4.35"
-clap = { version = "4.5.6", features = ["derive","env"] }
+clap.workspace = true
 deliberation = { git = "https://github.com/braneframework/policy-reasoner" }
 dotenvy = "0.15.0"
-enum-debug.workspace = true
 env_logger = "0.11.0"
-error-trace.workspace = true
 futures-util = "0.3.30"
 hyper = "1.3.0"
 # kube = { version = "0.82", default_features = false, features = ["client"] }
 # k8s-openapi = { version = "0.18", default_features = false, features = ["v1_23"] }
-log = "0.4.22"
 reqwest = { version = "0.12.0", features = ["rustls-tls-manual-roots","json","stream","multipart"] }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
 serde_json_any_key = "2.0.0"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
-thiserror = "2.0.0"
 tokio = { version = "1.38.0", default-features = false, features = ["rt", "macros", "signal"] }
 tokio-stream = "0.1.6"
 tonic = "0.12.0"
+
+# Workspace dependencies
+enum-debug.workspace = true
+error-trace.workspace = true
+thiserror.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
 
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }

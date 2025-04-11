@@ -5,9 +5,8 @@ use clap::Parser;
 #[derive(Parser)]
 #[clap(name = "Brane proxy service", version = env!("CARGO_PKG_VERSION"), author, about = "A rudimentary, SOCKS-as-a-Service proxy service for outgoing connections from a domain.")]
 pub(crate) struct Cli {
-    /// Print debug info
-    #[clap(long, action, help = "If given, shows additional logging information.", env = "DEBUG")]
-    pub(crate) debug: bool,
+    #[clap(flatten)]
+    pub(crate) logging: specifications::cli::Tracing,
 
     /// Node environment metadata store.
     #[clap(

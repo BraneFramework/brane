@@ -24,8 +24,7 @@ use enum_debug::EnumDebug;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JValue;
 use serde_with::skip_serializing_none;
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use strum::{EnumIter, IntoEnumIterator};
 use uuid::Uuid;
 
 use crate::common::{Function, Type};

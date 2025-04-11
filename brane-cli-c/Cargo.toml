@@ -17,11 +17,12 @@ doc        = false
 
 [dependencies]
 console = "0.15.5"
-humanlog.workspace = true
 libc = "0.2.154"
-log = "0.4.22"
 parking_lot = "0.12.1"
 tokio = "1.38.0"
+
+# Workspace dependencies
+tracing.workspace = true
 
 brane-ast = { path = "../brane-ast" }
 brane-cli = { path = "../brane-cli" }

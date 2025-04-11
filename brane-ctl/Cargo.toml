@@ -20,7 +20,6 @@ doc = false
 [dependencies]
 base64ct = "1.6.0"
 bollard = "0.18.0"
-clap = { version = "4.5.6", features = ["derive","env"] }
 console = "0.15.5"
 dialoguer = "0.11.0"
 diesel = { version = "2.2.3", features = ["sqlite"] }
@@ -28,15 +27,10 @@ diesel_migrations = "2.2.0"
 dirs = "6.0.0"
 dotenvy = "0.15.0"
 eflint-to-json = { git = "https://github.com/braneframework/policy-reasoner" }
-enum-debug.workspace = true
-error-trace.workspace = true
-humanlog.workspace = true
 humantime = "2.1.0"
 human-panic = "2.0.0"
 jsonwebtoken = "9.2.0"
 lazy_static = "1.4.0"
-log = "0.4.22"
-names.workspace = true
 policy = { git = "https://github.com/braneframework/policy-reasoner" }
 srv = { git = "https://github.com/braneframework/policy-reasoner" }
 rand = "0.9.0"
@@ -46,20 +40,28 @@ serde_json = "1.0.120"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
 shlex = "1.1.0"
 tempfile = "3.10.1"
-thiserror = "2.0.0"
 tokio = { version = "1.38.0", features = [] }
+
+# Workspace dependencies
+clap.workspace = true
+enum-debug.workspace = true
+error-trace.workspace = true
+names.workspace = true
+strum = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
 
 brane-cfg = { path = "../brane-cfg" }
 brane-shr = { path = "../brane-shr" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
-clap_complete = "4.5.8"
-
+clap_complete = "4.4.0"
 
 [build-dependencies]
 download.workspace = true
 hex-literal = "0.4.0"
-clap = { version = "4.5.6", features = ["derive","env"] }
+clap.workspace = true
 
 [lints]
 workspace = true

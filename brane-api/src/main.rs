@@ -29,12 +29,16 @@ use clap::Parser;
 use dotenvy::dotenv;
 use error_trace::trace;
 use juniper::EmptySubscription;
-use log::{LevelFilter, debug, error, info, warn};
 use scylla::{Session, SessionBuilder};
 use tokio::signal::unix::{Signal, SignalKind, signal};
+use tracing::{debug, error, info, warn};
 use warp::Filter;
 
-
+/***** CONSTANTS *****/
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: tracing::level_filters::LevelFilter = tracing::level_filters::LevelFilter::INFO;
+/// The environment variable used by env-filter in tracing subscriber
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_API_LOG";
 
 /***** ENTRYPOINT *****/
 #[tokio::main]
@@ -42,15 +46,9 @@ async fn main() {
     dotenv().ok();
     let opts = cli::Cli::parse();
 
-    // Configure logger.
-    let mut logger = env_logger::builder();
-    logger.format_module_path(false);
+    let cli_log_level = opts.logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
 
-    if opts.debug {
-        logger.filter_level(LevelFilter::Debug).init();
-    } else {
-        logger.filter_level(LevelFilter::Info).init();
-    }
     info!("Initializing brane-job v{}...", env!("CARGO_PKG_VERSION"));
 
     // Load the config, making sure it's a worker config
@@ -168,7 +166,7 @@ async fn main() {
     let version = warp::path("version").and(warp::path::end()).and_then(version::handle);
 
     // Construct the final routes
-    let routes = data.or(packages.or(infra.or(health.or(version.or(graphql))))).with(warp::log("brane-api"));
+    let routes = data.or(packages.or(infra.or(health.or(version.or(graphql))))).with(warp::trace::request());
 
     // Run the server
     let handle = warp::serve(routes).try_bind_with_graceful_shutdown(central.services.api.bind, async {

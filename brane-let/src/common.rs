@@ -14,9 +14,9 @@
 
 use brane_ast::DataType;
 use brane_exe::FullValue;
-use log::debug;
 use specifications::common::Parameter;
 use specifications::package::PackageKind;
+use tracing::debug;
 
 use crate::errors::LetError;
 

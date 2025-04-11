@@ -65,12 +65,18 @@ license = "Apache-2.0"
 
 [workspace.dependencies]
 # Lut99 Crates
-humanlog = { git = "https://github.com/Lut99/humanlog-rs", tag = "v0.2.0" }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.1.0", features = ["derive"] }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs", tag = "v3.0.0" }
 transform = { git = "https://github.com/Lut99/transform-rs", tag = "v0.2.0" }
 names = { git = "https://github.com/Lut99/names-rs", tag = "v0.1.0", default-features = false, features = [ "rand", "three-lowercase" ]}
 download = { git = "https://github.com/Lut99/download-rs", tag = "v0.1.0", default-features = false, features = ["download"] }
+
+# Other crates
+clap = { version = "4.4.0", features = ["derive", "env"] }
+strum = "0.27.0"
+thiserror = { version = "2.0.0" }
+tracing = { version = "0.1.36" }
+tracing-subscriber = { version = "0.3.10", features = ["env-filter"] }
 
 [workspace.lints.clippy]
 result_large_err = { level = "allow", priority = 1 }

@@ -13,10 +13,10 @@
 //!   (incomplete) AST.
 //
 
-use log::trace;
 use nom::InputLength;
 use nom::error::VerboseErrorKind;
 use specifications::package::PackageIndex;
+use tracing::trace;
 
 use crate::errors;
 pub use crate::errors::ParseError as Error;

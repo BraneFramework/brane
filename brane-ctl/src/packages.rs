@@ -21,8 +21,8 @@ use std::str::FromStr;
 use brane_cfg::info::Info as _;
 use brane_cfg::node::{NodeConfig, NodeKind, NodeSpecificConfig};
 use brane_tsk::docker;
-use log::{debug, info, warn};
 use specifications::version::Version;
+use tracing::{debug, info, warn};
 
 pub use crate::errors::PackagesError as Error;
 

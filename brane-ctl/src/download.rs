@@ -22,11 +22,11 @@ use brane_shr::fs::{DownloadSecurity, download_file_async, move_path_async, unar
 use brane_tsk::docker::{Docker, DockerOptions, ImageSource, connect_local, ensure_image, save_image};
 use console::{Style, style};
 use enum_debug::EnumDebug as _;
-use log::{debug, info, warn};
 use specifications::arch::Arch;
 use specifications::container::Image;
 use specifications::version::Version;
 use tempfile::TempDir;
+use tracing::{debug, info, warn};
 
 pub use crate::errors::DownloadError as Error;
 use crate::spec::DownloadServicesSubcommand;

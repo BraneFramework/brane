@@ -24,10 +24,10 @@ use brane_exe::FullValue;
 use console::{Term, style};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input as Prompt, Select};
-use log::debug;
 use specifications::data::DataIndex;
 use specifications::package::PackageInfo;
 use specifications::version::Version;
+use tracing::debug;
 
 
 /***** ERRORS *****/

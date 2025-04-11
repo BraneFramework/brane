@@ -12,15 +12,17 @@ name = "branec"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.5.6", features = ["derive","env"] }
 dotenvy = "0.15.0"
-enum-debug.workspace = true
-humanlog.workspace = true
 human-panic = "2.0.0"
-log = "0.4.22"
 thiserror = "2.0.0"
 tokio = { version = "1.38.0", features = ["rt","macros"] }
 url = "2.5.0"
+
+# Workspace dependencies
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+enum-debug.workspace = true
 
 brane-ast = { path = "../brane-ast" }
 brane-dsl = { path = "../brane-dsl" }

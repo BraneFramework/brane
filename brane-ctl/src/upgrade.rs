@@ -24,9 +24,9 @@ use std::str::FromStr as _;
 use brane_cfg::node::WorkerUsecase;
 use brane_shr::input::input;
 use console::style;
-use log::{debug, info, warn};
 use serde::Serialize;
 use specifications::version::Version;
+use tracing::{debug, info, warn};
 
 use crate::old_configs::v1_0_0;
 use crate::spec::VersionFix;

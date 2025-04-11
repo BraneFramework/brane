@@ -12,6 +12,7 @@ use humantime::Duration as HumanDuration;
 use jsonwebtoken::jwk::KeyAlgorithm;
 use specifications::address::{Address, AddressOpt};
 use specifications::arch::Arch;
+use specifications::cli::Tracing;
 use specifications::package::Capability;
 use specifications::version::Version;
 
@@ -20,12 +21,9 @@ use specifications::version::Version;
 #[derive(Debug, Parser)]
 #[clap(name = "branectl", about = "The server-side Brane command-line interface.")]
 pub(crate) struct Cli {
-    /// If given, prints `info` and `debug` prints.
-    #[clap(long, global = true, help = "If given, prints additional information during execution.")]
-    pub(crate) debug: bool,
-    /// If given, prints `info`, `debug` and `trace` prints.
-    #[clap(long, global = true, conflicts_with = "debug", help = "If given, prints the largest amount of debug information as possible.")]
-    pub(crate) trace: bool,
+    #[clap(flatten)]
+    pub(crate) logging: Tracing,
+
     /// The path to the node config file to use.
     #[clap(
         short,
@@ -77,7 +75,7 @@ pub(crate) enum CtlSubcommand {
         file: Option<PathBuf>,
 
         /// The specific Brane version to start.
-        #[clap(short, long, default_value = env!("CARGO_PKG_VERSION"), help = "The Brane version to import.")]
+        #[clap(long, default_value = env!("CARGO_PKG_VERSION"), help = "The Brane version to import.")]
         version: Version,
 
         /// Sets the '$IMG_DIR' variable, which can easily switch the location of compiled binaries.
@@ -124,7 +122,7 @@ pub(crate) enum CtlSubcommand {
         #[clap(short, long, default_value = "docker compose", help = "The command to use to run Docker Compose.")]
         exe:  String,
         /// The docker-compose file that we start.
-        #[clap(short, long, help = concat!("The docker-compose.yml file that defines the services to stop. You can use '$NODE' to match either 'central' or 'worker', depending how we started. If omitted, will use the baked-in counterpart (although that only works for the default version, v", env!("CARGO_PKG_VERSION"), ")."))]
+        #[clap(long, help = concat!("The docker-compose.yml file that defines the services to stop. You can use '$NODE' to match either 'central' or 'worker', depending how we started. If omitted, will use the baked-in counterpart (although that only works for the default version, v", env!("CARGO_PKG_VERSION"), ")."))]
         file: Option<PathBuf>,
     },
     #[clap(name = "logs", about = "Show the logs for the specficied node")]
@@ -133,7 +131,7 @@ pub(crate) enum CtlSubcommand {
         #[clap(short, long, default_value = "docker compose", help = "The command to use to run Docker Compose.")]
         exe:  String,
         /// The docker-compose file that we start.
-        #[clap(short, long, help = concat!("The docker-compose.yml file that defines the services to log. You can use '$NODE' to match either 'central' or 'worker', depending how we started. If omitted, will use the baked-in counterpart (although that only works for the default version, v", env!("CARGO_PKG_VERSION"), ")."))]
+        #[clap(long, help = concat!("The docker-compose.yml file that defines the services to log. You can use '$NODE' to match either 'central' or 'worker', depending how we started. If omitted, will use the baked-in counterpart (although that only works for the default version, v", env!("CARGO_PKG_VERSION"), ")."))]
         file: Option<PathBuf>,
     },
 
@@ -192,7 +190,7 @@ pub(crate) enum DownloadSubcommand {
         )]
         arch:    Arch,
         /// The version of the services to download.
-        #[clap(short, long, default_value=env!("CARGO_PKG_VERSION"), global=true, help="The version of the images to download from GitHub. You can specify 'latest' to download the latest version (but that might be incompatible with this CTL version)")]
+        #[clap(long, default_value=env!("CARGO_PKG_VERSION"), global=true, help="The version of the images to download from GitHub. You can specify 'latest' to download the latest version (but that might be incompatible with this CTL version)")]
         version: Version,
         /// Whether to overwrite existing images or not.
         #[clap(
