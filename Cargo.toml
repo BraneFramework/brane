@@ -50,6 +50,8 @@ members = [
 
     # # TODO
     # "brane-log",
+
+    "xtask",
 ]
 
 

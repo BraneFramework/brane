@@ -2,9 +2,9 @@ use brane_cc::spec::IndexLocation;
 use brane_dsl::Language;
 use clap::Parser;
 
-/// The arguments for the `branec` binary.
+/// An offline compiler for BraneScript/Bakery to Workflows.
 #[derive(Parser)]
-#[clap(name = "branec", author, about = "An offline compiler for BraneScript/Bakery to Workflows.")]
+#[clap(name = "branec", version, author)]
 pub(crate) struct Cli {
     /// If given, shows debug prints.
     #[clap(long, help = "If given, shows INFO- and DEBUG-level prints in the log.", env = "DEBUG")]

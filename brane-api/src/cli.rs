@@ -1,10 +1,9 @@
-//! This module contains all logic and structures with respect to argument handling and invocation of this command
 use std::path::PathBuf;
 
 use clap::Parser;
 
 #[derive(Parser)]
-#[clap(version = env!("CARGO_PKG_VERSION"))]
+#[clap(name = "brane-api", version, author)]
 pub(crate) struct Cli {
     /// Print debug info
     #[clap(short, long, env = "DEBUG")]

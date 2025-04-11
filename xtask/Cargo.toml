@@ -1,0 +1,60 @@
+[package]
+name = "xtask"
+rust-version = "1.82.0"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+documentation.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = "1.0.66"
+async-compression = { version = "0.4.0", features = ["tokio", "gzip"] }
+clap = { version = "4.5.6", features = ["derive", "string"] }
+clap_complete = "4.5.8"
+clap_mangen = "0.2.26"
+directories = "6.0.0"
+flate2 = { version = "1.0.13" }
+specifications = { path = "../specifications" }
+tar = "0.4.21"
+tokio = "1.38.0"
+toml = "0.8.8"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.10", features = ["env-filter"] }
+paste = "1.0.0"
+thiserror = "2.0.0"
+
+# Only necessary for any task that interacts with the cli arguments
+brane-cfg = { path = "../brane-cfg", optional = true }
+brane-ctl = { path = "../brane-ctl", optional = true }
+brane-cli = { path = "../brane-cli", optional = true }
+brane-shr = { path = "../brane-shr", optional = true }
+brane-tsk = { path = "../brane-tsk", optional = true }
+brane-dsl = { path = "../brane-dsl", optional = true }
+brane-cc = { path = "../brane-cc", optional = true }
+humantime = { version = "2.1.0", optional = true }
+jsonwebtoken = { version = "9.2.0", optional = true }
+
+semver = { version = "1.0.0", optional = true }
+
+[features]
+default = ["cli"]
+cli = [
+    "dep:brane-cfg",
+    "dep:brane-ctl",
+    "dep:brane-cli",
+    "dep:brane-shr",
+    "dep:brane-tsk",
+    "dep:brane-dsl",
+    "dep:brane-cc",
+    "dep:humantime",
+    "dep:jsonwebtoken",
+]
+ci = [
+    "dep:semver",
+]
+
+[lints]
+workspace = true

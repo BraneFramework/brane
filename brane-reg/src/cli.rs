@@ -4,6 +4,7 @@ use clap::Parser;
 
 /// Defines the arguments for the `brane-reg` service.
 #[derive(Parser)]
+#[clap(name = "brane-reg", version, author)]
 pub(crate) struct Cli {
     #[clap(long, action, help = "If given, provides additional debug prints on the logger.", env = "DEBUG")]
     pub(crate) debug: bool,

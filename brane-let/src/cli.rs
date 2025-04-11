@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use clap::Parser;
 
 #[derive(Parser)]
-#[clap(version = env!("CARGO_PKG_VERSION"))]
+#[clap(name = "branelet", version, author)]
 pub(crate) struct Cli {
     #[clap(short, long, env = "BRANE_APPLICATION_ID")]
     pub(crate) application_id: String,

@@ -8,8 +8,9 @@ use specifications::arch::Arch;
 use specifications::version::Version as SemVersion;
 
 /***** ARGUMENTS *****/
+/// The Brane command-line interface.
 #[derive(Parser)]
-#[clap(name = "brane", about = "The Brane command-line interface.")]
+#[clap(name = "brane", version, about)]
 pub(crate) struct Cli {
     #[clap(long, global = true, action, help = "Enable debug mode")]
     pub(crate) debug: bool,

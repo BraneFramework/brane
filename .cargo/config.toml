@@ -5,3 +5,6 @@
 # For building branelet and stuff for M1 macs on Linux:
 [target.aarch64-unknown-linux-musl]
 linker = "aarch64-linux-musl-gcc"
+
+[alias]
+xtask = "run --package xtask --"

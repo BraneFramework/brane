@@ -16,9 +16,9 @@ use specifications::package::Capability;
 use specifications::version::Version;
 
 /***** ARGUMENTS *****/
-/// Defines the toplevel arguments for the `branectl` tool.
+/// The server-side Brane command-line interface.
 #[derive(Debug, Parser)]
-#[clap(name = "branectl", about = "The server-side Brane command-line interface.")]
+#[clap(name = "branectl", version, author)]
 pub(crate) struct Cli {
     /// If given, prints `info` and `debug` prints.
     #[clap(long, global = true, help = "If given, prints additional information during execution.")]
