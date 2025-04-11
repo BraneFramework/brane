@@ -14,7 +14,7 @@
 
 use std::fmt::{Display, Formatter, Result as FResult};
 
-use log::{debug, info};
+use tracing::{debug, info};
 use rdkafka::{ClientConfig, Offset, TopicPartitionList};
 use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication, TopicResult};
 use rdkafka::consumer::Consumer;

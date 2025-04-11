@@ -19,11 +19,11 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use brane_exe::FullValue;
-use log::{debug, info};
 use specifications::container::{Action, ActionCommand, LocalContainerInfo};
 use tokio::io::AsyncReadExt as _;
 use tokio::process::{Child as TokioChild, Command as TokioCommand};
 use tokio::time::{self, Duration};
+use tracing::{debug, info};
 
 // use crate::callback::Callback;
 use crate::common::{HEARTBEAT_DELAY, Map, PackageResult, PackageReturnState, assert_input};

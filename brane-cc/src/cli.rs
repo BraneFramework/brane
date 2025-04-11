@@ -6,12 +6,8 @@ use clap::Parser;
 #[derive(Parser)]
 #[clap(name = "branec", author, about = "An offline compiler for BraneScript/Bakery to Workflows.")]
 pub(crate) struct Cli {
-    /// If given, shows debug prints.
-    #[clap(long, help = "If given, shows INFO- and DEBUG-level prints in the log.", env = "DEBUG")]
-    pub(crate) debug: bool,
-    /// If given, shows additional trace prints.
-    #[clap(long, help = "If given, shows TRACE-level prints in the log. Implies '--debug'", env = "TRACE")]
-    pub(crate) trace: bool,
+    #[clap(flatten)]
+    pub(crate) logging: specifications::cli::Tracing,
 
     /// The file(s) to compile. May be '-' to compile from stdin.
     #[clap(name = "FILES", help = "The input files to compile. Use '-' to read from stdin.")]

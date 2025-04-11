@@ -17,8 +17,8 @@ use std::str::FromStr;
 
 use brane_ast::Workflow;
 use brane_exe::FullValue;
-use log::warn;
 use specifications::working::TaskStatus;
+use tracing::warn;
 use uuid::Uuid;
 
 use crate::errors::{ExecuteError, IdError, PlanError};

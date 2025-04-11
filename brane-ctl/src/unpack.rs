@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use brane_cfg::info::Info as _;
 use brane_cfg::node::{NodeConfig, NodeKind};
-use log::{debug, info};
+use tracing::{debug, info};
 
 pub use crate::errors::UnpackError as Error;
 use crate::spec::ResolvableNodeKind;

@@ -26,12 +26,16 @@ use brane_prx::client::ProxyClient;
 use clap::Parser;
 use dotenvy::dotenv;
 use error_trace::trace;
-use humanlog::{DebugMode, HumanLogger};
-use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use tokio::signal::unix::{Signal, SignalKind, signal};
+use tracing::{debug, error, info, warn};
 use warp::Filter as _;
 
+/***** CONSTANTS *****/
+/// The default log level for tracing_subscriber. Levels higher than this will be discarded.
+const DEFAULT_LOG_LEVEL: tracing::level_filters::LevelFilter = tracing::level_filters::LevelFilter::INFO;
+/// The environment variable used by env-filter in tracing subscriber
+const LOG_LEVEL_ENV_VAR: &str = "BRANE_PLR_LOG";
 
 
 /***** ENTRYPOINT *****/
@@ -41,10 +45,9 @@ async fn main() {
     dotenv().ok();
     let opts = cli::Cli::parse();
 
-    // Configure the logger.
-    if let Err(err) = HumanLogger::terminal(if opts.trace { DebugMode::Full } else { DebugMode::Debug }).init() {
-        eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
-    }
+    let cli_log_level = opts.logging.log_level(DEFAULT_LOG_LEVEL);
+    specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
+
     info!("Initializing brane-plr v{}...", env!("CARGO_PKG_VERSION"));
 
     // Load the config, making sure it's a central config
@@ -82,7 +85,8 @@ async fn main() {
         .and(warp::path::end())
         .and(warp::any().map(move || context.clone()))
         .and(warp::body::json())
-        .and_then(planner::handle);
+        .and_then(planner::handle)
+        .with(warp::trace::request());
     let paths = plan;
 
     // Launch it

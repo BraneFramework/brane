@@ -24,7 +24,6 @@ use async_compression::tokio::write::GzipEncoder;
 use console::{Style, style};
 use fs2::FileExt as _;
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{debug, warn};
 use reqwest::{Client, Request, Response, StatusCode, Url};
 use sha2::{Digest as _, Sha256};
 use specifications::version::Version;
@@ -32,6 +31,7 @@ use tokio::fs as tfs;
 use tokio::io::{self as tio, AsyncWriteExt};
 use tokio_stream::StreamExt;
 use tokio_tar::{Archive, Builder, Entries, Entry};
+use tracing::{debug, warn};
 
 use crate::formatters::Capitalizeable;
 

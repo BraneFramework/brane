@@ -14,18 +14,20 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.66"
 base64 = "0.22.0"
-clap = { version = "4.5.6", features = ["derive","env"] }
 dotenvy = "0.15.0"
 env_logger = "0.11.0"
 libc = "0.2.154"
-log = "0.4.22"
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
 serde_yaml = { version = "0.0.10", package = "serde_yml" }
-thiserror = "2.0.0"
 tokio = { version = "1.38.0", features = ["full", "time"] }
 tonic = "0.12.0"
 yaml-rust = { version = "0.8", package = "yaml-rust2" }
+
+# Workspace dependencies
+clap.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
 
 brane-ast = { path = "../brane-ast" }
 brane-exe = { path = "../brane-exe" }

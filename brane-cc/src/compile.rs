@@ -17,7 +17,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use log::debug;
+use tracing::debug;
 
 use brane_dsl::Language;
 use brane_ast::{compile_snippet, CompileResult, ParserOptions, Workflow};

@@ -16,7 +16,7 @@
 use std::error::Error;
 
 use brane_dsl::TextPos;
-use log::error;
+use tracing::error;
 
 
 /***** LIBRARY *****/

@@ -17,13 +17,12 @@ use std::fs::{self, DirEntry, ReadDir};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 
-use humanlog::{DebugMode, HumanLogger};
-use log::{debug, warn};
 use regex::Regex;
 use specifications::container::ContainerInfo;
 use specifications::data::{AssetInfo, DataIndex, DataInfo};
 use specifications::package::{PackageIndex, PackageInfo};
 use tokio::runtime::{Builder, Runtime};
+use tracing::{debug, warn};
 use url::{Host, Url};
 
 
@@ -298,11 +297,8 @@ where
     R: Future<Output = ()>,
 {
     // Setup logger if told
-    if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
-        if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
-            eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
-        }
-    }
+    // TODO: Set up tracing subscriber
+
     // See if we need to limit ourselves to particular files
     let test_files: Option<Vec<String>> =
         std::env::var("TEST_FILES").ok().map(|test_file| test_file.split(',').map(|test_file| test_file.to_string()).collect());

@@ -23,7 +23,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
 use enum_debug::EnumDebug;
-use log::debug;
+use tracing::debug;
 use serde::{Deserialize, Serialize};
 use serde::ser::Serializer;
 use serde::de::{self, Deserializer, Visitor};

@@ -22,10 +22,10 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
 use enum_debug::EnumDebug;
-use log::trace;
 use serde::de::{self, Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
+use tracing::trace;
 
 
 /***** ERRORS *****/

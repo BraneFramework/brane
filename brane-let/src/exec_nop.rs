@@ -14,7 +14,7 @@
 //
 
 use brane_exe::FullValue;
-use log::{debug, info};
+use tracing::{debug, info};
 
 // use crate::callback::Callback;
 use crate::common::PackageResult;

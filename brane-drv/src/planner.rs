@@ -17,12 +17,12 @@
 use brane_ast::Workflow;
 use brane_tsk::errors::PlanError;
 use brane_tsk::spec::{AppId, TaskId};
-use log::debug;
 use reqwest::{Client, Request, Response, StatusCode};
 use serde_json::Value;
 use specifications::address::Address;
 use specifications::planning::{PlanningDeniedReply, PlanningReply, PlanningRequest};
 use specifications::profiling::ProfileScopeHandle;
+use tracing::debug;
 
 
 /***** LIBRARY *****/

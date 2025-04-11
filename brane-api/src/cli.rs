@@ -6,9 +6,8 @@ use clap::Parser;
 #[derive(Parser)]
 #[clap(version = env!("CARGO_PKG_VERSION"))]
 pub(crate) struct Cli {
-    /// Print debug info
-    #[clap(short, long, env = "DEBUG")]
-    pub(crate) debug: bool,
+    #[clap(flatten)]
+    pub(crate) logging: specifications::cli::Tracing,
 
     /// Load everything from the node.yml file
     #[clap(

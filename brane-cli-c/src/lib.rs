@@ -35,12 +35,11 @@ use brane_cli::run::{InstanceVmState, initialize_instance, run_instance};
 use brane_exe::FullValue;
 use brane_tsk::api::{get_data_index, get_package_index};
 use console::style;
-use humanlog::{DebugMode, HumanLogger};
-use log::{debug, error, info, trace};
 use parking_lot::{Mutex, MutexGuard};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 use tokio::runtime::{Builder, Runtime};
+use tracing::{debug, error, info, trace};
 
 
 /***** CONSTANTS *****/
@@ -68,9 +67,7 @@ static RUNTIME: Mutex<Option<Arc<Runtime>>> = Mutex::new(None);
 #[inline]
 fn init_logger() {
     LOG_INIT.call_once(|| {
-        if let Err(err) = HumanLogger::terminal(DebugMode::Debug).init() {
-            eprintln!("WARNING: Failed to setup Rust logger: {err} (logging disabled for this session)");
-        }
+        // TODO: Set up tracing
     });
 }
 
