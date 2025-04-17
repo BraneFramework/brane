@@ -18,6 +18,7 @@ use std::process::{Command, ExitStatus};
 
 use brane_cfg::node::NodeKind;
 use brane_shr::formatters::Capitalizeable;
+use brane_shr::utilities::{ContainerImageSourceError, CreateDirWithCacheTagError};
 use brane_tsk::docker::ImageSource;
 use console::style;
 use enum_debug::EnumDebug as _;
@@ -32,22 +33,14 @@ use specifications::version::Version;
 /// Note: we box `brane_shr::fs::Error` to avoid the error enum growing too large (see `clippy::result_large_err`).
 #[derive(Debug, thiserror::Error)]
 pub enum DownloadError {
-    /// Failed to create a new CACHEDIR.TAG
-    #[error("Failed to create CACHEDIR.TAG file '{}'", path.display())]
-    CachedirTagCreate { path: PathBuf, source: std::io::Error },
-    /// Failed to write to a new CACHEDIR.TAG
-    #[error("Failed to write to CACHEDIR.TAG file '{}'", path.display())]
-    CachedirTagWrite { path: PathBuf, source: std::io::Error },
-
+    #[error("Could not create directory with CacheDir.Tag")]
+    CreateDirWithCacheDirTagError(#[from] CreateDirWithCacheTagError),
     /// The given directory does not exist.
     #[error("{} directory '{}' not found", what.capitalize(), path.display())]
     DirNotFound { what: &'static str, path: PathBuf },
     /// The given directory exists but is not a directory.
     #[error("{} directory '{}' exists but is not a directory", what.capitalize(), path.display())]
     DirNotADir { what: &'static str, path: PathBuf },
-    /// Could not create a new directory at the given location.
-    #[error("Failed to create {} directory '{}'", what, path.display())]
-    DirCreateError { what: &'static str, path: PathBuf, source: std::io::Error },
 
     /// Failed to create a temporary directory.
     #[error("Failed to create a temporary directory")]
@@ -77,6 +70,10 @@ pub enum DownloadError {
     /// Failed to save a pulled image.
     #[error("Failed to save image '{}' to '{}'", name, path.display())]
     SaveError { name: String, image: String, path: PathBuf, source: brane_tsk::docker::Error },
+    #[error("{url} is not a valid download url")]
+    InvalidDownloadUrl { url: String },
+    #[error("Invalid download identifier: {identifier}")]
+    InvalidDownloadIdentifier { identifier: String, source: ContainerImageSourceError },
 }
 
 
