@@ -883,6 +883,8 @@ async fn remote_run(
     let mut state: InstanceVmState<Stdout, Stderr> =
         initialize_instance_vm(&api_endpoint, &drv_endpoint, Some(info.user.clone()), None, options).await?;
 
+    eprintln!("Using user {}", &info.user);
+
     // Compile the workflow
     let snippet: Snippet = {
         // Acquire the locks

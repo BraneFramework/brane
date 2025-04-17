@@ -34,8 +34,6 @@ enum-debug.workspace = true
 error-trace.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-
-# Workspace dependencies
 reqwest = { workspace = true }
 
 brane-cfg      = { path = "../brane-cfg" }

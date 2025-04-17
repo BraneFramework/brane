@@ -27,6 +27,14 @@ serde_yaml = { version = "0.0.10", package = "serde_yml" }
 tonic = "0.12.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 
+tracing-opentelemetry = "0.30.0"
+opentelemetry = { version = "0.29.0", features = ["trace", "metrics"] }
+opentelemetry_sdk = { version = "0.29.0", default-features = false, features = ["trace", "rt-tokio"] }
+opentelemetry-stdout = { version = "0.29.0", features = ["trace", "metrics"] }
+opentelemetry-otlp = { version = "0.29.0", features = ["metrics", "grpc-tonic"] }
+opentelemetry-semantic-conventions = { version = "0.29.0", features = ["semconv_experimental"] }
+
+
 # Workspace dependencies
 reqwest = { workspace = true, features = ["json", "stream"] }
 enum-debug.workspace = true

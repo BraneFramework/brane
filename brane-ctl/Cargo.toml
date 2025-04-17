@@ -35,13 +35,10 @@ serde_yaml = { version = "0.0.10", package = "serde_yml" }
 shlex = "1.1.0"
 tempfile = "3.10.1"
 tokio = { version = "1.38.0", features = [] }
-tracing = "0.1.40"
 
 # Workspace dependencies
 # Note that this crate needs a root store because it can download from the internet
 reqwest = { workspace = true, features = ["rustls-tls-webpki-roots"] }
-
-# Workspace dependencies
 clap.workspace = true
 enum-debug.workspace = true
 error-trace.workspace = true

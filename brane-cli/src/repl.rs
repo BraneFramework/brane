@@ -274,8 +274,17 @@ async fn remote_repl(
                 let workflow = {
                     let pindex = state.pindex.lock();
                     let dindex = state.dindex.lock();
-                    Workflow::from_source(&mut state.state, &mut state.source, &pindex, &dindex, None, &state.options, "<test task>", line)
-                        .map_err(|source| Error::RunError { what: "repl", source: run::Error::CompileError(source) })?
+                    Workflow::from_source(
+                        &mut state.state,
+                        &mut state.source,
+                        &pindex,
+                        &dindex,
+                        state.user.as_deref(),
+                        &state.options,
+                        "<test task>",
+                        line,
+                    )
+                    .map_err(|source| Error::RunError { what: "repl", source: run::Error::CompileError(source) })?
                 };
 
                 let snippet = Snippet { lines: line_count, workflow };
