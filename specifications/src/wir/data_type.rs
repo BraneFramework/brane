@@ -2,9 +2,9 @@
 //    by Lut99
 //
 //  Created:
-//    30 Aug 2022, 12:02:57
+//    14 Nov 2024, 15:45:28
 //  Last edited:
-//    17 Jan 2023, 15:13:15
+//    14 Nov 2024, 15:58:01
 //  Auto updated?
 //    Yes
 //
@@ -17,7 +17,7 @@ use std::fmt::{Display, Formatter, Result as FResult};
 
 use serde::{Deserialize, Serialize};
 
-use crate::spec::BuiltinClasses;
+use super::builtins::BuiltinClasses;
 
 
 /***** AUXILLARY ERRORS *****/
@@ -183,76 +183,6 @@ impl Display for DataType {
             IntermediateResult => write!(f, "IntermediateResult"),
         }
     }
-}
-
-impl From<brane_dsl::DataType> for DataType {
-    #[inline]
-    fn from(value: brane_dsl::DataType) -> Self {
-        use brane_dsl::DataType::*;
-        match value {
-            Any => Self::Any,
-            Void => Self::Void,
-
-            Boolean => Self::Boolean,
-            Integer => Self::Integer,
-            Real => Self::Real,
-            String => Self::String,
-            Semver => Self::Semver,
-
-            Array(a) => Self::Array { elem_type: a.into() },
-            Function(sig) => Self::Function { args: sig.args.into_iter().map(|d| d.into()).collect(), ret: Box::new(sig.ret.into()) },
-            Class(name) => {
-                // Match if 'Data' or 'IntermediateResult'
-                if name == BuiltinClasses::Data.name() {
-                    Self::Data
-                } else if name == BuiltinClasses::IntermediateResult.name() {
-                    Self::IntermediateResult
-                } else {
-                    Self::Class { name }
-                }
-            },
-        }
-    }
-}
-
-impl From<&brane_dsl::DataType> for DataType {
-    #[inline]
-    fn from(value: &brane_dsl::DataType) -> Self {
-        use brane_dsl::DataType::*;
-        match value {
-            Any => Self::Any,
-            Void => Self::Void,
-
-            Boolean => Self::Boolean,
-            Integer => Self::Integer,
-            Real => Self::Real,
-            String => Self::String,
-            Semver => Self::Semver,
-
-            Array(a) => Self::Array { elem_type: a.into() },
-            Function(sig) => Self::Function { args: sig.args.iter().map(|d| d.into()).collect(), ret: Box::new((&sig.ret).into()) },
-            Class(name) => {
-                // Match if 'Data' or 'IntermediateResult'
-                if name == BuiltinClasses::Data.name() {
-                    Self::Data
-                } else if name == BuiltinClasses::IntermediateResult.name() {
-                    Self::IntermediateResult
-                } else {
-                    Self::Class { name: name.clone() }
-                }
-            },
-        }
-    }
-}
-
-impl From<Box<brane_dsl::DataType>> for Box<DataType> {
-    #[inline]
-    fn from(value: Box<brane_dsl::DataType>) -> Self { Self::from(&value) }
-}
-
-impl From<&Box<brane_dsl::DataType>> for Box<DataType> {
-    #[inline]
-    fn from(value: &Box<brane_dsl::DataType>) -> Self { Box::new(DataType::from(value.as_ref())) }
 }
 
 impl From<&str> for DataType {

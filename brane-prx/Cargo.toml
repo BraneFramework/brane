@@ -18,7 +18,7 @@ never-say-never = "6.6.666"
 rustls = "0.21.6"
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
-socksx = { git = "https://github.com/braneframework/socksx", tag = "v2.0.0" }
+socksx = { git = "https://github.com/epi-project/socksx", tag = "v2.0.0" }
 thiserror = "2.0.0"
 tokio = { version = "1.38.0", default-features = false, features = ["macros", "rt", "signal"] }
 tokio-rustls = "0.24.0"

@@ -4,7 +4,7 @@
 //  Created:
 //    15 Jan 2024, 14:32:30
 //  Last edited:
-//    07 Feb 2024, 13:49:33
+//    02 May 2025, 14:54:22
 //  Auto updated?
 //    Yes
 //
@@ -13,6 +13,7 @@
 //!   registry.
 //
 
+use policy_reasoner::spec::reasons::ManyReason;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -56,6 +57,6 @@ pub struct CheckTransferReply {
     /// The verdict of the checker; `true` means OK, `false` means deny.
     pub verdict: bool,
     /// If `verdict` is false, this \*may\* contain reasons why a the transfer was denied.
-    #[serde(default = "Vec::new", skip_serializing_if = "Vec::is_empty")]
-    pub reasons: Vec<String>,
+    #[serde(default = "ManyReason::new", skip_serializing_if = "Vec::is_empty")]
+    pub reasons: ManyReason<String>,
 }

@@ -1,5 +1,3 @@
-version: '3.6'
-
 services:
   ###############
   ## AUXILLARY ##
@@ -31,17 +29,22 @@ services:
     image: brane-chk:${BRANE_VERSION:-latest}
     init: true
     container_name: ${CHK_NAME:-brane-chk}
-    command: -s "node-file-path=/node.yml"
     ports:
-    - "0.0.0.0:${CHK_PORT}:${CHK_PORT}"
+    - "0.0.0.0:${CHK_DELIB_PORT}:${CHK_DELIB_PORT}"
+    - "0.0.0.0:${CHK_STORE_PORT}:${CHK_STORE_PORT}"
     restart: always
     environment:
-    - ADDRESS=0.0.0.0:${CHK_PORT}
+    - NODE_CONFIG_PATH=/home/brane/node.yml
+    - POLICY_DB_PATH=/home/brane/policy.db
+    - POLICY_DELIB_KEYS_PATH=/home/brane/delib_keys.json
+    - POLICY_STORE_KEYS_PATH=/home/brane/store_keys.json
+    - DELIB_ADDRESS=0.0.0.0:${CHK_DELIB_PORT}
+    - STORE_ADDRESS=0.0.0.0:${CHK_STORE_PORT}
     volumes:
-    - ${NODE_CONFIG_PATH}:/node.yml
-    - ${POLICY_DB}:/data/policy.db
-    - ${POLICY_DELIBERATION_SECRET}:/examples/config/jwk_set_delib.json
-    - ${POLICY_EXPERT_SECRET}:/examples/config/jwk_set_expert.json
+    - ${NODE_CONFIG_PATH}:/home/brane/node.yml
+    - ${POLICY_DB}:/home/brane/policy.db
+    - ${POLICY_DELIB_KEYS}:/home/brane/delib_keys.json
+    - ${POLICY_STORE_KEYS}:/home/brane/store_keys.json
     extra_hosts:
     - host.docker.internal:host-gateway
 
@@ -49,7 +52,7 @@ services:
   brane-reg:
     image: brane-reg:${BRANE_VERSION:-latest}
     container_name: ${REG_NAME:-brane-reg}
-    command: --debug
+    command: --debug --delib-token "${CHECKER_DELIB_TOKEN}"
     ports:
     - "0.0.0.0:${REG_PORT}:${REG_PORT}"
     restart: always
@@ -57,7 +60,6 @@ services:
     - ${NODE_CONFIG_PATH}:/node.yml
     - ${BACKEND}:${BACKEND}
     - ${CERTS}:${CERTS}
-    - ${POLICY_DELIBERATION_SECRET}:${POLICY_DELIBERATION_SECRET}
     - ${DATA}:${DATA}
     - ${RESULTS}:${RESULTS}
     extra_hosts:
@@ -67,7 +69,7 @@ services:
   brane-job:
     image: brane-job:${BRANE_VERSION:-latest}
     container_name: ${JOB_NAME:-brane-job}
-    command: --debug
+    command: --debug --delib-token "${CHECKER_DELIB_TOKEN}"
     ports:
     - "0.0.0.0:${JOB_PORT}:${JOB_PORT}"
     restart: always
@@ -75,13 +77,12 @@ services:
     - ${NODE_CONFIG_PATH}:/node.yml
     - ${BACKEND}:${BACKEND}
     - ${CERTS}:${CERTS}
-    - ${POLICY_DELIBERATION_SECRET}:${POLICY_DELIBERATION_SECRET}
     - ${PACKAGES}:${PACKAGES}
     - ${DATA}:${DATA}
     - ${RESULTS}:${RESULTS}
     - ${TEMP_DATA}:${TEMP_DATA}
     - ${TEMP_RESULTS}:${TEMP_RESULTS}
-    - /var/run/docker.sock:/var/run/docker.sock
+    - /var/run/docker.sock:/var/run/docker.sock:uid=1000
     extra_hosts:
     - host.docker.internal:host-gateway
 

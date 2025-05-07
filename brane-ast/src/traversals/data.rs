@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 13:34:31
 //  Last edited:
-//    08 Dec 2023, 10:41:31
+//    14 Nov 2024, 17:17:01
 //  Auto updated?
 //    Yes
 //
@@ -22,10 +22,10 @@ use brane_dsl::symbol_table::{ClassEntry, FunctionEntry, SymbolTableEntry, VarEn
 use brane_dsl::{DataType, SymbolTable};
 use enum_debug::EnumDebug as _;
 use log::debug;
+use specifications::wir::builtins::{BuiltinClasses, BuiltinFunctions};
 use uuid::Uuid;
 
 use crate::errors::AstError;
-use crate::spec::{BuiltinClasses, BuiltinFunctions};
 use crate::state::{CompileState, DataState};
 
 

@@ -16,7 +16,6 @@ enum-debug.workspace = true
 futures = "0.3.24"
 lazy_static = "1.4.0"
 log = "0.4.22"
-num-traits = "0.2.18"
 serde = "1.0.204"
 serde_json = "1.0.120"
 thiserror = "2.0.0"

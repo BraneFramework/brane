@@ -9,7 +9,6 @@ license.workspace = true
 
 [dependencies]
 clap = { version = "4.5.6", features = ["derive","env"] }
-deliberation = { git = "https://github.com/braneframework/policy-reasoner" }
 dotenvy = "0.15.0"
 enum-debug.workspace = true
 env_logger = "0.11.0"
@@ -28,9 +27,8 @@ warp = "0.3.2"
 # Workspace dependencies
 reqwest = { workspace = true }
 
-brane-ast = { path = "../brane-ast" }
+policy-reasoner = { git = "https://github.com/BraneFramework/policy-reasoner", branch = "lib-refactor" }
 brane-cfg = { path = "../brane-cfg" }
-brane-exe = { path = "../brane-exe" }
 brane-shr = { path = "../brane-shr" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }

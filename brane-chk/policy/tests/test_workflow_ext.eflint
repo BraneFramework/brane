@@ -1,0 +1,63 @@
+// TEST WORKFLOW EXT.eflint
+//   by Lut99
+//
+// Created:
+//   30 Nov 2023, 14:20:44
+// Last edited:
+//   06 Dec 2023, 15:36:32
+// Auto updated?
+//   Yes
+//
+// Description:
+//   File to test if the other files work.
+//
+
+#require "../workflow_ext.eflint".
+
+
+///// TESTS /////
++asset(A).
++asset(B).
++asset(C).
++asset(D).
+
++asset(F).
++code(asset(F)).
++asset(G).
++code(asset(G)).
+
++user(Amy).
++domain(user(Amy)).
++user(Bob).
++domain(user(Bob)).
++user(Cho).
++domain(user(Cho)).
+
++workflow(W).
+
++node(workflow(W), X).
++task(node(workflow(W), X)).
++node-input(node(workflow(W), X), asset(F)).
++node-input-from(node-input(node(workflow(W), X), asset(F)), domain(user(Central))).
++function(node-input(node(workflow(W), X), asset(F)), "f").
++node-input(node(workflow(W), X), asset(A)).
++node-input-from(node-input(node(workflow(W), X), asset(A)), domain(user(Amy))).
++node-output(node(workflow(W), X), asset(B)).
++node-at(node(workflow(W), X), domain(user(Amy))).
+
++node(workflow(W), Y).
++task(node(workflow(W), Y)).
++node-input(node(workflow(W), Y), asset(G)).
++node-input-from(node-input(node(workflow(W), Y), asset(G)), domain(user(Central))).
++function(node-input(node(workflow(W), Y), asset(G)), "g").
++node-input(node(workflow(W), Y), asset(B)).
++node-input-from(node-input(node(workflow(W), Y), asset(B)), domain(user(Amy))).
++node-output(node(workflow(W), Y), asset(C)).
++node-at(node(workflow(W), Y), domain(user(Bob))).
+
++node(workflow(W), Z).
++commit(node(workflow(W), Z)).
++node-input(node(workflow(W), Z), asset(C)).
++node-input-from(node-input(node(workflow(W), Z), asset(C)), domain(user(Bob))).
++node-output(node(workflow(W), Z), asset(D)).
++node-at(node(workflow(W), Z), domain(user(Cho))).

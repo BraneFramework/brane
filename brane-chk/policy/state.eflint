@@ -1,0 +1,30 @@
+// STATE.eflint
+//   by Lut99
+//
+// Created:
+//   30 Nov 2023, 11:15:54
+// Last edited:
+//   06 Dec 2023, 15:17:25
+// Auto updated?
+//   Yes
+//
+// Description:
+//   Defines Facts that we use to denote the instance/reasoner's state. Can
+//   be thought of as a Brane "core ontology".
+//
+
+
+// Defines users that exist in the system (by ID).
+Fact user.
+// Defines a user that may be considered for planning (i.e., they can act as a worker).
+Fact domain Identified by user.
+
+// Defines an asset to the system.
+Fact asset.
+// States that a particular user has access to a particular asset.
+// 
+// Observations:
+// - If the `user` happens to be a `domain`, then the user may use their access to perform tasks on the data within Brane.
+Fact asset-access Identified by asset * user.
+// Defines assets that can be used in function-position in tasks (see `workflow_base.eflint`).
+Fact code Identified by asset.

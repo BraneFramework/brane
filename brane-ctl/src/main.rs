@@ -4,7 +4,7 @@
 //  Created:
 //    15 Nov 2022, 09:18:40
 //  Last edited:
-//    01 May 2024, 15:20:07
+//    19 Nov 2024, 14:46:33
 //  Auto updated?
 //    Yes
 //
@@ -98,9 +98,9 @@ async fn main() {
                 }
             },
 
-            GenerateSubcommand::PolicyDatabase { fix_dirs, path, branch } => {
+            GenerateSubcommand::PolicyDatabase { fix_dirs, path } => {
                 // Call the thing
-                if let Err(err) = generate::policy_database(fix_dirs, path, branch).await {
+                if let Err(err) = generate::policy_database(fix_dirs, path).await {
                     error!("{}", err.trace());
                     std::process::exit(1);
                 }

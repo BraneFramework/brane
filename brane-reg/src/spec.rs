@@ -4,7 +4,7 @@
 //  Created:
 //    06 Nov 2022, 17:05:19
 //  Last edited:
-//    06 Dec 2022, 11:19:22
+//    02 May 2025, 13:32:53
 //  Auto updated?
 //    Yes
 //
@@ -21,4 +21,6 @@ use std::path::PathBuf;
 pub struct Context {
     /// The path to the node config file.
     pub node_config_path: PathBuf,
+    /// The deliberation token used to commune with the checker.
+    pub delib_token:      String,
 }

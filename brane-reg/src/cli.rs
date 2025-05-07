@@ -19,4 +19,8 @@ pub(crate) struct Cli {
         env = "NODE_CONFIG_PATH"
     )]
     pub(crate) node_config_path: PathBuf,
+
+    /// The token to authenticate ourselves with the checker with.
+    #[clap(long, help = "A token to authenticate to the given Checker service with.", env = "CHECKER_DELIB_TOKEN")]
+    pub(crate) delib_token: String,
 }

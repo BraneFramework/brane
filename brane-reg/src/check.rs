@@ -4,7 +4,7 @@
 //  Created:
 //    07 Feb 2024, 13:40:32
 //  Last edited:
-//    07 Feb 2024, 14:42:13
+//    02 May 2025, 15:12:24
 //  Auto updated?
 //    Yes
 //
@@ -14,19 +14,19 @@
 
 use std::sync::Arc;
 
-use brane_ast::Workflow;
-use brane_ast::ast::Edge;
-use brane_ast::func_id::FunctionId;
 use brane_cfg::info::Info as _;
 use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
-use brane_exe::pc::ProgramCounter;
 use brane_shr::formatters::BlockFormatter;
 use enum_debug::EnumDebug as _;
 use error_trace::trace;
 use log::{debug, error, info};
+use policy_reasoner::spec::reasons::ManyReason;
 use specifications::data::DataName;
+use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileReport;
 use specifications::registering::{CheckTransferReply, CheckTransferRequest};
+use specifications::wir::func_id::FunctionId;
+use specifications::wir::{Edge, Workflow};
 use warp::hyper::StatusCode;
 use warp::reject::Rejection;
 use warp::reply::{self, Reply, Response};
@@ -157,12 +157,15 @@ async fn check_data_or_result(name: DataName, body: CheckTransferRequest, contex
     prep.stop();
 
     // Attempt to parse the certificate to get the client's name (which tracks because it's already authenticated)
-    match report.time_fut("Checker", assert_asset_permission(&worker_config, &use_case, &workflow, &target, name.clone(), task)).await {
+    match report
+        .time_fut("Checker", assert_asset_permission(&worker_config, &use_case, &context.delib_token, &workflow, &target, name.clone(), task))
+        .await
+    {
         Ok(None) => {
             info!("Checker authorized transfer of dataset '{}' to '{}'", name, target);
 
             // Serialize the response
-            let res: String = match serde_json::to_string(&CheckTransferReply { verdict: true, reasons: vec![] }) {
+            let res: String = match serde_json::to_string(&CheckTransferReply { verdict: true, reasons: ManyReason::new() }) {
                 Ok(res) => res,
                 Err(err) => {
                     error!("{}", trace!(("Failed to serialize ChecKTransferReply"), err));

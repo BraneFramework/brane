@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    08 Feb 2024, 17:33:49
+//    29 Apr 2025, 14:01:38
 //  Auto updated?
 //    Yes
 //
@@ -21,9 +21,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_recursion::async_recursion;
-use brane_ast::Workflow;
-use brane_ast::ast::{ComputeTaskDef, Edge, SymTable, TaskDef};
-use brane_ast::locations::Locations;
 use brane_cfg::info::Info as _;
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::node::{CentralConfig, NodeConfig};
@@ -32,14 +29,19 @@ use brane_tsk::api::get_data_index;
 use brane_tsk::errors::PlanError;
 use error_trace::trace;
 use log::{debug, error, info};
+use policy_reasoner::spec::reasonerconn::ReasonerResponse;
+use policy_reasoner::spec::reasons::ManyReason;
 use rand::prelude::IteratorRandom;
 use serde_json::Value;
 use specifications::address::Address;
+use specifications::checking::deliberation::{CheckResponse, CheckWorkflowRequest, Prost};
 use specifications::data::{AccessKind, AvailabilityKind, DataIndex, DataName, PreprocessKind};
 use specifications::package::Capability;
 use specifications::planning::{PlanningDeniedReply, PlanningReply, PlanningRequest};
 use specifications::profiling::ProfileReport;
-use specifications::working::{CheckReply, CheckWorkflowRequest, JobServiceClient};
+use specifications::wir::locations::Locations;
+use specifications::wir::{ComputeTaskDef, Edge, SymTable, TaskDef, Workflow};
+use specifications::working::JobServiceClient;
 use warp::http::StatusCode;
 use warp::reject::Rejection;
 use warp::reply::Response;
@@ -160,7 +162,7 @@ async fn plan_edges(
                 let location: &str = &locs.restricted()[0];
 
                 // Fetch the list of capabilities supported by the planned location
-                let address: String = format!("{api_addr}/infra/capabilities/{location}");
+                let address: String = format!("http://{api_addr}/infra/capabilities/{location}");
                 let res: reqwest::Response =
                     reqwest::get(&address).await.map_err(|source| PlanError::RequestError { address: address.clone(), source })?;
                 if !res.status().is_success() {
@@ -233,7 +235,7 @@ async fn plan_edges(
                                         .registry;
 
                                     // Compute the registry access method
-                                    let address: String = format!("{registry}/results/download/{iname}");
+                                    let address: String = format!("https://{registry}/results/download/{iname}");
                                     debug!("Input intermediate result '{}' will be transferred in from '{}'", iname, address);
 
                                     // That's the location where to pull the dataset from
@@ -407,7 +409,7 @@ fn plan_deferred(
                                     .registry;
 
                                 // Compute the registry access method
-                                let address: String = format!("{registry}/results/download/{iname}");
+                                let address: String = format!("https://{registry}/results/download/{iname}");
                                 debug!("Input intermediate result '{}' will be transferred in from '{}'", iname, address);
 
                                 // That's the location where to pull the dataset from
@@ -515,40 +517,39 @@ fn plan_deferred(
 ///
 /// # Arguments
 /// - `proxy`: A [`ProxyClient`] that we use to connect to the checker.
-/// - `splan`: An (already serialized) planned [`Workflow`] to validate.
+/// - `plan`: A planned [`Workflow`] to validate.
 /// - `location`: The name of the location on which we're resolving (used for debugging purposes only).
 /// - `info`: The addresses where we find this location.
 ///
 /// # Errors
 /// This function errors if either we field to access any of the checkers, or they denied the workflow.
-async fn validate_workflow_with(proxy: &ProxyClient, splan: &str, location: &str, info: &InfraLocation) -> Result<(), PlanError> {
+async fn validate_workflow_with(proxy: &ProxyClient, plan: Workflow, location: &str, info: &InfraLocation) -> Result<(), PlanError> {
     debug!("Consulting checker of '{location}' for plan validity...");
 
     let message: CheckWorkflowRequest = CheckWorkflowRequest {
         // NOTE: For now, we hardcode the central orchestrator as only "use-case" (registry)
-        use_case: "central".into(),
-        workflow: splan.into(),
+        usecase:  "central".into(),
+        workflow: plan,
     };
 
     // Create the client
     let mut client: JobServiceClient = proxy
-        .connect_to_job(info.delegate.to_string())
+        .connect_to_job(format!("grpc://{}", info.delegate))
         .await
         .map_err(|source| PlanError::ProxyError { source: Box::new(source) })?
         .map_err(|source| PlanError::GrpcConnectError { endpoint: info.delegate.clone(), source })?;
 
     // Send the request to the job node
-    let response: tonic::Response<CheckReply> = client.check_workflow(message).await.map_err(|source| PlanError::GrpcRequestError {
-        what: "CheckRequest",
-        endpoint: info.delegate.clone(),
-        source,
-    })?;
-    let result: CheckReply = response.into_inner();
+    let response: tonic::Response<Prost<CheckResponse<ManyReason<String>>>> = client
+        .check_workflow(Prost::<CheckWorkflowRequest>::new(message))
+        .await
+        .map_err(|source| PlanError::GrpcRequestError { what: "CheckRequest", endpoint: info.delegate.clone(), source })?;
+    let result: CheckResponse<ManyReason<String>> = response.into_inner().into_inner();
 
     // Examine if it was OK
-    if !result.verdict {
+    if let ReasonerResponse::Violated(reasons) = result.verdict {
         debug!("Checker of '{location}' DENIES plan");
-        return Err(PlanError::CheckerDenied { domain: location.into(), reasons: result.reasons });
+        return Err(PlanError::CheckerDenied { domain: location.into(), reasons: reasons.into_iter().collect() });
     }
 
     // Otherwise, OK!
@@ -610,7 +611,7 @@ pub async fn handle(context: Arc<Context>, body: PlanningRequest) -> Result<Resp
     };
 
     // Fetch the data index
-    let url: String = format!("{}/data/info", central.services.api.address);
+    let url: String = format!("http://{}/data/info", central.services.api.address);
     debug!("Loading data index from '{url}'...");
     let dindex: DataIndex = match get_data_index(&url).await {
         Ok(dindex) => dindex,
@@ -717,19 +718,15 @@ pub async fn handle(context: Arc<Context>, body: PlanningRequest) -> Result<Resp
             return err_response!(internal_error "{}", trace!(("Failed to serialize request result"), err));
         },
     };
-    let splan: String = match serde_json::to_string(&reply.plan) {
-        Ok(splan) => splan,
-        Err(err) => {
-            return err_response!(internal_error "{}", trace!(("Failed to serialize plan JSON"), err));
-        },
-    };
     ser.stop();
 
     // Check with the checker(s) if this plan is OK!
     debug!("Consulting {} checkers with plan validity...", infra.len());
     let val = report.nest("Policy validation");
     for (location, info) in infra.iter() {
-        match val.time_fut(format!("Domain '{}' ({})", location, info.registry), validate_workflow_with(&context.proxy, &splan, location, info)).await
+        match val
+            .time_fut(format!("Domain '{}' ({})", location, info.registry), validate_workflow_with(&context.proxy, workflow.clone(), location, info))
+            .await
         {
             Ok(_) => {},
             Err(PlanError::CheckerDenied { domain, reasons }) => {

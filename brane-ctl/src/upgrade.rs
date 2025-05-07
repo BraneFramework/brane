@@ -4,7 +4,7 @@
 //  Created:
 //    03 Jul 2023, 13:01:31
 //  Last edited:
-//    07 Mar 2024, 09:54:40
+//    29 Apr 2025, 13:51:21
 //  Auto updated?
 //    Yes
 //
@@ -21,11 +21,12 @@ use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
 
-use brane_cfg::node::WorkerUsecase;
+use brane_cfg::node::{DoublePrivateService, WorkerUsecase};
 use brane_shr::input::input;
 use console::style;
 use log::{debug, info, warn};
 use serde::Serialize;
+use specifications::address::Host;
 use specifications::version::Version;
 
 use crate::old_configs::v1_0_0;
@@ -399,18 +400,18 @@ pub fn node(path: impl Into<PathBuf>, dry_run: bool, overwrite: bool, version: V
                                     name: central.names.api,
                                     address: Address::from_str(&central.services.api.to_string()).unwrap(),
                                     bind: central.ports.api,
-                                    external_address: Address::Hostname(format!("http://{hostname}"), central.services.api.port()),
+                                    external_address: Address::hostname(format!("http://{hostname}"), central.services.api.port()),
                                 },
                                 drv: PublicService {
-                                    address: Address::Hostname(format!("grpc://{}", central.names.drv), central.ports.drv.port()),
+                                    address: Address::hostname(format!("grpc://{}", central.names.drv), central.ports.drv.port()),
                                     name: central.names.drv,
                                     bind: central.ports.drv,
-                                    external_address: Address::Hostname(format!("grpc://{hostname}"), central.ports.drv.port()),
+                                    external_address: Address::hostname(format!("grpc://{hostname}"), central.ports.drv.port()),
                                 },
                                 #[allow(unreachable_code)]
                                 plr: PrivateService { name: central.names.plr, address: unimplemented!(), bind: unimplemented!() },
                                 prx: PrivateOrExternalService::Private(PrivateService {
-                                    address: Address::Hostname(format!("http://{}", cfg.names.prx), cfg.ports.prx.port()),
+                                    address: Address::hostname(format!("http://{}", cfg.names.prx), cfg.ports.prx.port()),
                                     name:    cfg.names.prx,
                                     bind:    cfg.ports.prx,
                                 }),
@@ -435,8 +436,8 @@ pub fn node(path: impl Into<PathBuf>, dry_run: bool, overwrite: bool, version: V
 
                             backend: worker.paths.backend,
                             policy_database: worker.paths.policies,
-                            policy_deliberation_secret: "NOT YET IMPLEMENTED".into(),
-                            policy_expert_secret: "NOT YET IMPLEMENTED".into(),
+                            policy_delib_secret: "NOT YET IMPLEMENTED".into(),
+                            policy_store_secret: "NOT YET IMPLEMENTED".into(),
                             policy_audit_log: None,
                             proxy: Some(proxy_path),
 
@@ -451,21 +452,26 @@ pub fn node(path: impl Into<PathBuf>, dry_run: bool, overwrite: bool, version: V
                                 name: worker.names.reg,
                                 address: Address::from_str(&worker.services.reg.to_string()).unwrap(),
                                 bind: worker.ports.reg,
-                                external_address: Address::Hostname(format!("https://{hostname}"), worker.services.reg.port()),
+                                external_address: Address::hostname(format!("https://{hostname}"), worker.services.reg.port()),
                             },
                             job: PublicService {
-                                address: Address::Hostname(format!("grpc://{}", worker.names.job), worker.ports.job.port()),
+                                address: Address::hostname(format!("grpc://{}", worker.names.job), worker.ports.job.port()),
                                 name: worker.names.job,
                                 bind: worker.ports.job,
-                                external_address: Address::Hostname(format!("https://{hostname}"), worker.ports.job.port()),
+                                external_address: Address::hostname(format!("https://{hostname}"), worker.ports.job.port()),
                             },
-                            chk: PrivateService {
-                                name:    worker.names.chk,
-                                address: Address::from_str(&worker.services.chk.to_string()).unwrap(),
-                                bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), worker.services.chk.port()).into(),
+                            chk: DoublePrivateService {
+                                name:  worker.names.chk,
+                                host:  match &worker.services.chk {
+                                    v1_0_0::Address::Ipv4(addr, _) => Host::IPv4(*addr),
+                                    v1_0_0::Address::Ipv6(addr, _) => Host::IPv6(*addr),
+                                    v1_0_0::Address::Hostname(name, _) => Host::Name(name.clone()),
+                                },
+                                delib: worker.services.chk.port(),
+                                store: worker.services.chk.port() + 1,
                             },
                             prx: PrivateOrExternalService::Private(PrivateService {
-                                address: Address::Hostname(format!("http://{}", cfg.names.prx), cfg.ports.prx.port()),
+                                address: Address::hostname(format!("http://{}", cfg.names.prx), cfg.ports.prx.port()),
                                 name:    cfg.names.prx,
                                 bind:    cfg.ports.prx,
                             }),

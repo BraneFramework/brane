@@ -1,0 +1,306 @@
+{
+  "id": "workflow-bozR4uTg",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "fourty_two",
+        "a": [],
+        "r": {
+          "kind": "str"
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "kind": "cmp",
+        "p": "test",
+        "v": "1.0.0",
+        "d": {
+          "n": "hello_world",
+          "a": [],
+          "r": {
+            "kind": "str"
+          }
+        },
+        "a": [],
+        "r": []
+      }
+    ],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "TestClass",
+        "i": "test",
+        "v": "1.0.0",
+        "p": [
+          {
+            "n": "fourty_two",
+            "t": {
+              "kind": "int"
+            }
+          },
+          {
+            "n": "hello",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [
+      {
+        "n": "random",
+        "t": {
+          "kind": "str"
+        }
+      }
+    ],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [],
+      "n": 1
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "str",
+          "v": "I'm talking to you from far away!"
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 2
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 3
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": {
+        "restricted": [
+          "test"
+        ]
+      },
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [],
+      "n": 4
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "vrd",
+          "d": 0
+        },
+        {
+          "kind": "str",
+          "v": "random"
+        },
+        {
+          "kind": "vrs",
+          "d": 0
+        },
+        {
+          "kind": "str",
+          "v": "I have no idea where I am!"
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 5
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 6
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": {
+        "restricted": [
+          "random_but_not_really_anymore"
+        ]
+      },
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [],
+      "n": 7
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "pop"
+        },
+        {
+          "kind": "str",
+          "v": "I have found the answer"
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 8
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 9
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": {
+        "restricted": [
+          "42"
+        ]
+      },
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [],
+      "n": 10
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "pop"
+        }
+      ],
+      "n": 11
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {
+    "4": [
+      {
+        "kind": "lin",
+        "i": [
+          {
+            "kind": "str",
+            "v": "42"
+          }
+        ],
+        "n": 1
+      },
+      {
+        "kind": "ret",
+        "r": []
+      }
+    ]
+  }
+}

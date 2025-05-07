@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 17:20:55
 //  Last edited:
-//    07 Jun 2023, 16:29:39
+//    19 Feb 2025, 17:29:19
 //  Auto updated?
 //    Yes
 //
@@ -82,7 +82,7 @@ pub async fn list(context: Context) -> Result<impl Reply, Rejection> {
     let mut datasets: HashMap<String, DataInfo> = HashMap::new();
     for (loc_name, loc) in infra {
         // Run a GET-request on `/data/info` to fetch all datasets in this domain
-        let address: String = format!("{}/data/info", loc.registry);
+        let address: String = format!("http://{}/data/info", loc.registry);
         let res: reqwest::Response =
             match context.proxy.get(&address, Some(NewPathRequestTlsOptions { location: loc_name.clone(), use_client_auth: false })).await {
                 Ok(res) => match res {
@@ -190,7 +190,7 @@ pub async fn get(name: String, context: Context) -> Result<impl Reply, Rejection
     let mut dataset: Option<DataInfo> = None;
     for (loc_name, loc) in infra {
         // Run a GET-request on `/data` to fetch the specific dataset we're asked for
-        let address: String = format!("{}/data/info/{}", loc.registry, name);
+        let address: String = format!("http://{}/data/info/{}", loc.registry, name);
         let res: reqwest::Response =
             match context.proxy.get(&address, Some(NewPathRequestTlsOptions { location: loc_name.clone(), use_client_auth: false })).await {
                 Ok(res) => match res {

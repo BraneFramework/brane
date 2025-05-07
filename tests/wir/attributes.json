@@ -1,0 +1,562 @@
+{
+  "id": "workflow-Jwm4Zdew",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "kind": "cmp",
+        "p": "hello_world",
+        "v": "1.0.0",
+        "d": {
+          "n": "hello_world",
+          "a": [],
+          "r": {
+            "kind": "str"
+          }
+        },
+        "a": [],
+        "r": []
+      }
+    ],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [],
+    "results": {}
+  },
+  "metadata": [
+    "cho.baz"
+  ],
+  "user": null,
+  "graph": [
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "amy.foo",
+        "dan.qux"
+      ],
+      "n": 1
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 2
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 3
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "bob.bar",
+        "dan.qux"
+      ],
+      "n": 4
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 5
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 6
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "bob.bar",
+        "dan.qux"
+      ],
+      "n": 7
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 8
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 9
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux",
+        "bob.bar"
+      ],
+      "n": 10
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 11
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 12
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux",
+        "bob.bar"
+      ],
+      "n": 13
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 14
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 15
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux",
+        "bob.bar"
+      ],
+      "n": 16
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 17
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 18
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux",
+        "bob.bar"
+      ],
+      "n": 19
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 20
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 21
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux"
+      ],
+      "n": 22
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 23
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 24
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux"
+      ],
+      "n": 25
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 26
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 27
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux",
+        "eve.quux"
+      ],
+      "n": 28
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Hello, world!"
+        },
+        {
+          "kind": "eq"
+        }
+      ],
+      "n": 29
+    },
+    {
+      "kind": "brc",
+      "t": 30,
+      "f": 33,
+      "m": 36
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux",
+        "eve.quux"
+      ],
+      "n": 31
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 32
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 36
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux",
+        "eve.quux"
+      ],
+      "n": 34
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 35
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 36
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 37
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux"
+      ],
+      "n": 38
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Hello, world!"
+        },
+        {
+          "kind": "eq"
+        }
+      ],
+      "n": 39
+    },
+    {
+      "kind": "brc",
+      "t": 40,
+      "f": 43,
+      "m": 46
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux",
+        "eve.quux"
+      ],
+      "n": 41
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 42
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 46
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": "all",
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [
+        "dan.qux"
+      ],
+      "n": 44
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 45
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 46
+    },
+    {
+      "kind": "lin",
+      "i": [],
+      "n": 47
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {}
+}
