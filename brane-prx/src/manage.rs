@@ -4,7 +4,7 @@
 //  Created:
 //    23 Nov 2022, 11:07:05
 //  Last edited:
-//    12 Jan 2024, 10:43:44
+//    14 Nov 2024, 15:00:35
 //  Auto updated?
 //    Yes
 //
@@ -181,7 +181,7 @@ pub async fn new_incoming_path(port: u16, address: Address, context: Arc<Context
             debug!(">{}->{}: Got new connection from '{}'", port, address, client_addr);
 
             // Now we establish a new connection to the internal host
-            let addr: String = format!("{}:{}", address.domain(), address.port());
+            let addr: String = format!("{}:{}", address.host, address.port);
             debug!("Connecting to '{}'...", addr);
             let mut oconn: TcpStream = match TcpStream::connect(&addr).await {
                 Ok(oconn) => oconn,

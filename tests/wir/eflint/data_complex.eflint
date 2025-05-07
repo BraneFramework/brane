@@ -1,0 +1,114 @@
++workflow("workflow-uEZ3baXS").
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:1-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:1-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:1-task"), asset("data_test[1.0.0]")), "run_script").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:1-task"), asset("Test")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:1-task"), asset("result_run_script_ea9799")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:3-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:3-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:3-task"), asset("data_test[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:3-task"), asset("result_run_script_ea9799")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:3-task"), asset("result_aggregate_fc0e96")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:5-commit").
++commit(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:5-commit")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:5-commit"), asset("__brane_internals")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:5-commit"), asset("__brane_internals")), "commit").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:5-commit"), asset("result_aggregate_fc0e96")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:5-commit"), asset("test_data_1")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:10-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:10-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:10-task"), asset("data_test[1.0.0]")), "run_script").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:10-task"), asset("test_data_1")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:10-task"), asset("result_run_script_244f30")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:14-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:14-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:14-task"), asset("data_test[1.0.0]")), "run_script").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:14-task"), asset("test_data_1")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:14-task"), asset("result_run_script_c20212")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:17-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:17-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:17-task"), asset("data_test[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:17-task"), asset("result_run_script_244f30")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:17-task"), asset("result_run_script_c20212")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:17-task"), asset("result_aggregate_00f051")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:19-commit").
++commit(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:19-commit")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:19-commit"), asset("__brane_internals")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:19-commit"), asset("__brane_internals")), "commit").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:19-commit"), asset("result_aggregate_00f051")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:19-commit"), asset("test_data_2")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:29-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:29-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:29-task"), asset("data_test[1.0.0]")), "run_script").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:29-task"), asset("test_data_2")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:29-task"), asset("result_run_script_ad9678")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:33-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:33-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:33-task"), asset("data_test[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:33-task"), asset("result_run_script_ad9678")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:33-task"), asset("result_aggregate_0c3097")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-yzpR-loop").
++loop(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-yzpR-loop")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-yzpR-loop"), asset("test_data_2")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-yzpR-loop"), asset("result_aggregate_0c3097")).
++loop-body(loop(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-yzpR-loop")), node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:29-task")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:41-commit").
++commit(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:41-commit")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:41-commit"), asset("__brane_internals")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:41-commit"), asset("__brane_internals")), "commit").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:41-commit"), asset("result_aggregate_0c3097")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:41-commit"), asset("test_data_3")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:43-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:43-task"), asset("copy_result[1.1.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:43-task"), asset("copy_result[1.1.0]")), "copy_result").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:43-task"), asset("test_data_3")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:43-task"), asset("result_copy_result_822146")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:52-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:52-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:52-task"), asset("data_test[1.0.0]")), "run_script").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:52-task"), asset("result_copy_result_822146")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:52-task"), asset("result_aggregate_28e9be")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:52-task"), asset("result_run_script_78b2bf")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:56-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:56-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:56-task"), asset("data_test[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:56-task"), asset("result_run_script_78b2bf")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:56-task"), asset("result_aggregate_28e9be")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-7wrX-loop").
++loop(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-7wrX-loop")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-7wrX-loop"), asset("result_aggregate_28e9be")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-7wrX-loop"), asset("result_copy_result_822146")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-7wrX-loop"), asset("result_aggregate_28e9be")).
++loop-body(loop(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-7wrX-loop")), node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:52-task")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:64-commit").
++commit(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:64-commit")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:64-commit"), asset("__brane_internals")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:64-commit"), asset("__brane_internals")), "commit").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:64-commit"), asset("result_aggregate_28e9be")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:64-commit"), asset("result_copy_result_822146")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:64-commit"), asset("test_data_4")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:66-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:66-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:66-task"), asset("data_test[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:66-task"), asset("test_data_2")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:66-task"), asset("test_data_1")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:66-task"), asset("result_aggregate_3ace7c")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:68-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:68-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:68-task"), asset("data_test[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:68-task"), asset("test_data_4")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:68-task"), asset("test_data_3")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:68-task"), asset("result_aggregate_b49d89")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:70-task").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:70-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:70-task"), asset("data_test[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:70-task"), asset("result_aggregate_3ace7c")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:70-task"), asset("result_aggregate_b49d89")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:70-task"), asset("result_aggregate_4b2885")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:72-commit").
++commit(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:72-commit")).
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:72-commit"), asset("__brane_internals")).
++function(node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:72-commit"), asset("__brane_internals")), "commit").
++node-input(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:72-commit"), asset("result_aggregate_4b2885")).
++node-output(node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:72-commit"), asset("test_data_1234")).
++node(workflow("workflow-uEZ3baXS"), "workflow-uEZ3baXS-<main>:73-return").

@@ -1,0 +1,285 @@
+{
+  "id": "workflow-1CJqFFYO",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "swoosh",
+        "a": [
+          {
+            "kind": "clss",
+            "n": "Jedi"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      }
+    ],
+    "tasks": [],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "Jedi",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "is_master",
+            "t": {
+              "kind": "bool"
+            }
+          },
+          {
+            "n": "lightsaber_colour",
+            "t": {
+              "kind": "str"
+            }
+          },
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": [
+          4
+        ]
+      }
+    ],
+    "vars": [
+      {
+        "n": "self",
+        "t": {
+          "kind": "clss",
+          "n": "Jedi"
+        }
+      },
+      {
+        "n": "obi_wan",
+        "t": {
+          "kind": "clss",
+          "n": "Jedi"
+        }
+      }
+    ],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 1
+        },
+        {
+          "kind": "bol",
+          "v": true
+        },
+        {
+          "kind": "str",
+          "v": "blue"
+        },
+        {
+          "kind": "str",
+          "v": "Obi-Wan Kenobi"
+        },
+        {
+          "kind": "ins",
+          "d": 2
+        },
+        {
+          "kind": "vrs",
+          "d": 1
+        },
+        {
+          "kind": "mpp"
+        },
+        {
+          "kind": "vrg",
+          "d": 1
+        },
+        {
+          "kind": "prj",
+          "f": "swoosh"
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 2
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "dpp"
+        }
+      ],
+      "n": 3
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {
+    "4": [
+      {
+        "kind": "lin",
+        "i": [
+          {
+            "kind": "vrd",
+            "d": 0
+          },
+          {
+            "kind": "vrs",
+            "d": 0
+          },
+          {
+            "kind": "vrg",
+            "d": 0
+          },
+          {
+            "kind": "prj",
+            "f": "name"
+          },
+          {
+            "kind": "cst",
+            "t": {
+              "kind": "str"
+            }
+          },
+          {
+            "kind": "str",
+            "v": " is swinging their "
+          },
+          {
+            "kind": "add"
+          },
+          {
+            "kind": "vrg",
+            "d": 0
+          },
+          {
+            "kind": "prj",
+            "f": "lightsaber_colour"
+          },
+          {
+            "kind": "cst",
+            "t": {
+              "kind": "str"
+            }
+          },
+          {
+            "kind": "add"
+          },
+          {
+            "kind": "str",
+            "v": " lightsaber!"
+          },
+          {
+            "kind": "add"
+          },
+          {
+            "kind": "fnc",
+            "d": 1
+          }
+        ],
+        "n": 1
+      },
+      {
+        "kind": "cll",
+        "i": [],
+        "r": [],
+        "n": 2
+      },
+      {
+        "kind": "ret",
+        "r": []
+      }
+    ]
+  }
+}

@@ -4,7 +4,7 @@
 //  Created:
 //    14 Feb 2022, 14:21:21
 //  Last edited:
-//    22 May 2023, 10:23:31
+//    14 Nov 2024, 17:23:41
 //  Auto updated?
 //    Yes
 //
@@ -12,11 +12,11 @@
 //!   Contains common definitions across all executions.
 //
 
-use brane_ast::DataType;
 use brane_exe::FullValue;
 use log::debug;
 use specifications::common::Parameter;
 use specifications::package::PackageKind;
+use specifications::wir::data_type::DataType;
 
 use crate::errors::LetError;
 

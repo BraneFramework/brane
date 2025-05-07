@@ -1,0 +1,36 @@
+// METADATA.eflint
+//   by Lut99
+//
+// Created:
+//   30 Nov 2023, 11:23:48
+// Last edited:
+//   30 Nov 2023, 11:48:36
+// Auto updated?
+//   Yes
+//
+// Description:
+//   Defines metadata that can be assigned to most parts of the policy.
+//
+
+#require "state.eflint".
+#require "workflow_base.eflint".
+
+
+// Defines a cryptographic signature that proves a user saw something. Given as a pair of the person signing it and the physical signature.
+Fact signature Identified by user * string.
+// Predicate over `signature`s which denotes which of them have been validated to be correct by the checker.
+Fact signature-valid Identified by signature.
+
+// An arbitrary piece of information related to various pieces of information to provide them with metadata. Given as a pair of the person defining/owning it and the information itself.
+Fact tag Identified by user * string.
+
+// Relates a `tag` to a `signature`.
+Fact metadata Identified by tag * signature.
+// States that a tag has been assigned to a particular workflow by the person providing the signature.
+Fact workflow-metadata Identified by workflow * metadata.
+// States that a tag has been assigned to a particular node in a workflow by the person providing the signature.
+Fact node-metadata Identified by node * metadata.
+// States that a tag has been assigned to a particular asset by the person providing the signature.
+Fact asset-metadata Identified by asset * metadata.
+// States that a tag has been assigned to a particular user by the person providing the signature.
+Fact user-metadata Identified by user * metadata.

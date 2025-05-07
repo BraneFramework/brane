@@ -4,7 +4,7 @@
 //  Created:
 //    26 Aug 2022, 18:01:09
 //  Last edited:
-//    31 Jan 2024, 11:36:09
+//    14 Nov 2024, 17:21:49
 //  Auto updated?
 //    Yes
 //
@@ -15,14 +15,14 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use brane_ast::func_id::FunctionId;
-use brane_ast::{DataType, MergeStrategy};
 use console::style;
 use enum_debug::EnumDebug as _;
 use specifications::data::DataName;
+use specifications::pc::ProgramCounter;
 use specifications::version::Version;
-
-use crate::pc::ProgramCounter;
+use specifications::wir::data_type::DataType;
+use specifications::wir::func_id::FunctionId;
+use specifications::wir::merge_strategy::MergeStrategy;
 
 
 /***** HELPER FUNCTIONS *****/

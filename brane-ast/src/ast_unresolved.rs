@@ -4,7 +4,7 @@
 //  Created:
 //    03 Sep 2022, 12:31:20
 //  Last edited:
-//    12 Dec 2023, 15:10:22
+//    14 Nov 2024, 17:20:23
 //  Auto updated?
 //    Yes
 //
@@ -16,7 +16,8 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::ast::Metadata;
+use specifications::wir::Metadata;
+
 use crate::edgebuffer::EdgeBuffer;
 
 

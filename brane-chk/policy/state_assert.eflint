@@ -1,0 +1,24 @@
+// STATE ASSERT.eflint
+//   by Lut99
+//
+// Created:
+//   06 Dec 2023, 11:59:57
+// Last edited:
+//   06 Dec 2023, 15:17:27
+// Auto updated?
+//   Yes
+//
+// Description:
+//   Defines assertions that enforce particular assumptions on state
+//   predicates.
+//
+
+#require "state.eflint".
+
+
+// Assert that users exist when mentioned somewhere.
+Invariant user-exists When
+    (Forall domain : domain.user) && (Forall asset-access : asset-access.user).
+// Assert that assets exist when mentioned somewhere.
+Invariant asset-exists When
+    (Forall asset-access : asset-access.asset) && (Forall code : code.asset).

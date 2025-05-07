@@ -1,0 +1,24 @@
++workflow("workflow-s11A4qQu").
++node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:1-task").
++node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:1-task"), asset("epi[1.0.0]")).
++function(node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:1-task"), asset("epi[1.0.0]")), "local_compute").
++node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:1-task"), asset("st_antonius_ect")).
++node-output(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:1-task"), asset("result_local_compute_725aba")).
++node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:3-task").
++node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:3-task"), asset("epi[1.0.0]")).
++function(node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:3-task"), asset("epi[1.0.0]")), "local_compute").
++node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:3-task"), asset("umc_utrecht_ect")).
++node-output(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:3-task"), asset("result_local_compute_33cfc9")).
++node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:5-task").
++node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:5-task"), asset("epi[1.0.0]")).
++function(node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:5-task"), asset("epi[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:5-task"), asset("result_local_compute_725aba")).
++node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:5-task"), asset("result_local_compute_33cfc9")).
++node-output(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:5-task"), asset("result_aggregate_fad847")).
++node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:7-commit").
++commit(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:7-commit")).
++node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:7-commit"), asset("__brane_internals")).
++function(node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:7-commit"), asset("__brane_internals")), "commit").
++node-input(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:7-commit"), asset("result_aggregate_fad847")).
++node-output(node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:7-commit"), asset("surf_res")).
++node(workflow("workflow-s11A4qQu"), "workflow-s11A4qQu-<main>:8-return").

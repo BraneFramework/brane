@@ -25,7 +25,8 @@ members = [
     # These crates implement services for worker nodes
     "brane-job",
     "brane-reg",
-    "brane-let",
+    "brane-chk",
+    "brane-let",    # Not a service, container-local binary
 
     # These crates implement services that occur on any type of node
     "brane-prx",

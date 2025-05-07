@@ -4,7 +4,7 @@
 //  Created:
 //    23 Aug 2022, 20:34:33
 //  Last edited:
-//    17 Jan 2023, 15:14:01
+//    14 Nov 2024, 17:09:58
 //  Auto updated?
 //    Yes
 //
@@ -17,6 +17,7 @@ use std::mem::discriminant;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use specifications::wir::builtins::{BuiltinClasses, BuiltinFunctions};
 
 
 /***** LIBRARY *****/
@@ -51,6 +52,27 @@ impl Display for FunctionSignature {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         write!(f, "({}) -> {}", self.args.iter().map(|d| format!("{d}")).collect::<Vec<String>>().join(", "), self.ret)
+    }
+}
+
+impl From<BuiltinFunctions> for FunctionSignature {
+    #[inline]
+    fn from(value: BuiltinFunctions) -> Self { Self::from(&value) }
+}
+impl From<&BuiltinFunctions> for FunctionSignature {
+    #[inline]
+    fn from(value: &BuiltinFunctions) -> Self {
+        match value {
+            BuiltinFunctions::Print => Self::new(vec![DataType::String], DataType::Void),
+            BuiltinFunctions::PrintLn => Self::new(vec![DataType::String], DataType::Void),
+
+            BuiltinFunctions::Len => Self::new(vec![DataType::Array(Box::new(DataType::Any))], DataType::Integer),
+
+            BuiltinFunctions::CommitResult => Self::new(
+                vec![DataType::String, DataType::Class(BuiltinClasses::IntermediateResult.name().into())],
+                DataType::Class(BuiltinClasses::Data.name().into()),
+            ),
+        }
     }
 }
 

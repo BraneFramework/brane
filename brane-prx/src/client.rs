@@ -4,7 +4,7 @@
 //  Created:
 //    25 Nov 2022, 15:09:17
 //  Last edited:
-//    15 Jan 2024, 15:16:14
+//    29 Apr 2025, 14:01:46
 //  Auto updated?
 //    Yes
 //
@@ -34,7 +34,7 @@ use crate::spec::{NewPathRequest, NewPathRequestTlsOptions};
 ///
 /// # Arguments
 /// - `endpoint`: The proxy service to connect to (hostname + address).
-/// - `remote_address`: The remote address to connect to through the proxy.
+/// - `remote`: The remote address to connect to through the proxy.
 /// - `tls`: If given, whether to use TLS and for what location.
 ///
 /// # Returns
@@ -42,11 +42,15 @@ use crate::spec::{NewPathRequest, NewPathRequestTlsOptions};
 ///
 /// # Errors
 /// This function errors if we failed to create the port for whatever reason.
-async fn create_path(endpoint: &Url, remote: impl Into<String>, tls: &Option<NewPathRequestTlsOptions>) -> Result<u16, Error> {
+///
+/// # Panics
+/// This function panics if the given `endpoint` was not capable of changing its schema (i.e., its invalid).
+async fn create_path(mut endpoint: Url, remote: impl Into<String>, tls: &Option<NewPathRequestTlsOptions>) -> Result<u16, Error> {
     let remote: String = remote.into();
     debug!("Creating path to '{}' on proxy service '{}'...", remote, endpoint);
 
     // Prepare the request
+    endpoint.set_scheme("http").unwrap_or_else(|_| panic!("Failed to set \"http\" as schema"));
     let request: NewPathRequest = NewPathRequest { address: remote.clone(), tls: tls.clone() };
 
     // Send it with reqwest
@@ -98,7 +102,7 @@ impl ProxyClient {
 
         // Parse the address as an endpoint
         let endpoint: Url =
-            Url::from_str(&endpoint.to_string()).unwrap_or_else(|err| panic!("Cannot parse given address '{endpoint}' as a URL: {err}"));
+            Url::from_str(&format!("http://{endpoint}")).unwrap_or_else(|err| panic!("Cannot parse given address '{endpoint}' as a URL: {err}"));
         if endpoint.domain().is_none() {
             panic!("Given address '{endpoint}' does not have a domain");
         }
@@ -184,7 +188,7 @@ impl ProxyClient {
         info!("Sending HTTP request to '{}' through proxy service at '{}'", request.url(), self.endpoint);
 
         // Assert it has the appropriate fields
-        let url: &Url = request.url_mut();
+        let url: &Url = request.url();
         if url.domain().is_none() {
             panic!("URL {url} does not have a domain defined");
         }
@@ -204,7 +208,7 @@ impl ProxyClient {
             Some(port) => port,
             None => {
                 // Create the path
-                let port: u16 = create_path(&self.endpoint, &remote, &tls).await?;
+                let port: u16 = create_path(self.endpoint.clone(), &remote, &tls).await?;
 
                 // Store it in the internal map for next time
                 let mut lock: RwLockWriteGuard<HashMap<(String, Option<NewPathRequestTlsOptions>), u16>> = self.paths.write().unwrap();
@@ -276,7 +280,7 @@ impl ProxyClient {
             Some(port) => port,
             None => {
                 // Create the path
-                let port: u16 = create_path(&self.endpoint, &remote, &None).await?;
+                let port: u16 = create_path(self.endpoint.clone(), &remote, &None).await?;
 
                 // Store it in the internal map for next time
                 let mut lock: RwLockWriteGuard<HashMap<(String, Option<NewPathRequestTlsOptions>), u16>> = self.paths.write().unwrap();
@@ -346,7 +350,7 @@ impl ProxyClient {
             Some(port) => port,
             None => {
                 // Create the path
-                let port: u16 = create_path(&self.endpoint, &remote, &None).await?;
+                let port: u16 = create_path(self.endpoint.clone(), &remote, &None).await?;
 
                 // Store it in the internal map for next time
                 let mut lock: RwLockWriteGuard<HashMap<(String, Option<NewPathRequestTlsOptions>), u16>> = self.paths.write().unwrap();

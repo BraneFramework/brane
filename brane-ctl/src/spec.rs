@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 17:27:52
 //  Last edited:
-//    08 Feb 2024, 17:08:25
+//    01 May 2025, 10:43:08
 //  Auto updated?
 //    Yes
 //
@@ -249,15 +249,12 @@ where
 pub enum PolicyInputLanguage {
     /// It's human-friendly eFLINT
     EFlint,
-    /// It's machine-friendly eFLINT JSON.
-    EFlintJson,
 }
 impl Display for PolicyInputLanguage {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use PolicyInputLanguage::*;
         match self {
             EFlint => write!(f, "eFLINT"),
-            EFlintJson => write!(f, "eFLINT JSON"),
         }
     }
 }
@@ -267,7 +264,6 @@ impl FromStr for PolicyInputLanguage {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "eflint" => Ok(Self::EFlint),
-            "eflint-json" => Ok(Self::EFlintJson),
             raw => Err(PolicyInputLanguageParseError::Unknown { raw: raw.into() }),
         }
     }
@@ -427,19 +423,19 @@ pub enum GenerateNodeSubcommand {
         /// Custom hash file path.
         #[clap(
             long,
-            default_value = "$CONFIG/policy_deliberation_secret.json",
-            help = "The location of the `policy_deliberation_secret.json` file that is used to verify authentication on the deliberation endpoint \
-                    in the checker. Use '$CONFIG' to reference the value given by --config-path."
+            default_value = "$CONFIG/policy_delib_secret.json",
+            help = "The location of the `policy_delib_secret.json` file that is used to verify authentication on the deliberation endpoint in the \
+                    checker. Use '$CONFIG' to reference the value given by --config-path."
         )]
-        policy_deliberation_secret: PathBuf,
+        policy_delib_secret: PathBuf,
         /// Custom hash file path.
         #[clap(
             long,
-            default_value = "$CONFIG/policy_expert_secret.json",
-            help = "The location of the `policy_expert_secret.json` file that is used to verify authentication on the policy expert endpoint in the \
+            default_value = "$CONFIG/policy_store_secret.json",
+            help = "The location of the `policy_store_secret.json` file that is used to verify authentication on the policy store endpoint in the \
                     checker. Use '$CONFIG' to reference the value given by --config-path."
         )]
-        policy_expert_secret: PathBuf,
+        policy_store_secret: PathBuf,
         /// Custom audit log path (optional)
         #[clap(
             long,
@@ -520,7 +516,10 @@ pub enum GenerateNodeSubcommand {
         job_port: u16,
         /// The address on which to launch the checker service.
         #[clap(long, default_value = "50053", help = "The port on which the local checker service is available.")]
-        chk_port: u16,
+        chk_delib_port: u16,
+        /// The address on which to launch the checker service's storage API.
+        #[clap(long, default_value = "50054", help = "The port on which the storage API of the local checker service is available.")]
+        chk_store_port: u16,
         /// The port of the proxy service.
         #[clap(short, long, default_value = "50050", help = "The port on which the local proxy service is available.")]
         prx_port: u16,

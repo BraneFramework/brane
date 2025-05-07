@@ -4,7 +4,7 @@
 //  Created:
 //    06 Jan 2023, 14:43:35
 //  Last edited:
-//    08 Feb 2024, 17:01:30
+//    02 May 2025, 14:18:22
 //  Auto updated?
 //    Yes
 //
@@ -124,7 +124,7 @@ pub struct ExecuteReply {
     /// If given, then the driver has stderr to write to the user.
     #[prost(tag = "4", optional, string)]
     pub stderr: Option<String>,
-    /// If given, then the workflow has returned a value to use (`FullValue` encoded as JSON).
+    /// If given, then the workflow has returned a value to use (a tuple of a `FullValue` and an optional `ProgramCounter` encoded as JSON).
     #[prost(tag = "5", optional, string)]
     pub value:  Option<String>,
 }
