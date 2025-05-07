@@ -1,0 +1,204 @@
+{
+  "id": "workflow-FziewPZK",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      },
+      {
+        "n": "test",
+        "a": [],
+        "r": {
+          "kind": "void"
+        }
+      }
+    ],
+    "tasks": [],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Hello there!"
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 2
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "General \" Kenobi,\n\tyou are a bold one!"
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 3
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 4
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 4
+        }
+      ],
+      "n": 5
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 6
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 4
+        }
+      ],
+      "n": 7
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 8
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {
+    "4": [
+      {
+        "kind": "lin",
+        "i": [
+          {
+            "kind": "str",
+            "v": "General Kenobi!!!"
+          },
+          {
+            "kind": "fnc",
+            "d": 1
+          }
+        ],
+        "n": 1
+      },
+      {
+        "kind": "cll",
+        "i": [],
+        "r": [],
+        "n": 2
+      },
+      {
+        "kind": "ret",
+        "r": []
+      }
+    ]
+  }
+}

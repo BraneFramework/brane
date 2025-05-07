@@ -4,7 +4,7 @@
 //  Created:
 //    17 Feb 2022, 10:27:28
 //  Last edited:
-//    07 Mar 2024, 14:16:08
+//    02 May 2025, 14:16:13
 //  Auto updated?
 //    Yes
 //
@@ -15,6 +15,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
+use brane_exe::value::DataId;
 use brane_shr::formatters::{BlockFormatter, PrettyListFormatter};
 use reqwest::StatusCode;
 use specifications::address::Address;
@@ -572,7 +573,7 @@ pub enum InstanceError {
     IllegalInstanceName { raw: String, illegal_char: char },
     /// Failed to parse an address from the hostname (and a little modification).
     #[error("Failed to convert hostname to a valid address")]
-    AddressParseError { source: specifications::address::AddressError },
+    AddressParseError { source: specifications::address::AddressParseError },
     /// Failed to send a request to the remote instance.
     #[error(
         "Failed to send request to the instance API at '{address}' (if this is something on your end, you may skip this check by providing \
@@ -867,6 +868,9 @@ pub enum RunError {
     /// Failed to download remote dataset.
     #[error("Failed to download remote dataset")]
     DataDownloadError { source: DataError },
+    /// Workflow returned result without PC.
+    #[error("Workflow returned data \"{data}\" without providing information where in the workflow it's downloaded from.")]
+    DataDownloadWithoutPc { data: DataId },
 
     /// Failed to read the source from stdin
     #[error("Failed to read source from stdin")]

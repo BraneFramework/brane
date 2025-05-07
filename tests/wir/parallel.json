@@ -1,0 +1,456 @@
+{
+  "id": "workflow-pRA42iRy",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [
+      {
+        "n": "test",
+        "t": {
+          "kind": "arr",
+          "t": {
+            "kind": "str"
+          }
+        }
+      },
+      {
+        "n": "sum",
+        "t": {
+          "kind": "int"
+        }
+      }
+    ],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "par",
+      "b": [
+        1,
+        5,
+        9
+      ],
+      "m": 13
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Running in parallel..."
+        }
+      ],
+      "n": 2
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 3
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 4
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "...so we can..."
+        }
+      ],
+      "n": 6
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 7
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 8
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "...finish each other's sentences!"
+        }
+      ],
+      "n": 10
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 11
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 12
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "join",
+      "m": "None",
+      "n": 14
+    },
+    {
+      "kind": "par",
+      "b": [
+        15
+      ],
+      "m": 17
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "No parallelism at all, gnagnagnagna"
+        }
+      ],
+      "n": 16
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "join",
+      "m": "All",
+      "n": 18
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 0
+        },
+        {
+          "kind": "vrs",
+          "d": 0
+        },
+        {
+          "kind": "vrg",
+          "d": 0
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "str"
+          }
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 19
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 20
+    },
+    {
+      "kind": "par",
+      "b": [
+        21,
+        23,
+        25,
+        27
+      ],
+      "m": 29
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 1
+        }
+      ],
+      "n": 22
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 2
+        }
+      ],
+      "n": 24
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 3
+        }
+      ],
+      "n": 26
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "int",
+          "v": 4
+        }
+      ],
+      "n": 28
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "join",
+      "m": "Sum",
+      "n": 30
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 1
+        },
+        {
+          "kind": "vrs",
+          "d": 1
+        },
+        {
+          "kind": "vrg",
+          "d": 1
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "str"
+          }
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 31
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 32
+    },
+    {
+      "kind": "par",
+      "b": [
+        33,
+        37
+      ],
+      "m": 41
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Running somewhere randomly!"
+        }
+      ],
+      "n": 34
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 35
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 36
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "Running somewhere specific but in parallel!"
+        }
+      ],
+      "n": 38
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 39
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 40
+    },
+    {
+      "kind": "ret",
+      "r": []
+    },
+    {
+      "kind": "join",
+      "m": "None",
+      "n": 42
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {}
+}

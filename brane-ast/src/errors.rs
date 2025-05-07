@@ -4,7 +4,7 @@
 //  Created:
 //    10 Aug 2022, 13:52:37
 //  Last edited:
-//    31 Jan 2024, 11:35:11
+//    14 Nov 2024, 17:15:21
 //  Auto updated?
 //    Yes
 //
@@ -17,12 +17,11 @@ use std::fmt::Display;
 use std::io::Write;
 
 use brane_dsl::ast::Expr;
-use brane_dsl::spec::MergeStrategy;
 use brane_dsl::{DataType, TextRange};
 use console::{Style, style};
 use specifications::version::Version;
-
-use crate::spec::BuiltinClasses;
+use specifications::wir::builtins::BuiltinClasses;
+use specifications::wir::merge_strategy::MergeStrategy;
 
 
 /***** HELPER MACROS *****/

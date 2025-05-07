@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 15:27:26
 //  Last edited:
-//    08 Feb 2024, 16:47:05
+//    02 May 2025, 11:43:11
 //  Auto updated?
 //    Yes
 //
@@ -18,10 +18,7 @@ use std::fmt::{Display, Formatter, Result as FResult, Write};
 use std::path::PathBuf;
 
 use bollard::ClientVersion;
-use brane_ast::Workflow;
-use brane_ast::func_id::FunctionId;
-use brane_ast::locations::{Location, Locations};
-use brane_exe::pc::ProgramCounter;
+use bollard::secret::{BuildInfo, CreateImageInfo};
 use brane_shr::formatters::{BlockFormatter, Capitalizeable};
 use enum_debug::EnumDebug as _;
 use reqwest::StatusCode;
@@ -31,7 +28,11 @@ use specifications::container::Image;
 use specifications::data::DataName;
 use specifications::driving::ExecuteReply;
 use specifications::package::Capability;
+use specifications::pc::ProgramCounter;
 use specifications::version::Version;
+use specifications::wir::Workflow;
+use specifications::wir::func_id::FunctionId;
+use specifications::wir::locations::{Location, Locations};
 // The TaskReply is here for legacy reasons; bad name
 use specifications::working::{ExecuteReply as TaskReply, TaskStatus};
 use tonic::Status;
@@ -164,13 +165,13 @@ pub enum PreprocessError {
     ProxyError { source: Box<dyn 'static + Send + Sync + Error> },
     /// Failed to connect to a delegate node with gRPC
     #[error("Failed to start gRPC connection with delegate node '{endpoint}'")]
-    GrpcConnectError { endpoint: Address, source: specifications::working::Error },
+    GrpcConnectError { endpoint: String, source: specifications::working::Error },
     /// Failed to send a preprocess request to a delegate node with gRPC
     #[error("Failed to send {what} request to delegate node '{endpoint}'")]
-    GrpcRequestError { what: &'static str, endpoint: Address, source: tonic::Status },
+    GrpcRequestError { what: &'static str, endpoint: String, source: tonic::Status },
     /// Failed to re-serialize the access kind.
     #[error("Failed to parse access kind '{raw}' sent by remote delegate '{endpoint}'")]
-    AccessKindParseError { endpoint: Address, raw: String, source: serde_json::Error },
+    AccessKindParseError { endpoint: String, raw: String, source: serde_json::Error },
 
     /// Failed to open/read a given file.
     #[error("Failed to read {} file '{}'", what, path.display())]
@@ -314,13 +315,13 @@ pub enum ExecuteError {
     ProxyError { source: Box<dyn 'static + Send + Sync + Error> },
     /// Failed to connect to a delegate node with gRPC
     #[error("Failed to start gRPC connection with delegate node '{endpoint}'")]
-    GrpcConnectError { endpoint: Address, source: specifications::working::Error },
+    GrpcConnectError { endpoint: String, source: specifications::working::Error },
     /// Failed to send a preprocess request to a delegate node with gRPC
     #[error("Failed to send {what} request to delegate node '{endpoint}'")]
-    GrpcRequestError { what: &'static str, endpoint: Address, source: tonic::Status },
+    GrpcRequestError { what: &'static str, endpoint: String, source: tonic::Status },
     /// Preprocessing failed with the following error.
     #[error("Remote delegate '{endpoint}' returned status '{status:?}' while executing task '{name}'")]
-    ExecuteError { endpoint: Address, name: String, status: TaskStatus, source: StringError },
+    ExecuteError { endpoint: String, name: String, status: TaskStatus, source: StringError },
 
     // Instance-only (worker side)
     /// Failed to load the digest cache file
@@ -483,10 +484,10 @@ pub enum CommitError {
     ProxyError { source: Box<dyn 'static + Send + Sync + Error> },
     /// Failed to connect to a delegate node with gRPC
     #[error("Failed to start gRPC connection with delegate node '{endpoint}'")]
-    GrpcConnectError { endpoint: Address, source: specifications::working::Error },
+    GrpcConnectError { endpoint: String, source: specifications::working::Error },
     /// Failed to send a preprocess request to a delegate node with gRPC
     #[error("Failed to send {what} request to delegate node '{endpoint}'")]
-    GrpcRequestError { what: &'static str, endpoint: Address, source: tonic::Status },
+    GrpcRequestError { what: &'static str, endpoint: String, source: tonic::Status },
 
     // Instance-only (worker side)
     /// Failed to read the AssetInfo file.
@@ -558,6 +559,13 @@ pub enum DockerError {
     /// Failed to import the given image file.
     #[error("Failed to import image file '{}' into Docker engine", path.display())]
     ImageImportError { path: PathBuf, source: bollard::errors::Error },
+    /// Failed to find the digest after importing the given image.
+    #[error("Failed to read digest after importing image '{}'\n\nReturned infos:\n{}\n{}\n{}\n",
+                path.display(),
+                "-".repeat(80),
+                infos.iter().map(|i| format!("{i:?}")).collect::<Vec<String>>().join("\n"),
+                "-".repeat(80))]
+    ImageImportFindId { path: PathBuf, infos: Vec<BuildInfo> },
     /// Failed to create the given image file.
     #[error("Failed to create image file '{}'", path.display())]
     ImageFileCreateError { path: PathBuf, source: std::io::Error },
@@ -574,6 +582,13 @@ pub enum DockerError {
     /// Failed to pull the given image file.
     #[error("Failed to pull image '{source}' into Docker engine")]
     ImagePullError { image_source: String, source: bollard::errors::Error },
+    /// Failed to find the digest after pulling the given image.
+    #[error("Failed to read digest after pulling image '{}'\n\nReturned infos:\n{}\n{}\n{}\n",
+                image_source,
+                "-".repeat(80),
+                infos.iter().map(|i| format!("{i:?}")).collect::<Vec<String>>().join("\n"),
+                "-".repeat(80))]
+    ImagePullFindId { image_source: String, infos: Vec<CreateImageInfo> },
     /// Failed to appropriately tag the pulled image.
     #[error("Failed to tag pulled image '{source}' as '{image}'")]
     ImageTagError { image: Box<Image>, image_source: String, source: bollard::errors::Error },
@@ -584,6 +599,10 @@ pub enum DockerError {
     /// Failed to remove a certain image.
     #[error("Failed to remove image '{}' (id: {}) from Docker engine", image.name(), id)]
     ImageRemoveError { image: Box<Image>, id: String, source: bollard::errors::Error },
+
+    /// Failed to list the images in a docker instance.
+    #[error("Could not list images")]
+    ImageList { source: bollard::errors::Error },
 
     /// Could not open the given image.tar.
     #[error("Could not open given Docker image file '{}'", path.display())]

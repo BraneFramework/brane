@@ -346,14 +346,6 @@ pub(crate) enum GenerateSubcommand {
         /// The path to write to.
         #[clap(short, long, default_value = "./policies.db", help = "The path to write the policy database file to.")]
         path:     PathBuf,
-        /// The branch to pull the migrations from.
-        #[clap(
-            short,
-            long,
-            default_value = "main",
-            help = "The branch of the `https://github.com/braneframework/policy-reasoner` repository from which to pull the Diesel migrations."
-        )]
-        branch:   String,
     },
 
     #[clap(name = "policy_secret", about = "Generates a new JWT key for use in the `brane-chk` service.")]
@@ -558,7 +550,7 @@ pub(crate) enum PolicySubcommand {
             help = "The version of the policy to activate. Omit to have branectl download the version metadata from the checker and let you choose \
                     interactively."
         )]
-        version: Option<i64>,
+        version: Option<u64>,
 
         /// Address on which to find the checker.
         #[clap(
@@ -595,8 +587,7 @@ pub(crate) enum PolicySubcommand {
         #[clap(
             short,
             long,
-            help = "The language of the input policy. Options are 'eflint' and 'eflint-json', where the former will be compiled to the latter \
-                    before sending. If omitted, will attempt to deduce it based on the 'INPUT'."
+            help = "The language of the input policy. Options are 'eflint'. If omitted, will attempt to deduce it based on the 'INPUT'."
         )]
         language: Option<PolicyInputLanguage>,
 

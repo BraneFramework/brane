@@ -4,7 +4,7 @@
 //  Created:
 //    07 Sep 2022, 10:48:30
 //  Last edited:
-//    14 Nov 2022, 10:04:13
+//    14 Nov 2024, 16:02:37
 //  Auto updated?
 //    Yes
 //
@@ -13,7 +13,6 @@
 //!   node.
 //
 
-use brane_dsl::location::AllowedLocations;
 use serde::{Deserialize, Serialize};
 
 
@@ -57,14 +56,4 @@ impl Locations {
     /// Returns whether this Locations is a restrictive list.
     #[inline]
     pub fn is_restrictive(&self) -> bool { matches!(self, Self::Restricted(_)) }
-}
-
-impl From<AllowedLocations> for Locations {
-    #[inline]
-    fn from(value: AllowedLocations) -> Self {
-        match value {
-            AllowedLocations::All => Self::All,
-            AllowedLocations::Exclusive(locs) => Self::Restricted(locs.into_iter().map(|l| l.into()).collect()),
-        }
-    }
 }

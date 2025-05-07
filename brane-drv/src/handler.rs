@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:18:11
 //  Last edited:
-//    07 Mar 2024, 14:20:06
+//    02 May 2025, 15:15:55
 //  Auto updated?
 //    Yes
 //
@@ -17,7 +17,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
 
-use brane_ast::Workflow;
 use brane_cfg::info::Info;
 use brane_cfg::infra::InfraFile;
 use brane_cfg::node::{CentralConfig, NodeConfig, NodeSpecificConfig};
@@ -31,6 +30,7 @@ use error_trace::{ErrorTrace as _, trace};
 use log::{debug, error, info};
 use specifications::driving::{CheckReply, CheckRequest, CreateSessionReply, CreateSessionRequest, DriverService, ExecuteReply, ExecuteRequest};
 use specifications::profiling::ProfileReport;
+use specifications::wir::Workflow;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;

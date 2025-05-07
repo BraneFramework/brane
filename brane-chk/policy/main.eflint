@@ -1,0 +1,36 @@
+// MAIN.eflint
+//   by Lut99
+//
+// Created:
+//   30 Nov 2023, 11:13:01
+// Last edited:
+//   29 Apr 2025, 23:22:26
+// Auto updated?
+//   Yes
+//
+// Description:
+//   "Entrypoint" file that collects all eFLINT policy interface into one file.
+//
+
+
+///// DEFINITIONS /////
+// Add in Brane definitions (which is basically the world)
+#require "state.eflint".
+
+// Add in the workflow definitions
+#require "workflow_base.eflint".
+
+// Add in the metadata
+#require "metadata.eflint".
+
+// Add in the queries
+#require "queries.eflint".
+
+
+
+///// ASSERTIONS /////
+// Add state assertions
+// #require "state_assert.eflint".
+
+// Add workflow assertions
+// #require "workflow_assert.eflint".

@@ -1,0 +1,189 @@
+{
+  "id": "workflow-T2lu5VhH",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [
+      {
+        "n": "test",
+        "t": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "abc__2",
+        "t": {
+          "kind": "str"
+        }
+      },
+      {
+        "n": "new_test",
+        "t": {
+          "kind": "str"
+        }
+      }
+    ],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 0
+        },
+        {
+          "kind": "int",
+          "v": 1
+        },
+        {
+          "kind": "vrs",
+          "d": 0
+        },
+        {
+          "kind": "int",
+          "v": 2
+        },
+        {
+          "kind": "vrs",
+          "d": 0
+        },
+        {
+          "kind": "int",
+          "v": 3
+        },
+        {
+          "kind": "vrs",
+          "d": 0
+        },
+        {
+          "kind": "vrd",
+          "d": 1
+        },
+        {
+          "kind": "str",
+          "v": "Hello there!"
+        },
+        {
+          "kind": "vrs",
+          "d": 1
+        },
+        {
+          "kind": "bol",
+          "v": true
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "str"
+          }
+        },
+        {
+          "kind": "vrs",
+          "d": 1
+        },
+        {
+          "kind": "vrd",
+          "d": 2
+        },
+        {
+          "kind": "str",
+          "v": "Keyword bug: fixed"
+        },
+        {
+          "kind": "vrs",
+          "d": 2
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {}
+}

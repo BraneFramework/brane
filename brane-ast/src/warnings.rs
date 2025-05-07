@@ -4,7 +4,7 @@
 //  Created:
 //    05 Sep 2022, 16:08:42
 //  Last edited:
-//    12 Dec 2023, 14:56:22
+//    14 Nov 2024, 17:14:53
 //  Auto updated?
 //    Yes
 //
@@ -16,11 +16,11 @@ use std::fmt::{Debug, Display, Formatter, Result as FResult};
 use std::io::Write;
 
 use brane_dsl::TextRange;
-use brane_dsl::spec::MergeStrategy;
 use console::{Style, style};
+use specifications::wir::builtins::BuiltinClasses;
+use specifications::wir::merge_strategy::MergeStrategy;
 
 use crate::errors::{ewrite_range, n};
-use crate::spec::BuiltinClasses;
 
 
 /***** HELPER FUNCTIONS *****/

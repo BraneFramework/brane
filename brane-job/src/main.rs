@@ -4,7 +4,7 @@
 //  Created:
 //    18 Oct 2022, 13:47:17
 //  Last edited:
-//    14 Jun 2024, 15:14:12
+//    29 Apr 2025, 14:00:59
 //  Auto updated?
 //    Yes
 //
@@ -69,7 +69,12 @@ async fn main() {
     // let xenon_endpoint = utilities::ensure_http_schema(&opts.xenon, !opts.debug)?;
 
     // Start the JobHandler
-    let server = match WorkerServer::new(opts.node_config_path, opts.keep_containers, Arc::new(ProxyClient::new(worker.services.prx.address()))) {
+    let server = match WorkerServer::new(
+        opts.node_config_path,
+        opts.keep_containers,
+        opts.delib_token,
+        Arc::new(ProxyClient::new(worker.services.prx.address())),
+    ) {
         Ok(svr) => svr,
         Err(err) => {
             error!("{}", trace!(("Failed to create WorkerServer"), err));

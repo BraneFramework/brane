@@ -2,25 +2,27 @@
 //    by Lut99
 //
 //  Created:
-//    16 Jan 2024, 09:59:53
+//    14 Nov 2024, 16:09:25
 //  Last edited:
-//    16 Jan 2024, 15:08:41
+//    29 Apr 2025, 13:47:45
 //  Auto updated?
 //    Yes
 //
 //  Description:
-//!   Implements a program counter that correctly serializes.
+//!   Defines a [`ProgramCounter`] for pointing to locations in
+//!   [WIR](crate::wir::Workflow)s.
 //
 
 use std::fmt::{Debug, Display, Formatter, Result as FResult};
 use std::ops::{Add, AddAssign};
 use std::str::FromStr;
 
-use brane_ast::SymTable;
-use brane_ast::func_id::FunctionId;
 use num_traits::AsPrimitive;
 use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
+
+use crate::wir::SymTable;
+use crate::wir::func_id::FunctionId;
 
 
 /***** ERRORS *****/
@@ -32,7 +34,7 @@ pub enum ProgramCounterParseError {
     MissingColon { raw: String },
     /// Failed to parse the given string as a [`FunctionId`].
     #[error(transparent)]
-    InvalidFunctionId { source: brane_ast::func_id::FunctionIdParseError },
+    InvalidFunctionId { source: crate::wir::func_id::FunctionIdParseError },
     /// Failed to parse the given string as a numerical index.
     #[error("Failed to parse '{raw}' as a valid edge index (i.e., unsigned integer)")]
     InvalidIdx { raw: String, err: std::num::ParseIntError },

@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 17:39:06
 //  Last edited:
-//    26 Jul 2023, 09:36:57
+//    02 May 2025, 15:03:01
 //  Auto updated?
 //    Yes
 //
@@ -19,8 +19,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use brane_ast::Workflow;
-use brane_ast::ast::Edge;
 use brane_shr::fs::copy_dir_recursively_async;
 use brane_shr::utilities::is_ip_addr;
 use brane_tsk::spec::LOCALHOST;
@@ -36,6 +34,7 @@ use reqwest::tls::{Certificate, Identity};
 use reqwest::{Client, ClientBuilder, Proxy};
 use specifications::data::{AccessKind, AssetInfo, DataIndex, DataInfo, DataName};
 use specifications::registering::DownloadAssetRequest;
+use specifications::wir::{Edge, Workflow};
 use tempfile::TempDir;
 use tokio::fs as tfs;
 use tokio::io::AsyncWriteExt;
@@ -57,6 +56,7 @@ use crate::utils::{ensure_dataset_dir, ensure_datasets_dir, get_dataset_dir};
 /// - `certs_dir`: The directory where certificates are stored. Expected to contain nested directories that store the certs by domain ID.
 /// - `data_dir`: The directory to download the dataset to.
 /// - `name`: The name of the dataset to download.
+/// - `workflow`: A workflow for which we're downloading a result.
 /// - `access`: The locations where it is available.
 ///
 /// # Returns
@@ -89,7 +89,7 @@ pub async fn download_data(
     let location: &str = access.keys().choose(&mut rng).unwrap();
 
     // Send a GET-request to resolve that location to a delegate
-    let registry_addr = format!("{api_endpoint}/infra/registries/{location}");
+    let registry_addr = format!("http://{api_endpoint}/infra/registries/{location}");
     let res =
         reqwest::get(&registry_addr).await.map_err(|source| DataError::RequestError { what: "registry", address: registry_addr.clone(), source })?;
 
@@ -144,7 +144,7 @@ pub async fn download_data(
     }
 
     /* Step 4: Build the client. */
-    let download_addr: String = format!("{registry_addr}/data/download/{name}");
+    let download_addr: String = format!("https://{registry_addr}/data/download/{name}");
     debug!("Sending download request to '{}'...", download_addr);
     let mut client: ClientBuilder =
         Client::builder().use_rustls_tls().add_root_certificate(ca_cert).identity(identity).tls_sni(!is_ip_addr(&download_addr));
@@ -335,7 +335,7 @@ pub async fn download(
     let instance_info: InstanceInfo = InstanceInfo::from_active_path().map_err(|source| DataError::InstanceInfoError { source })?;
 
     // Fetch a new, remote DataIndex to get up-to-date entries
-    let data_addr: String = format!("{}/data/info", instance_info.api);
+    let data_addr: String = format!("http://{}/data/info", instance_info.api);
     let index: DataIndex =
         brane_tsk::api::get_data_index(&data_addr).await.map_err(|source| DataError::RemoteDataIndexError { address: data_addr, source })?;
 

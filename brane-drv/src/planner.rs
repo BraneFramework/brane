@@ -4,7 +4,7 @@
 //  Created:
 //    25 Oct 2022, 11:35:00
 //  Last edited:
-//    08 Feb 2024, 17:27:11
+//    29 Apr 2025, 14:00:54
 //  Auto updated?
 //    Yes
 //
@@ -14,7 +14,6 @@
 
 
 /***** LIBRARY *****/
-use brane_ast::Workflow;
 use brane_tsk::errors::PlanError;
 use brane_tsk::spec::{AppId, TaskId};
 use log::debug;
@@ -23,6 +22,7 @@ use serde_json::Value;
 use specifications::address::Address;
 use specifications::planning::{PlanningDeniedReply, PlanningReply, PlanningRequest};
 use specifications::profiling::ProfileScopeHandle;
+use specifications::wir::Workflow;
 
 
 /***** LIBRARY *****/
@@ -58,7 +58,7 @@ impl InstancePlanner {
         // Populate a "PlanningRequest" with that (i.e., just populate a future record with the string)
         debug!("Sending request...");
         let remote = prof.time(format!("workflow '{task_id}' on brane-plr"));
-        let url: String = format!("{plr}/plan");
+        let url: String = format!("http://{plr}/plan");
         let client: Client = Client::new();
         let req: Request = client.post(&url).body(sreq).build().map_err(|source| PlanError::PlanningRequest {
             id: workflow.id.clone(),
