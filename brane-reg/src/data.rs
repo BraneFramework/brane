@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:40:40
 //  Last edited:
-//    07 Feb 2024, 14:19:12
+//    02 May 2025, 15:15:02
 //  Auto updated?
 //    Yes
 //
@@ -16,29 +16,27 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 
-use brane_ast::Workflow;
-use brane_ast::ast::Edge;
-use brane_ast::func_id::FunctionId;
 use brane_cfg::certs::extract_client_name;
 use brane_cfg::info::Info as _;
 use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
-use brane_exe::pc::ProgramCounter;
 use brane_shr::formatters::BlockFormatter;
 use brane_shr::fs::archive_async;
 use brane_tsk::errors::AuthorizeError;
-use deliberation::spec::Verdict;
 use enum_debug::EnumDebug as _;
 use error_trace::{ErrorTrace as _, trace};
 use log::{debug, error, info};
-use reqwest::header;
+use policy_reasoner::spec::reasonerconn::ReasonerResponse;
+use policy_reasoner::spec::reasons::ManyReason;
 use rustls::Certificate;
 use serde::{Deserialize, Serialize};
-use specifications::checking::DELIBERATION_API_TRANSFER_DATA;
+use specifications::checking::deliberation as checking;
 use specifications::data::{AccessKind, AssetInfo, DataName};
+use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileReport;
 use specifications::registering::DownloadAssetRequest;
+use specifications::wir::func_id::FunctionId;
+use specifications::wir::{Edge, Workflow};
 use tempfile::TempDir;
 use tokio::fs as tfs;
 use tokio::io::AsyncReadExt;
@@ -60,10 +58,11 @@ use crate::store::Store;
 /// # Arguments
 /// - `worker_cfg`: The configuration for this node's environment. For us, contains if and where we should proxy the request through and where we may find the checker.
 /// - `use_case`: A string denoting which use-case (registry) we're using.
+/// - `delib_token`: A token used to access the checker's deliberation API.
 /// - `workflow`: The workflow to check.
 /// - `client_name`: The name as which the client is authenticated. Will be matched with the indicated task.
 /// - `data_name`: The name of the dataset they are trying to access.
-/// - `call`: A program counter that identifies for which call in the workflow we're doing this request (if any).
+/// - `call`: A program counter that identifies for which call in the workflow we're doing this request.
 ///
 /// # Returns
 /// Whether permission is given or not. It is given as an [`Option`] that, when [`None`], means permission is given; else, it carries a list of reasons why not (if shared by the checker).
@@ -73,16 +72,17 @@ use crate::store::Store;
 pub async fn assert_asset_permission(
     worker_cfg: &WorkerConfig,
     use_case: &str,
+    delib_token: &str,
     workflow: &Workflow,
     client_name: &str,
     data_name: DataName,
     call: Option<ProgramCounter>,
-) -> Result<Option<Vec<String>>, AuthorizeError> {
+) -> Result<Option<ManyReason<String>>, AuthorizeError> {
     info!(
         "Checking data access of '{}'{} permission with checker '{}'...",
         data_name,
         if let Some(call) = call { format!(" (in the context of {})", call) } else { String::new() },
-        worker_cfg.services.chk.address
+        worker_cfg.services.chk.host
     );
 
     // Check if the authenticated name checks out
@@ -146,24 +146,15 @@ pub async fn assert_asset_permission(
 
     // Alrighty tighty, let's begin by building the request for the checker
     debug!("Constructing checker request...");
-    let body: AccessDataRequest =
-        AccessDataRequest { use_case: use_case.into(), workflow: workflow.clone(), data_id: data_name.name().into(), task_id: call };
-
-    // Next, generate a JWT to inject in the request
-    let jwt: String = specifications::policy::generate_policy_token(
-        if let Some(user) = &*workflow.user { user.as_str() } else { "UNKNOWN" },
-        &worker_cfg.name,
-        Duration::from_secs(60),
-        &worker_cfg.paths.policy_deliberation_secret,
-    )
-    .map_err(|source| AuthorizeError::TokenGenerate { secret: worker_cfg.paths.policy_deliberation_secret.clone(), source })?;
+    let body: checking::CheckTransferRequest =
+        checking::CheckTransferRequest { usecase: use_case.into(), workflow: workflow.clone(), task: call, input: data_name.name().into() };
 
     // Prepare the request to send
     let client: reqwest::Client = reqwest::Client::builder().build().map_err(|source| AuthorizeError::ClientBuild { source })?;
-    let addr: String = format!("{}/{}", worker_cfg.services.chk.address, DELIBERATION_API_TRANSFER_DATA.1);
+    let addr: String = format!("http://{}:{}{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, checking::CHECK_TRANSFER_PATH.path);
     let req: reqwest::Request = client
-        .request(DELIBERATION_API_TRANSFER_DATA.0, &addr)
-        .header(header::AUTHORIZATION, format!("Bearer {jwt}"))
+        .request(checking::CHECK_TRANSFER_PATH.method, &addr)
+        .bearer_auth(delib_token)
         .json(&body)
         .build()
         .map_err(|source| AuthorizeError::ExecuteRequestBuild { addr: addr.clone(), source })?;
@@ -173,17 +164,17 @@ pub async fn assert_asset_permission(
     let res: reqwest::Response = client.execute(req).await.map_err(|source| AuthorizeError::ExecuteRequestSend { addr: addr.clone(), source })?;
 
     // Match on the status code to find if it's OK
-    debug!("Waiting for checker response...");
+    debug!("Checker response: {} ({})", res.status().as_u16(), res.status().canonical_reason().unwrap_or("???"));
     if !res.status().is_success() {
         return Err(AuthorizeError::ExecuteRequestFailure { addr, code: res.status(), err: res.text().await.ok() });
     }
     let res: String = res.text().await.map_err(|source| AuthorizeError::ExecuteBodyDownload { addr: addr.clone(), source })?;
-    let res: Verdict =
+    let res: checking::CheckResponse<ManyReason<String>> =
         serde_json::from_str(&res).map_err(|source| AuthorizeError::ExecuteBodyDeserialize { addr: addr.clone(), raw: res, source })?;
 
     // Now match the checker's response
-    match res {
-        Verdict::Allow(_) => {
+    match res.verdict {
+        ReasonerResponse::Success => {
             info!(
                 "Checker ALLOWED data access of '{}'{}",
                 data_name,
@@ -192,13 +183,13 @@ pub async fn assert_asset_permission(
             Ok(None)
         },
 
-        Verdict::Deny(verdict) => {
+        ReasonerResponse::Violated(reasons) => {
             info!(
                 "Checker DENIED data access of '{}'{}",
                 data_name,
                 if let Some(call) = call { format!(" (in the context of {})", call) } else { String::new() },
             );
-            Ok(Some(verdict.reasons_for_denial.unwrap_or_else(Vec::new)))
+            Ok(Some(reasons))
         },
     }
 }
@@ -366,7 +357,7 @@ pub async fn download_data(
     body: DownloadAssetRequest,
     context: Arc<Context>,
 ) -> Result<impl Reply, Rejection> {
-    let DownloadAssetRequest { use_case, workflow, task: _ } = body;
+    let DownloadAssetRequest { use_case, workflow, task } = body;
     info!("Handling GET on `/data/download/{}` (i.e., download dataset)...", name);
 
     // Parse if a valid workflow is given
@@ -432,10 +423,11 @@ pub async fn download_data(
     match assert_asset_permission(
         &worker_config,
         &use_case,
+        &context.delib_token,
         &workflow,
         &client_name,
         DataName::Data(name.clone()),
-        body.task.map(|t| ProgramCounter::new(if let Some(id) = t.0 { FunctionId::Func(id as usize) } else { FunctionId::Main }, t.1 as usize)),
+        task.map(|t| ProgramCounter::new(if let Some(id) = t.0 { FunctionId::Func(id as usize) } else { FunctionId::Main }, t.1 as usize)),
     )
     .await
     {
@@ -550,7 +542,7 @@ pub async fn download_result(
     body: DownloadAssetRequest,
     context: Arc<Context>,
 ) -> Result<impl Reply, Rejection> {
-    let DownloadAssetRequest { use_case, workflow, task: _ } = body;
+    let DownloadAssetRequest { use_case, workflow, task } = body;
     info!("Handling GET on `/results/download/{}` (i.e., download intermediate result)...", name);
 
     // Parse if a valid workflow is given
@@ -617,10 +609,11 @@ pub async fn download_result(
     match assert_asset_permission(
         &worker_config,
         &use_case,
+        &context.delib_token,
         &workflow,
         &client_name,
         DataName::IntermediateResult(name.clone()),
-        body.task.map(|t| ProgramCounter::new(if let Some(id) = t.0 { FunctionId::Func(id as usize) } else { FunctionId::Main }, t.1 as usize)),
+        task.map(|t| ProgramCounter::new(if let Some(id) = t.0 { FunctionId::Func(id as usize) } else { FunctionId::Main }, t.1 as usize)),
     )
     .await
     .map_err(|source| {

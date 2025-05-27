@@ -4,7 +4,7 @@
 //  Created:
 //    26 Jan 2023, 09:22:13
 //  Last edited:
-//    08 Jan 2024, 10:43:17
+//    29 Apr 2025, 14:00:25
 //  Auto updated?
 //    Yes
 //
@@ -313,10 +313,8 @@ pub async fn add(
     // Convert the hostname and ports to Addresses
     // Note we do it a bit impractically, but that's to parse the hostname correctly in case it's an IP address.
     debug!("Parsing hostname...");
-    let api: Address =
-        Address::from_str(&format!("http://{}:{}", hostname.hostname, api_port)).map_err(|source| Error::AddressParseError { source })?;
-    let drv: Address =
-        Address::from_str(&format!("grpc://{}:{}", hostname.hostname, drv_port)).map_err(|source| Error::AddressParseError { source })?;
+    let api: Address = Address::from_str(&format!("{}:{}", hostname.hostname, api_port)).map_err(|source| Error::AddressParseError { source })?;
+    let drv: Address = Address::from_str(&format!("{}:{}", hostname.hostname, drv_port)).map_err(|source| Error::AddressParseError { source })?;
 
     // Warn the user to let them know an alternative is available if it is an IP
     if name == hostname.hostname && api.is_ip() {
@@ -328,7 +326,7 @@ pub async fn add(
         debug!("Checking instance reachability...");
 
         // Do a simple HTTP call to the health
-        let health_addr: String = format!("{api}/health");
+        let health_addr: String = format!("http://{api}/health");
         let res: reqwest::Response =
             reqwest::get(&health_addr).await.map_err(|source| Error::RequestError { address: health_addr.clone(), source })?;
 
@@ -531,7 +529,7 @@ pub async fn list(show_status: bool) -> Result<(), Error> {
             // Get the status
             let status: String = 'reach: {
                 // Do a simple HTTP call to the health and see where we fail
-                let health_addr: String = format!("{api_addr}/health");
+                let health_addr: String = format!("http://{api_addr}/health");
                 let res: reqwest::Response = match reqwest::get(&health_addr).await {
                     Ok(res) => res,
                     Err(_) => {
@@ -647,16 +645,16 @@ pub fn edit(
     if let Some(hostname) = hostname {
         // We replace the addresses. Any new ports will be handled in subsequent if let's
         println!("Updating hostname to {}...", style(&hostname.hostname).cyan().bold());
-        info.api = Address::Hostname(format!("http://{}", hostname.hostname), info.api.port());
-        info.drv = Address::Hostname(format!("grpc://{}", hostname.hostname), info.drv.port());
+        info.api = Address::hostname(hostname.hostname.to_string(), info.api.port);
+        info.drv = Address::hostname(hostname.hostname.to_string(), info.drv.port);
     }
     if let Some(port) = api_port {
         println!("Updating API service port to {}...", style(port).cyan().bold());
-        info.api = Address::Hostname(info.api.domain().into(), port);
+        info.api = Address::hostname(info.api.domain(), port);
     }
     if let Some(port) = drv_port {
         println!("Updating driver service port to {}...", style(port).cyan().bold());
-        info.drv = Address::Hostname(info.drv.domain().into(), port);
+        info.drv = Address::hostname(info.drv.domain(), port);
     }
     if let Some(user) = user {
         println!("Updating username to {}...", style(&user).cyan().bold());

@@ -11,6 +11,9 @@ pub(crate) struct Cli {
     /// Whether to keep containers after execution or not.
     #[clap(long, action, help = "If given, will not remove job containers after removing them.", env = "KEEP_CONTAINERS")]
     pub(crate) keep_containers: bool,
+    /// The token to authenticate ourselves with the checker with.
+    #[clap(long, help = "A token to authenticate to the given Checker service with.", env = "CHECKER_DELIB_TOKEN")]
+    pub(crate) delib_token: String,
 
     /// Node environment metadata store.
     #[clap(

@@ -4,7 +4,7 @@
 //  Created:
 //    26 Sep 2022, 15:11:44
 //  Last edited:
-//    07 Feb 2024, 14:42:42
+//    02 May 2025, 13:33:02
 //  Auto updated?
 //    Yes
 //
@@ -64,7 +64,7 @@ async fn main() {
 
 
     // Put the path in a context
-    let context: Arc<Context> = Arc::new(Context { node_config_path: args.node_config_path });
+    let context: Arc<Context> = Arc::new(Context { node_config_path: args.node_config_path, delib_token: args.delib_token });
     let context = warp::any().map(move || context.clone());
 
 

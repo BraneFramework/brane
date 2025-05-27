@@ -1,0 +1,143 @@
+{
+  "id": "workflow-OOZguqrv",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "kind": "cmp",
+        "p": "hello_world",
+        "v": "1.0.0",
+        "d": {
+          "n": "hello_world",
+          "a": [],
+          "r": {
+            "kind": "str"
+          }
+        },
+        "a": [],
+        "r": []
+      }
+    ],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": {
+        "restricted": [
+          "test"
+        ]
+      },
+      "s": null,
+      "i": {},
+      "r": null,
+      "m": [],
+      "n": 1
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 2
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 3
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {}
+}

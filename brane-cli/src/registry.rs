@@ -40,7 +40,7 @@ type DateTimeUtc = DateTime<Utc>;
 /// This function may error if we could not find, read or parse the config file with the login data. If not found, this likely indicates the user hasn't logged-in yet.
 #[inline]
 pub fn get_graphql_endpoint() -> Result<String, RegistryError> {
-    Ok(format!("{}/graphql", InstanceInfo::from_active_path().map_err(|source| RegistryError::InstanceInfoError { source })?.api))
+    Ok(format!("http://{}/graphql", InstanceInfo::from_active_path().map_err(|source| RegistryError::InstanceInfoError { source })?.api))
 }
 
 /// Get the package endpoint of the Brane API.
@@ -52,7 +52,7 @@ pub fn get_graphql_endpoint() -> Result<String, RegistryError> {
 /// This function may error if we could not find, read or parse the config file with the login data. If not found, this likely indicates the user hasn't logged-in yet.
 #[inline]
 pub fn get_packages_endpoint() -> Result<String, RegistryError> {
-    Ok(format!("{}/packages", InstanceInfo::from_active_path().map_err(|source| RegistryError::InstanceInfoError { source })?.api))
+    Ok(format!("http://{}/packages", InstanceInfo::from_active_path().map_err(|source| RegistryError::InstanceInfoError { source })?.api))
 }
 
 /// Get the data endpoint of the Brane API.
@@ -64,7 +64,7 @@ pub fn get_packages_endpoint() -> Result<String, RegistryError> {
 /// This function may error if we could not find, read or parse the config file with the login data. If not found, this likely indicates the user hasn't logged-in yet.
 #[inline]
 pub fn get_data_endpoint() -> Result<String, RegistryError> {
-    Ok(format!("{}/data", InstanceInfo::from_active_path().map_err(|source| RegistryError::InstanceInfoError { source })?.api))
+    Ok(format!("http://{}/data", InstanceInfo::from_active_path().map_err(|source| RegistryError::InstanceInfoError { source })?.api))
 }
 
 

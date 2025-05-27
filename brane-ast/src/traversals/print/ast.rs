@@ -4,7 +4,7 @@
 //  Created:
 //    31 Aug 2022, 09:25:11
 //  Last edited:
-//    06 Feb 2024, 11:38:47
+//    14 Nov 2024, 17:18:47
 //  Auto updated?
 //    Yes
 //
@@ -15,10 +15,11 @@
 use std::collections::HashSet;
 use std::io::Write;
 
-use crate::ast::{Edge, EdgeInstr, FunctionDef, SymTable, TaskDef, Workflow};
-use crate::data_type::DataType;
+use specifications::wir::data_type::DataType;
+use specifications::wir::func_id::FunctionId;
+use specifications::wir::{Edge, EdgeInstr, FunctionDef, SymTable, TaskDef, Workflow};
+
 pub use crate::errors::AstError as Error;
-use crate::func_id::FunctionId;
 
 
 /***** MACROS ******/

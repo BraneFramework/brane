@@ -4,7 +4,7 @@
 //  Created:
 //    22 May 2023, 13:13:51
 //  Last edited:
-//    08 Feb 2024, 15:16:20
+//    14 Nov 2024, 17:48:33
 //  Auto updated?
 //    Yes
 //
@@ -17,9 +17,6 @@ use std::error;
 use std::fmt::{Debug, Display, Formatter, Result as FResult};
 use std::str::FromStr;
 
-use brane_ast::DataType;
-use brane_ast::ast::{ClassDef, VarDef};
-use brane_ast::spec::BuiltinClasses;
 use brane_exe::FullValue;
 use console::{Term, style};
 use dialoguer::theme::ColorfulTheme;
@@ -28,6 +25,9 @@ use log::debug;
 use specifications::data::DataIndex;
 use specifications::package::PackageInfo;
 use specifications::version::Version;
+use specifications::wir::builtins::BuiltinClasses;
+use specifications::wir::data_type::DataType;
+use specifications::wir::{ClassDef, VarDef};
 
 
 /***** ERRORS *****/
@@ -117,7 +117,7 @@ pub fn prompt_for_input(data_index: &DataIndex, package: &PackageInfo) -> Result
             package: None,
             version: None,
 
-            props:   builtin.props().into_iter().map(|p| p.into()).collect(),
+            props:   builtin.props().iter().map(|(name, dtype)| VarDef { name: (*name).into(), data_type: dtype.clone() }).collect(),
             // We don't care for methods anyway
             methods: vec![],
         }) {

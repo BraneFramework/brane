@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:57
 //  Last edited:
-//    07 Mar 2024, 14:14:56
+//    05 May 2025, 11:15:39
 //  Auto updated?
 //    Yes
 //
@@ -19,9 +19,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
-use brane_ast::ast::Snippet;
+use brane_ast::ParserOptions;
 use brane_ast::state::CompileState;
-use brane_ast::{ParserOptions, Workflow};
 use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_exe::dummy::{DummyVm, Error as DummyVmError};
@@ -33,6 +32,7 @@ use parking_lot::{Mutex, MutexGuard};
 use specifications::data::{AccessKind, DataIndex, DataInfo};
 use specifications::driving::{CreateSessionRequest, DriverServiceClient, ExecuteRequest};
 use specifications::package::PackageIndex;
+use specifications::wir::Workflow;
 use tempfile::{TempDir, tempdir};
 use tonic::Code;
 
@@ -40,6 +40,7 @@ use crate::data;
 use crate::errors::OfflineVmError;
 pub use crate::errors::RunError as Error;
 use crate::instance::InstanceInfo;
+use crate::repl::{Snippet, from_source};
 use crate::utils::{ensure_datasets_dir, ensure_packages_dir, get_datasets_dir, get_packages_dir};
 use crate::vm::OfflineVm;
 
@@ -79,7 +80,7 @@ pub async fn initialize_instance<O: Write, E: Write>(
 
     // Connect to the server with gRPC
     debug!("Connecting to driver '{}'...", drv_endpoint);
-    let mut client = DriverServiceClient::connect(drv_endpoint.to_string())
+    let mut client = DriverServiceClient::connect(format!("grpc://{drv_endpoint}"))
         .await
         .map_err(|source| Error::ClientConnectError { address: drv_endpoint.into(), source })?;
 
@@ -218,7 +219,7 @@ pub async fn run_instance<O: Write, E: Write>(
 /// - `proxy_addr`: If given, proxies all data transfers through the proxy at the given location.
 /// - `certs_dir`: The directory where certificates are stored. Expected to contain nested directories that store the certs by domain ID.
 /// - `datasets_dir`: The directory where we will download the data to. It will be added under a new folder with its own name.
-/// - `result`: The value to process.
+/// - `result`: The value to process, together with a program counter if it was the result of a toplevel return.
 ///
 /// # Returns
 /// Nothing, but does print any result to stdout. It may also download a remote dataset if one is given.
@@ -239,8 +240,8 @@ pub async fn process_instance(
     let datasets_dir: &Path = datasets_dir.as_ref();
 
     // We only print
-    if result != FullValue::Void {
-        println!("\nWorkflow returned value {}", style(format!("'{result}'")).bold().cyan());
+    if !matches!(result, FullValue::Void) {
+        println!("\nWorkflow returned value {}", style(format!("'{}'", result)).bold().cyan());
 
         // FIXME: Clean up this blob
         // Treat some values special
@@ -256,7 +257,7 @@ pub async fn process_instance(
                 let data_dir: PathBuf = datasets_dir.join(name.to_string());
 
                 // Fetch a new, local DataIndex to get up-to-date entries
-                let data_addr: String = format!("{api_endpoint}/data/info");
+                let data_addr: String = format!("http://{api_endpoint}/data/info");
                 let index: DataIndex =
                     brane_tsk::api::get_data_index(&data_addr).await.map_err(|source| Error::RemoteDataIndexError { address: data_addr, source })?;
 
@@ -496,14 +497,14 @@ pub async fn initialize_instance_vm(
 
     // We fetch a local copy of the indices for compiling
     debug!("Fetching global package & data indices from '{}'...", api_endpoint);
-    let package_addr: String = format!("{api_endpoint}/graphql");
+    let package_addr: String = format!("http://{api_endpoint}/graphql");
     let pindex: Arc<Mutex<PackageIndex>> = match brane_tsk::api::get_package_index(&package_addr).await {
         Ok(pindex) => Arc::new(Mutex::new(pindex)),
         Err(source) => {
             return Err(Error::RemotePackageIndexError { address: package_addr, source });
         },
     };
-    let data_addr: String = format!("{api_endpoint}/data/info");
+    let data_addr: String = format!("http://{api_endpoint}/data/info");
     let dindex: Arc<Mutex<DataIndex>> = match brane_tsk::api::get_data_index(&data_addr).await {
         Ok(dindex) => Arc::new(Mutex::new(dindex)),
         Err(source) => {
@@ -534,9 +535,8 @@ pub async fn run_dummy_vm(state: &mut DummyVmState, what: impl AsRef<str>, snipp
     let snippet: &str = snippet.as_ref();
 
     // Compile the workflow
-    let workflow: Workflow =
-        Workflow::from_source(&mut state.state, &mut state.source, &state.pindex, &state.dindex, None, &state.options, what, snippet)
-            .map_err(Error::CompileError)?;
+    let workflow: Workflow = from_source(&mut state.state, &mut state.source, &state.pindex, &state.dindex, None, &state.options, what, snippet)
+        .map_err(Error::CompileError)?;
 
     // Run it in the local VM (which is a bit ugly do to the need to consume the VM itself)
     let res: (DummyVm, Result<FullValue, DummyVmError>) = state.vm.take().unwrap().exec(workflow).await;

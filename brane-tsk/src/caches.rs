@@ -4,7 +4,7 @@
 //  Created:
 //    31 Jan 2024, 11:45:19
 //  Last edited:
-//    31 Jan 2024, 14:24:26
+//    02 May 2025, 11:46:24
 //  Auto updated?
 //    Yes
 //
@@ -18,13 +18,13 @@ use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::time::{Duration, Instant};
 
-use brane_ast::locations::Location;
 use brane_shr::formatters::BlockFormatter;
 use log::debug;
 use num_traits::AsPrimitive;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use reqwest::{Response, StatusCode};
 use specifications::address::Address;
+use specifications::wir::locations::Location;
 
 
 /***** CONSTANTS *****/
@@ -159,7 +159,7 @@ impl DomainRegistryCache {
         }
 
         // We didn't found a valid entry, so make a request for a new one
-        let url: String = format!("{}/infra/registries", self.api);
+        let url: String = format!("http://{}/infra/registries", self.api);
         debug!("Sending GET-request to '{url}'...");
         let res: Response = match reqwest::get(&url).await {
             Ok(res) => res,

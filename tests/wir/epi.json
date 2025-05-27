@@ -1,0 +1,306 @@
+{
+  "id": "workflow-s11A4qQu",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "kind": "cmp",
+        "p": "epi",
+        "v": "1.0.0",
+        "d": {
+          "n": "aggregate",
+          "a": [
+            {
+              "kind": "res"
+            },
+            {
+              "kind": "res"
+            }
+          ],
+          "r": {
+            "kind": "res"
+          }
+        },
+        "a": [
+          "lhs",
+          "rhs"
+        ],
+        "r": []
+      },
+      {
+        "kind": "cmp",
+        "p": "epi",
+        "v": "1.0.0",
+        "d": {
+          "n": "local_compute",
+          "a": [
+            {
+              "kind": "data"
+            }
+          ],
+          "r": {
+            "kind": "res"
+          }
+        },
+        "a": [
+          "input"
+        ],
+        "r": []
+      }
+    ],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [
+      {
+        "n": "res_sta",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "res_umc",
+        "t": {
+          "kind": "res"
+        }
+      },
+      {
+        "n": "res",
+        "t": {
+          "kind": "res"
+        }
+      }
+    ],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 0
+        },
+        {
+          "kind": "str",
+          "v": "st_antonius_ect"
+        },
+        {
+          "kind": "ins",
+          "d": 0
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"st_antonius_ect\"}": null
+      },
+      "r": "result_local_compute_725aba",
+      "m": [],
+      "n": 2
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 0
+        },
+        {
+          "kind": "vrd",
+          "d": 1
+        },
+        {
+          "kind": "str",
+          "v": "umc_utrecht_ect"
+        },
+        {
+          "kind": "ins",
+          "d": 0
+        }
+      ],
+      "n": 3
+    },
+    {
+      "kind": "nod",
+      "t": 1,
+      "l": "all",
+      "s": null,
+      "i": {
+        "{\"Data\":\"umc_utrecht_ect\"}": null
+      },
+      "r": "result_local_compute_33cfc9",
+      "m": [],
+      "n": 4
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 1
+        },
+        {
+          "kind": "vrd",
+          "d": 2
+        },
+        {
+          "kind": "vrg",
+          "d": 0
+        },
+        {
+          "kind": "vrg",
+          "d": 1
+        }
+      ],
+      "n": 5
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": {
+        "restricted": [
+          "surf"
+        ]
+      },
+      "s": null,
+      "i": {
+        "{\"IntermediateResult\":\"result_local_compute_725aba\"}": null,
+        "{\"IntermediateResult\":\"result_local_compute_33cfc9\"}": null
+      },
+      "r": "result_aggregate_fad847",
+      "m": [],
+      "n": 6
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 2
+        },
+        {
+          "kind": "str",
+          "v": "surf_res"
+        },
+        {
+          "kind": "vrg",
+          "d": 2
+        },
+        {
+          "kind": "fnc",
+          "d": 3
+        }
+      ],
+      "n": 7
+    },
+    {
+      "kind": "cll",
+      "i": [
+        {
+          "IntermediateResult": "result_aggregate_fad847"
+        }
+      ],
+      "r": [
+        {
+          "Data": "surf_res"
+        }
+      ],
+      "n": 8
+    },
+    {
+      "kind": "ret",
+      "r": [
+        {
+          "Data": "surf_res"
+        }
+      ]
+    }
+  ],
+  "funcs": {}
+}

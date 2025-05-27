@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 16:42:47
 //  Last edited:
-//    08 Jan 2024, 10:23:14
+//    02 May 2025, 14:38:28
 //  Auto updated?
 //    Yes
 //
@@ -15,13 +15,16 @@
 use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs;
 use std::io::{Stderr, Stdout};
+use std::sync::Arc;
 
-use brane_ast::ast::Snippet;
-use brane_ast::{ParserOptions, Workflow};
+use brane_ast::errors::CompileError;
+use brane_ast::state::CompileState;
+use brane_ast::{CompileResult, ParserOptions};
 use brane_dsl::Language;
 use brane_exe::FullValue;
 use brane_tsk::docker::DockerOptions;
 use brane_tsk::spec::AppId;
+use error_trace::ErrorTrace as _;
 use log::warn;
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::error::ReadlineError;
@@ -31,6 +34,10 @@ use rustyline::history::DefaultHistory;
 use rustyline::validate::{self, MatchingBracketValidator, Validator};
 use rustyline::{CompletionType, Config, Context, EditMode, Editor};
 use rustyline_derive::Helper;
+use serde::{Deserialize, Serialize};
+use specifications::data::DataIndex;
+use specifications::package::PackageIndex;
+use specifications::wir::Workflow;
 
 pub use crate::errors::ReplError as Error;
 use crate::instance::InstanceInfo;
@@ -71,6 +78,138 @@ fn repl_magicks(line: impl AsRef<str>) -> Option<bool> {
         Some(false)
     } else {
         None
+    }
+}
+
+/// Compiles the given worfklow string to a Workflow.
+///
+/// # Arguments
+/// - `state`: The CompileState to compile with (and to update).
+/// - `source`: The collected source string for now. This will be updated with the new snippet.
+/// - `pindex`: The PackageIndex to resolve package imports with.
+/// - `dindex`: The DataIndex to resolve data instantiations with.
+/// - `user`: If given, then this is some tentative identifier of the user receiving the final workflow result.
+/// - `options`: The ParseOptions to use.
+/// - `what`: A string describing what we're parsing (e.g., a filename, stdin, ...).
+/// - `snippet`: The actual snippet to parse.
+///
+/// # Returns
+/// A new Workflow that is the compiled and executable version of the given snippet.
+///
+/// # Errors
+/// This function errors if the given string was not a valid workflow. If that's the case, it's also pretty-printed to stdout with source context.
+#[allow(clippy::too_many_arguments)]
+pub fn from_source(
+    state: &mut CompileState,
+    source: &mut String,
+    pindex: &PackageIndex,
+    dindex: &DataIndex,
+    user: Option<&str>,
+    options: &ParserOptions,
+    what: impl AsRef<str>,
+    snippet: impl AsRef<str>,
+) -> Result<Workflow, CompileError> {
+    let what: &str = what.as_ref();
+    let snippet: &str = snippet.as_ref();
+
+    // Append the source with the snippet
+    source.push_str(snippet);
+    source.push('\n');
+
+    // Compile the snippet, possibly fetching new ones while at it
+    let workflow: Workflow = match brane_ast::compile_snippet(state, snippet.as_bytes(), pindex, dindex, options) {
+        CompileResult::Workflow(mut wf, warns) => {
+            // Print any warnings to stdout
+            for w in warns {
+                w.prettyprint(what, &source);
+            }
+
+            // Then, inject the username if any
+            if let Some(user) = user {
+                debug!("Setting user '{user}' as receiver of final result");
+                wf.user = Arc::new(Some(user.into()));
+            }
+
+            // Done
+            wf
+        },
+
+        CompileResult::Eof(err) => {
+            // Prettyprint it
+            err.prettyprint(what, &source);
+            state.offset += 1 + snippet.chars().filter(|c| *c == '\n').count();
+            return Err(CompileError::AstError { what: what.into(), errs: vec![err] });
+        },
+        CompileResult::Err(errs) => {
+            // Prettyprint them
+            for e in &errs {
+                e.prettyprint(what, &source);
+            }
+            state.offset += 1 + snippet.chars().filter(|c| *c == '\n').count();
+            return Err(CompileError::AstError { what: what.into(), errs });
+        },
+
+        // Any others should not occur
+        _ => {
+            unreachable!();
+        },
+    };
+    debug!("Compiled to workflow:\n\n");
+    if log::max_level() == log::LevelFilter::Debug {
+        brane_ast::traversals::print::ast::do_traversal(&workflow, std::io::stdout()).unwrap();
+    }
+
+    // Return
+    Ok(workflow)
+}
+
+
+
+
+
+/***** SNIPPET *****/
+/// Snippets are parsed sections of workflow that keeps track of the parsed lines
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Snippet {
+    pub lines:    usize,
+    pub workflow: Workflow,
+}
+
+impl Snippet {
+    /// Compiles the given worfklow string to a Snippet.
+    ///
+    /// # Arguments
+    /// - `state`: The CompileState to compile with (and to update).
+    /// - `source`: The collected source string for now. This will be updated with the new snippet.
+    /// - `pindex`: The PackageIndex to resolve package imports with.
+    /// - `dindex`: The DataIndex to resolve data instantiations with.
+    /// - `user`: If given, then this is some tentative identifier of the user receiving the final workflow result.
+    /// - `options`: The ParseOptions to use.
+    /// - `what`: A string describing what we're parsing (e.g., a filename, stdin, ...).
+    /// - `snippet`: The actual snippet to parse.
+    ///
+    /// # Returns
+    /// A new Workflow that is the compiled and executable version of the given snippet.
+    ///
+    /// # Errors
+    /// This function errors if the given string was not a valid workflow. If that's the case, it's also pretty-printed to stdout with source context.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_source(
+        state: &mut CompileState,
+        source: &mut String,
+        pindex: &PackageIndex,
+        dindex: &DataIndex,
+        user: Option<&str>,
+        options: &ParserOptions,
+        what: impl AsRef<str>,
+        snippet: impl AsRef<str>,
+    ) -> Result<Self, CompileError> {
+        let snippet = snippet.as_ref();
+
+        Ok(Self {
+            lines:    1 + snippet.chars().filter(|c| *c == '\n').count(),
+            workflow: from_source(state, source, pindex, dindex, user, options, what, snippet)?,
+        })
     }
 }
 
@@ -274,17 +413,8 @@ async fn remote_repl(
                 let workflow = {
                     let pindex = state.pindex.lock();
                     let dindex = state.dindex.lock();
-                    Workflow::from_source(
-                        &mut state.state,
-                        &mut state.source,
-                        &pindex,
-                        &dindex,
-                        state.user.as_deref(),
-                        &state.options,
-                        "<test task>",
-                        line,
-                    )
-                    .map_err(|source| Error::RunError { what: "repl", source: run::Error::CompileError(source) })?
+                    from_source(&mut state.state, &mut state.source, &pindex, &dindex, state.user.as_deref(), &state.options, "<test task>", line)
+                        .map_err(|source| Error::RunError { what: "repl", source: run::Error::CompileError(source) })?
                 };
 
                 let snippet = Snippet { lines: line_count, workflow };
@@ -296,7 +426,7 @@ async fn remote_repl(
 
                 // Then, we collect and process the result
                 if let Err(source) = process_instance_result(&api_address, &proxy_addr, use_case.clone(), snippet.workflow, res).await {
-                    error!("{}", Error::ProcessError { what: "remote instance VM", source });
+                    error!("{}", Error::ProcessError { what: "remote instance VM", source }.trace());
                     continue;
                 }
 
@@ -373,17 +503,9 @@ async fn local_repl(
                 // Compile the workflow
                 let line_count = line.chars().filter(|&c| c == '\n').count();
 
-                let workflow = Workflow::from_source(
-                    &mut state.state,
-                    &mut state.source,
-                    &state.pindex,
-                    &state.dindex,
-                    None,
-                    &state.options,
-                    "<test task>",
-                    line.clone(),
-                )
-                .map_err(|source| Error::RunError { what: "local repl", source: run::Error::CompileError(source) })?;
+                let workflow =
+                    from_source(&mut state.state, &mut state.source, &state.pindex, &state.dindex, None, &state.options, "<test task>", line.clone())
+                        .map_err(|source| Error::RunError { what: "local repl", source: run::Error::CompileError(source) })?;
 
                 let snippet = Snippet { lines: line_count, workflow };
 
@@ -392,7 +514,7 @@ async fn local_repl(
 
                 // Then, we collect and process the result
                 if let Err(source) = process_offline_result(res) {
-                    error!("{}", Error::ProcessError { what: "offline VM", source });
+                    error!("{}", Error::ProcessError { what: "offline VM", source }.trace());
                     continue;
                 }
 

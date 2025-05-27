@@ -1,0 +1,13 @@
++workflow("workflow-bozR4uTg").
++node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:0-task").
++node-input(node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:0-task"), asset("test[1.0.0]")).
++function(node-input(node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:0-task"), asset("test[1.0.0]")), "hello_world").
++node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:3-task").
++node-input(node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:3-task"), asset("test[1.0.0]")).
++function(node-input(node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:3-task"), asset("test[1.0.0]")), "hello_world").
++node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:6-task").
++node-input(node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:6-task"), asset("test[1.0.0]")).
++function(node-input(node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:6-task"), asset("test[1.0.0]")), "hello_world").
++node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:9-task").
++node-input(node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:9-task"), asset("test[1.0.0]")).
++function(node-input(node(workflow("workflow-bozR4uTg"), "workflow-bozR4uTg-<main>:9-task"), asset("test[1.0.0]")), "hello_world").

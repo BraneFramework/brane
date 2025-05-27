@@ -1,0 +1,235 @@
+{
+  "id": "workflow-VNprWbCF",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "kind": "cmp",
+        "p": "average",
+        "v": "1.0.0",
+        "d": {
+          "n": "average",
+          "a": [
+            {
+              "kind": "res"
+            }
+          ],
+          "r": {
+            "kind": "real"
+          }
+        },
+        "a": [
+          "dataset"
+        ],
+        "r": []
+      }
+    ],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "numbers"
+        },
+        {
+          "kind": "ins",
+          "d": 0
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": {
+        "restricted": [
+          "Amy"
+        ]
+      },
+      "s": null,
+      "i": {
+        "{\"Data\":\"numbers\"}": null
+      },
+      "r": null,
+      "m": [],
+      "n": 2
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "str"
+          }
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 3
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 4
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "numbers"
+        },
+        {
+          "kind": "ins",
+          "d": 0
+        },
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "res"
+          }
+        }
+      ],
+      "n": 5
+    },
+    {
+      "kind": "nod",
+      "t": 0,
+      "l": {
+        "restricted": [
+          "Dan"
+        ]
+      },
+      "s": null,
+      "i": {
+        "{\"Data\":\"numbers\"}": null
+      },
+      "r": null,
+      "m": [],
+      "n": 6
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "cst",
+          "t": {
+            "kind": "str"
+          }
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 7
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 8
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {}
+}

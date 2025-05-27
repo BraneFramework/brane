@@ -4,7 +4,7 @@
 //  Created:
 //    24 Oct 2022, 16:40:21
 //  Last edited:
-//    31 Jan 2024, 14:47:01
+//    14 Nov 2024, 17:58:30
 //  Auto updated?
 //    Yes
 //
@@ -18,13 +18,12 @@ use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use brane_ast::Workflow;
-use brane_ast::ast::{Edge, SymTable};
 use brane_tsk::errors::PlanError;
 use brane_tsk::spec::{LOCALHOST, Planner};
 use log::debug;
 use parking_lot::Mutex;
 use specifications::data::{AccessKind, AvailabilityKind, DataIndex, DataName};
+use specifications::wir::{Edge, SymTable, Workflow};
 
 
 /***** HELPER FUNCTIONS *****/
@@ -417,7 +416,7 @@ impl OfflinePlanner {
 
 #[async_trait::async_trait]
 impl Planner for OfflinePlanner {
-    async fn plan(&self, workflow: brane_ast::Workflow) -> Result<Workflow, PlanError> {
+    async fn plan(&self, workflow: specifications::wir::Workflow) -> Result<Workflow, PlanError> {
         let mut workflow = workflow;
 
         // Get the symbol table muteable, so we can... mutate... it

@@ -1,0 +1,4 @@
++workflow("workflow-rTqVdnt5").
++node(workflow("workflow-rTqVdnt5"), "workflow-rTqVdnt5-<main>:0-task").
++node-input(node(workflow("workflow-rTqVdnt5"), "workflow-rTqVdnt5-<main>:0-task"), asset("hello_world[1.0.0]")).
++function(node-input(node(workflow("workflow-rTqVdnt5"), "workflow-rTqVdnt5-<main>:0-task"), asset("hello_world[1.0.0]")), "hello_world").

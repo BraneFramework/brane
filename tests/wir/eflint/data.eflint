@@ -1,0 +1,20 @@
++workflow("workflow-YiM40Idd").
++node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:4-task").
++node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:4-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:4-task"), asset("data_test[1.0.0]")), "run_script").
++node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:4-task"), asset("Test")).
++node-output(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:4-task"), asset("result_run_script_d2f46f")).
++node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:5-return").
++node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:8-task").
++node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:8-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:8-task"), asset("data_test[1.0.0]")), "run_script").
++node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:8-task"), asset("Test")).
++node-output(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:8-task"), asset("result_run_script_0d0423")).
++node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:9-return").
++node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:12-task").
++node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:12-task"), asset("data_test[1.0.0]")).
++function(node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:12-task"), asset("data_test[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:12-task"), asset("result_run_script_d2f46f")).
++node-input(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:12-task"), asset("result_run_script_0d0423")).
++node-output(node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:12-task"), asset("result_aggregate_53762c")).
++node(workflow("workflow-YiM40Idd"), "workflow-YiM40Idd-<main>:14-return").

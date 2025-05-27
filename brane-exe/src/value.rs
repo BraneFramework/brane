@@ -4,7 +4,7 @@
 //  Created:
 //    20 Sep 2022, 13:44:07
 //  Last edited:
-//    16 Jan 2024, 15:13:18
+//    14 Nov 2024, 17:23:12
 //  Auto updated?
 //    Yes
 //
@@ -15,13 +15,13 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FResult};
 
-use brane_ast::SymTable;
-use brane_ast::data_type::DataType;
-use brane_ast::func_id::FunctionId;
-use brane_ast::spec::BuiltinClasses;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value as JValue;
+use specifications::wir::SymTable;
+use specifications::wir::builtins::BuiltinClasses;
+use specifications::wir::data_type::DataType;
+use specifications::wir::func_id::FunctionId;
 
 pub use crate::errors::ValueError as Error;
 
