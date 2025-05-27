@@ -57,7 +57,7 @@ use crate::workflow::compile::pc_to_id;
 
 /***** CONSTANTS *****/
 /// The initiator claim that must be given in the input header token.
-pub const INITIATOR_CLAIM: &'static str = "username";
+pub const INITIATOR_CLAIM: &str = "username";
 
 
 

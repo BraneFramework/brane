@@ -46,7 +46,7 @@ use crate::workflow::compile;
 static DATABASE_USER: LazyLock<User> = LazyLock::new(|| User { id: "brane".into(), name: "Brane".into() });
 
 /// The special policy that is used when the database doesn't mention any active.
-static DENY_ALL_POLICY: &'static str = "Invariant contradiction When False.";
+static DENY_ALL_POLICY: &str = "Invariant contradiction When False.";
 
 
 
@@ -350,7 +350,7 @@ async fn assert_workflow_context(_wf: &Workflow, usecase: &str, usecases: &HashM
 async fn get_active_policy(base_policy_hash: &str, db: &SQLiteDatabase<String>, res: &mut String) -> Result<(), Error> {
     // Time to fetch a connection
     debug!("Connecting to backend database...");
-    let mut conn: SQLiteConnection<String> = match db.connect(&*DATABASE_USER).await {
+    let mut conn: SQLiteConnection<String> = match db.connect(&DATABASE_USER).await {
         Ok(conn) => conn,
         Err(err) => return Err(Error::DatabaseConnect { err }),
     };

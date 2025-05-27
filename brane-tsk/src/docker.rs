@@ -738,12 +738,10 @@ async fn read_digest(docker: &Docker, image: impl AsRef<Image>) -> Result<Option
                         return Ok(Some(id.into()));
                     }
                 }
-            } else {
-                if let [name] = tag.as_slice() {
-                    if *name == image.name {
-                        let id: &str = if info.id.starts_with("sha256:") { &info.id[7..] } else { &info.id };
-                        return Ok(Some(id.into()));
-                    }
+            } else if let [name] = tag.as_slice() {
+                if *name == image.name {
+                    let id: &str = if info.id.starts_with("sha256:") { &info.id[7..] } else { &info.id };
+                    return Ok(Some(id.into()));
                 }
             }
         }
@@ -830,8 +828,8 @@ async fn pull_image(docker: &Docker, image: impl Into<Image>, image_source: impl
             let mut id: Option<String> = None;
             for info in &res {
                 if let Some(status) = &info.status {
-                    if status.starts_with("Digest: sha256:") {
-                        id = Some(status[15..].into());
+                    if let Some(status) = status.strip_prefix("Digest: sha256:") {
+                        id = Some(status.into());
                         break;
                     }
                 }

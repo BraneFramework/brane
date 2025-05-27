@@ -593,6 +593,9 @@ async fn assert_task_permission(
             Ok(true)
         },
 
+        // NOTE: Clippy is under the impression I'm OK with calling `info!()` multiple times.
+        // I'm not ~ this should be a single log statement.
+        #[allow(clippy::format_collect)]
         ReasonerResponse::Violated(reasons) => {
             info!("Checker DENIED execution of task {}{}", call, reasons.into_iter().map(|r| format!(" - {r}\n")).collect::<String>());
             Ok(false)
@@ -722,6 +725,9 @@ async fn check_workflow_or_task(
             Ok(Response::new(Prost::<CheckResponse<ManyReason<String>>>::new(CheckResponse { verdict: ReasonerResponse::Success })))
         },
 
+        // NOTE: Clippy is under the impression I'm OK with calling `info!()` multiple times.
+        // I'm not ~ this should be a single log statement.
+        #[allow(clippy::format_collect)]
         ReasonerResponse::Violated(reasons) => {
             info!("Checker DENIED execution of {}{}", request.what(), reasons.iter().map(|r| format!(" - {r}\n")).collect::<String>());
             Ok(Response::new(Prost::<CheckResponse<ManyReason<String>>>::new(CheckResponse { verdict: ReasonerResponse::Violated(reasons) })))

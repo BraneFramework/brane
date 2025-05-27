@@ -265,7 +265,7 @@ fn workflow_to_output(path: &str, lang: OutputLanguage, workflow: Workflow) {
     // OK, now write to out or stdout
     if path == "-" {
         debug!("Writing result to stdout...");
-        if let Err(err) = std::io::stdout().write_all(&output.as_bytes()) {
+        if let Err(err) = std::io::stdout().write_all(output.as_bytes()) {
             error!("{}", trace!(("Failed to write to stdout"), err));
             std::process::exit(1);
         }
