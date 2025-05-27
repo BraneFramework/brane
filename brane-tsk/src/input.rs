@@ -117,7 +117,7 @@ pub fn prompt_for_input(data_index: &DataIndex, package: &PackageInfo) -> Result
             package: None,
             version: None,
 
-            props:   builtin.props().into_iter().map(|(name, dtype)| VarDef { name: (*name).into(), data_type: dtype.clone() }).collect(),
+            props:   builtin.props().iter().map(|(name, dtype)| VarDef { name: (*name).into(), data_type: dtype.clone() }).collect(),
             // We don't care for methods anyway
             methods: vec![],
         }) {

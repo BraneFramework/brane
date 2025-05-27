@@ -357,7 +357,7 @@ impl From<FunctionState> for FunctionDef {
     fn from(value: FunctionState) -> Self {
         FunctionDef {
             name: value.name,
-            args: value.signature.args.into_iter().map(|d| dtype_dsl_to_ast(d)).collect(),
+            args: value.signature.args.into_iter().map(dtype_dsl_to_ast).collect(),
             ret:  dtype_dsl_to_ast(value.signature.ret),
         }
     }
@@ -416,7 +416,7 @@ impl From<TaskState> for TaskDef {
 
             function:     Box::new(FunctionDef {
                 name: value.name,
-                args: value.signature.args.into_iter().map(|d| dtype_dsl_to_ast(d)).collect(),
+                args: value.signature.args.into_iter().map(dtype_dsl_to_ast).collect(),
                 ret:  dtype_dsl_to_ast(value.signature.ret),
             }),
             args_names:   value.arg_names,
@@ -459,7 +459,7 @@ impl ClassState {
         // Collect the properties
         let props: Vec<VarState> = builtin
             .props()
-            .into_iter()
+            .iter()
             .map(|(name, dtype)| VarState {
                 name: (*name).into(),
                 data_type: dtype_ast_to_dsl(dtype.clone()),
@@ -472,7 +472,7 @@ impl ClassState {
         // Collect the methods
         let methods: Vec<usize> = builtin
             .methods()
-            .into_iter()
+            .iter()
             .enumerate()
             .map(|(i, (name, sig))| {
                 funcs.push(FunctionState {

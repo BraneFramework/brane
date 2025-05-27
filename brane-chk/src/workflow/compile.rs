@@ -30,10 +30,10 @@ use super::{preprocess, utils};
 
 /***** CONSTANTS *****/
 /// The name of the special commit call.
-pub const COMMIT_CALL_NAME: &'static str = "__brane_internals::commit";
+pub const COMMIT_CALL_NAME: &str = "__brane_internals::commit";
 
 /// The name of the special identity function call.
-pub const TOPLEVEL_RETURN_CALL_NAME: &'static str = "__brane_internals::toplevel_return";
+pub const TOPLEVEL_RETURN_CALL_NAME: &str = "__brane_internals::toplevel_return";
 
 
 
@@ -256,7 +256,7 @@ fn reconstruct_graph(
 
             // Return the elem
             Ok(Elem::Call(ElemCall {
-                id: pc_to_id(&wir, pc),
+                id: pc_to_id(wir, pc),
                 task: format!("{}[{}]::{}", def.package, def.version, def.function.name),
                 input: input
                     .iter()

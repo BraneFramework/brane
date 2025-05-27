@@ -41,9 +41,7 @@ pub fn dtype_dsl_to_ast(value: brane_dsl::DataType) -> DataType {
         Semver => DataType::Semver,
 
         Array(a) => DataType::Array { elem_type: Box::new(dtype_dsl_to_ast(*a)) },
-        Function(sig) => {
-            DataType::Function { args: sig.args.into_iter().map(|d| dtype_dsl_to_ast(d)).collect(), ret: Box::new(dtype_dsl_to_ast(sig.ret)) }
-        },
+        Function(sig) => DataType::Function { args: sig.args.into_iter().map(dtype_dsl_to_ast).collect(), ret: Box::new(dtype_dsl_to_ast(sig.ret)) },
         Class(name) => {
             // Match if 'Data' or 'IntermediateResult'
             if name == BuiltinClasses::Data.name() {

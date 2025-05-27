@@ -673,21 +673,21 @@ pub fn node(
                         api: PublicService {
                             name:    api_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), api_port).into(),
-                            address: Address::hostname(format!("{api_name}"), api_port),
+                            address: Address::hostname(api_name.to_string(), api_port),
 
-                            external_address: Address::hostname(format!("{hostname}"), api_port),
+                            external_address: Address::hostname(hostname.to_string(), api_port),
                         },
                         drv: PublicService {
                             name:    drv_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), drv_port).into(),
-                            address: Address::hostname(format!("{drv_name}"), drv_port),
+                            address: Address::hostname(drv_name.to_string(), drv_port),
 
-                            external_address: Address::hostname(format!("{hostname}"), drv_port),
+                            external_address: Address::hostname(hostname.to_string(), drv_port),
                         },
                         plr: PrivateService {
                             name:    plr_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), plr_port).into(),
-                            address: Address::hostname(format!("{plr_name}"), plr_port),
+                            address: Address::hostname(plr_name.to_string(), plr_port),
                         },
                         prx: if let Some(address) = external_proxy {
                             PrivateOrExternalService::External(ExternalService { address })
@@ -695,7 +695,7 @@ pub fn node(
                             PrivateOrExternalService::Private(PrivateService {
                                 name:    prx_name.clone(),
                                 bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                                address: Address::hostname(format!("{prx_name}"), prx_port),
+                                address: Address::hostname(prx_name.to_string(), prx_port),
                             })
                         },
 
@@ -806,16 +806,16 @@ pub fn node(
                         reg: PublicService {
                             name:    reg_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), reg_port).into(),
-                            address: Address::hostname(format!("{reg_name}"), reg_port),
+                            address: Address::hostname(reg_name.to_string(), reg_port),
 
-                            external_address: Address::hostname(format!("{hostname}"), reg_port),
+                            external_address: Address::hostname(hostname.to_string(), reg_port),
                         },
                         job: PublicService {
                             name:    job_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), job_port).into(),
-                            address: Address::hostname(format!("{job_name}"), job_port),
+                            address: Address::hostname(job_name.to_string(), job_port),
 
-                            external_address: Address::hostname(format!("{hostname}"), job_port),
+                            external_address: Address::hostname(hostname.to_string(), job_port),
                         },
                         chk: DoublePrivateService {
                             name:  chk_name.clone(),
@@ -829,7 +829,7 @@ pub fn node(
                             PrivateOrExternalService::Private(PrivateService {
                                 name:    prx_name.clone(),
                                 bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                                address: Address::hostname(format!("{prx_name}"), prx_port),
+                                address: Address::hostname(prx_name.to_string(), prx_port),
                             })
                         },
                     },
@@ -867,9 +867,9 @@ pub fn node(
                         prx: PublicService {
                             name:    prx_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address: Address::hostname(format!("{prx_name}"), prx_port),
+                            address: Address::hostname(prx_name.to_string(), prx_port),
 
-                            external_address: Address::hostname(format!("{hostname}"), prx_port),
+                            external_address: Address::hostname(hostname.to_string(), prx_port),
                         },
                     },
                 }),
@@ -1140,8 +1140,8 @@ pub fn infra(
     for loc in locations {
         locs.insert(loc.0.clone(), InfraLocation {
             name:     beautify_id(loc.0),
-            registry: Address::hostname(format!("{}", loc.1), 50051),
-            delegate: Address::hostname(format!("{}", loc.1), 50052),
+            registry: Address::hostname(loc.1.to_string(), 50051),
+            delegate: Address::hostname(loc.1.to_string(), 50052),
         });
     }
 

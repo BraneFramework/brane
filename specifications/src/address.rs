@@ -95,25 +95,6 @@ impl Host {
     #[inline]
     pub const fn new_ipv4(b1: u8, b2: u8, b3: u8, b4: u8) -> Self { Self::IPv4(Ipv4Addr::new(b1, b2, b3, b4)) }
 
-    /// Constructor for the Host that initializes it for the given IPv6 address.
-    ///
-    /// # Arguments
-    /// - `b1`: The first pair of bytes of the IP address.
-    /// - `b2`: The second pair of bytes of the IP address.
-    /// - `b3`: The third pair of bytes of the IP address.
-    /// - `b4`: The fourth pair of bytes of the IP address.
-    /// - `b5`: The fifth pair of bytes of the IP address.
-    /// - `b6`: The sixth pair of bytes of the IP address.
-    /// - `b7`: The seventh pair of bytes of the IP address.
-    /// - `b8`: The eight pair of bytes of the IP address.
-    ///
-    /// # Returns
-    /// A new Host that is referred to by IPv6.
-    #[inline]
-    pub const fn new_ipv6(b1: u16, b2: u16, b3: u16, b4: u16, b5: u16, b6: u16, b7: u16, b8: u16) -> Self {
-        Self::IPv6(Ipv6Addr::new(b1, b2, b3, b4, b5, b6, b7, b8))
-    }
-
     /// Constructor for the Host that initializes it for the given hostname.
     ///
     /// # Arguments
@@ -281,7 +262,7 @@ impl Display for Host {
     }
 }
 // De/Serialization
-impl<'de: 'a, 'a> Deserialize<'de> for Host {
+impl<'de> Deserialize<'de> for Host {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -289,7 +270,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Host {
     {
         /// Visitor for the `Host`.
         pub struct HostVisitor;
-        impl<'de> Visitor<'de> for HostVisitor {
+        impl Visitor<'_> for HostVisitor {
             type Value = Host;
 
             #[inline]
@@ -336,7 +317,9 @@ impl FromStr for Host {
 
                 // Assert it's only good
                 for c in s.chars() {
-                    if (c < 'a' || c > 'z') && (c < 'A' && c > 'Z') && (c < '0' && c > '9') && c != '-' {
+                    // NOTE: I'm petty
+                    #[allow(clippy::manual_range_contains)]
+                    if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' {
                         return Err(HostParseError::IllegalChar { c, raw: s.into() });
                     }
                 }
@@ -416,27 +399,6 @@ impl Address {
     /// A new Address instance.
     #[inline]
     pub fn from_ipv4(ipv4: impl Into<Ipv4Addr>, port: u16) -> Self { Self { host: Host::IPv4(ipv4.into()), port } }
-
-    /// Constructor for the Address that initializes it for the given IPv6 address.
-    ///
-    /// # Arguments
-    /// - `b1`: The first pair of bytes of the IPv6 address.
-    /// - `b2`: The second pair of bytes of the IPv6 address.
-    /// - `b3`: The third pair of bytes of the IPv6 address.
-    /// - `b4`: The fourth pair of bytes of the IPv6 address.
-    /// - `b5`: The fifth pair of bytes of the IPv6 address.
-    /// - `b6`: The sixth pair of bytes of the IPv6 address.
-    /// - `b7`: The seventh pair of bytes of the IPv6 address.
-    /// - `b8`: The eight pair of bytes of the IPv6 address.
-    /// - `port`: The port for this address.
-    ///
-    /// # Returns
-    /// A new Address instance.
-    #[allow(clippy::too_many_arguments)]
-    #[inline]
-    pub fn ipv6(b1: u16, b2: u16, b3: u16, b4: u16, b5: u16, b6: u16, b7: u16, b8: u16, port: u16) -> Self {
-        Self { host: Host::new_ipv6(b1, b2, b3, b4, b5, b6, b7, b8), port }
-    }
 
     /// Constructor for the Address that initializes it for the given IPv6 address.
     ///
@@ -531,7 +493,7 @@ impl<'de> Deserialize<'de> for Address {
     {
         /// Defines the visitor for the Address
         struct AddressVisitor;
-        impl<'de> Visitor<'de> for AddressVisitor {
+        impl Visitor<'_> for AddressVisitor {
             type Value = Address;
 
             #[inline]
@@ -637,27 +599,6 @@ impl AddressOpt {
     /// Constructor for the AddressOpt that initializes it for the given IPv6 address.
     ///
     /// # Arguments
-    /// - `b1`: The first pair of bytes of the IPv6 address.
-    /// - `b2`: The second pair of bytes of the IPv6 address.
-    /// - `b3`: The third pair of bytes of the IPv6 address.
-    /// - `b4`: The fourth pair of bytes of the IPv6 address.
-    /// - `b5`: The fifth pair of bytes of the IPv6 address.
-    /// - `b6`: The sixth pair of bytes of the IPv6 address.
-    /// - `b7`: The seventh pair of bytes of the IPv6 address.
-    /// - `b8`: The eight pair of bytes of the IPv6 address.
-    /// - `port`: The port for this address, if any.
-    ///
-    /// # Returns
-    /// A new AddressOpt instance.
-    #[allow(clippy::too_many_arguments)]
-    #[inline]
-    pub fn ipv6(b1: u16, b2: u16, b3: u16, b4: u16, b5: u16, b6: u16, b7: u16, b8: u16, port: Option<u16>) -> Self {
-        Self { host: Host::new_ipv6(b1, b2, b3, b4, b5, b6, b7, b8), port }
-    }
-
-    /// Constructor for the AddressOpt that initializes it for the given IPv6 address.
-    ///
-    /// # Arguments
     /// - `ipv6`: The already constructed IPv6 address to use.
     /// - `port`: The port for this address, if any.
     ///
@@ -749,7 +690,7 @@ impl<'de> Deserialize<'de> for AddressOpt {
     {
         /// Defines the visitor for the AddressOpt
         struct AddressOptVisitor;
-        impl<'de> Visitor<'de> for AddressOptVisitor {
+        impl Visitor<'_> for AddressOptVisitor {
             type Value = AddressOpt;
 
             #[inline]

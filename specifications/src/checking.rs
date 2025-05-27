@@ -178,10 +178,10 @@ pub mod deliberation {
             Self: Sized,
         {
             // This is copied from the auto-generated prost code but only for the fields in question
-            if self.request.usecase != "" {
+            if !self.request.usecase.is_empty() {
                 ::prost::encoding::string::encode(1u32, &self.request.usecase, buf);
             }
-            if self.buffers[0] != "" {
+            if !self.buffers[0].is_empty() {
                 ::prost::encoding::string::encode(2u32, &self.buffers[0], buf);
             }
         }
@@ -207,8 +207,14 @@ pub mod deliberation {
 
         fn encoded_len(&self) -> usize {
             // This is copied from the auto-generated prost code but only for the fields in question
-            0 + if self.request.usecase != "" { ::prost::encoding::string::encoded_len(1u32, &self.request.usecase) } else { 0 }
-                + if self.buffers[0] != "" { ::prost::encoding::string::encoded_len(2u32, &self.buffers[0]) } else { 0 }
+            let mut len: usize = 0;
+            if !self.request.usecase.is_empty() {
+                len += ::prost::encoding::string::encoded_len(1u32, &self.request.usecase);
+            }
+            if !self.buffers[0].is_empty() {
+                len += ::prost::encoding::string::encoded_len(2u32, &self.buffers[0])
+            }
+            len
         }
 
         fn clear(&mut self) {
@@ -287,13 +293,13 @@ pub mod deliberation {
             Self: Sized,
         {
             // This is copied from the auto-generated prost code but only for the fields in question
-            if self.request.usecase != "" {
+            if !self.request.usecase.is_empty() {
                 ::prost::encoding::string::encode(1u32, &self.request.usecase, buf);
             }
-            if self.buffers[0] != "" {
+            if !self.buffers[0].is_empty() {
                 ::prost::encoding::string::encode(2u32, &self.buffers[0], buf);
             }
-            if self.buffers[1] != "" {
+            if !self.buffers[1].is_empty() {
                 ::prost::encoding::string::encode(3u32, &self.buffers[1], buf);
             }
         }
@@ -303,7 +309,7 @@ pub mod deliberation {
             Self: Sized,
         {
             // This is copied from the auto-generated prost code but only for the fields in question
-            const STRUCT_NAME: &'static str = "CheckTaskRequest";
+            const STRUCT_NAME: &str = "CheckTaskRequest";
             match tag {
                 1u32 => ::prost::encoding::string::merge(wire_type, &mut self.request.usecase, buf, ctx).map_err(|mut error| {
                     error.push(STRUCT_NAME, "usecase");
@@ -323,9 +329,17 @@ pub mod deliberation {
 
         fn encoded_len(&self) -> usize {
             // This is copied from the auto-generated prost code but only for the fields in question
-            0 + if self.request.usecase != "" { ::prost::encoding::string::encoded_len(1u32, &self.request.usecase) } else { 0 }
-                + if self.buffers[0] != "" { ::prost::encoding::string::encoded_len(2u32, &self.buffers[0]) } else { 0 }
-                + if self.buffers[1] != "" { ::prost::encoding::string::encoded_len(3u32, &self.buffers[1]) } else { 0 }
+            let mut len: usize = 0;
+            if !self.request.usecase.is_empty() {
+                len += ::prost::encoding::string::encoded_len(1u32, &self.request.usecase);
+            }
+            if !self.buffers[0].is_empty() {
+                len += ::prost::encoding::string::encoded_len(2u32, &self.buffers[0]);
+            }
+            if !self.buffers[1].is_empty() {
+                len += ::prost::encoding::string::encoded_len(3u32, &self.buffers[1]);
+            }
+            len
         }
 
         fn clear(&mut self) {
@@ -412,16 +426,16 @@ pub mod deliberation {
             Self: Sized,
         {
             // This is copied from the auto-generated prost code but only for the fields in question
-            if self.request.usecase != "" {
+            if !self.request.usecase.is_empty() {
                 ::prost::encoding::string::encode(1u32, &self.request.usecase, buf);
             }
-            if self.buffers[0] != "" {
+            if !self.buffers[0].is_empty() {
                 ::prost::encoding::string::encode(2u32, &self.buffers[0], buf);
             }
-            if self.buffers[1] != "" {
+            if !self.buffers[1].is_empty() {
                 ::prost::encoding::string::encode(3u32, &self.buffers[1], buf);
             }
-            if self.request.input != "" {
+            if !self.request.input.is_empty() {
                 ::prost::encoding::string::encode(4u32, &self.request.input, buf);
             }
         }
@@ -455,10 +469,20 @@ pub mod deliberation {
 
         fn encoded_len(&self) -> usize {
             // This is copied from the auto-generated prost code but only for the fields in question
-            0 + if self.request.usecase != "" { ::prost::encoding::string::encoded_len(1u32, &self.request.usecase) } else { 0 }
-                + if self.buffers[0] != "" { ::prost::encoding::string::encoded_len(2u32, &self.buffers[0]) } else { 0 }
-                + if self.buffers[1] != "" { ::prost::encoding::string::encoded_len(3u32, &self.buffers[1]) } else { 0 }
-                + if self.request.input != "" { ::prost::encoding::string::encoded_len(1u32, &self.request.input) } else { 0 }
+            let mut len: usize = 0;
+            if !self.request.usecase.is_empty() {
+                len += ::prost::encoding::string::encoded_len(1u32, &self.request.usecase);
+            }
+            if !self.buffers[0].is_empty() {
+                len += ::prost::encoding::string::encoded_len(2u32, &self.buffers[0]);
+            }
+            if !self.buffers[1].is_empty() {
+                len += ::prost::encoding::string::encoded_len(3u32, &self.buffers[1]);
+            }
+            if !self.request.input.is_empty() {
+                len += ::prost::encoding::string::encoded_len(1u32, &self.request.input);
+            }
+            len
         }
 
         fn clear(&mut self) {
@@ -570,8 +594,12 @@ pub mod deliberation {
 
         fn encoded_len(&self) -> usize {
             // This is copied from the auto-generated prost code but only for the fields in question
-            0 + if self.buffers[0] != "" { ::prost::encoding::string::encoded_len(1u32, &self.buffers[0]) } else { 0 }
-                + ::prost::encoding::string::encoded_len_repeated(2u32, &self.buffers[1..])
+            let mut len: usize = 0;
+            if !self.buffers[0].is_empty() {
+                len += ::prost::encoding::string::encoded_len(1u32, &self.buffers[0]);
+            }
+            len += ::prost::encoding::string::encoded_len_repeated(2u32, &self.buffers[1..]);
+            len
         }
 
         fn clear(&mut self) {

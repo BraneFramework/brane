@@ -56,13 +56,13 @@ impl EFlintHaskellReasonerConnectorWithInterface {
     /// its manifest directory). Building the reasoner will trigger the first load, if any,
     /// and this may panic if the input is somehow ill-formed.
     #[inline]
-    pub fn new_async<'l, L: AuditLogger>(
+    pub async fn new_async<'l, L: AuditLogger>(
         cmd: impl 'l + IntoIterator<Item = String>,
         base_policy_path: impl 'l + Into<PathBuf>,
         handler: PrefixedHandler<'static>,
         logger: &'l L,
-    ) -> impl 'l + Future<Output = Result<Self, Error>> {
-        async move { Ok(Self { reasoner: EFlintHaskellReasonerConnector::new_async(cmd, base_policy_path, handler, logger).await? }) }
+    ) -> Result<Self, Error> {
+        Ok(Self { reasoner: EFlintHaskellReasonerConnector::new_async(cmd, base_policy_path, handler, logger).await? })
     }
 }
 impl ReasonerConnector for EFlintHaskellReasonerConnectorWithInterface {

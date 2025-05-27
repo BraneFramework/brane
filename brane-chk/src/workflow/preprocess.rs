@@ -56,6 +56,10 @@ mod tests {
         }
 
         // Defines a few test files with expected inlinable functions
+        // NOTE: Sorry Clippy, it may be a complex type but at least you can see what's expected
+        // from every line. Not gonna go through the hassle of splitting this up for just a quick
+        // inline one.
+        #[allow(clippy::type_complexity)]
         let tests: [(&str, &str, HashMap<usize, Option<HashSet<usize>>>); 5] = [
             ("case1", r#"println("Hello, world!");"#, HashMap::from([(1, None)])),
             (

@@ -100,9 +100,9 @@ fn compile_metadata(metadata: &Metadata, phrases: &mut Vec<String>) {
 /***** FORMATTERS *****/
 /// Serializes a workflow to eFLINT using it's [`Display`]-implementation.
 pub struct WorkflowToEflint<'w>(pub &'w Workflow);
-impl<'w> Display for WorkflowToEflint<'w> {
+impl Display for WorkflowToEflint<'_> {
     #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult { eflint_fmt(&self.0, f) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult { eflint_fmt(self.0, f) }
 }
 
 
@@ -231,7 +231,7 @@ impl<'w> Visitor<'w> for DataAnalyzer<'w> {
             self.first.push((id.clone(), analyzer.first.into_iter().flat_map(|(_, data)| data).collect()));
         }
         self.last.clear();
-        self.last.extend(analyzer.last.into_iter());
+        self.last.extend(analyzer.last);
 
         // Continue with iteration
         Ok(Some(&elem.next))
@@ -413,7 +413,7 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
         self.phrases.push(create!(constr_app!("loop", node.clone())));
 
         // Collect the inputs & outputs of the body
-        let mut analyzer = DataAnalyzer::new(&self.names);
+        let mut analyzer = DataAnalyzer::new(self.names);
         analyzer.visit(&elem.body)?;
 
         // Post-process the input into a list of body nodes and a list of data input

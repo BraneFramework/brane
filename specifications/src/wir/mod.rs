@@ -516,10 +516,10 @@ impl ClassDef {
             name:    value.name().into(),
             package: None,
             version: None,
-            props:   value.props().into_iter().map(|(name, dtype)| VarDef { name: (*name).into(), data_type: dtype.clone() }).collect(),
+            props:   value.props().iter().map(|(name, dtype)| VarDef { name: (*name).into(), data_type: dtype.clone() }).collect(),
             methods: value
                 .methods()
-                .into_iter()
+                .iter()
                 .map(|(name, sig)| {
                     let i: usize = funcs.len();
                     funcs.push(FunctionDef { name: (*name).into(), args: sig.0.clone(), ret: sig.1.clone() });

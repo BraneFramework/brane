@@ -645,8 +645,8 @@ pub fn edit(
     if let Some(hostname) = hostname {
         // We replace the addresses. Any new ports will be handled in subsequent if let's
         println!("Updating hostname to {}...", style(&hostname.hostname).cyan().bold());
-        info.api = Address::hostname(format!("{}", hostname.hostname), info.api.port);
-        info.drv = Address::hostname(format!("{}", hostname.hostname), info.drv.port);
+        info.api = Address::hostname(hostname.hostname.to_string(), info.api.port);
+        info.drv = Address::hostname(hostname.hostname.to_string(), info.drv.port);
     }
     if let Some(port) = api_port {
         println!("Updating API service port to {}...", style(port).cyan().bold());
