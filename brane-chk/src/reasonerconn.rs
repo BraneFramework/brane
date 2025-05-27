@@ -9,7 +9,7 @@
 //    Yes
 //
 //  Description:
-//!   Defines a wrapper around an [`EFlintJsonReasonerConnector`] that
+//!   Defines a wrapper around an [`EFlintHaskellReasonerConnector`] that
 //!   includes a particular policy interface.
 //
 

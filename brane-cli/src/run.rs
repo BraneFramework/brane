@@ -128,7 +128,7 @@ pub async fn initialize_instance<O: Write, E: Write>(
 /// - `profile`: If given, prints the profile timings to stdout if reported by the remote.
 ///
 /// # Returns
-/// A [`FullValue`] carrying the result of the snippet (or [`FullValue::Void`]), and a [`ProgramCounter`] in case a [`FullValue::Data`] is returned telling us which edge downloaded it.
+/// A [`FullValue`] carrying the result of the snippet (or [`FullValue::Void`]).
 ///
 /// # Errors
 /// This function may error if anything in the whole shebang crashed. This can be things client-side, but also remote-side.

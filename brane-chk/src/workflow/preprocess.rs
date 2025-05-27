@@ -220,7 +220,7 @@ pub enum Error {
     UnknownTask { id: usize },
     /// Unknown function given.
     UnknownFunc { id: FunctionId },
-    /// A [`Call`](ast::Edge::Call)-edge was encountered while we didn't know of a function ID on the stack.
+    /// A [`Call`](Edge::Call)-edge was encountered while we didn't know of a function ID on the stack.
     CallingWithoutId { pc: ResolvedProgramCounter },
 }
 impl Display for Error {

@@ -450,7 +450,7 @@ pub fn pc_to_id(wir: &ast::Workflow, pc: ProgramCounter) -> String { format!("{}
 
 
 
-/// Compiles from a Brane [WIR](brane_ast::Workflow) to a policy reasoner [Workflow].
+/// Compiles from a Brane [WIR](ast::Workflow) to a policy reasoner [Workflow].
 ///
 /// # Arguments
 /// - `wf`: The WIR to compile.
