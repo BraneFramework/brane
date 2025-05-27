@@ -121,7 +121,7 @@ pub mod deliberation {
 
 
     /***** API BODIES *****/
-    /// Defines the request to send to the [`Server::check_workflow()`] endpoint.
+    /// Defines the request to send to the workflow validation endpoint.
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct CheckWorkflowRequest {
         /// The usecase that refers to the API to consult for state.
@@ -220,7 +220,7 @@ pub mod deliberation {
 
 
 
-    /// Defines the request to send to the [`Server::check_task()`] endpoint.
+    /// Defines the request to send to the task validation endpoint.
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct CheckTaskRequest {
         /// The usecase that refers to the API to consult for state.
@@ -338,7 +338,7 @@ pub mod deliberation {
 
 
 
-    /// Defines the request to send to the [`Server::check_transfer()`] endpoint.
+    /// Defines the request to send to the transfer validation endpoint.
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct CheckTransferRequest {
         /// The usecase that refers to the API to consult for state.

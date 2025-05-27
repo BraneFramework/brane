@@ -32,7 +32,7 @@ use tracing::{Instrument as _, Level, debug, error, span};
 
 
 /***** ERRORS *****/
-/// Defines the errors originating in the [`Reasoner`] API.
+/// Defines the errors originating in the reasoner API.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to create the KID resolver")]
@@ -56,7 +56,7 @@ pub enum Error {
 /// Handler for `GET /v2/context` (i.e., retrieving reasoner context).
 ///
 /// Out:
-/// - 200 OK with a [`ContextResponse`] detailling the relevant reasoner information; or
+/// - 200 OK with a [`GetContextResponse`] detailling the relevant reasoner information; or
 /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
 pub fn get_context<R>(State(this): State<Arc<R>>, Extension(auth): Extension<User>) -> impl Send + Future<Output = (StatusCode, String)>
 where

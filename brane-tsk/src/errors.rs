@@ -412,7 +412,7 @@ pub enum AuthorizeError {
     /// The user to authorize does not execute the given task.
     #[error("Authorized user '{}' does not match '{}' user in workflow\n\nWorkflow:\n{:#?}\n", authenticated, who, workflow)]
     AuthorizationUserMismatch { who: String, authenticated: String, workflow: Workflow },
-    /// An edge was referenced to be executed which wasn't an [`Edge::Node`](brane_ast::ast::Edge).
+    /// An edge was referenced to be executed which wasn't an [`Edge::Node`](specifications::wir::Edge).
     #[error("Edge {pc} in workflow is not an Edge::Node but an Edge::{got}")]
     AuthorizationWrongEdge { pc: ProgramCounter, got: String },
     /// An edge index given was out-of-bounds for the given function.

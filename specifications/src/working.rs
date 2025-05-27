@@ -385,7 +385,7 @@ impl JobServiceClient {
     /// - `request`: The [`CheckWorkflowRequest`] to send to the endpoint.
     ///
     /// # Returns
-    /// The [`CheckReply`] the endpoint returns.
+    /// The [`CheckResponse`] the endpoint returns.
     ///
     /// # Errors
     /// This function errors if either we failed to send the request or the endpoint itself failed to process it.
@@ -410,7 +410,7 @@ impl JobServiceClient {
     /// - `request`: The [`CheckTaskRequest`] to send to the endpoint.
     ///
     /// # Returns
-    /// The [`CheckReply`] the endpoint returns.
+    /// The [`CheckResponse`] the endpoint returns.
     ///
     /// # Errors
     /// This function errors if either we failed to send the request or the endpoint itself failed to process it.
@@ -514,7 +514,7 @@ pub trait JobService: 'static + Send + Sync {
     /// - `request`: The ([`tonic::Request`]-wrapped) [`CheckWorkflowRequest`] containing the relevant details.
     ///
     /// # Returns
-    /// A [`CheckReply`] for this request, wrapped in a [`tonic::Response`].
+    /// A [`CheckResponse`] for this request, wrapped in a [`tonic::Response`].
     ///
     /// # Errors
     /// This function may error (i.e., send back a `tonic::Status`) whenever it fails.
@@ -529,7 +529,7 @@ pub trait JobService: 'static + Send + Sync {
     /// - `request`: The ([`tonic::Request`]-wrapped) [`CheckTaskRequest`] containing the relevant details.
     ///
     /// # Returns
-    /// A [`CheckReply`] for this request, wrapped in a [`tonic::Response`].
+    /// A [`CheckResponse`] for this request, wrapped in a [`tonic::Response`].
     ///
     /// # Errors
     /// This function may error (i.e., send back a `tonic::Status`) whenever it fails.

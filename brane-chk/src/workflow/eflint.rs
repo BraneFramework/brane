@@ -9,8 +9,7 @@
 //    Yes
 //
 //  Description:
-//!   Implements a compiler from a [`Workflow`] to a series of
-//!   [`efint_json`] [`Phrase`]s.
+//!   Implements a compiler from a [`Workflow`] to a series of eFLINT phrases.
 //
 
 use std::collections::{HashMap, HashSet};
@@ -473,7 +472,7 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
 
 
 /***** LIBRARY FUNCTIONS *****/
-/// Compiles a [`Workflow`] to a series of [`efint_json`] [`Phrase`]s.
+/// Compiles a [`Workflow`] to a series of eFLINT phrases.
 ///
 /// # Arguments
 /// - `wf`: The [`Workflow`] to compile.

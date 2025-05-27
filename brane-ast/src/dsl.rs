@@ -60,7 +60,7 @@ pub fn dtype_dsl_to_ast(value: brane_dsl::DataType) -> DataType {
 /// Converts from an [executable Datatype](DataType) to the DSL one.
 ///
 /// # Arguments
-/// - `dtype`: The [`DataType`](DataType) to convert.
+/// - `dtype`: The [`DataType`] to convert.
 ///
 /// # Returns
 /// A converted [`brane_dsl::DataType`].
