@@ -442,7 +442,7 @@ where
                 .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
                 .with_state(this.clone());
             let router: IntoMakeServiceWithConnectInfo<Router, SocketAddr> =
-                Router::new().nest("/", check_workflow).nest("/", check_task).nest("/", check_transfer).into_make_service_with_connect_info();
+                Router::new().merge(check_workflow).merge(check_task).merge(check_transfer).into_make_service_with_connect_info();
 
             // Bind the TCP Listener
             debug!("Binding server on '{}'...", this.addr);
