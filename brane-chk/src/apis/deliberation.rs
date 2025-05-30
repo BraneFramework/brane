@@ -39,7 +39,7 @@ use policy_store::spec::AuthResolver as _;
 use policy_store::spec::authresolver::HttpError;
 use policy_store::spec::metadata::User;
 use rand::Rng;
-use rand::distributions::Alphanumeric;
+use rand::distr::Alphanumeric;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use specifications::checking::deliberation::{
@@ -296,7 +296,7 @@ where
         request: Request,
     ) -> impl Send + Future<Output = (StatusCode, String)> {
         let reference: Arc<String> =
-            Arc::new(format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
+            Arc::new(format!("{}-{}", auth.id, rand::rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
         let span_ref: Arc<String> = reference.clone();
         async move {
             // Get the request
@@ -330,7 +330,7 @@ where
         request: Request,
     ) -> impl Send + Future<Output = (StatusCode, String)> {
         let reference: Arc<String> =
-            Arc::new(format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
+            Arc::new(format!("{}-{}", auth.id, rand::rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
         let span_ref: Arc<String> = reference.clone();
         async move {
             // Get the request
@@ -369,7 +369,7 @@ where
         request: Request,
     ) -> impl Send + Future<Output = (StatusCode, String)> {
         let reference: Arc<String> =
-            Arc::new(format!("{}-{}", auth.id, rand::thread_rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
+            Arc::new(format!("{}-{}", auth.id, rand::rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
         let span_ref: Arc<String> = reference.clone();
         async move {
             // Get the request
