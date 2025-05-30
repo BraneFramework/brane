@@ -317,11 +317,11 @@ dependencies = [
 [[package]]
 name = "axum-server"
 version = "0.2.0"
-source = "git+https://github.com/BraneFramework/policy-store#0f31200a4adcc256d8ca8faefa764d8887a82c16"
+source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
 dependencies = [
  "axum",
  "axum-server-spec",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.2.1)",
+ "error-trace 3.3.1",
  "futures",
  "hyper 1.6.0",
  "hyper-util",
@@ -337,7 +337,7 @@ dependencies = [
 [[package]]
 name = "axum-server-spec"
 version = "0.2.0"
-source = "git+https://github.com/BraneFramework/policy-store#0f31200a4adcc256d8ca8faefa764d8887a82c16"
+source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
 dependencies = [
  "axum",
  "http 1.3.1",
@@ -570,7 +570,7 @@ dependencies = [
  "brane-tsk",
  "clap",
  "enum-debug",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace 3.3.0",
  "futures",
  "humanlog",
  "hyper 1.6.0",
@@ -1511,9 +1511,9 @@ dependencies = [
 [[package]]
 name = "eflint-haskell-reasoner"
 version = "0.1.0"
-source = "git+https://github.com/BraneFramework/policy-reasoner?branch=lib-refactor#15ff110ffc5207b8693b963ac8e4884d577cb4f9"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?rev=b7ff17c#b7ff17c288f0cc2b5693be175f8d4a458a97a33f"
 dependencies = [
- "error-trace 3.1.0",
+ "error-trace 3.3.1",
  "serde",
  "sha2",
  "specifications 0.2.0",
@@ -1631,21 +1631,17 @@ source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.0.0#a026dc304b5bcc4
 
 [[package]]
 name = "error-trace"
-version = "3.1.0"
-source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.1.0#c3046059215f2bf60175f0274ec91c241c6dd069"
-
-[[package]]
-name = "error-trace"
-version = "3.2.1"
-source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.2.1#afe09a38a8cb2eaf4eb75c197993a79f1191c054"
+version = "3.3.0"
+source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0#6db81b192df2323f9d675bf5c78f6e0d21f49b49"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "error-trace"
-version = "3.2.1"
-source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0#09b802c7f582e33318968b612e08d4a558a31c14"
+version = "3.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a17beb87ca4ef7c5edd18148b494b437b00a019e6f22bf1e557c2f370d24c445"
 dependencies = [
  "serde",
 ]
@@ -1681,7 +1677,7 @@ dependencies = [
 [[package]]
 name = "file-logger"
 version = "0.2.0"
-source = "git+https://github.com/BraneFramework/policy-reasoner?branch=lib-refactor#15ff110ffc5207b8693b963ac8e4884d577cb4f9"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?rev=b7ff17c#b7ff17c288f0cc2b5693be175f8d4a458a97a33f"
 dependencies = [
  "chrono",
  "enum-debug",
@@ -2734,14 +2730,15 @@ dependencies = [
 [[package]]
 name = "jwk-auth"
 version = "0.2.0"
-source = "git+https://github.com/BraneFramework/policy-store#0f31200a4adcc256d8ca8faefa764d8887a82c16"
+source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
 dependencies = [
  "base64ct",
  "http 1.3.1",
  "jsonwebtoken",
  "serde_json",
  "specifications 0.1.0",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
+ "time",
  "tracing",
 ]
 
@@ -3306,7 +3303,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 [[package]]
 name = "policy-reasoner"
 version = "1.0.0"
-source = "git+https://github.com/BraneFramework/policy-reasoner?branch=lib-refactor#15ff110ffc5207b8693b963ac8e4884d577cb4f9"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?rev=b7ff17c#b7ff17c288f0cc2b5693be175f8d4a458a97a33f"
 dependencies = [
  "eflint-haskell-reasoner",
  "file-logger",
@@ -3317,7 +3314,7 @@ dependencies = [
 [[package]]
 name = "policy-store"
 version = "0.1.0"
-source = "git+https://github.com/BraneFramework/policy-store#0f31200a4adcc256d8ca8faefa764d8887a82c16"
+source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
 dependencies = [
  "axum-server",
  "axum-server-spec",
@@ -4382,7 +4379,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "0.1.0"
-source = "git+https://github.com/BraneFramework/policy-store#0f31200a4adcc256d8ca8faefa764d8887a82c16"
+source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
 dependencies = [
  "chrono",
  "http 1.3.1",
@@ -4392,7 +4389,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "0.2.0"
-source = "git+https://github.com/BraneFramework/policy-reasoner?branch=lib-refactor#15ff110ffc5207b8693b963ac8e4884d577cb4f9"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?rev=b7ff17c#b7ff17c288f0cc2b5693be175f8d4a458a97a33f"
 dependencies = [
  "paste",
  "serde",
@@ -4443,7 +4440,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "sqlite-database"
 version = "0.2.0"
-source = "git+https://github.com/BraneFramework/policy-store#0f31200a4adcc256d8ca8faefa764d8887a82c16"
+source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
 dependencies = [
  "chrono",
  "diesel",
@@ -4451,7 +4448,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specifications 0.1.0",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
@@ -5711,7 +5708,7 @@ dependencies = [
 [[package]]
 name = "workflow"
 version = "0.2.0"
-source = "git+https://github.com/BraneFramework/policy-reasoner?branch=lib-refactor#15ff110ffc5207b8693b963ac8e4884d577cb4f9"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?rev=b7ff17c#b7ff17c288f0cc2b5693be175f8d4a458a97a33f"
 dependencies = [
  "enum-debug",
  "serde",
