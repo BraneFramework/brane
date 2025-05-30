@@ -578,7 +578,7 @@ dependencies = [
  "names 0.1.0 (git+https://github.com/Lut99/names-rs)",
  "policy-reasoner",
  "policy-store",
- "rand 0.8.5",
+ "rand 0.9.0",
  "reqwest 0.12.14",
  "serde",
  "serde_json",
