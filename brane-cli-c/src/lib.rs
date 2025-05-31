@@ -1415,7 +1415,7 @@ pub unsafe extern "C" fn vm_run(
 // TODO: Resolve this problem
 //
 /// /// <div class="warning">
-/// This function is currently broken because of ecosystem changes. See: https://github.com/epi-project/brane/issues/195
+/// This function is currently broken because of ecosystem changes. See: https://github.com/BraneFramework/brane/issues/195
 /// </div>
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
