@@ -14,8 +14,6 @@
 //
 
 use std::collections::{HashMap, HashSet};
-use std::error;
-use std::fmt::{Display, Formatter, Result as FResult};
 use std::panic::catch_unwind;
 use std::sync::Arc;
 
