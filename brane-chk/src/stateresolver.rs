@@ -139,7 +139,7 @@ pub enum Error {
         err: crate::workflow::compile::Error,
     },
     /// Failed to deserialize the response of the server.
-    #[error("Failed to deserialize respones of central registry at {addr:?} as {what}")]
+    #[error("Failed to deserialize responses of central registry at {addr:?} as {what}")]
     ResponseDeserialize {
         what: &'static str,
         addr: String,
