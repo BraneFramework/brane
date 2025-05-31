@@ -30,189 +30,6 @@ use tracing::{Level, debug, trace};
 use super::utils;
 
 
-/***** TESTS *****/
-#[cfg(test)]
-mod tests {
-    use std::ffi::OsStr;
-    use std::path::PathBuf;
-
-    use brane_ast::traversals::print::ast;
-    use brane_ast::{CompileResult, ParserOptions, compile_program};
-    use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
-    use humanlog::{DebugMode, HumanLogger};
-    use specifications::data::DataIndex;
-    use specifications::package::PackageIndex;
-
-    use super::*;
-
-    /// Runs checks to verify the workflow inlining analysis
-    #[test]
-    fn test_checker_workflow_inline_analysis() {
-        // Setup logger if told
-        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
-            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
-                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
-            }
-        }
-
-        // Defines a few test files with expected inlinable functions
-        // NOTE: Sorry Clippy, it may be a complex type but at least you can see what's expected
-        // from every line. Not gonna go through the hassle of splitting this up for just a quick
-        // inline one.
-        #[allow(clippy::type_complexity)]
-        let tests: [(&str, &str, HashMap<usize, Option<HashSet<usize>>>); 5] = [
-            ("case1", r#"println("Hello, world!");"#, HashMap::from([(1, None)])),
-            (
-                "case2",
-                r#"func hello_world() { return "Hello, world!"; } println(hello_world());"#,
-                HashMap::from([(1, None), (4, Some(HashSet::new()))]),
-            ),
-            (
-                "case3",
-                r#"func foo() { return "Foo"; } func foobar() { return foo() + "Bar"; } println(foobar());"#,
-                HashMap::from([(1, None), (4, Some(HashSet::new())), (5, Some(HashSet::from([4])))]),
-            ),
-            ("case4", r#"import hello_world; println(hello_world());"#, HashMap::from([(1, None)])),
-            (
-                "case5",
-                r#"func hello_world(n) { if (n <= 0) { return "Hello, world!"; } else { return "Hello, " + hello_world(n - 1) + "\n"; } } println(hello_world(3));"#,
-                HashMap::from([(1, None), (4, None)]),
-            ),
-        ];
-
-        // Load example package- and data indices
-        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
-        let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
-        let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
-
-        // Test them each
-        for (id, test, gold) in tests.into_iter() {
-            // Compile to BraneScript (we'll assume this works)
-            let wir: Workflow = match compile_program(test.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
-                CompileResult::Workflow(wir, _) => wir,
-                CompileResult::Err(errs) => {
-                    for err in errs {
-                        err.prettyprint(format!("<{id}>"), test);
-                    }
-                    panic!("Failed to compile BraneScript (see error above)");
-                },
-                CompileResult::Eof(err) => {
-                    err.prettyprint(format!("<{id}>"), test);
-                    panic!("Failed to compile BraneScript (see error above)");
-                },
-
-                _ => {
-                    unreachable!();
-                },
-            };
-            // Emit the compiled workflow
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("Test '{id}'");
-            println!();
-            ast::do_traversal(&wir, std::io::stdout()).unwrap();
-            println!();
-
-            // Analyse function calls (we'll assume this works too)
-            let calls: HashMap<ProgramCounter, usize> = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::start(), None, None).unwrap().0;
-            println!(
-                "Resolved functions calls: {:?}",
-                calls.iter().map(|(pc, func_id)| (format!("{}", pc.resolved(&wir.table)), *func_id)).collect::<HashMap<String, usize>>()
-            );
-
-            // Analyse the inlinable funcs
-            let mut pred: HashMap<usize, Option<HashSet<usize>>> = HashMap::with_capacity(calls.len());
-            find_inlinable_funcs(&wir, &calls, &mut vec![], ProgramCounter::start(), None, &mut pred);
-            println!("Inlinable functions: {pred:?}");
-            println!();
-
-            // Neat, done, assert it was right
-            assert_eq!(pred, gold);
-        }
-    }
-
-    /// Runs the workflow inlining on the test files only
-    #[test]
-    fn test_checker_workflow_simplify() {
-        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
-
-        // Setup logger if told
-        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
-            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
-                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
-            }
-        }
-        // Scope the function
-        let test_file: Option<String> = std::env::var("TEST_FILE").ok();
-
-        // Run the compiler for every applicable DSL file
-        test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
-            // Skip if not the file we're looking for
-            if let Some(test_file) = &test_file {
-                if path.file_name().is_none() || path.file_name().unwrap().to_string_lossy() != test_file.as_str() {
-                    return;
-                }
-            }
-
-            // Start by the name to always know which file this is
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("File '{}' gave us:", path.display());
-
-            // Skip some files, sadly
-            if let Some(name) = path.file_name() {
-                if name == OsStr::new("class.bs") {
-                    println!("Skipping test, since instance calling is not supported in checker workflows...");
-                    println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-                    return;
-                }
-            }
-
-            // Load the package index
-            let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
-            let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
-
-            // Compile the raw source to WIR
-            let wir: Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
-                CompileResult::Workflow(wir, warns) => {
-                    // Print warnings if any
-                    for w in warns {
-                        w.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    wir
-                },
-                CompileResult::Eof(err) => {
-                    // Print the error
-                    err.prettyprint(path.to_string_lossy(), &code);
-                    panic!("Failed to compile to WIR (see output above)");
-                },
-                CompileResult::Err(errs) => {
-                    // Print the errors
-                    for e in errs {
-                        e.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    panic!("Failed to compile to WIR (see output above)");
-                },
-
-                _ => {
-                    unreachable!();
-                },
-            };
-
-            // Alright preprocess it
-            let wir: Workflow = match simplify(wir) {
-                Ok((wir, _)) => wir,
-                Err(err) => {
-                    panic!("Failed to preprocess WIR: {err}");
-                },
-            };
-
-            // Now print the file for prettyness
-            ast::do_traversal(&wir, std::io::stdout()).unwrap();
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-        });
-    }
-}
-
-
 
 
 
@@ -1109,4 +926,186 @@ pub fn simplify(mut wir: Workflow) -> Result<(Workflow, HashMap<ProgramCounter, 
         debug!("Simplified workflow:\n\n{}\n", String::from_utf8_lossy(&buf));
     }
     Ok((wir, calls))
+}
+
+/***** TESTS *****/
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+    use std::path::PathBuf;
+
+    use brane_ast::traversals::print::ast;
+    use brane_ast::{CompileResult, ParserOptions, compile_program};
+    use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
+    use humanlog::{DebugMode, HumanLogger};
+    use specifications::data::DataIndex;
+    use specifications::package::PackageIndex;
+
+    use super::*;
+
+    /// Runs checks to verify the workflow inlining analysis
+    #[test]
+    fn test_checker_workflow_inline_analysis() {
+        // Setup logger if told
+        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
+            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
+                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
+            }
+        }
+
+        // Defines a few test files with expected inlinable functions
+        // NOTE: Sorry Clippy, it may be a complex type but at least you can see what's expected
+        // from every line. Not gonna go through the hassle of splitting this up for just a quick
+        // inline one.
+        #[allow(clippy::type_complexity)]
+        let tests: [(&str, &str, HashMap<usize, Option<HashSet<usize>>>); 5] = [
+            ("case1", r#"println("Hello, world!");"#, HashMap::from([(1, None)])),
+            (
+                "case2",
+                r#"func hello_world() { return "Hello, world!"; } println(hello_world());"#,
+                HashMap::from([(1, None), (4, Some(HashSet::new()))]),
+            ),
+            (
+                "case3",
+                r#"func foo() { return "Foo"; } func foobar() { return foo() + "Bar"; } println(foobar());"#,
+                HashMap::from([(1, None), (4, Some(HashSet::new())), (5, Some(HashSet::from([4])))]),
+            ),
+            ("case4", r#"import hello_world; println(hello_world());"#, HashMap::from([(1, None)])),
+            (
+                "case5",
+                r#"func hello_world(n) { if (n <= 0) { return "Hello, world!"; } else { return "Hello, " + hello_world(n - 1) + "\n"; } } println(hello_world(3));"#,
+                HashMap::from([(1, None), (4, None)]),
+            ),
+        ];
+
+        // Load example package- and data indices
+        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
+        let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
+        let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
+
+        // Test them each
+        for (id, test, gold) in tests.into_iter() {
+            // Compile to BraneScript (we'll assume this works)
+            let wir: Workflow = match compile_program(test.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
+                CompileResult::Workflow(wir, _) => wir,
+                CompileResult::Err(errs) => {
+                    for err in errs {
+                        err.prettyprint(format!("<{id}>"), test);
+                    }
+                    panic!("Failed to compile BraneScript (see error above)");
+                },
+                CompileResult::Eof(err) => {
+                    err.prettyprint(format!("<{id}>"), test);
+                    panic!("Failed to compile BraneScript (see error above)");
+                },
+
+                _ => {
+                    unreachable!();
+                },
+            };
+            // Emit the compiled workflow
+            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("Test '{id}'");
+            println!();
+            ast::do_traversal(&wir, std::io::stdout()).unwrap();
+            println!();
+
+            // Analyse function calls (we'll assume this works too)
+            let calls: HashMap<ProgramCounter, usize> = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::start(), None, None).unwrap().0;
+            println!(
+                "Resolved functions calls: {:?}",
+                calls.iter().map(|(pc, func_id)| (format!("{}", pc.resolved(&wir.table)), *func_id)).collect::<HashMap<String, usize>>()
+            );
+
+            // Analyse the inlinable funcs
+            let mut pred: HashMap<usize, Option<HashSet<usize>>> = HashMap::with_capacity(calls.len());
+            find_inlinable_funcs(&wir, &calls, &mut vec![], ProgramCounter::start(), None, &mut pred);
+            println!("Inlinable functions: {pred:?}");
+            println!();
+
+            // Neat, done, assert it was right
+            assert_eq!(pred, gold);
+        }
+    }
+
+    /// Runs the workflow inlining on the test files only
+    #[test]
+    fn test_checker_workflow_simplify() {
+        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
+
+        // Setup logger if told
+        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
+            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
+                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
+            }
+        }
+        // Scope the function
+        let test_file: Option<String> = std::env::var("TEST_FILE").ok();
+
+        // Run the compiler for every applicable DSL file
+        test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
+            // Skip if not the file we're looking for
+            if let Some(test_file) = &test_file {
+                if path.file_name().is_none() || path.file_name().unwrap().to_string_lossy() != test_file.as_str() {
+                    return;
+                }
+            }
+
+            // Start by the name to always know which file this is
+            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("File '{}' gave us:", path.display());
+
+            // Skip some files, sadly
+            if let Some(name) = path.file_name() {
+                if name == OsStr::new("class.bs") {
+                    println!("Skipping test, since instance calling is not supported in checker workflows...");
+                    println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+                    return;
+                }
+            }
+
+            // Load the package index
+            let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
+            let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
+
+            // Compile the raw source to WIR
+            let wir: Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
+                CompileResult::Workflow(wir, warns) => {
+                    // Print warnings if any
+                    for w in warns {
+                        w.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    wir
+                },
+                CompileResult::Eof(err) => {
+                    // Print the error
+                    err.prettyprint(path.to_string_lossy(), &code);
+                    panic!("Failed to compile to WIR (see output above)");
+                },
+                CompileResult::Err(errs) => {
+                    // Print the errors
+                    for e in errs {
+                        e.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    panic!("Failed to compile to WIR (see output above)");
+                },
+
+                _ => {
+                    unreachable!();
+                },
+            };
+
+            // Alright preprocess it
+            let wir: Workflow = match simplify(wir) {
+                Ok((wir, _)) => wir,
+                Err(err) => {
+                    panic!("Failed to preprocess WIR: {err}");
+                },
+            };
+
+            // Now print the file for prettyness
+            ast::do_traversal(&wir, std::io::stdout()).unwrap();
+            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+        });
+    }
 }
