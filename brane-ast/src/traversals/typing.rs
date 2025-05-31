@@ -374,8 +374,11 @@ fn pass_stmt(
             }
 
             // With a return statement in mind, we will now resolve if the type matches the merge strategy
-            let strat: (MergeStrategy, TextRange) =
-                if let Some(merge) = merge { (MergeStrategy::from(&merge.value), merge.range.clone()) } else { (MergeStrategy::None, range.clone()) };
+            let strat: (MergeStrategy, TextRange) = if let Some(merge) = merge {
+                (MergeStrategy::from(merge.value.as_ref()), merge.range.clone())
+            } else {
+                (MergeStrategy::None, range.clone())
+            };
             // Match on the result type
             if let Some(ret) = &ret_type {
                 // Match on the strategy to verify the types
