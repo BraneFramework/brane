@@ -446,26 +446,36 @@ fn prompt_user_version(
         let version: &Metadata = versions.get(id).unwrap();
 
         // See if it's selected to print either bold or not
-        let mut line: String = if active_version == Some(version.version) { style("Version ").bold().to_string() } else { "Version ".into() };
-        line.push_str(&style(version.version).bold().green().to_string());
-        if active_version == Some(version.version) {
-            line.push_str(
-                &style(format!(
-                    " (created at {}, by {} ({}))",
-                    version.created.format("%H:%M:%S %d-%m-%Y"),
-                    version.creator.name,
-                    version.creator.id
+        let line: String = if active_version == Some(version.version) {
+            format!(
+                "{}",
+                style(format_args!(
+                    "Version {version} {metadata}",
+                    version = style(version.version).green().bold(),
+                    metadata = format_args!(
+                        "(created at {}, by {} ({}))",
+                        version.created.format("%H:%M:%S %d-%m-%Y"),
+                        version.creator.name,
+                        version.creator.id
+                    )
                 ))
-                .to_string(),
-            );
+                .bold()
+            )
         } else {
-            line.push_str(&format!(
-                " (created at {}, by {} ({}))",
-                version.created.format("%H:%M:%S %d-%m-%Y"),
-                version.creator.name,
-                version.creator.id
-            ));
-        }
+            format!(
+                "{}",
+                style(format_args!(
+                    "Version {version} {metadata}",
+                    version = style(version.version).green().bold(),
+                    metadata = format_args!(
+                        "(created at {}, by {} ({}))",
+                        version.created.format("%H:%M:%S %d-%m-%Y"),
+                        version.creator.name,
+                        version.creator.id
+                    )
+                ))
+            )
+        };
 
         // Add the rendered line to the list
         sversions.push(line);
