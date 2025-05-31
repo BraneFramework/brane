@@ -554,15 +554,6 @@ async fn assert_task_permission(
     debug!("Constructing checker request...");
     let body: CheckTaskRequest = CheckTaskRequest { usecase: use_case.into(), workflow: workflow.clone(), task: call };
 
-    // // Next, generate a JWT to inject in the request
-    // let jwt: String = specifications::policy::generate_policy_token(
-    //     if let Some(user) = &*workflow.user { user.as_str() } else { "UNKNOWN" },
-    //     &worker_cfg.name,
-    //     Duration::from_secs(60),
-    //     &worker_cfg.paths.policy_delib_secret,
-    // )
-    // .map_err(|source| AuthorizeError::TokenGenerate { secret: worker_cfg.paths.policy_delib_secret.clone(), source })?;
-
     // Prepare the request to send
     let client: reqwest::Client = reqwest::Client::builder().build().map_err(|source| AuthorizeError::ClientBuild { source })?;
     let addr: String = format!("http://{}:{}{}", worker_cfg.services.chk.host, worker_cfg.services.chk.delib, CHECK_TASK_PATH.path);
