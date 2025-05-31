@@ -12,7 +12,6 @@
 //!   Implements the webserver for the deliberation API.
 //
 
-use std::future::Future;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
@@ -48,8 +47,7 @@ use specifications::checking::deliberation::{
 use thiserror::Error;
 use tokio::net::{TcpListener, TcpStream};
 use tower_service::Service as _;
-use tracing::field::Empty;
-use tracing::{Instrument as _, Level, debug, error, info, span};
+use tracing::{Span, debug, error, info, instrument};
 
 use crate::stateresolver::{Input, QuestionInput};
 use crate::workflow::compile::pc_to_id;
@@ -142,6 +140,34 @@ async fn download_request<T: DeserializeOwned>(request: Request) -> Result<T, (S
 
 
 /***** LIBRARY *****/
+pub struct Reference(pub Arc<str>);
+
+impl Reference {
+    /// Creates a reference from its inner type, you probably want to use [`Self::create()`]
+    /// instead
+    pub fn new(reference: impl Into<Arc<str>>) -> Self { Self(reference.into()) }
+
+    /// Create a reference using a auth_id
+    pub fn create(auth_id: &str) -> Self {
+        const RANDOM_LEN: usize = 8;
+        const SEPARATOR_LEN: usize = 1;
+
+        let capacity = auth_id.len() + SEPARATOR_LEN + RANDOM_LEN;
+        let mut reference = String::with_capacity(capacity);
+
+        reference.push_str(auth_id);
+        reference.push('-');
+        reference.extend(rand::rng().sample_iter(Alphanumeric).take(RANDOM_LEN).map(char::from));
+
+        debug_assert_eq!(reference.len(), capacity, "Unexpected string length");
+
+        Self::new(reference.into_boxed_str())
+    }
+
+    pub fn as_str(&self) -> &str { &self.0 }
+}
+
+
 /// Defines a Brane-compliant deliberation API server.
 pub struct Deliberation<S, P, L> {
     /// The address on which to bind the server.
@@ -251,9 +277,8 @@ where
     /// This will read the `Authorization` header in the incoming request for a token that
     /// identifies the user. The request will be interrupted if the token is missing, invalid or
     /// not (properly) signed.
+    #[instrument(level="info", skip_all, fields(client = %client))]
     async fn authorize(State(context): State<Arc<Self>>, ConnectInfo(client): ConnectInfo<SocketAddr>, mut request: Request, next: Next) -> Response {
-        let _span = span!(Level::INFO, "Deliberation::authorize", client = client.to_string());
-
         // Do the auth thingy
         let user: User = match context.auth.authorize(request.headers()).await {
             Ok(Ok(user)) => user,
@@ -290,29 +315,23 @@ where
     /// - 400 BAD REQUEST with the reason why we failed to parse the request;
     /// - 404 NOT FOUND if the given use-case was unknown; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
-    fn check_workflow(
-        State(this): State<Arc<Self>>,
-        Extension(auth): Extension<User>,
-        request: Request,
-    ) -> impl Send + Future<Output = (StatusCode, String)> {
-        let reference: Arc<String> =
-            Arc::new(format!("{}-{}", auth.id, rand::rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
-        let span_ref: Arc<String> = reference.clone();
-        async move {
-            // Get the request
-            let req: CheckWorkflowRequest = match download_request(request).await {
-                Ok(req) => req,
-                Err(res) => return res,
-            };
+    #[instrument(skip_all, fields(user = auth.id, reference))]
+    async fn check_workflow(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> (StatusCode, String) {
+        let reference = Reference::create(&auth.id);
+        Span::current().record("reference", reference.as_str());
 
-            // Decide the input
-            let input: Input =
-                Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input: QuestionInput::ValidateWorkflow };
+        // Get the request
+        let req: CheckWorkflowRequest = match download_request(request).await {
+            Ok(req) => req,
+            Err(res) => return res,
+        };
 
-            // Continue with the agnostic function for maintainability
-            Self::check(this, reference.as_str(), input).await
-        }
-        .instrument(span!(Level::INFO, "Deliberation::check_workflow", user = auth.id, reference = *span_ref))
+        // Decide the input
+        let input: Input =
+            Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input: QuestionInput::ValidateWorkflow };
+
+        // Continue with the agnostic function for maintainability
+        Self::check(this, reference.as_str(), input).await
     }
 
     /// Handler for `GET /v2/task` (i.e., checking a task in a workflow).
@@ -324,34 +343,28 @@ where
     /// - 200 OK with an [`CheckResponse`] detailling the verdict of the reasoner;
     /// - 404 BAD REQUEST with the reason why we failed to parse the request; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
-    fn check_task(
-        State(this): State<Arc<Self>>,
-        Extension(auth): Extension<User>,
-        request: Request,
-    ) -> impl Send + Future<Output = (StatusCode, String)> {
-        let reference: Arc<String> =
-            Arc::new(format!("{}-{}", auth.id, rand::rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
-        let span_ref: Arc<String> = reference.clone();
-        async move {
-            // Get the request
-            let req: CheckTaskRequest = match download_request(request).await {
-                Ok(req) => req,
-                Err(res) => return res,
-            };
+    #[instrument(skip_all, fields(user = auth.id, reference))]
+    async fn check_task(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> (StatusCode, String) {
+        let reference = Reference::create(&auth.id);
+        Span::current().record("reference", reference.as_str());
 
-            // Decide the input
-            let task_id: String = pc_to_id(&req.workflow, req.task);
-            let input: Input = Input {
-                store:    this.store.clone(),
-                usecase:  req.usecase,
-                workflow: req.workflow,
-                input:    QuestionInput::ExecuteTask { task: task_id },
-            };
+        // Get the request
+        let req: CheckTaskRequest = match download_request(request).await {
+            Ok(req) => req,
+            Err(res) => return res,
+        };
 
-            // Continue with the agnostic function for maintainability
-            Self::check(this, reference.as_str(), input).await
-        }
-        .instrument(span!(Level::INFO, "Deliberation::check_task", user = auth.id, reference = *span_ref))
+        // Decide the input
+        let task_id: String = pc_to_id(&req.workflow, req.task);
+        let input: Input = Input {
+            store:    this.store.clone(),
+            usecase:  req.usecase,
+            workflow: req.workflow,
+            input:    QuestionInput::ExecuteTask { task: task_id },
+        };
+
+        // Continue with the agnostic function for maintainability
+        Self::check(this, reference.as_str(), input).await
     }
 
     /// Handler for `GET /v2/transfer` (i.e., checking a transfer for a task in a workflow).
@@ -363,43 +376,37 @@ where
     /// - 200 OK with an [`CheckResponse`] detailling the verdict of the reasoner;
     /// - 404 BAD REQUEST with the reason why we failed to parse the request; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
-    fn check_transfer(
-        State(this): State<Arc<Self>>,
-        Extension(auth): Extension<User>,
-        request: Request,
-    ) -> impl Send + Future<Output = (StatusCode, String)> {
-        let reference: Arc<String> =
-            Arc::new(format!("{}-{}", auth.id, rand::rng().sample_iter(Alphanumeric).take(8).map(char::from).collect::<String>()));
-        let span_ref: Arc<String> = reference.clone();
-        async move {
-            // Get the request
-            let req: CheckTransferRequest = match download_request(request).await {
-                Ok(req) => req,
-                Err(res) => return res,
-            };
+    #[instrument(skip_all, fields(user = auth.id, reference))]
+    async fn check_transfer(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> (StatusCode, String) {
+        let reference = Reference::create(&auth.id);
+        Span::current().record("reference", reference.as_str());
 
-            // Decide the input
-            let input: Input = if let Some(task) = req.task {
-                let task_id: String = pc_to_id(&req.workflow, task);
-                Input {
-                    store:    this.store.clone(),
-                    usecase:  req.usecase,
-                    workflow: req.workflow,
-                    input:    QuestionInput::TransferInput { task: task_id, input: req.input },
-                }
-            } else {
-                Input {
-                    store:    this.store.clone(),
-                    usecase:  req.usecase,
-                    workflow: req.workflow,
-                    input:    QuestionInput::TransferResult { result: req.input },
-                }
-            };
+        // Get the request
+        let req: CheckTransferRequest = match download_request(request).await {
+            Ok(req) => req,
+            Err(res) => return res,
+        };
 
-            // Continue with the agnostic function for maintainability
-            Self::check(this, reference.as_str(), input).await
-        }
-        .instrument(span!(Level::INFO, "Deliberation::check_transfer", user = auth.id, reference = *span_ref))
+        // Decide the input
+        let input: Input = if let Some(task) = req.task {
+            let task_id: String = pc_to_id(&req.workflow, task);
+            Input {
+                store:    this.store.clone(),
+                usecase:  req.usecase,
+                workflow: req.workflow,
+                input:    QuestionInput::TransferInput { task: task_id, input: req.input },
+            }
+        } else {
+            Input {
+                store:    this.store.clone(),
+                usecase:  req.usecase,
+                workflow: req.workflow,
+                input:    QuestionInput::TransferResult { result: req.input },
+            }
+        };
+
+        // Continue with the agnostic function for maintainability
+        Self::check(this, reference.as_str(), input).await
     }
 }
 
@@ -422,71 +429,71 @@ where
     /// # Errors
     /// This function may error if the server failed to listen of if a fatal server errors comes
     /// along as it serves. However, client-side errors should not trigger errors at this level.
-    pub fn serve(self) -> impl Future<Output = Result<(), Error>> {
+    #[instrument(skip_all)]
+    pub async fn serve(self) -> Result<(), Error> {
         let this: Arc<Self> = Arc::new(self);
-        async move {
-            let span = span!(Level::INFO, "Deliberation::serve", state = "starting", client = Empty);
 
-            // First, define the axum paths
-            debug!("Building axum paths...");
-            let check_workflow: Router = Router::new()
-                .route(CHECK_WORKFLOW_PATH.path, on(CHECK_WORKFLOW_PATH.method.try_into().unwrap(), Self::check_workflow))
-                .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
-                .with_state(this.clone());
-            let check_task: Router = Router::new()
-                .route(CHECK_TASK_PATH.path, on(CHECK_TASK_PATH.method.try_into().unwrap(), Self::check_task))
-                .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
-                .with_state(this.clone());
-            let check_transfer: Router = Router::new()
-                .route(CHECK_TRANSFER_PATH.path, on(CHECK_TRANSFER_PATH.method.try_into().unwrap(), Self::check_transfer))
-                .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
-                .with_state(this.clone());
-            let router: IntoMakeServiceWithConnectInfo<Router, SocketAddr> =
-                Router::new().nest("/", check_workflow).nest("/", check_task).nest("/", check_transfer).into_make_service_with_connect_info();
+        // First, define the axum paths
+        debug!("Building axum paths...");
+        let check_workflow: Router = Router::new()
+            .route(CHECK_WORKFLOW_PATH.path, on(CHECK_WORKFLOW_PATH.method.try_into().unwrap(), Self::check_workflow))
+            .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
+            .with_state(this.clone());
+        let check_task: Router = Router::new()
+            .route(CHECK_TASK_PATH.path, on(CHECK_TASK_PATH.method.try_into().unwrap(), Self::check_task))
+            .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
+            .with_state(this.clone());
+        let check_transfer: Router = Router::new()
+            .route(CHECK_TRANSFER_PATH.path, on(CHECK_TRANSFER_PATH.method.try_into().unwrap(), Self::check_transfer))
+            .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
+            .with_state(this.clone());
+        let router: IntoMakeServiceWithConnectInfo<Router, SocketAddr> =
+            Router::new().nest("/", check_workflow).nest("/", check_task).nest("/", check_transfer).into_make_service_with_connect_info();
 
-            // Bind the TCP Listener
-            debug!("Binding server on '{}'...", this.addr);
-            let listener: TcpListener = match TcpListener::bind(this.addr).await {
-                Ok(listener) => listener,
-                Err(err) => return Err(Error::ListenerBind { addr: this.addr, err }),
+        // Bind the TCP Listener
+        debug!("Binding server on '{}'...", this.addr);
+        let listener: TcpListener = match TcpListener::bind(this.addr).await {
+            Ok(listener) => listener,
+            Err(err) => return Err(Error::ListenerBind { addr: this.addr, err }),
+        };
+
+        // Accept new connections!
+        info!("Initialization OK, awaiting connections...");
+        loop {
+            // Accept a new connection
+            let (socket, remote_addr): (TcpStream, SocketAddr) = match listener.accept().await {
+                Ok(res) => res,
+                Err(err) => {
+                    error!("{}", trace!(("Failed to accept incoming connection"), err));
+                    continue;
+                },
             };
 
-            // Accept new connections!
-            info!("Initialization OK, awaiting connections...");
-            span.record("state", "running");
-            loop {
-                // Accept a new connection
-                let (socket, remote_addr): (TcpStream, SocketAddr) = match listener.accept().await {
-                    Ok(res) => res,
-                    Err(err) => {
-                        error!("{}", trace!(("Failed to accept incoming connection"), err));
-                        continue;
-                    },
-                };
-                span.record("client", remote_addr.to_string());
+            // Move the rest to a separate task
+            let router: IntoMakeServiceWithConnectInfo<_, _> = router.clone();
+            tokio::spawn(async move { Self::handle(remote_addr, socket, router).await });
+        }
+    }
 
-                // Move the rest to a separate task
-                let router: IntoMakeServiceWithConnectInfo<_, _> = router.clone();
-                tokio::spawn(async move {
-                    debug!("Handling incoming connection from '{remote_addr}'");
+    /// Handle a single connection the serve function
+    #[instrument(skip_all, fields(remote_addr = %remote_addr))]
+    async fn handle(remote_addr: SocketAddr, socket: TcpStream, router: IntoMakeServiceWithConnectInfo<Router, SocketAddr>) {
+        debug!("Handling incoming connection from '{remote_addr}'");
 
-                    // Build  the service
-                    let service = hyper::service::service_fn(|request: Request<Incoming>| {
-                        // Sadly, we must `move` again because this service could be called multiple times (at least according to the typesystem)
-                        let mut router = router.clone();
-                        async move {
-                            // SAFETY: We can call `unwrap()` because the call returns an infallible.
-                            router.call(remote_addr).await.unwrap().call(request).await
-                        }
-                    });
-
-                    // Create a service that handles this for us
-                    let socket: TokioIo<_> = TokioIo::new(socket);
-                    if let Err(err) = HyperBuilder::new(TokioExecutor::new()).serve_connection_with_upgrades(socket, service).await {
-                        error!("{}", trace!(("Failed to serve incoming connection"), *err));
-                    }
-                });
+        // Build  the service
+        let service = hyper::service::service_fn(|request: Request<Incoming>| {
+            // Sadly, we must `move` again because this service could be called multiple times (at least according to the typesystem)
+            let mut router = router.clone();
+            async move {
+                // SAFETY: We can call `unwrap()` because the call returns an infallible.
+                router.call(remote_addr).await.unwrap().call(request).await
             }
+        });
+
+        // Create a service that handles this for us
+        let socket: TokioIo<_> = TokioIo::new(socket);
+        if let Err(err) = HyperBuilder::new(TokioExecutor::new()).serve_connection_with_upgrades(socket, service).await {
+            error!("{}", trace!(("Failed to serve incoming connection"), *err));
         }
     }
 }

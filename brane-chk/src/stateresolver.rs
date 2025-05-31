@@ -14,7 +14,6 @@
 
 // use std::collections::{HashMap, HashSet};
 use std::collections::HashMap;
-use std::future::Future;
 // use std::str::FromStr as _;
 use std::sync::{Arc, LazyLock};
 
@@ -35,7 +34,7 @@ use specifications::address::Address;
 // use specifications::package::PackageIndex;
 use specifications::version::Version;
 use thiserror::Error;
-use tracing::{Level, debug, span, warn};
+use tracing::{debug, instrument, warn};
 
 use crate::question::Question;
 use crate::workflow::compile;
@@ -761,61 +760,47 @@ impl StateResolver for BraneStateResolver {
     type Resolved = (String, Question);
     type State = Input;
 
-    fn resolve<'a, L>(
-        &'a self,
-        state: Self::State,
-        logger: &'a SessionedAuditLogger<L>,
-    ) -> impl 'a + Send + Future<Output = Result<Self::Resolved, Self::Error>>
+    #[instrument(level="info", skip_all, fields(reference = %logger.reference(), usecase = state.usecase, workflow = state.workflow.id))]
+    async fn resolve<'a, L>(&'a self, state: Self::State, logger: &'a SessionedAuditLogger<L>) -> Result<Self::Resolved, Self::Error>
     where
         L: Sync + AuditLogger,
     {
-        async move {
-            let _span = span!(
-                Level::INFO,
-                "BraneStateResolver::resolve",
-                reference = logger.reference(),
-                usecase = state.usecase,
-                workflow = state.workflow.id
-            );
+        // First, resolve the policy by calling the store
+        let mut policy: String = String::new();
+        get_active_policy(&self.base_policy_hash, &state.store, &mut policy).await?;
 
 
-            // First, resolve the policy by calling the store
-            let mut policy: String = String::new();
-            get_active_policy(&self.base_policy_hash, &state.store, &mut policy).await?;
+        // Then resolve the workflow and create the appropriate question
+        debug!("Compiling input workflow...");
+        let id: String = state.workflow.id.clone();
+        let wf: Workflow = match compile(state.workflow) {
+            Ok(wf) => wf,
+            Err(err) => return Err(Error::ResolveWorkflow { id, err }),
+        };
 
+        // Verify whether all things in the workflow exist
+        assert_workflow_context(&wf, &state.usecase, &self.usecases).await?;
 
-            // Then resolve the workflow and create the appropriate question
-            debug!("Compiling input workflow...");
-            let id: String = state.workflow.id.clone();
-            let wf: Workflow = match compile(state.workflow) {
-                Ok(wf) => wf,
-                Err(err) => return Err(Error::ResolveWorkflow { id, err }),
-            };
-
-            // Verify whether all things in the workflow exist
-            assert_workflow_context(&wf, &state.usecase, &self.usecases).await?;
-
-            // Now check some question-specific input...
-            match state.input {
-                QuestionInput::ValidateWorkflow => Ok((policy, Question::ValidateWorkflow { workflow: wf })),
-                QuestionInput::ExecuteTask { task } => {
-                    let mut finder = CallFinder::new(&wf.id, &task);
-                    wf.visit(&mut finder)?;
-                    if !finder.found {
-                        return Err(Error::UnknownCall { workflow: wf.id.clone(), call: task });
-                    }
-                    Ok((policy, Question::ExecuteTask { workflow: wf, task }))
-                },
-                QuestionInput::TransferInput { task, input } => {
-                    let mut finder = CallInputFinder::new(&wf.id, &task, &input);
-                    wf.visit(&mut finder)?;
-                    if !finder.found_call {
-                        return Err(Error::UnknownCall { workflow: wf.id.clone(), call: task });
-                    }
-                    Ok((policy, Question::TransferInput { workflow: wf, task, input }))
-                },
-                QuestionInput::TransferResult { result } => Ok((policy, Question::TransferResult { workflow: wf, result })),
-            }
+        // Now check some question-specific input...
+        match state.input {
+            QuestionInput::ValidateWorkflow => Ok((policy, Question::ValidateWorkflow { workflow: wf })),
+            QuestionInput::ExecuteTask { task } => {
+                let mut finder = CallFinder::new(&wf.id, &task);
+                wf.visit(&mut finder)?;
+                if !finder.found {
+                    return Err(Error::UnknownCall { workflow: wf.id.clone(), call: task });
+                }
+                Ok((policy, Question::ExecuteTask { workflow: wf, task }))
+            },
+            QuestionInput::TransferInput { task, input } => {
+                let mut finder = CallInputFinder::new(&wf.id, &task, &input);
+                wf.visit(&mut finder)?;
+                if !finder.found_call {
+                    return Err(Error::UnknownCall { workflow: wf.id.clone(), call: task });
+                }
+                Ok((policy, Question::TransferInput { workflow: wf, task, input }))
+            },
+            QuestionInput::TransferResult { result } => Ok((policy, Question::TransferResult { workflow: wf, result })),
         }
     }
 }
