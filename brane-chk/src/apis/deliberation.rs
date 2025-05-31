@@ -66,16 +66,9 @@ pub const INITIATOR_CLAIM: &str = "username";
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to create the KID resolver")]
-    KidResolver {
-        #[source]
-        err: policy_store::auth::jwk::keyresolver::kid::ServerError,
-    },
+    KidResolver { source: policy_store::auth::jwk::keyresolver::kid::ServerError },
     #[error("Failed to bind server on address '{addr}'")]
-    ListenerBind {
-        addr: SocketAddr,
-        #[source]
-        err:  std::io::Error,
-    },
+    ListenerBind { addr: SocketAddr, source: std::io::Error },
 }
 
 
@@ -207,10 +200,7 @@ impl<S, P, L> Deliberation<S, P, L> {
         logger: L,
     ) -> Result<Self, Error> {
         // Attempt to create the KidResolver
-        let kid = match KidResolver::new(keystore_path) {
-            Ok(res) => res,
-            Err(err) => return Err(Error::KidResolver { err }),
-        };
+        let kid = KidResolver::new(keystore_path).map_err(|source| Error::KidResolver { source })?;
 
         // If that worked, get kicking
         Ok(Self { addr: addr.into(), auth: JwkResolver::new(INITIATOR_CLAIM, kid), store, resolver, reasoner, logger })
@@ -452,10 +442,7 @@ where
 
         // Bind the TCP Listener
         debug!("Binding server on '{}'...", this.addr);
-        let listener: TcpListener = match TcpListener::bind(this.addr).await {
-            Ok(listener) => listener,
-            Err(err) => return Err(Error::ListenerBind { addr: this.addr, err }),
-        };
+        let listener = TcpListener::bind(this.addr).await.map_err(|source| Error::ListenerBind { addr: this.addr, source })?;
 
         // Accept new connections!
         info!("Initialization OK, awaiting connections...");

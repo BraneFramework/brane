@@ -123,10 +123,8 @@ pub async fn handle(file: String, language: Language, user: Option<String>, prof
         ("<stdin>".into(), source)
     } else {
         // Read from a file
-        match fs::read_to_string(&file) {
-            Ok(source) => (file, source),
-            Err(err) => return Err(Error::InputFileRead { path: file.into(), source: err }),
-        }
+        let src = fs::read_to_string(&file).map_err(|source| Error::InputFileRead { path: (&file).into(), source })?;
+        (file, src)
     };
     load.stop();
 

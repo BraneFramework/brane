@@ -30,12 +30,12 @@ use tracing::{Level, debug, error, info};
 /***** ERRORS *****/
 /// Defines errors that fail when parsing input languages.
 #[derive(Debug, Error)]
-#[error("Unknown input language '{}'", self.0)]
+#[error("Unknown input language '{0}'")]
 struct UnknownInputLanguageError(String);
 
 /// Defines errors that fail when parsing output languages.
 #[derive(Debug, Error)]
-#[error("Unknown output language '{}'", self.0)]
+#[error("Unknown output language '{0}'")]
 struct UnknownOutputLanguageError(String);
 
 
