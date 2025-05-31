@@ -35,26 +35,18 @@ use super::utils;
 
 /***** ERRORS *****/
 /// Defines errors that may occur when preprocessing a [`Workflow`].
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Unknown task given.
+    #[error("Encountered unknown task ID {id} in Node")]
     UnknownTask { id: usize },
     /// Unknown function given.
+    #[error("Encountered unknown function ID {id} in Call")]
     UnknownFunc { id: FunctionId },
     /// A [`Call`](Edge::Call)-edge was encountered while we didn't know of a function ID on the stack.
+    #[error("Attempted to call function at {pc} without statically known task ID on the stack")]
     CallingWithoutId { pc: ResolvedProgramCounter },
 }
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use Error::*;
-        match self {
-            UnknownTask { id } => write!(f, "Encountered unknown task ID {id} in Node"),
-            UnknownFunc { id } => write!(f, "Encountered unknown function ID {id} in Call"),
-            CallingWithoutId { pc } => write!(f, "Attempted to call function at {pc} without statically known task ID on the stack"),
-        }
-    }
-}
-impl error::Error for Error {}
 
 
 
