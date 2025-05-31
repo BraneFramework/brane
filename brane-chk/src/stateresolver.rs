@@ -108,7 +108,21 @@ pub enum Error {
         err:  reqwest::Error,
     },
     /// The server responded with a non-200 OK exit code.
-    #[error("Central registry at '{addr}' returned {} ({}) when trying to retrieve {what}{}", status.as_u16(), status.canonical_reason().unwrap_or("???"), if let Some(raw) = raw { format!("\n\nRaw response:\n{}\n{}\n{}\n", (0..80).map(|_| '-').collect::<String>(), raw, (0..80).map(|_| '-').collect::<String>()) } else { String::new() })]
+    #[error(
+        "Central registry at '{addr}' returned {} ({}) when trying to retrieve {what}{}",
+        status.as_u16(),
+        status.canonical_reason().unwrap_or("???"),
+        if let Some(raw) = raw {
+            format!(
+                "\n\nRaw response:\n{}\n{}\n{}\n",
+                (0..80).map(|_| '-').collect::<String>(),
+                raw,
+                (0..80).map(|_| '-').collect::<String>()
+            )
+        } else {
+            String::new()
+        }
+    )]
     RequestFailure { what: &'static str, addr: String, status: StatusCode, raw: Option<String> },
     /// Failed to resolve the data index with the remote Brane API registry.
     #[error("Failed to resolve data with remote Brane registry at {addr:?}")]
