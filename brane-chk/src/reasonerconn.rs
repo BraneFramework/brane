@@ -13,7 +13,6 @@
 //!   includes a particular policy interface.
 //
 
-use std::future::Future;
 use std::path::PathBuf;
 
 use policy_reasoner::reasoners::eflint_haskell::reasons::{PrefixedHandler, ReasonHandler};
@@ -22,7 +21,7 @@ use policy_reasoner::spec::auditlogger::SessionedAuditLogger;
 use policy_reasoner::spec::reasonerconn::ReasonerResponse;
 use policy_reasoner::spec::{AuditLogger, ReasonerConnector};
 use specifications::checking::store::EFlintHaskellReasonerWithInterfaceContext;
-use tracing::{Instrument as _, Level, span};
+use tracing::instrument;
 
 use crate::question::Question;
 
@@ -74,20 +73,18 @@ impl ReasonerConnector for EFlintHaskellReasonerConnectorWithInterface {
 
     fn context(&self) -> Self::Context { self.reasoner.context() }
 
-    fn consult<'a, L>(
+    #[instrument(skip_all, fields(reference = logger.reference()))]
+    async fn consult<'a, L>(
         &'a self,
         mut state: Self::State,
         question: Self::Question,
         logger: &'a SessionedAuditLogger<L>,
-    ) -> impl 'a + Send + Future<Output = Result<ReasonerResponse<Self::Reason>, Self::Error>>
+    ) -> Result<ReasonerResponse<Self::Reason>, Self::Error>
     where
         L: Sync + AuditLogger,
     {
-        async move {
-            // Then run the normal one
-            state.push('\n');
-            self.reasoner.consult(state, question, logger).await
-        }
-        .instrument(span!(Level::INFO, "EFlintJsonReasonerConnectorWithInterface::consult", reference = logger.reference()))
+        // Then run the normal one
+        state.push('\n');
+        self.reasoner.consult(state, question, logger).await
     }
 }
