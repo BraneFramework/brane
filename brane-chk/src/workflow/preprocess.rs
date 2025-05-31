@@ -14,8 +14,6 @@
 //
 
 use std::collections::{HashMap, HashSet};
-use std::error;
-use std::fmt::{Display, Formatter, Result as FResult};
 use std::panic::catch_unwind;
 use std::sync::Arc;
 
@@ -35,26 +33,18 @@ use super::utils;
 
 /***** ERRORS *****/
 /// Defines errors that may occur when preprocessing a [`Workflow`].
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Unknown task given.
+    #[error("Encountered unknown task ID {id} in Node")]
     UnknownTask { id: usize },
     /// Unknown function given.
+    #[error("Encountered unknown function ID {id} in Call")]
     UnknownFunc { id: FunctionId },
     /// A [`Call`](Edge::Call)-edge was encountered while we didn't know of a function ID on the stack.
+    #[error("Attempted to call function at {pc} without statically known task ID on the stack")]
     CallingWithoutId { pc: ResolvedProgramCounter },
 }
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use Error::*;
-        match self {
-            UnknownTask { id } => write!(f, "Encountered unknown task ID {id} in Node"),
-            UnknownFunc { id } => write!(f, "Encountered unknown function ID {id} in Call"),
-            CallingWithoutId { pc } => write!(f, "Attempted to call function at {pc} without statically known task ID on the stack"),
-        }
-    }
-}
-impl error::Error for Error {}
 
 
 
@@ -161,9 +151,8 @@ fn resolve_calls(
     }
 
     // Get the edge in the workflow
-    let edge: &Edge = match utils::get_edge(wir, pc) {
-        Some(edge) => edge,
-        None => return Ok((HashMap::new(), None)),
+    let Some(edge) = utils::get_edge(wir, pc) else {
+        return Ok((HashMap::new(), None));
     };
 
     // Match to recursively process it
@@ -171,10 +160,7 @@ fn resolve_calls(
     match edge {
         Edge::Node { task, next, .. } => {
             // Attempt to discover the return type of the Node.
-            let def: &TaskDef = match table.tasks.get(*task) {
-                Some(def) => def,
-                None => return Err(Error::UnknownTask { id: *task }),
-            };
+            let def: &TaskDef = table.tasks.get(*task).ok_or(Error::UnknownTask { id: *task })?;
 
             // Alright, recurse with the next instruction
             resolve_calls(wir, table, trace, pc.jump(*next), if def.func().ret.is_void() { stack_id } else { None }, breakpoint)
@@ -249,12 +235,7 @@ fn resolve_calls(
 
         Edge::Call { input: _, result: _, next } => {
             // Alright time to jump functions based on the current top-of-the-stack
-            let stack_id: usize = match stack_id {
-                Some(id) => id,
-                None => {
-                    return Err(Error::CallingWithoutId { pc: pc.resolved(table) });
-                },
-            };
+            let stack_id: usize = stack_id.ok_or_else(|| Error::CallingWithoutId { pc: pc.resolved(table) })?;
 
             // We can early quit upon recursion
             if trace.contains(&pc) {
@@ -286,10 +267,7 @@ fn resolve_calls(
             }
 
             // To see whether we pass a function ID, consult the function definition
-            let def: &FunctionDef = match catch_unwind(|| table.func(pc.func_id)) {
-                Ok(def) => def,
-                Err(_) => return Err(Error::UnknownFunc { id: pc.func_id }),
-            };
+            let def: &FunctionDef = catch_unwind(|| table.func(pc.func_id)).map_err(|_source| Error::UnknownFunc { id: pc.func_id })?;
 
             // Only return the current one if the function returns void
             if def.ret.is_void() { Ok((HashMap::new(), stack_id)) } else { Ok((HashMap::new(), None)) }
@@ -396,17 +374,11 @@ fn find_inlinable_funcs(
                 // OK, the exciting point!
 
                 // Resolve the function ID we're calling
-                let func_id: usize = match calls.get(&pc) {
-                    Some(id) => *id,
-                    None => {
-                        panic!("Encountered unresolved call after running call analysis");
-                    },
+                let func_id: usize = *calls.get(&pc).expect("Encountered unresolved call after running call analysis");
+                let Some(def) = wir.table.funcs.get(func_id) else {
+                    panic!("Failed to get definition of function {func_id} after call analysis");
                 };
-                let def: &FunctionDef = match wir.table.funcs.get(func_id) {
-                    Some(def) => def,
-                    None => panic!("Failed to get definition of function {func_id} after call analysis"),
-                };
-                // let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, pc.jump(*next), None, inlinable);
+
                 dependencies.insert(func_id);
 
                 // Functions are not inlinable if builtins; if so, return
@@ -426,6 +398,7 @@ fn find_inlinable_funcs(
                     pc.jump_mut(*next);
                     continue;
                 }
+
                 if inlinable.contains_key(&func_id) {
                     // We've already seen this one! However, _don't_ change our mind about its inlinability because it means a repeated function call
                     // NOTE: No need to go into the call body, as we've done this the first time we saw it
@@ -433,6 +406,7 @@ fn find_inlinable_funcs(
                     pc.jump_mut(*next);
                     continue;
                 }
+
                 trace!("Function {} ('{}') is assumed as inlinable until we see it recursive", func_id, def.name);
 
                 // For now assume that the function exist with no deps; we inject these later
@@ -466,18 +440,15 @@ fn find_inlinable_funcs(
 /// - `inlinable`: The map of inlinable functions to their dependencies.
 fn order_inlinable<'i>(ordered: &mut Vec<usize>, inlinable: &HashMap<usize, Option<HashSet<usize>>>, mut next: impl Iterator<Item = &'i usize>) {
     // Get a function to inline
-    let func_id: usize = match next.next() {
-        Some(id) => *id,
-        None => return,
+    let Some(&func_id) = next.next() else {
+        return;
     };
-    let deps: &HashSet<usize> = match inlinable.get(&func_id).unwrap() {
-        Some(deps) => deps,
-        None => {
-            // No need to inline this one, so just continue
-            trace!("order_inlinable(): Not considering function {func_id} because it is not inlinable (deps is None)");
-            order_inlinable(ordered, inlinable, next);
-            return;
-        },
+
+    let Some(deps) = inlinable.get(&func_id).unwrap() else {
+        // No need to inline this one, so just continue
+        trace!("order_inlinable(): Not considering function {func_id} because it is not inlinable (deps is None)");
+        order_inlinable(ordered, inlinable, next);
+        return;
     };
 
     // Examine the dependencies
@@ -544,9 +515,8 @@ fn prep_func_body(
         }
     }
     // Attempt to get the edge
-    let edge: &mut Edge = match edges.get_mut(pc) {
-        Some(edge) => edge,
-        None => return,
+    let Some(edge) = edges.get_mut(pc) else {
+        return;
     };
 
     // Match on its kind
@@ -685,9 +655,8 @@ fn inline_funcs_in_body(
     }
     // Attempt to get the edge
     let body_len: usize = body.len();
-    let edge: &mut Edge = match body.get_mut(pc) {
-        Some(edge) => edge,
-        None => return,
+    let Some(edge) = body.get_mut(pc) else {
+        return;
     };
 
     // Match on its kind
@@ -748,12 +717,7 @@ fn inline_funcs_in_body(
             let next: usize = *next;
 
             // Resolve the function ID we're calling
-            let call_id: usize = match calls.get(&ProgramCounter::new(func_id, pc)) {
-                Some(id) => *id,
-                None => {
-                    panic!("Encountered unresolved call after running inline analysis");
-                },
-            };
+            let call_id: usize = *calls.get(&ProgramCounter::new(func_id, pc)).expect("Encountered unresolved call after running inline analysis");
 
             // Assert this is an inlinable function (and not external)
             if inlinable.get(&call_id).map(|deps| deps.is_none()).unwrap_or(true) {
@@ -1098,8 +1062,8 @@ mod tests {
             // Alright preprocess it
             let wir: Workflow = match simplify(wir) {
                 Ok((wir, _)) => wir,
-                Err(err) => {
-                    panic!("Failed to preprocess WIR: {err}");
+                Err(source) => {
+                    panic!("Failed to preprocess WIR: {source}");
                 },
             };
 

@@ -23,7 +23,7 @@ use policy_reasoner::workflow::{Elem, ElemCall, Workflow};
 use policy_store::databases::sqlite::{SQLiteConnection, SQLiteDatabase};
 use policy_store::spec::authresolver::HttpError;
 use policy_store::spec::databaseconn::{DatabaseConnection as _, DatabaseConnector as _};
-use policy_store::spec::metadata::{Metadata, User};
+use policy_store::spec::metadata::User;
 use reqwest::StatusCode;
 use specifications::address::Address;
 use specifications::version::Version;
@@ -33,6 +33,9 @@ use tracing::{debug, instrument, warn};
 use crate::question::Question;
 use crate::workflow::compile;
 
+
+/***** CONSTANTS *****/
+const BLOCK_SEPARATOR: &str = "--------------------------------------------------------------------------------";
 
 /***** STATICS *****/
 /// The user used to represent ourselves in the backend.
@@ -53,30 +56,16 @@ pub enum Error {
     DatabaseActiveVersionMismatch { version: u64, got: String, expected: String },
     /// Failed to connect to the backend database.
     #[error("Failed to connect to the backend database as user 'brane'")]
-    DatabaseConnect {
-        #[source]
-        err: policy_store::databases::sqlite::DatabaseError,
-    },
+    DatabaseConnect { source: policy_store::databases::sqlite::DatabaseError },
     /// Failed to get the active version from the backend database.
     #[error("Failed to get the active version from the backend database")]
-    DatabaseGetActiveVersion {
-        #[source]
-        err: policy_store::databases::sqlite::ConnectionError,
-    },
+    DatabaseGetActiveVersion { source: policy_store::databases::sqlite::ConnectionError },
     /// Failed to get the active version from the backend database.
     #[error("Failed to get the contents of active version {version} from the backend database")]
-    DatabaseGetActiveVersionContent {
-        version: u64,
-        #[source]
-        err:     policy_store::databases::sqlite::ConnectionError,
-    },
+    DatabaseGetActiveVersionContent { version: u64, source: policy_store::databases::sqlite::ConnectionError },
     /// Failed to get the metadata of the active version from the backend database.
     #[error("Failed to get the metadata of active version {version} from the backend database")]
-    DatabaseGetActiveVersionMetadata {
-        version: u64,
-        #[source]
-        err:     policy_store::databases::sqlite::ConnectionError,
-    },
+    DatabaseGetActiveVersionMetadata { version: u64, source: policy_store::databases::sqlite::ConnectionError },
     /// The active version reported was not found.
     #[error("Inconsistent database version: version {version} was reported as the active version, but that version is not found")]
     DatabaseInconsistentActive { version: u64 },
@@ -88,72 +77,33 @@ pub enum Error {
     DuplicateInputId { workflow: String, call: String, input: String },
     /// Found an illegal version string in a task string.
     #[error("Illegal version identifier {version:?} in task {task:?} in call {call:?} in workflow {workflow:?}")]
-    IllegalVersionFormat {
-        workflow: String,
-        call:     String,
-        task:     String,
-        version:  String,
-        #[source]
-        err:      specifications::version::ParseError,
-    },
+    IllegalVersionFormat { workflow: String, call: String, task: String, version: String, source: specifications::version::ParseError },
     /// Failed to get the package index from the remote registry.
     #[error("Failed to get package index from the central registry at {addr:?}")]
-    PackageIndex { addr: String, err: brane_tsk::api::Error },
+    PackageIndex { addr: String, source: brane_tsk::api::Error },
     /// Failed to send a request to the central registry.
     #[error("Failed to send a request to the central registry at {addr:?} to retrieve {what}")]
-    Request {
-        what: &'static str,
-        addr: String,
-        #[source]
-        err:  reqwest::Error,
-    },
+    Request { what: &'static str, addr: String, source: reqwest::Error },
     /// The server responded with a non-200 OK exit code.
     #[error(
         "Central registry at '{addr}' returned {} ({}) when trying to retrieve {what}{}",
         status.as_u16(),
         status.canonical_reason().unwrap_or("???"),
-        if let Some(raw) = raw {
-            format!(
-                "\n\nRaw response:\n{}\n{}\n{}\n",
-                (0..80).map(|_| '-').collect::<String>(),
-                raw,
-                (0..80).map(|_| '-').collect::<String>()
-            )
-        } else {
-            String::new()
-        }
+        raw.as_ref().map(|raw| format!("\n\nRaw response:\n{BLOCK_SEPARATOR}\n{raw}\n{BLOCK_SEPARATOR}\n")).unwrap_or_default()
     )]
     RequestFailure { what: &'static str, addr: String, status: StatusCode, raw: Option<String> },
     /// Failed to resolve the data index with the remote Brane API registry.
     #[error("Failed to resolve data with remote Brane registry at {addr:?}")]
-    ResolveData {
-        addr: Address,
-        #[source]
-        err:  brane_tsk::api::Error,
-    },
+    ResolveData { addr: Address, source: brane_tsk::api::Error },
     /// Failed to resolve the workflow submitted with the request.
     #[error("Failed to resolve workflow '{id}'")]
-    ResolveWorkflow {
-        id:  String,
-        #[source]
-        err: crate::workflow::compile::Error,
-    },
+    ResolveWorkflow { id: String, source: crate::workflow::compile::Error },
     /// Failed to deserialize the response of the server.
     #[error("Failed to deserialize responses of central registry at {addr:?} as {what}")]
-    ResponseDeserialize {
-        what: &'static str,
-        addr: String,
-        #[source]
-        err:  serde_json::Error,
-    },
+    ResponseDeserialize { what: &'static str, addr: String, source: serde_json::Error },
     /// Failed to download the response of the server.
     #[error("Failed to download a {what} response from the central registry at {addr:?}")]
-    ResponseDownload {
-        what: &'static str,
-        addr: String,
-        #[source]
-        err:  reqwest::Error,
-    },
+    ResponseDownload { what: &'static str, addr: String, source: reqwest::Error },
     /// A given call ID was not found.
     #[error("No call {call:?} exists in workflow {workflow:?}")]
     UnknownCall { workflow: String, call: String },
@@ -317,28 +267,19 @@ async fn assert_workflow_context(_wf: &Workflow, usecase: &str, usecases: &HashM
 async fn get_active_policy(base_policy_hash: &str, db: &SQLiteDatabase<String>, res: &mut String) -> Result<(), Error> {
     // Time to fetch a connection
     debug!("Connecting to backend database...");
-    let mut conn: SQLiteConnection<String> = match db.connect(&DATABASE_USER).await {
-        Ok(conn) => conn,
-        Err(err) => return Err(Error::DatabaseConnect { err }),
-    };
+    let mut conn: SQLiteConnection<String> = db.connect(&DATABASE_USER).await.map_err(|source| Error::DatabaseConnect { source })?;
 
     // Get the active policy
     debug!("Retrieving active policy...");
-    let version: u64 = match conn.get_active_version().await {
-        Ok(Some(pol)) => pol,
-        Ok(None) => {
-            warn!("No active policy set in database; assuming builtin VIOLATION policy");
-            *res = DENY_ALL_POLICY.into();
-            return Ok(());
-        },
-        Err(err) => return Err(Error::DatabaseGetActiveVersion { err }),
+    let Some(version) = conn.get_active_version().await.map_err(|source| Error::DatabaseGetActiveVersion { source })? else {
+        warn!("No active policy set in database; assuming builtin VIOLATION policy");
+        *res = DENY_ALL_POLICY.into();
+        return Ok(());
     };
 
     debug!("Fetching active policy {version} metadata...");
-    let md: Metadata = match conn.get_version_metadata(version).await {
-        Ok(Some(md)) => md,
-        Ok(None) => return Err(Error::DatabaseInconsistentActive { version }),
-        Err(err) => return Err(Error::DatabaseGetActiveVersionMetadata { version, err }),
+    let Some(md) = conn.get_version_metadata(version).await.map_err(|source| Error::DatabaseGetActiveVersionMetadata { version, source })? else {
+        return Err(Error::DatabaseInconsistentActive { version });
     };
     if md.attached.language.len() < 15
         || &md.attached.language.as_bytes()[..15] != b"eflint-haskell-"
@@ -352,13 +293,12 @@ async fn get_active_policy(base_policy_hash: &str, db: &SQLiteDatabase<String>, 
     }
 
     debug!("Fetching active policy {version}...");
-    match conn.get_version_content(version).await {
-        Ok(Some(version)) => {
+    match conn.get_version_content(version).await.map_err(|source| Error::DatabaseGetActiveVersionContent { version, source })? {
+        Some(version) => {
             res.push_str(&version);
             Ok(())
         },
-        Ok(None) => Err(Error::DatabaseInconsistentActive { version }),
-        Err(err) => Err(Error::DatabaseGetActiveVersionContent { version, err }),
+        None => Err(Error::DatabaseInconsistentActive { version }),
     }
 }
 
@@ -545,10 +485,7 @@ impl StateResolver for BraneStateResolver {
         // Then resolve the workflow and create the appropriate question
         debug!("Compiling input workflow...");
         let id: String = state.workflow.id.clone();
-        let wf: Workflow = match compile(state.workflow) {
-            Ok(wf) => wf,
-            Err(err) => return Err(Error::ResolveWorkflow { id, err }),
-        };
+        let wf: Workflow = compile(state.workflow).map_err(|source| Error::ResolveWorkflow { id, source })?;
 
         // Verify whether all things in the workflow exist
         assert_workflow_context(&wf, &state.usecase, &self.usecases).await?;

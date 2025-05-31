@@ -35,16 +35,9 @@ use tracing::{debug, error, instrument};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to create the KID resolver")]
-    KidResolver {
-        #[source]
-        err: policy_store::auth::jwk::keyresolver::kid::ServerError,
-    },
+    KidResolver { source: policy_store::auth::jwk::keyresolver::kid::ServerError },
     #[error("Failed to bind server on address '{addr}'")]
-    ListenerBind {
-        addr: SocketAddr,
-        #[source]
-        err:  std::io::Error,
-    },
+    ListenerBind { addr: SocketAddr, source: std::io::Error },
 }
 
 
