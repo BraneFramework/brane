@@ -48,10 +48,7 @@ pub enum Error {
     MissingUser,
     /// Failed to preprocess the given workflow.
     #[error("Failed to preprocess input WIR workflow")]
-    Preprocess {
-        #[source]
-        err: super::preprocess::Error,
-    },
+    Preprocess { source: super::preprocess::Error },
     /// Function ID was out-of-bounds.
     #[error("Program counter {} is out-of-bounds (function {} has {} edges)",
                 pc,
@@ -309,10 +306,8 @@ fn reconstruct_graph(
             }
 
             // Let us checkout that the merge point is a join
-            let merge_edge: &ast::Edge = match utils::get_edge(wir, pc.jump(*merge)) {
-                Some(edge) => edge,
-                None => return Err(Error::ParallelMergeOutOfBounds { pc: pc.resolved(&wir.table), merge: pc.jump(*merge).resolved(&wir.table) }),
-            };
+            let merge_edge: &ast::Edge = utils::get_edge(wir, pc.jump(*merge))
+                .ok_or_else(|| Error::ParallelMergeOutOfBounds { pc: pc.resolved(&wir.table), merge: pc.jump(*merge).resolved(&wir.table) })?;
             let next: usize = if let ast::Edge::Join { merge: _, next } = merge_edge {
                 *next
             } else {
@@ -470,10 +465,7 @@ pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
     // First, analyse the calls in the workflow as much as possible (and simplify)
     let wf_id: String = value.id.clone();
     let wf_user: Option<String> = Option::clone(&value.user);
-    let (wir, calls): (ast::Workflow, HashMap<ProgramCounter, usize>) = match preprocess::simplify(value) {
-        Ok(res) => res,
-        Err(err) => return Err(Error::Preprocess { err }),
-    };
+    let (wir, calls) = preprocess::simplify(value).map_err(|source| Error::Preprocess { source })?;
     if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
         // Write the processed graph
         let mut buf: Vec<u8> = vec![];
