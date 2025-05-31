@@ -450,22 +450,11 @@ fn prompt_user_version(
         let mut line: String = if active_version == Some(version.version) { style("Version ").bold().to_string() } else { "Version ".into() };
         line.push_str(&style(version.version).bold().green().to_string());
         if active_version == Some(version.version) {
-            line.push_str(
-                &style(format!(
-                    " (created at {}, by {} ({}))",
-                    version.created.format("%H:%M:%S %d-%m-%Y"),
-                    version.creator.name,
-                    version.creator.id
-                ))
-                .to_string(),
-            );
+            write!(line, " (created at {}, by {} ({}))", version.created.format("%H:%M:%S %d-%m-%Y"), version.creator.name, version.creator.id)
+                .expect("Write! should never fail on Strings");
         } else {
-            line.push_str(&format!(
-                " (created at {}, by {} ({}))",
-                version.created.format("%H:%M:%S %d-%m-%Y"),
-                version.creator.name,
-                version.creator.id
-            ));
+            write!(line, " (created at {}, by {} ({}))", version.created.format("%H:%M:%S %d-%m-%Y"), version.creator.name, version.creator.id)
+                .expect("Write! should never fail on Strings");
         }
 
         // Add the rendered line to the list
