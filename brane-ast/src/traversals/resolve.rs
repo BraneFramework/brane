@@ -426,7 +426,7 @@ fn pass_stmt(
         Parallel { result, blocks, merge, st_entry, attrs: _, range } => {
             // First, very silly, but double-check the merge is parseable
             if let Some(merge) = merge {
-                if let MergeStrategy::None = MergeStrategy::from(&merge.value) {
+                if let MergeStrategy::None = MergeStrategy::from(merge.value.as_ref()) {
                     errors.push(Error::UnknownMergeStrategy { raw: merge.value.clone(), range: merge.range.clone() });
                 }
             }

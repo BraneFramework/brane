@@ -410,7 +410,7 @@ fn pass_stmt(stmt: dsl::Stmt, edges: &mut EdgeBuffer, f_edges: &mut HashMap<usiz
             }
 
             // Add that as a parallel statement
-            edges.write_parallel(branches, merge.map(|m| MergeStrategy::from(m.value)).unwrap_or(MergeStrategy::None));
+            edges.write_parallel(branches, merge.map(|m| MergeStrategy::from(m.value.as_ref())).unwrap_or(MergeStrategy::None));
 
             // If required, add a variable set afterwards
             if let Some(st_entry) = st_entry {
