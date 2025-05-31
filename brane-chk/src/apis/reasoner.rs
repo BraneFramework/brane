@@ -13,7 +13,6 @@
 //!   information that is beyond the store API.
 //
 
-use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -28,7 +27,7 @@ use policy_store::spec::AuthResolver;
 use policy_store::spec::metadata::User;
 use specifications::checking::store::{EFlintHaskellReasonerWithInterfaceContext, GetContextResponse};
 use thiserror::Error;
-use tracing::{Instrument as _, Level, debug, error, span};
+use tracing::{debug, error, instrument};
 
 
 /***** ERRORS *****/
@@ -58,25 +57,23 @@ pub enum Error {
 /// Out:
 /// - 200 OK with a [`GetContextResponse`] detailling the relevant reasoner information; or
 /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
-pub fn get_context<R>(State(this): State<Arc<R>>, Extension(auth): Extension<User>) -> impl Send + Future<Output = (StatusCode, String)>
+#[instrument(skip_all, fields(user = auth.id))]
+pub async fn get_context<R>(State(this): State<Arc<R>>, Extension(auth): Extension<User>) -> (StatusCode, String)
 where
     R: Send + Sync + ReasonerConnector<Context = EFlintHaskellReasonerWithInterfaceContext>,
 {
-    async move {
-        // Generate the context
-        let res: GetContextResponse = GetContextResponse { context: this.context() };
+    // Generate the context
+    let res: GetContextResponse = GetContextResponse { context: this.context() };
 
-        // Serialize and send back
-        match serde_json::to_string(&res) {
-            Ok(res) => (StatusCode::OK, res),
-            Err(err) => {
-                let err = Trace::from_source("Failed to serialize context", err);
-                error!("{}", err.trace());
-                (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-            },
-        }
+    // Serialize and send back
+    match serde_json::to_string(&res) {
+        Ok(res) => (StatusCode::OK, res),
+        Err(err) => {
+            let err = Trace::from_source("Failed to serialize context", err);
+            error!("{}", err.trace());
+            (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+        },
     }
-    .instrument(span!(Level::INFO, "Reasoner::get_context", user = auth.id))
 }
 
 /// Given a [`Router`], injects the [`get_context()`]-path into it.
@@ -89,6 +86,7 @@ where
 ///
 /// # Returns
 /// A new [`Router`] that is the same but with the new path in it.
+#[instrument(skip_all)]
 pub fn inject_reasoner_api<A, D, R>(server: Arc<AxumServer<A, D>>, reasoner: Arc<R>, router: Router<()>) -> Router<()>
 where
     A: 'static + Send + Sync + AuthResolver,
@@ -98,8 +96,6 @@ where
     D: 'static + Send + Sync,
     R: 'static + Send + Sync + ReasonerConnector<Context = EFlintHaskellReasonerWithInterfaceContext>,
 {
-    let _span = span!(Level::INFO, "inject_reasoner_api()");
-
     // First, define the axum paths
     debug!("Injecting additional axum paths...");
     let get_context: Router = Router::new()
