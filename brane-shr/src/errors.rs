@@ -68,44 +68,151 @@ impl<T: Error> ErrorTrace for T {
     fn trace(&self) -> ErrorTraceFormatter { ErrorTraceFormatter { err: self } }
 }
 
-#[derive(Debug, Clone)]
-pub enum ConfidentialityKind {
-    Confidential(String),
-    Public,
-}
 
-#[derive(Debug)]
-pub struct SurfacableError {
-    pub confidentiality: ConfidentialityKind,
-    pub status_code: http::StatusCode,
-    pub err: Box<dyn std::error::Error>,
-}
 
-// impl std::error::Error for SurfacableError {
-//     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> { Some(self.err.as_ref()) }
-// }
-//
-// // FIXME: implement
-// impl std::fmt::Display for SurfacableError {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { todo!() }
-// }
-#[cfg(feature = "axum")]
-use error_trace::ErrorTrace as _;
 
-#[cfg(feature = "axum")]
-impl axum::response::IntoResponse for SurfacableError {
-    fn into_response(self) -> axum::response::Response {
-        match self.confidentiality {
-            ConfidentialityKind::Confidential(msg) => {
-                // TODO: Create random identifier, surface it and log it so we can relate a user
-                // error to our logs
-                tracing::error!("Returned a confidential error: {msg}\n\nError:{}", self.err.freeze());
-                (self.status_code, msg).into_response()
-            },
-            ConfidentialityKind::Public => {
-                tracing::error!("Returned an error:\n{}", self.err.freeze());
-                (self.status_code, self.err.trace().to_string()).into_response()
-            },
+pub mod confidentiality {
+    use std::process::ExitCode;
+
+    use error_trace::ErrorTrace as _;
+    use rand::RngCore as _;
+
+    #[derive(Debug, Clone)]
+    pub enum ConfidentialityKind {
+        Confidential,
+        Public,
+    }
+
+    pub trait ConfidentialError {
+        fn identifier(&self) -> u64;
+        fn generate_identifier() -> u64 { rand::rng().next_u64() }
+    }
+
+    /// Note: that this error is lazy. It does nothing unless you convert it to another type. Therefore
+    /// it is must use.
+    #[derive(Debug)]
+    #[must_use]
+    pub struct HttpError {
+        pub confidentiality: ConfidentialityKind,
+        pub identifier: u64,
+        pub msg: String,
+        pub err: Option<Box<dyn std::error::Error>>,
+
+        // Http specific fields
+        pub status_code: http::StatusCode,
+    }
+
+    impl ConfidentialError for HttpError {
+        fn identifier(&self) -> u64 { self.identifier }
+    }
+
+    impl HttpError {
+        pub fn new(msg: String, err: Box<dyn std::error::Error>, status_code: http::StatusCode) -> Self {
+            Self { confidentiality: ConfidentialityKind::Confidential, identifier: Self::generate_identifier(), msg, status_code, err: Some(err) }
+        }
+
+        pub fn from_error<E>(err: E, status_code: http::StatusCode) -> Self
+        where
+            E: std::error::Error + 'static,
+            E: Sized,
+        {
+            Self {
+                confidentiality: ConfidentialityKind::Confidential,
+                identifier: Self::generate_identifier(),
+                msg: format!("{err}"),
+                err: Some(Box::new(err)),
+                status_code,
+            }
+        }
+
+        pub fn expose(mut self) -> Self {
+            self.confidentiality = ConfidentialityKind::Public;
+            self
+        }
+    }
+
+    #[derive(Debug)]
+    #[must_use]
+    pub struct BinaryError {
+        pub confidentiality: ConfidentialityKind,
+        pub identifier: u64,
+        pub msg: String,
+        pub err: Option<Box<dyn std::error::Error>>,
+
+        // Binary specific fields
+        pub exit_code: ExitCode,
+    }
+
+    impl ConfidentialError for BinaryError {
+        fn identifier(&self) -> u64 { self.identifier }
+    }
+
+    impl BinaryError {
+        pub fn new(msg: String, err: Option<Box<dyn std::error::Error>>, exit_code: ExitCode) -> Self {
+            Self { confidentiality: ConfidentialityKind::Public, identifier: Self::generate_identifier(), msg, err, exit_code }
+        }
+
+        pub fn without_source(msg: String) -> Self {
+            Self {
+                confidentiality: ConfidentialityKind::Public,
+                identifier: Self::generate_identifier(),
+                msg,
+                err: None,
+                exit_code: ExitCode::FAILURE,
+            }
+        }
+
+        pub fn from_error<E>(msg: String, err: E) -> Self
+        where
+            E: std::error::Error + 'static,
+            E: Sized,
+        {
+            Self {
+                confidentiality: ConfidentialityKind::Public,
+                identifier: Self::generate_identifier(),
+                msg,
+                err: Some(Box::new(err)),
+                exit_code: ExitCode::FAILURE,
+            }
+        }
+    }
+
+    #[cfg(feature = "axum")]
+    impl axum::response::IntoResponse for HttpError {
+        fn into_response(self) -> axum::response::Response {
+            let status_code = self.status_code;
+            tracing::error!("{}", self.to_log_message());
+            match self.confidentiality {
+                ConfidentialityKind::Confidential => {
+                    // TODO: Create random identifier, surface it and log it so we can relate a user
+                    // error to our logs
+                    (status_code, self.msg).into_response()
+                },
+                ConfidentialityKind::Public => {
+                    let msg = match self.err {
+                        Some(err) => err.trace().to_string(),
+                        None => self.msg,
+                    };
+                    tracing::error!("Returned an error:\n{msg}");
+                    (status_code, msg).into_response()
+                },
+            }
+        }
+    }
+
+    impl HttpError {
+        pub fn to_log_message(&self) -> String {
+            match self.confidentiality {
+                ConfidentialityKind::Confidential => {
+                    // TODO: Create random identifier, surface it and log it so we can relate a user
+                    // error to our logs
+                    format!("Returned a confidential error: {msg}", msg = self.msg)
+                },
+                ConfidentialityKind::Public => match &self.err {
+                    Some(err) => format!("{msg}\n{err}", msg = self.msg, err = err.trace()),
+                    None => self.msg.clone(),
+                },
+            }
         }
     }
 }

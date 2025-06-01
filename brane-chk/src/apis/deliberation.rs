@@ -23,8 +23,8 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::routing::on;
 use axum::{Extension, Router};
-use brane_shr::errors::{ConfidentialityKind, SurfacableError};
-use error_trace::{Trace, trace};
+use brane_shr::errors::confidentiality::HttpError;
+use error_trace::trace;
 use futures::StreamExt as _;
 use hyper::body::Incoming;
 use hyper_util::rt::{TokioExecutor, TokioIo};
@@ -92,17 +92,14 @@ pub enum Error {
 ///
 /// # Errors
 /// This function errors if we failed to download the request body, or it was not valid JSON.
-async fn download_request<T: DeserializeOwned>(request: Request) -> Result<T, SurfacableError> {
+async fn download_request<T: DeserializeOwned>(request: Request) -> Result<T, HttpError> {
     // Download the entire request first
     let mut req: Vec<u8> = Vec::new();
     let mut request = request.into_body().into_data_stream();
     while let Some(next) = request.next().await {
         // Unwrap the chunk
-        let next = next.map_err(|source| SurfacableError {
-            confidentiality: ConfidentialityKind::Confidential("Failed to download request body".into()),
-            status_code: StatusCode::INTERNAL_SERVER_ERROR,
-            err: Box::new(source),
-        })?;
+        let next =
+            next.map_err(|source| HttpError::new("Failed to download request body".into(), Box::new(source), StatusCode::INTERNAL_SERVER_ERROR))?;
 
         // Append it
         req.extend(next);
@@ -116,7 +113,7 @@ async fn download_request<T: DeserializeOwned>(request: Request) -> Result<T, Su
             String::from_utf8_lossy(&req)
         );
 
-        SurfacableError { confidentiality: ConfidentialityKind::Confidential(msg), status_code: StatusCode::BAD_REQUEST, err: Box::new(source) }
+        HttpError::new(msg, Box::new(source), StatusCode::BAD_REQUEST)
     })
 }
 
@@ -218,26 +215,24 @@ where
     ///
     /// # Returns
     /// The status code of the response and a message to attach to it.
-    async fn check(this: Arc<Self>, reference: &str, input: Input) -> Result<Response, SurfacableError> {
+    async fn check(this: Arc<Self>, reference: &str, input: Input) -> Result<Response, HttpError> {
         // Build the state, then resolve it
         let (state, question): (P::State, P::Question) =
-            this.resolver.resolve(input, &SessionedAuditLogger::new(reference, &this.logger)).await.map_err(|source| SurfacableError {
-                confidentiality: ConfidentialityKind::Confidential("Failed to resolve input to the reasoner".to_owned()),
-                status_code: (&source).into(),
-                err: Box::new(source),
+            this.resolver.resolve(input, &SessionedAuditLogger::new(reference, &this.logger)).await.map_err(|source| {
+                let status_code = (&source).into();
+                HttpError::new("Failed to resolve input to the reasoner".into(), Box::new(source), status_code)
             })?;
 
         // With that in order, hit the reasoner
-        let res = this.reasoner.consult(state, question, &SessionedAuditLogger::new(reference, &this.logger)).await.map_err(|source| {
-            SurfacableError { confidentiality: ConfidentialityKind::Public, status_code: StatusCode::INTERNAL_SERVER_ERROR, err: Box::new(source) }
-        })?;
+        let res = this
+            .reasoner
+            .consult(state, question, &SessionedAuditLogger::new(reference, &this.logger))
+            .await
+            .map_err(|source| HttpError::from_error(Box::new(source), StatusCode::INTERNAL_SERVER_ERROR).expose())?;
 
         // Serialize the response
-        let res: String = serde_json::to_string(&CheckResponse { verdict: res }).map_err(|source| SurfacableError {
-            confidentiality: ConfidentialityKind::Confidential("Failed to serialize reasoner response".to_owned()),
-            status_code: StatusCode::INTERNAL_SERVER_ERROR,
-            err: Box::new(source),
-        })?;
+        let res: String = serde_json::to_string(&CheckResponse { verdict: res })
+            .map_err(|source| HttpError::new("Failed to serialize reasoner response".into(), Box::new(source), StatusCode::INTERNAL_SERVER_ERROR))?;
 
         // OK
         Ok((StatusCode::OK, res).into_response())
@@ -254,20 +249,15 @@ where
         ConnectInfo(client): ConnectInfo<SocketAddr>,
         mut request: Request,
         next: Next,
-    ) -> Result<Response, SurfacableError> {
+    ) -> Result<Response, HttpError> {
         let user: User = context
             .auth
             .authorize(request.headers())
             .await
-            .map_err(|source| SurfacableError {
-                confidentiality: ConfidentialityKind::Public,
-                status_code: StatusCode::INTERNAL_SERVER_ERROR,
-                err: Box::new(Trace::from_source("Failed to authorize incoming request", source)),
-            })?
-            .map_err(|source| SurfacableError {
-                confidentiality: ConfidentialityKind::Public,
-                status_code: source.status_code(),
-                err: Box::new(Trace::from_source("Failed to authorize incoming request", source)),
+            .map_err(|source| HttpError::new("Failed to authorize incoming request".into(), Box::new(source), StatusCode::INTERNAL_SERVER_ERROR))?
+            .map_err(|source| {
+                let status_code = source.status_code();
+                HttpError::new("Failed to authorize incoming request".into(), Box::new(source), status_code).expose()
             })?;
 
         // If we found a context, then inject it in the request as an extension; then continue
@@ -286,7 +276,7 @@ where
     /// - 404 NOT FOUND if the given use-case was unknown; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     #[instrument(skip_all, fields(user = auth.id, reference))]
-    async fn check_workflow(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, SurfacableError> {
+    async fn check_workflow(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, HttpError> {
         let reference = Reference::create(&auth.id);
         Span::current().record("reference", reference.as_str());
 
@@ -310,7 +300,7 @@ where
     /// - 404 BAD REQUEST with the reason why we failed to parse the request; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     #[instrument(skip_all, fields(user = auth.id, reference))]
-    async fn check_task(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, SurfacableError> {
+    async fn check_task(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, HttpError> {
         let reference = Reference::create(&auth.id);
         Span::current().record("reference", reference.as_str());
 
@@ -340,7 +330,7 @@ where
     /// - 404 BAD REQUEST with the reason why we failed to parse the request; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     #[instrument(skip_all, fields(user = auth.id, reference))]
-    async fn check_transfer(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, SurfacableError> {
+    async fn check_transfer(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, HttpError> {
         let reference = Reference::create(&auth.id);
         Span::current().record("reference", reference.as_str());
 
