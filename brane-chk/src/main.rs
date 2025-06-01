@@ -25,17 +25,18 @@ use std::borrow::Cow;
 // Imports
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::process::ExitCode;
 use std::sync::Arc;
 
 use axum::Router;
 use brane_cfg::info::Info;
-use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
+use brane_cfg::node::{NodeConfig, NodeSpecificConfig};
 use brane_chk::apis::{Deliberation, inject_reasoner_api};
 use brane_chk::reasonerconn::EFlintHaskellReasonerConnectorWithInterface;
 use brane_chk::stateresolver::BraneStateResolver;
+use brane_shr::errors::confidentiality::BinaryError;
 use clap::Parser;
 use enum_debug::EnumDebug as _;
-use error_trace::trace;
 use policy_reasoner::loggers::file::FileLogger;
 use policy_reasoner::reasoners::eflint_haskell::reasons::PrefixedHandler;
 use policy_reasoner::spec::reasonerconn::ReasonerConnector as _;
@@ -97,11 +98,9 @@ struct Arguments {
 
 
 
-
-
 /***** ENTRYPOINT *****/
 #[tokio::main(flavor = "multi_thread")]
-async fn main() {
+async fn main() -> ExitCode {
     // Parse the arguments
     let args = Arguments::parse();
 
@@ -109,75 +108,63 @@ async fn main() {
     tracing_subscriber::fmt().with_max_level(if args.trace { Level::TRACE } else { Level::DEBUG }).init();
     info!("{} - v{}", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION"));
 
+    match run(args).await {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(e) => {
+            error!(err = e.err, "{msg}", msg = e.msg);
+            ExitCode::FAILURE
+        },
+    }
+}
 
+async fn run(args: Arguments) -> Result<(), BinaryError> {
     /* Step 1: Prepare the servers */
     // Read the node YAML file.
-    let node: WorkerConfig = match NodeConfig::from_path_async(&args.node_config_path).await {
-        Ok(node) => match node.node {
-            NodeSpecificConfig::Worker(cfg) => cfg,
-            other => {
-                error!("Found node.yml for a {}, expected a Worker", other.variant());
-                std::process::exit(1);
-            },
-        },
-        Err(err) => {
-            error!("{}", trace!(("Failed to lode node config file '{}'", args.node_config_path.display()), err));
-            std::process::exit(1);
+    let config = NodeConfig::from_path_async(&args.node_config_path).await.map_err(|source| {
+        BinaryError::from_error(format!("Failed to lode node config file '{}'", args.node_config_path.display()), Box::new(source))
+    })?;
+
+    let node = match config.node {
+        NodeSpecificConfig::Worker(cfg) => cfg,
+        other => {
+            return Err(BinaryError::without_source(format!("Found node.yml for a {}, expected a Worker", other.variant())));
         },
     };
 
     // Setup the logger
-    let logger: FileLogger = FileLogger::new(format!("{} - v{}", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION")), args.log_path);
+    let logger = FileLogger::new(format!("{} - v{}", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION")), args.log_path);
 
     // Setup the reasoner connector
-    let reasoner: Arc<EFlintHaskellReasonerConnectorWithInterface> = match EFlintHaskellReasonerConnectorWithInterface::new_async(
+    let reasoner = EFlintHaskellReasonerConnectorWithInterface::new_async(
         shlex::split(&args.backend_cmd).unwrap_or_else(|| vec![args.backend_cmd]),
         args.policy,
         PrefixedHandler::new(Cow::Owned(args.prefix)),
         &logger,
     )
     .await
-    {
-        Ok(reasoner) => Arc::new(reasoner),
-        Err(err) => {
-            error!("{}", trace!(("Failed to create EFlintHaskellReasonerConnectorWithInterface"), err));
-            std::process::exit(1);
-        },
-    };
+    .map_err(|err| BinaryError::from_error("Could not setup the reasoner".into(), err))?;
+
+    let reasoner = Arc::new(reasoner);
 
     // Setup the state resolver
-    let resolver: BraneStateResolver = BraneStateResolver::new(node.usecases, &reasoner.reasoner.context().base_policy_hash);
+    let resolver = BraneStateResolver::new(node.usecases, &reasoner.reasoner.context().base_policy_hash);
 
     // Setup the database connection
-    let conn: Arc<SQLiteDatabase<_>> = match SQLiteDatabase::new_async(&args.database_path, policy_store::databases::sqlite::MIGRATIONS).await {
-        Ok(conn) => Arc::new(conn),
-        Err(err) => {
-            error!("{}", trace!(("Failed to setup connection to SQLiteDatabase '{}'", args.database_path.display()), err));
-            std::process::exit(1);
-        },
-    };
-
-
+    let conn = SQLiteDatabase::new_async(&args.database_path, policy_store::databases::sqlite::MIGRATIONS).await.map_err(|source| {
+        BinaryError::from_error(format!("Failed to setup connection to SQLiteDatabase '{}'", args.database_path.display()), source)
+    })?;
+    let conn = Arc::new(conn);
 
     /* Step 2: Setup the deliberation & store APIs */
     // Deliberation
-    let delib: Deliberation<_, _, _> = match Deliberation::new(args.delib_addr, &args.delib_keys, conn.clone(), resolver, reasoner.clone(), logger) {
-        Ok(server) => server,
-        Err(err) => {
-            error!("{}", trace!(("Failed to create deliberation API server"), err));
-            std::process::exit(1);
-        },
-    };
+    let delib = Deliberation::new(args.delib_addr, &args.delib_keys, conn.clone(), resolver, reasoner.clone(), logger)
+        .map_err(|source| BinaryError::from_error("Failed to create deliberation API server".to_owned(), source))?;
 
     // Store
-    let resolver: KidResolver = match KidResolver::new(&args.store_keys) {
-        Ok(resolver) => resolver,
-        Err(err) => {
-            error!("{}", trace!(("Failed to create KidResolver with file {:?}", args.store_keys.display()), err));
-            std::process::exit(1);
-        },
-    };
-    let store: Arc<AxumServer<_, _>> = Arc::new(AxumServer::new(args.store_addr, JwkResolver::new("username", resolver), conn));
+    let resolver = KidResolver::new(&args.store_keys)
+        .map_err(|source| BinaryError::from_error(format!("Failed to create KidResolver with file {:?}", args.store_keys.display()), source))?;
+
+    let store = Arc::new(AxumServer::new(args.store_addr, JwkResolver::new("username", resolver), conn));
 
     // Also inject the reasoner context endpoint
     let paths: Router<()> = inject_reasoner_api(store.clone(), reasoner, AxumServer::routes(store.clone()));
@@ -186,19 +173,15 @@ async fn main() {
 
     /* Step 3: Host them concurrently */
     tokio::select! {
-        res = delib.serve() => match res {
-            Ok(_) => info!("Terminated."),
-            Err(err) => {
-                error!("{}", trace!(("Failed to host deliberation API"), err));
-                std::process::exit(1);
-            }
+        res = delib.serve() => {
+            res.map_err(|source| BinaryError::from_error("Failed to host deliberation API".to_owned(), source))?;
+            info!("Terminated.");
         },
-        res = AxumServer::serve_router(store, paths) => match res {
-            Ok(_) => info!("Terminated."),
-            Err(err) => {
-                error!("{}", trace!(("Failed to host store API"), err));
-                std::process::exit(1);
-            }
-        },
+        res = AxumServer::serve_router(store, paths) => {
+            res.map_err(|source| BinaryError::from_error("Failed to host store API".to_owned(), source))?;
+            info!("Terminated.")
+        }
     }
+
+    Ok(())
 }

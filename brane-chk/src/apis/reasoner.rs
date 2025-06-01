@@ -19,8 +19,7 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::routing::get;
 use axum::{Extension, Router};
-use brane_shr::errors::{ConfidentialityKind, SurfacableError};
-use error_trace::Trace;
+use brane_shr::errors::confidentiality::HttpError;
 use hyper::StatusCode;
 use policy_reasoner::spec::ReasonerConnector;
 use policy_store::servers::axum::AxumServer;
@@ -52,7 +51,7 @@ pub enum Error {
 /// - 200 OK with a [`GetContextResponse`] detailling the relevant reasoner information; or
 /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
 #[instrument(skip_all, fields(user = auth.id))]
-pub async fn get_context<R>(State(this): State<Arc<R>>, Extension(auth): Extension<User>) -> Result<(StatusCode, String), SurfacableError>
+pub async fn get_context<R>(State(this): State<Arc<R>>, Extension(auth): Extension<User>) -> Result<(StatusCode, String), HttpError>
 where
     R: Send + Sync + ReasonerConnector<Context = EFlintHaskellReasonerWithInterfaceContext>,
 {
@@ -60,10 +59,8 @@ where
     let res = GetContextResponse { context: this.context() };
 
     // Serialize and send back
-    let res = serde_json::to_string(&res).map_err(|source| {
-        let err = Trace::from_source("Failed to serialize context", source);
-        SurfacableError { confidentiality: ConfidentialityKind::Public, status_code: StatusCode::INTERNAL_SERVER_ERROR, err: Box::new(err) }
-    })?;
+    let res = serde_json::to_string(&res)
+        .map_err(|source| HttpError::new("Failed to serialize context".into(), Box::new(source), StatusCode::INTERNAL_SERVER_ERROR).expose())?;
 
     Ok((StatusCode::OK, res))
 }
