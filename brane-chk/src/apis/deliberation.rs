@@ -16,15 +16,15 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 
-use axum::body::{Body, Bytes};
 use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
 use axum::extract::{ConnectInfo, Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum::routing::on;
 use axum::{Extension, Router};
-use error_trace::{ErrorTrace as _, Trace, trace};
+use brane_shr::errors::{ConfidentialityKind, SurfacableError};
+use error_trace::{Trace, trace};
 use futures::StreamExt as _;
 use hyper::body::Incoming;
 use hyper_util::rt::{TokioExecutor, TokioIo};
@@ -56,6 +56,7 @@ use crate::workflow::compile::pc_to_id;
 /***** CONSTANTS *****/
 /// The initiator claim that must be given in the input header token.
 pub const INITIATOR_CLAIM: &str = "username";
+const BLOCK_SEPARATOR: &str = "--------------------------------------------------------------------------------";
 
 
 
@@ -70,7 +71,6 @@ pub enum Error {
     #[error("Failed to bind server on address '{addr}'")]
     ListenerBind { addr: SocketAddr, source: std::io::Error },
 }
-
 
 
 
@@ -92,40 +92,32 @@ pub enum Error {
 ///
 /// # Errors
 /// This function errors if we failed to download the request body, or it was not valid JSON.
-async fn download_request<T: DeserializeOwned>(request: Request) -> Result<T, (StatusCode, String)> {
+async fn download_request<T: DeserializeOwned>(request: Request) -> Result<T, SurfacableError> {
     // Download the entire request first
     let mut req: Vec<u8> = Vec::new();
     let mut request = request.into_body().into_data_stream();
     while let Some(next) = request.next().await {
         // Unwrap the chunk
-        let next: Bytes = match next {
-            Ok(next) => next,
-            Err(err) => {
-                let msg: &'static str = "Failed to download request body";
-                error!("{}", trace!(("{msg}"), err));
-                return Err((StatusCode::INTERNAL_SERVER_ERROR, msg.into()));
-            },
-        };
+        let next = next.map_err(|source| SurfacableError {
+            confidentiality: ConfidentialityKind::Confidential("Failed to download request body".into()),
+            status_code: StatusCode::INTERNAL_SERVER_ERROR,
+            err: Box::new(source),
+        })?;
 
         // Append it
         req.extend(next);
     }
 
     // Deserialize the request contents
-    match serde_json::from_slice(&req) {
-        Ok(req) => Ok(req),
-        Err(err) => {
-            let error: String = format!(
-                "{}Raw body:\n{}\n{}\n{}\n",
-                trace!(("Failed to deserialize request body"), err),
-                (0..80).map(|_| '-').collect::<String>(),
-                String::from_utf8_lossy(&req),
-                (0..80).map(|_| '-').collect::<String>()
-            );
-            info!("{error}");
-            Err((StatusCode::BAD_REQUEST, error))
-        },
-    }
+    serde_json::from_slice(&req).map_err(|source| {
+        let msg: String = format!(
+            "{}Raw body:\n{BLOCK_SEPARATOR}\n{}\n{BLOCK_SEPARATOR}\n",
+            trace!(("Failed to deserialize request body"), source),
+            String::from_utf8_lossy(&req)
+        );
+
+        SurfacableError { confidentiality: ConfidentialityKind::Confidential(msg), status_code: StatusCode::BAD_REQUEST, err: Box::new(source) }
+    })
 }
 
 
@@ -226,41 +218,29 @@ where
     ///
     /// # Returns
     /// The status code of the response and a message to attach to it.
-    async fn check(this: Arc<Self>, reference: &str, input: Input) -> (StatusCode, String) {
+    async fn check(this: Arc<Self>, reference: &str, input: Input) -> Result<Response, SurfacableError> {
         // Build the state, then resolve it
-        let (state, question): (P::State, P::Question) = match this.resolver.resolve(input, &SessionedAuditLogger::new(reference, &this.logger)).await
-        {
-            Ok(state) => state,
-            Err(err) => {
-                let status: StatusCode = (&err).into();
-                let err = Trace::from_source("Failed to resolve input to the reasoner", err);
-                error!("{}", err.trace());
-                return (status, err.to_string());
-            },
-        };
+        let (state, question): (P::State, P::Question) =
+            this.resolver.resolve(input, &SessionedAuditLogger::new(reference, &this.logger)).await.map_err(|source| SurfacableError {
+                confidentiality: ConfidentialityKind::Confidential("Failed to resolve input to the reasoner".to_owned()),
+                status_code: (&source).into(),
+                err: Box::new(source),
+            })?;
 
         // With that in order, hit the reasoner
-        match this.reasoner.consult(state, question, &SessionedAuditLogger::new(reference, &this.logger)).await {
-            Ok(res) => {
-                // Serialize the response
-                let res: String = match serde_json::to_string(&CheckResponse { verdict: res }) {
-                    Ok(res) => res,
-                    Err(err) => {
-                        let err = Trace::from_source("Failed to serialize reasoner response", err);
-                        error!("{}", err.trace());
-                        return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string());
-                    },
-                };
+        let res = this.reasoner.consult(state, question, &SessionedAuditLogger::new(reference, &this.logger)).await.map_err(|source| {
+            SurfacableError { confidentiality: ConfidentialityKind::Public, status_code: StatusCode::INTERNAL_SERVER_ERROR, err: Box::new(source) }
+        })?;
 
-                // OK
-                (StatusCode::OK, res)
-            },
-            Err(err) => {
-                let err = Trace::from_source("Failed to consult with the reasoner", err);
-                error!("{}", err.trace());
-                (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-            },
-        }
+        // Serialize the response
+        let res: String = serde_json::to_string(&CheckResponse { verdict: res }).map_err(|source| SurfacableError {
+            confidentiality: ConfidentialityKind::Confidential("Failed to serialize reasoner response".to_owned()),
+            status_code: StatusCode::INTERNAL_SERVER_ERROR,
+            err: Box::new(source),
+        })?;
+
+        // OK
+        Ok((StatusCode::OK, res).into_response())
     }
 
     /// Authorization middle layer for the Deliberation.
@@ -269,31 +249,30 @@ where
     /// identifies the user. The request will be interrupted if the token is missing, invalid or
     /// not (properly) signed.
     #[instrument(level="info", skip_all, fields(client = %client))]
-    async fn authorize(State(context): State<Arc<Self>>, ConnectInfo(client): ConnectInfo<SocketAddr>, mut request: Request, next: Next) -> Response {
-        // Do the auth thingy
-        let user: User = match context.auth.authorize(request.headers()).await {
-            Ok(Ok(user)) => user,
-            Ok(Err(err)) => {
-                let status = err.status_code();
-                let err = Trace::from_source("Failed to authorize incoming request", err);
-                info!("{}", err.trace());
-                let mut res =
-                    Response::new(Body::from(serde_json::to_string(&err.freeze()).unwrap_or_else(|err| panic!("Failed to serialize Trace: {err}"))));
-                *res.status_mut() = status;
-                return res;
-            },
-            Err(err) => {
-                let err = Trace::from_source("Failed to authorize incoming request", err);
-                error!("{}", err.trace());
-                let mut res = Response::new(Body::from(err.to_string()));
-                *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-                return res;
-            },
-        };
+    async fn authorize(
+        State(context): State<Arc<Self>>,
+        ConnectInfo(client): ConnectInfo<SocketAddr>,
+        mut request: Request,
+        next: Next,
+    ) -> Result<Response, SurfacableError> {
+        let user: User = context
+            .auth
+            .authorize(request.headers())
+            .await
+            .map_err(|source| SurfacableError {
+                confidentiality: ConfidentialityKind::Public,
+                status_code: StatusCode::INTERNAL_SERVER_ERROR,
+                err: Box::new(Trace::from_source("Failed to authorize incoming request", source)),
+            })?
+            .map_err(|source| SurfacableError {
+                confidentiality: ConfidentialityKind::Public,
+                status_code: source.status_code(),
+                err: Box::new(Trace::from_source("Failed to authorize incoming request", source)),
+            })?;
 
         // If we found a context, then inject it in the request as an extension; then continue
         request.extensions_mut().insert(user);
-        next.run(request).await
+        Ok(next.run(request).await)
     }
 
     /// Handler for `GET /v2/workflow` (i.e., checking a whole workflow).
@@ -307,19 +286,15 @@ where
     /// - 404 NOT FOUND if the given use-case was unknown; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     #[instrument(skip_all, fields(user = auth.id, reference))]
-    async fn check_workflow(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> (StatusCode, String) {
+    async fn check_workflow(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, SurfacableError> {
         let reference = Reference::create(&auth.id);
         Span::current().record("reference", reference.as_str());
 
         // Get the request
-        let req: CheckWorkflowRequest = match download_request(request).await {
-            Ok(req) => req,
-            Err(res) => return res,
-        };
+        let req: CheckWorkflowRequest = download_request(request).await?;
 
         // Decide the input
-        let input: Input =
-            Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input: QuestionInput::ValidateWorkflow };
+        let input = Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input: QuestionInput::ValidateWorkflow };
 
         // Continue with the agnostic function for maintainability
         Self::check(this, reference.as_str(), input).await
@@ -335,19 +310,16 @@ where
     /// - 404 BAD REQUEST with the reason why we failed to parse the request; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     #[instrument(skip_all, fields(user = auth.id, reference))]
-    async fn check_task(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> (StatusCode, String) {
+    async fn check_task(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, SurfacableError> {
         let reference = Reference::create(&auth.id);
         Span::current().record("reference", reference.as_str());
 
         // Get the request
-        let req: CheckTaskRequest = match download_request(request).await {
-            Ok(req) => req,
-            Err(res) => return res,
-        };
+        let req: CheckTaskRequest = download_request(request).await?;
 
         // Decide the input
         let task_id: String = pc_to_id(&req.workflow, req.task);
-        let input: Input = Input {
+        let input = Input {
             store:    this.store.clone(),
             usecase:  req.usecase,
             workflow: req.workflow,
@@ -368,33 +340,22 @@ where
     /// - 404 BAD REQUEST with the reason why we failed to parse the request; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     #[instrument(skip_all, fields(user = auth.id, reference))]
-    async fn check_transfer(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> (StatusCode, String) {
+    async fn check_transfer(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, SurfacableError> {
         let reference = Reference::create(&auth.id);
         Span::current().record("reference", reference.as_str());
 
         // Get the request
-        let req: CheckTransferRequest = match download_request(request).await {
-            Ok(req) => req,
-            Err(res) => return res,
+        let req: CheckTransferRequest = download_request(request).await?;
+
+        let input = if let Some(task) = req.task {
+            let task_id: String = pc_to_id(&req.workflow, task);
+            QuestionInput::TransferInput { task: task_id, input: req.input }
+        } else {
+            QuestionInput::TransferResult { result: req.input }
         };
 
         // Decide the input
-        let input: Input = if let Some(task) = req.task {
-            let task_id: String = pc_to_id(&req.workflow, task);
-            Input {
-                store:    this.store.clone(),
-                usecase:  req.usecase,
-                workflow: req.workflow,
-                input:    QuestionInput::TransferInput { task: task_id, input: req.input },
-            }
-        } else {
-            Input {
-                store:    this.store.clone(),
-                usecase:  req.usecase,
-                workflow: req.workflow,
-                input:    QuestionInput::TransferResult { result: req.input },
-            }
-        };
+        let input = Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input };
 
         // Continue with the agnostic function for maintainability
         Self::check(this, reference.as_str(), input).await
