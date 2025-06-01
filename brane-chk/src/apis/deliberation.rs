@@ -35,7 +35,7 @@ use policy_store::auth::jwk::JwkResolver;
 use policy_store::auth::jwk::keyresolver::KidResolver;
 use policy_store::databases::sqlite::SQLiteDatabase;
 use policy_store::spec::AuthResolver as _;
-use policy_store::spec::authresolver::HttpError;
+use policy_store::spec::authresolver::HttpError as _;
 use policy_store::spec::metadata::User;
 use rand::Rng;
 use rand::distr::Alphanumeric;
@@ -211,7 +211,8 @@ impl<S, P, L> Deliberation<S, P, L> {
 impl<S, P, L> Deliberation<S, P, L>
 where
     S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
-    S::Error: HttpError,
+    for<'e> &'e S::Error: Into<StatusCode>,
+    S::Error: std::error::Error,
     P: 'static + Send + Sync + ReasonerConnector,
     P::Reason: Serialize,
     L: Send + Sync + AuditLogger,
@@ -231,7 +232,7 @@ where
         {
             Ok(state) => state,
             Err(err) => {
-                let status = err.status_code();
+                let status: StatusCode = (&err).into();
                 let err = Trace::from_source("Failed to resolve input to the reasoner", err);
                 error!("{}", err.trace());
                 return (status, err.to_string());
@@ -404,7 +405,8 @@ where
 impl<S, P, L> Deliberation<S, P, L>
 where
     S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
-    S::Error: HttpError,
+    for<'e> &'e S::Error: Into<StatusCode>,
+    S::Error: std::error::Error,
     P: 'static + Send + Sync + ReasonerConnector,
     P::Reason: Serialize,
     L: 'static + Send + Sync + AuditLogger,

@@ -21,7 +21,6 @@ use policy_reasoner::spec::stateresolver::StateResolver;
 use policy_reasoner::workflow::visitor::Visitor;
 use policy_reasoner::workflow::{Elem, ElemCall, Workflow};
 use policy_store::databases::sqlite::{SQLiteConnection, SQLiteDatabase};
-use policy_store::spec::authresolver::HttpError;
 use policy_store::spec::databaseconn::{DatabaseConnection as _, DatabaseConnector as _};
 use policy_store::spec::metadata::User;
 use reqwest::StatusCode;
@@ -144,11 +143,11 @@ pub enum Error {
     )]
     UnplannedOutputUser { workflow: String, call: String, output: String, planned_user: Option<String>, output_user: Option<String> },
 }
-impl HttpError for Error {
-    #[inline]
-    fn status_code(&self) -> StatusCode {
+
+impl From<&Error> for StatusCode {
+    fn from(value: &Error) -> Self {
         use Error::*;
-        match self {
+        match value {
             DatabaseActiveVersionMismatch { .. }
             | DatabaseConnect { .. }
             | DatabaseGetActiveVersion { .. }
