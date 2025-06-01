@@ -56,9 +56,10 @@ policy-store = { git = "https://github.com/BraneFramework/policy-store.git", def
     "sqlite-database-embedded-migrations",
 ] }
 
+# Workspace
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
-brane-shr = { path = "../brane-shr" }
+brane-shr = { path = "../brane-shr", features = ["axum"] }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
 

@@ -67,3 +67,45 @@ impl<T: Error> ErrorTrace for T {
     #[inline]
     fn trace(&self) -> ErrorTraceFormatter { ErrorTraceFormatter { err: self } }
 }
+
+#[derive(Debug, Clone)]
+pub enum ConfidentialityKind {
+    Confidential(String),
+    Public,
+}
+
+#[derive(Debug)]
+pub struct SurfacableError {
+    pub confidentiality: ConfidentialityKind,
+    pub status_code: http::StatusCode,
+    pub err: Box<dyn std::error::Error>,
+}
+
+// impl std::error::Error for SurfacableError {
+//     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> { Some(self.err.as_ref()) }
+// }
+//
+// // FIXME: implement
+// impl std::fmt::Display for SurfacableError {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { todo!() }
+// }
+#[cfg(feature = "axum")]
+use error_trace::ErrorTrace as _;
+
+#[cfg(feature = "axum")]
+impl axum::response::IntoResponse for SurfacableError {
+    fn into_response(self) -> axum::response::Response {
+        match self.confidentiality {
+            ConfidentialityKind::Confidential(msg) => {
+                // TODO: Create random identifier, surface it and log it so we can relate a user
+                // error to our logs
+                tracing::error!("Returned a confidential error: {msg}\n\nError:{}", self.err.freeze());
+                (self.status_code, msg).into_response()
+            },
+            ConfidentialityKind::Public => {
+                tracing::error!("Returned an error:\n{}", self.err.freeze());
+                (self.status_code, self.err.trace().to_string()).into_response()
+            },
+        }
+    }
+}
