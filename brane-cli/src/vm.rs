@@ -68,7 +68,7 @@ impl VmPlugin for OfflinePlugin {
         _loc: Location,
         name: DataName,
         preprocess: PreprocessKind,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<AccessKind, Self::PreprocessError> {
         info!("Preprocessing data '{name}' for call at {pc} in an offline environment");
         debug!("Method of preprocessing: {preprocess:?}");
@@ -84,7 +84,7 @@ impl VmPlugin for OfflinePlugin {
         global: &Arc<RwLock<Self::GlobalState>>,
         _local: &Self::LocalState,
         info: TaskInfo<'_>,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<Option<FullValue>, Self::ExecuteError> {
         let mut info = info;
         info!("Calling task '{}' in an offline environment", info.name);
@@ -112,7 +112,7 @@ impl VmPlugin for OfflinePlugin {
 
         // Resolve the input arguments, generating the folders we have to bind
         let binds: Vec<VolumeBind> = prof
-            .time_fut("argument preprocessing", docker::preprocess_args(&mut info.args, &info.input, info.result, None::<String>, results_dir))
+            .time_fut("Argument preprocessing", docker::preprocess_args(&mut info.args, &info.input, info.result, None::<String>, results_dir))
             .await?;
         let params: String = serde_json::to_string(&info.args).map_err(|source| ExecuteError::ArgsEncodeError { source })?;
 
@@ -143,7 +143,7 @@ impl VmPlugin for OfflinePlugin {
         // We can now execute the task on the local Docker daemon
         debug!("Executing task '{}'...", info.name);
         let (code, stdout, stderr) = prof
-            .time_fut("execution", docker::run_and_wait(docker_opts, einfo, keep_container))
+            .nest_fut("Execution", |scope| docker::run_and_wait(docker_opts, einfo, keep_container, scope))
             .await
             .map_err(|source| ExecuteError::DockerError { name: info.name.into(), image: Box::new(image.clone()), source })?;
         debug!("Container return code: {}", code);
@@ -171,7 +171,7 @@ impl VmPlugin for OfflinePlugin {
         _local: &Self::LocalState,
         text: &str,
         newline: bool,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<(), Self::StdoutError> {
         info!("Writing '{}' to stdout (newline: {}) in an offline environment...", text, if newline { "yes" } else { "no" });
 
@@ -192,7 +192,7 @@ impl VmPlugin for OfflinePlugin {
         _loc: &Location,
         name: &str,
         path: &Path,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<(), Self::CommitError> {
         info!("Publicizing intermediate result '{}' in an offline environment...", name);
         debug!("Physical file(s): {}", path.display());
@@ -210,7 +210,7 @@ impl VmPlugin for OfflinePlugin {
         name: &str,
         path: &Path,
         data_name: &str,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<(), Self::CommitError> {
         info!("Committing intermediate result '{}' to '{}' in an offline environment...", name, data_name);
         debug!("Physical file(s): {}", path.display());
@@ -344,10 +344,11 @@ impl OfflineVm {
     ///
     /// # Arguments
     /// - `workflow`: The Workflow to execute.
+    /// - `scope`: Some [`ProfileScopeHandle`] to report any profile information in.
     ///
     /// # Returns
     /// The result of the workflow, if any. It also returns `self` again for subsequent runs.
-    pub async fn exec(self, workflow: Workflow) -> (Self, Result<FullValue, Error>) {
+    pub async fn exec(self, workflow: Workflow, scope: ProfileScopeHandle) -> (Self, Result<FullValue, Error>) {
         // Step 1: Plan
         let plan: Result<Workflow, Error> = {
             let planner: OfflinePlanner = {
@@ -372,7 +373,7 @@ impl OfflineVm {
         let this: Arc<RwLock<Self>> = Arc::new(RwLock::new(self));
 
         // Run the VM and get self back
-        let result: Result<FullValue, VmError> = Self::run::<OfflinePlugin>(this.clone(), plan, ProfileScopeHandle::dummy()).await;
+        let result: Result<FullValue, VmError> = Self::run::<OfflinePlugin>(this.clone(), plan, scope).await;
         let this: Self = match Arc::try_unwrap(this) {
             Ok(this) => this.into_inner().unwrap(),
             Err(_) => {

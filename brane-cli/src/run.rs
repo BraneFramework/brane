@@ -14,7 +14,7 @@
 
 use std::borrow::Cow;
 use std::fs;
-use std::io::{Read, Stderr, Stdout, Write};
+use std::io::{Read, Stderr, Stdout, Write, stdout};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -33,6 +33,7 @@ use parking_lot::{Mutex, MutexGuard};
 use specifications::data::{AccessKind, DataIndex, DataInfo};
 use specifications::driving::{CreateSessionRequest, DriverServiceClient, ExecuteRequest};
 use specifications::package::PackageIndex;
+use specifications::profiling::{ProfileReport, ProfileScopeHandle};
 use tempfile::{TempDir, tempdir};
 use tonic::Code;
 
@@ -558,17 +559,18 @@ pub async fn run_dummy_vm(state: &mut DummyVmState, what: impl AsRef<str>, snipp
 ///
 /// # Arguments
 /// - `state`: The OfflineVmState that we use to run the local VM.
-/// - `what`: The thing we're running. Either a filename, or something like stdin.
 /// - `snippet`: The snippet to compile and run.
+/// - `scope`: Some [`ProfileScopeHandle`] to report profile timings in. Use a
+///   [`ProfileScopeHandle::dummy()`] if you don't care.
 ///
 /// # Returns
 /// The FullValue that the workflow returned, if any. If there was no value, returns FullValue::Void instead.
 ///
 /// # Errors
 /// This function errors if we failed to compile or run the workflow somehow.
-pub async fn run_offline_vm(state: &mut OfflineVmState, snippet: Snippet) -> Result<FullValue, Error> {
+pub async fn run_offline_vm(state: &mut OfflineVmState, snippet: Snippet, scope: ProfileScopeHandle) -> Result<FullValue, Error> {
     // Run it in the local VM (which is a bit ugly do to the need to consume the VM itself)
-    let res: (OfflineVm, Result<FullValue, OfflineVmError>) = state.vm.take().unwrap().exec(snippet.workflow).await;
+    let res: (OfflineVm, Result<FullValue, OfflineVmError>) = state.vm.take().unwrap().exec(snippet.workflow, scope).await;
     state.vm = Some(res.0);
     let res: FullValue = match res.1 {
         Ok(res) => res,
@@ -645,16 +647,17 @@ pub fn process_dummy_result(result: FullValue) {
 /// Processes the given result of an offline workflow execution.
 ///
 /// # Arguments
-/// - `result_dir`: The directory where temporary results are stored.
 /// - `result`: The value to process.
+/// - `scope`: Some [`ProfileScopeHandle`] to write profile timings in.
 ///
 /// # Returns
 /// Nothing, but does print any result to stdout.
 ///
 /// # Errors
 /// This function may error if we failed to get an up-to-date data index.
-pub fn process_offline_result(result: FullValue) -> Result<(), Error> {
+pub fn process_offline_result(result: FullValue, scope: ProfileScopeHandle) -> Result<(), Error> {
     // We only print
+    let guard = scope.time(format!("Processing of {result:?}"));
     if result != FullValue::Void {
         println!("\nWorkflow returned value {}", style(format!("'{result}'")).bold().cyan());
 
@@ -671,9 +674,12 @@ pub fn process_offline_result(result: FullValue) -> Result<(), Error> {
                 let datasets_dir = ensure_datasets_dir(false).map_err(|source| Error::DatasetsDirError { source })?;
 
                 // Fetch a new, local DataIndex to get up-to-date entries
-                let index: DataIndex = brane_tsk::local::get_data_index(datasets_dir).map_err(|source| Error::LocalDataIndexError { source })?;
+                let index: DataIndex = scope.time_func("Collecting local data index", || {
+                    brane_tsk::local::get_data_index(datasets_dir).map_err(|source| Error::LocalDataIndexError { source })
+                })?;
 
                 // Fetch the method of its availability
+                let _guard = scope.time(format!("Finding dataset \"{name}\" in local data index"));
                 let info: &DataInfo = index.get(&name).ok_or_else(|| Error::UnknownDataset { name: name.clone().into() })?;
                 let access: &AccessKind = info
                     .access
@@ -690,6 +696,7 @@ pub fn process_offline_result(result: FullValue) -> Result<(), Error> {
             _ => {},
         }
     }
+    drop(guard);
 
     // DOne
     Ok(())
@@ -782,7 +789,7 @@ pub async fn handle(
             // Run the thing
             remote_run(info, use_case, proxy_addr, options, source, source_code, profile).await
         } else {
-            local_run(options, docker_opts, source, source_code, keep_containers).await
+            local_run(options, docker_opts, source, source_code, keep_containers, profile).await
         }
     } else {
         dummy_run(options, source, source_code).await
@@ -823,6 +830,7 @@ async fn dummy_run(options: ParserOptions, what: impl AsRef<str>, source: impl A
 /// - `what`: A description of the source we're reading (e.g., the filename or stdin)
 /// - `source`: The source code to read.
 /// - `keep_containers`: Whether to keep containers after execution or not.
+/// - `profile`: Whether to print profile timings (true) or not (false).
 ///
 /// # Returns
 /// Nothing, but does print results and such to stdout. Might also produce new datasets.
@@ -832,6 +840,7 @@ async fn local_run(
     what: impl AsRef<str>,
     source: impl AsRef<str>,
     keep_containers: bool,
+    profile: bool,
 ) -> Result<(), Error> {
     let what: &str = what.as_ref();
     let source: &str = source.as_ref();
@@ -843,11 +852,16 @@ async fn local_run(
     let snippet = Snippet::from_source(&mut state.state, &mut state.source, &state.pindex, &state.dindex, None, &state.options, what, source)
         .map_err(Error::CompileError)?;
 
+    // Get a report
+    let report: Option<ProfileReport<Stdout>> = if profile { Some(ProfileReport::auto_reporting("brane_cli::local_run", stdout())) } else { None };
+
     // Next, we run the VM (one snippet only ayway)
-    let res: FullValue = run_offline_vm(&mut state, snippet).await?;
+    let res: FullValue =
+        run_offline_vm(&mut state, snippet, report.as_ref().map(|r| r.nest("run_offline_vm()")).unwrap_or_else(|| ProfileScopeHandle::dummy()))
+            .await?;
 
     // Then, we collect and process the result
-    process_offline_result(res)?;
+    process_offline_result(res, report.as_ref().map(|r| r.nest("process_offline_result()")).unwrap_or_else(|| ProfileScopeHandle::dummy()))?;
 
     // Done
     Ok(())

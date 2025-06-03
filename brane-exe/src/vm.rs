@@ -94,7 +94,7 @@ pub trait Vm {
     async fn run<P: VmPlugin<GlobalState = Self::GlobalState, LocalState = Self::LocalState>>(
         this: Arc<RwLock<Self>>,
         snippet: Workflow,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<FullValue, VmError>
     where
         Self: Sync,

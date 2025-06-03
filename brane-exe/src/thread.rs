@@ -28,7 +28,7 @@ use enum_debug::EnumDebug as _;
 use futures::future::{BoxFuture, FutureExt};
 use log::debug;
 use specifications::data::{AccessKind, AvailabilityKind, DataName};
-use specifications::profiling::{ProfileScopeHandle, ProfileScopeHandleOwned};
+use specifications::profiling::ProfileScopeHandle;
 use tokio::spawn;
 use tokio::task::JoinHandle;
 
@@ -118,7 +118,7 @@ mod tests {
                     results:  Arc::new(Mutex::new(HashMap::new())),
                     text:     text.clone(),
                 });
-                match main.run::<DummyPlugin>(ProfileScopeHandleOwned::dummy()).await {
+                match main.run::<DummyPlugin>(ProfileScopeHandle::dummy()).await {
                     Ok(value) => {
                         println!("Workflow stdout:");
                         print!("{}", text.lock().unwrap());
@@ -178,7 +178,7 @@ enum EdgeResult {
 /// This function may error if the given `input` does not contain any of the data in the value _or_ if the referenced input is not yet planned.
 #[async_recursion]
 #[allow(clippy::too_many_arguments, clippy::multiple_bound_locations)]
-async fn preprocess_value<'p: 'async_recursion, P: VmPlugin>(
+async fn preprocess_value<P: VmPlugin>(
     global: &Arc<RwLock<P::GlobalState>>,
     local: &P::LocalState,
     pc: ProgramCounter,
@@ -187,7 +187,7 @@ async fn preprocess_value<'p: 'async_recursion, P: VmPlugin>(
     value: &FullValue,
     input: &HashMap<DataName, Option<AvailabilityKind>>,
     data: &mut HashMap<DataName, JoinHandle<Result<AccessKind, P::PreprocessError>>>,
-    prof: ProfileScopeHandle<'p>,
+    prof: ProfileScopeHandle,
 ) -> Result<(), Error> {
     // If it's a data or intermediate result, get it; skip it otherwise
     let name: DataName = match value {
@@ -242,7 +242,6 @@ async fn preprocess_value<'p: 'async_recursion, P: VmPlugin>(
             //     Ok(access) => access,
             //     Err(err)   => { return Err(Error::Custom{ pc, err: Box::new(err) }); }
             // }
-            let prof = ProfileScopeHandleOwned::from(prof);
             let global = global.clone();
             let local = local.clone();
             let at = at.clone();
@@ -1174,14 +1173,14 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     /// # Arguments
     /// - `pc`: Points to the current edge to execute (as a [`ProgramCounter``]).
     /// - `plugins`: An object implementing various parts of task execution that are dependent on the actual setup (i.e., offline VS instance).
-    /// - `prof`: A ProfileScopeHandleOwned that is used to provide more details about the execution times of a single edge. Note that this is _not_ user-relevant, only debug/framework-relevant.
+    /// - `prof`: A [`ProfileScopeHandle`] that is used to provide more details about the execution times of a single edge. Note that this is _not_ user-relevant, only debug/framework-relevant.
     ///
     /// # Returns
     /// The next index to execute. Note that this is an _absolute_ index (so it will typically be `idx` + 1)
     ///
     /// # Errors
     /// This function may error if execution of the edge failed. This is typically due to incorrect runtime typing or due to failure to perform an external function call.
-    async fn exec_edge<P: VmPlugin<GlobalState = G, LocalState = L>>(&mut self, pc: ProgramCounter, prof: ProfileScopeHandleOwned) -> EdgeResult {
+    async fn exec_edge<P: VmPlugin<GlobalState = G, LocalState = L>>(&mut self, pc: ProgramCounter, prof: ProfileScopeHandle) -> EdgeResult {
         // We can early stop if the program counter is out-of-bounds
         if pc.func_id.is_main() {
             if pc.edge_idx >= self.graph.len() {
@@ -1259,13 +1258,13 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
 
                         // Next, fetch all the datasets required by calling the external transfer function;
                         // The map created maps data names to ways of accessing them locally that may be passed to the container itself.
-                        let prepr = prof.nest("argument preprocessing");
+                        let prepr = prof.nest(format!("Preprocessing of {} arguments", args.len()));
                         let total = prepr.time("Total");
                         let mut handles: HashMap<DataName, JoinHandle<Result<AccessKind, P::PreprocessError>>> = HashMap::new();
                         for (i, value) in args.values().enumerate() {
                             // Preprocess the given value
                             if let Err(err) = prepr
-                                .nest_fut(format!("argument {i}"), |scope| {
+                                .nest_fut(format!("Argument {i}"), |scope| {
                                     preprocess_value::<P>(&self.global, &self.local, pc, task, at, value, input, &mut handles, scope)
                                 })
                                 .await
@@ -1427,7 +1426,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
                     let prof = prof.clone();
 
                     // Schedule its running on the runtime (`spawn`)
-                    self.threads.push((i, spawn(async move { prof.nest_fut(format!("branch {i}"), |scope| thread.run::<P>(scope.into())).await })));
+                    self.threads.push((i, spawn(async move { prof.nest_fut(format!("branch {i}"), |scope| thread.run::<P>(scope)).await })));
                 }
 
                 // Mark those threads to wait for, and then move to the join
@@ -1942,7 +1941,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     ///
     /// # Arguments
     /// - `prof`: A ProfileScopeHandleOwned that is used to provide more details about the execution times of a workflow execution. Note that this is _not_ user-relevant, only debug/framework-relevant.
-    ///   
+    ///
     ///   The reason it is owned is due to the boxed return future. It's your responsibility to keep the parent into scope after the future returns; if you don't any collected profile results will likely not be printed.
     ///
     /// # Returns
@@ -1950,14 +1949,14 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     ///
     /// # Errors
     /// This function may error if execution of an edge or instruction failed. This is typically due to incorrect runtime typing.
-    pub fn run<P: VmPlugin<GlobalState = G, LocalState = L>>(mut self, prof: ProfileScopeHandleOwned) -> BoxFuture<'static, Result<Value, Error>> {
+    pub fn run<P: VmPlugin<GlobalState = G, LocalState = L>>(mut self, prof: ProfileScopeHandle) -> BoxFuture<'static, Result<Value, Error>> {
         async move {
             // Start executing edges from where we left off
-            let prof: ProfileScopeHandleOwned = prof;
+            let prof: ProfileScopeHandle = prof;
             loop {
                 // Run the edge
                 self.pc = match prof
-                    .nest_fut(format!("{:?} ({})", self.get_edge(self.pc)?.variant(), self.pc), |scope| self.exec_edge::<P>(self.pc, scope.into()))
+                    .nest_fut(format!("{:?} ({})", self.get_edge(self.pc)?.variant(), self.pc), |scope| self.exec_edge::<P>(self.pc, scope))
                     .await
                 {
                     // Either quit or continue, noting down the time taken
@@ -1982,7 +1981,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     ///
     /// # Arguments
     /// - `prof`: A ProfileScopeHandleOwned that is used to provide more details about the execution times of a workflow execution. Note that this is _not_ user-relevant, only debug/framework-relevant.
-    ///   
+    ///
     ///   The reason it is owned is due to the boxed return future. It's your responsibility to keep the parent into scope after the future returns; if you don't any collected profile results will likely not be printed.
     ///
     /// # Returns
@@ -1992,15 +1991,15 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     /// This function may error if execution of an edge or instruction failed. This is typically due to incorrect runtime typing.
     pub fn run_snippet<P: VmPlugin<GlobalState = G, LocalState = L>>(
         mut self,
-        prof: ProfileScopeHandleOwned,
+        prof: ProfileScopeHandle,
     ) -> BoxFuture<'static, Result<(Value, RunState<G>), Error>> {
         async move {
             // Start executing edges from where we left off
-            let prof: ProfileScopeHandleOwned = prof;
+            let prof: ProfileScopeHandle = prof;
             loop {
                 // Run the edge
                 self.pc = match prof
-                    .nest_fut(format!("{:?} ({})", self.get_edge(self.pc)?.variant(), self.pc), |scope| self.exec_edge::<P>(self.pc, scope.into()))
+                    .nest_fut(format!("{:?} ({})", self.get_edge(self.pc)?.variant(), self.pc), |scope| self.exec_edge::<P>(self.pc, scope))
                     .await
                 {
                     // Either quit or continue, noting down the time taken

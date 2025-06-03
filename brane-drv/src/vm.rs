@@ -81,7 +81,7 @@ impl VmPlugin for InstancePlugin {
         loc: Location,
         name: DataName,
         preprocess: PreprocessKind,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<AccessKind, Self::PreprocessError> {
         info!("Preprocessing {} '{}' on '{}' in a distributed environment...", name.variant(), name.name(), loc);
         debug!("Preprocessing to be done: {:?}", preprocess);
@@ -159,7 +159,7 @@ impl VmPlugin for InstancePlugin {
         global: &Arc<RwLock<Self::GlobalState>>,
         _local: &Self::LocalState,
         info: TaskInfo<'_>,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<Option<FullValue>, Self::ExecuteError> {
         info!("Executing task '{}' at '{}' in a distributed environment...", info.name, info.location);
         debug!("Package: '{}' v{}", info.package_name, info.package_version);
@@ -376,7 +376,7 @@ impl VmPlugin for InstancePlugin {
         _local: &Self::LocalState,
         text: &str,
         newline: bool,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<(), Self::StdoutError> {
         info!("Writing '{}' to stdout in a distributed environment...", text);
         debug!("Newline: {}", if newline { "yes" } else { "no" });
@@ -409,7 +409,7 @@ impl VmPlugin for InstancePlugin {
         loc: &Location,
         name: &str,
         path: &Path,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<(), Self::CommitError> {
         info!("Publicizing intermediate result '{}' living at '{}' in a distributed environment...", name, loc);
         debug!("File: '{}'", path.display());
@@ -426,7 +426,7 @@ impl VmPlugin for InstancePlugin {
         name: &str,
         path: &Path,
         data_name: &str,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<(), Self::CommitError> {
         info!("Committing intermediate result '{}' living at '{}' as '{}' in a distributed environment...", name, loc, data_name);
         debug!("File: '{}'", path.display());
@@ -519,7 +519,7 @@ impl InstanceVm {
         tx: Sender<Result<driving_grpc::ExecuteReply, Status>>,
         id: AppId,
         workflow: Workflow,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> (Self, Result<FullValue, Error>) {
         // Step 0: Load files
         let plr_addr: Address = {

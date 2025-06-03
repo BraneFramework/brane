@@ -99,7 +99,7 @@ pub trait VmPlugin: 'static + Send + Sync {
         loc: Location,
         name: DataName,
         preprocess: PreprocessKind,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<AccessKind, Self::PreprocessError>;
 
 
@@ -124,7 +124,7 @@ pub trait VmPlugin: 'static + Send + Sync {
         global: &Arc<RwLock<Self::GlobalState>>,
         local: &Self::LocalState,
         info: TaskInfo<'_>,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<Option<FullValue>, Self::ExecuteError>;
 
 
@@ -150,7 +150,7 @@ pub trait VmPlugin: 'static + Send + Sync {
         local: &Self::LocalState,
         text: &str,
         newline: bool,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<(), Self::StdoutError>;
 
 
@@ -178,7 +178,7 @@ pub trait VmPlugin: 'static + Send + Sync {
         loc: &Location,
         name: &str,
         path: &Path,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<(), Self::CommitError>;
 
     /// A function that commits the given intermediate result by promoting it a Data.
@@ -206,7 +206,7 @@ pub trait VmPlugin: 'static + Send + Sync {
         name: &str,
         path: &Path,
         data_name: &str,
-        prof: ProfileScopeHandle<'_>,
+        prof: ProfileScopeHandle,
     ) -> Result<(), Self::CommitError>;
 }
 

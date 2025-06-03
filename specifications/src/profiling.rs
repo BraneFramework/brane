@@ -12,7 +12,7 @@
 //!   A second version of the profiling library, with better support for
 //!   generate dynamic yet pretty and (most of all) ordered profiling
 //!   logs.
-//!   
+//!
 //!   Note that, while this library is not designed for Edge timings (i.e.,
 //!   user-relevant profiling), some parts of it can probably be re-used for
 //!   that (especially the Timing struct).
@@ -280,59 +280,52 @@ impl Drop for TimerGuard<'_> {
 
 
 
+// /// Provides a convenience wrapper around a reference to a [`ProfileScope`].
+// #[derive(Clone, Debug)]
+// pub struct ProfileScopeHandle<'s> {
+//     /// The actual scope itself.
+//     scope:     Arc<ProfileScope>,
+//     /// A lifetime which allows us to assume the weak reference is valid.
+//     _lifetime: PhantomData<&'s ()>,
+// }
+// impl ProfileScopeHandle<'static> {
+//     /// Provides a dummy handle for if you are not interested in profiling, but need to use the functions.
+//     #[inline]
+//     pub fn dummy() -> Self { Self { scope: Arc::new(ProfileScope::new("<<<dummy>>>")), _lifetime: PhantomData } }
+// }
+// impl ProfileScopeHandle {
+//     /// Finishes a scope, by janking the handle wrapping it out-of-scope.
+//     #[inline]
+//     pub fn finish(self) {}
+// }
+// impl Deref for ProfileScopeHandle {
+//     type Target = ProfileScope;
+
+//     #[inline]
+//     fn deref(&self) -> &Self::Target { &self.scope }
+// }
+
 /// Provides a convenience wrapper around a reference to a [`ProfileScope`].
 #[derive(Clone, Debug)]
-pub struct ProfileScopeHandle<'s> {
-    /// The actual scope itself.
-    scope:     Arc<ProfileScope>,
-    /// A lifetime which allows us to assume the weak reference is valid.
-    _lifetime: PhantomData<&'s ()>,
-}
-impl ProfileScopeHandle<'static> {
-    /// Provides a dummy handle for if you are not interested in profiling, but need to use the functions.
-    #[inline]
-    pub fn dummy() -> Self { Self { scope: Arc::new(ProfileScope::new("<<<dummy>>>")), _lifetime: PhantomData } }
-}
-impl ProfileScopeHandle<'_> {
-    /// Finishes a scope, by janking the handle wrapping it out-of-scope.
-    #[inline]
-    pub fn finish(self) {}
-}
-impl Deref for ProfileScopeHandle<'_> {
-    type Target = ProfileScope;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target { &self.scope }
-}
-
-/// Provides a convenience wrapper around a reference to a [`ProfileScope`] that ignores the lifetime mumbo.
-///
-/// If this object outlives its parent scope, there won't be any errors; _however_, note that the profilings collected afterwards will not be printed.
-#[derive(Clone, Debug)]
-pub struct ProfileScopeHandleOwned {
-    /// The actual scope itself.
+pub struct ProfileScopeHandle {
+    /// The scope we reference.
     scope: Arc<ProfileScope>,
 }
-impl ProfileScopeHandleOwned {
+impl ProfileScopeHandle {
     /// Provides a dummy handle for if you are not interested in profiling, but need to use the functions.
     #[inline]
     pub fn dummy() -> Self { Self { scope: Arc::new(ProfileScope::new("<<<dummy>>>")) } }
 }
-impl ProfileScopeHandleOwned {
+impl ProfileScopeHandle {
     /// Finishes a scope, by janking the handle wrapping it out-of-scope.
     #[inline]
     pub fn finish(self) {}
 }
-impl Deref for ProfileScopeHandleOwned {
+impl Deref for ProfileScopeHandle {
     type Target = ProfileScope;
 
     #[inline]
     fn deref(&self) -> &Self::Target { &self.scope }
-}
-
-impl<'s> From<ProfileScopeHandle<'s>> for ProfileScopeHandleOwned {
-    #[inline]
-    fn from(value: ProfileScopeHandle<'s>) -> Self { Self { scope: value.scope } }
 }
 
 
@@ -447,7 +440,7 @@ impl ProfileScope {
     ///
     /// # Returns
     /// A new `ProfileScope` instance.
-    pub fn new(name: impl Into<String>) -> Self { Self { name: name.into(), timings: Mutex::new(vec![]) } }
+    pub fn new(name: impl Into<String>) -> Self { Self { name: name.into(), timings: Mutex::new(Vec::new()) } }
 
     /// Returns a [`TimerGuard`], which takes a time exactly as long as it is in scope.
     ///
@@ -533,14 +526,14 @@ impl ProfileScope {
     /// A new `ProfileScope` that can be used to take timings.
     pub fn nest(&self, name: impl Into<String>) -> ProfileScopeHandle {
         // Create the new scope
-        let scope: Self = Self::new(name);
+        let scope: Arc<Self> = Arc::new(Self::new(name));
 
         // Insert it internally
         let mut lock: MutexGuard<Vec<ProfileTiming>> = self.timings.lock();
-        lock.push(ProfileTiming::Scope(Arc::new(scope)));
+        lock.push(ProfileTiming::Scope(scope.clone()));
 
         // Return a weak reference to it
-        ProfileScopeHandle { scope: lock.last().unwrap().scope().clone(), _lifetime: PhantomData }
+        ProfileScopeHandle { scope: lock.last().unwrap().scope().clone() }
     }
 
     /// Profiles the given function, but provides it with extra profile options by giving it its own `ProfileScope` to populate.
@@ -560,7 +553,7 @@ impl ProfileScope {
         // Add an entry for the scope
         let timing: Arc<Mutex<Timing>> = {
             let mut lock: MutexGuard<Vec<ProfileTiming>> = scope.timings.lock();
-            lock.push(ProfileTiming::Timing("total".into(), Arc::new(Mutex::new(Timing::none()))));
+            lock.push(ProfileTiming::Timing("Total".into(), Arc::new(Mutex::new(Timing::none()))));
             lock.last().unwrap().timing().clone()
         };
 
@@ -587,10 +580,10 @@ impl ProfileScope {
     ///
     /// # Returns
     /// A future that returns the same result as the given, but times its execution as a side-effect.
-    pub fn nest_fut<'s, F: Future>(
+    pub fn nest_fut<'s, 'f: 's, F: Future>(
         &'s self,
         name: impl Into<String>,
-        fut: impl 's + FnOnce(ProfileScopeHandle<'s>) -> F,
+        fut: impl 'f + FnOnce(ProfileScopeHandle) -> F,
     ) -> impl 's + Future<Output = F::Output> {
         let name: String = name.into();
 
@@ -600,7 +593,7 @@ impl ProfileScope {
         // Add an entry for the scope
         let timing: Arc<Mutex<Timing>> = {
             let mut lock: MutexGuard<Vec<ProfileTiming>> = scope.timings.lock();
-            lock.push(ProfileTiming::Timing("total".into(), Arc::new(Mutex::new(Timing::none()))));
+            lock.push(ProfileTiming::Timing("Total".into(), Arc::new(Mutex::new(Timing::none()))));
             lock.last().unwrap().timing().clone()
         };
 

@@ -31,6 +31,7 @@ use rustyline::history::DefaultHistory;
 use rustyline::validate::{self, MatchingBracketValidator, Validator};
 use rustyline::{CompletionType, Config, Context, EditMode, Editor};
 use rustyline_derive::Helper;
+use specifications::profiling::ProfileScopeHandle;
 
 pub use crate::errors::ReplError as Error;
 use crate::instance::InstanceInfo;
@@ -388,10 +389,12 @@ async fn local_repl(
                 let snippet = Snippet { lines: line_count, workflow };
 
                 // Next, we run the VM (one snippet only ayway)
-                let res: FullValue = run_offline_vm(&mut state, snippet).await.map_err(|source| Error::RunError { what: "offline VM", source })?;
+                let res: FullValue = run_offline_vm(&mut state, snippet, ProfileScopeHandle::dummy())
+                    .await
+                    .map_err(|source| Error::RunError { what: "offline VM", source })?;
 
                 // Then, we collect and process the result
-                if let Err(source) = process_offline_result(res) {
+                if let Err(source) = process_offline_result(res, ProfileScopeHandle::dummy()) {
                     error!("{}", Error::ProcessError { what: "offline VM", source });
                     continue;
                 }
