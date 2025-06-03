@@ -23,6 +23,7 @@ use brane_tsk::input::prompt_for_input;
 use console::style;
 use specifications::data::DataIndex;
 use specifications::package::PackageInfo;
+use specifications::profiling::ProfileScopeHandle;
 use specifications::version::Version;
 
 use crate::errors::TestError;
@@ -178,7 +179,8 @@ pub async fn test_generic(
     )
     .map_err(|source| TestError::RunError { source: run::Error::CompileError(source) })?;
 
-    let result: FullValue = run_offline_vm(&mut state, snippet).await.map_err(|source| TestError::RunError { source })?;
+    let result: FullValue =
+        run_offline_vm(&mut state, snippet, ProfileScopeHandle::dummy()).await.map_err(|source| TestError::RunError { source })?;
 
     // Write the intermediate result if told to do so
     if let Some(file) = show_result {

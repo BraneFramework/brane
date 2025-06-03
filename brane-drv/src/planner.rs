@@ -41,7 +41,7 @@ impl InstancePlanner {
     ///
     /// # Returns
     /// The same workflow as given, but now with all tasks and data transfers planned.
-    pub async fn plan(plr: &Address, app_id: AppId, workflow: Workflow, prof: ProfileScopeHandle<'_>) -> Result<Workflow, PlanError> {
+    pub async fn plan(plr: &Address, app_id: AppId, workflow: Workflow, prof: ProfileScopeHandle) -> Result<Workflow, PlanError> {
         // Generate the ID
         let task_id: String = format!("{}", TaskId::generate());
 

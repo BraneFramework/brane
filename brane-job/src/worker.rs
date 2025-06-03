@@ -347,7 +347,7 @@ async fn preprocess_transfer_tar_local(
     workflow: Workflow,
     location: Location,
     dataname: DataName,
-    prof: ProfileScopeHandle<'_>,
+    prof: ProfileScopeHandle,
 ) -> Result<AccessKind, PreprocessError> {
     debug!("Preprocessing by executing a data transfer");
     debug!("Downloading '{location}' from '{dataname}' to local machine");
@@ -493,7 +493,7 @@ async fn preprocess_transfer_tar_local(
 // ///
 // /// # Errors
 // /// This function can error for literally a million reasons - but they mostly relate to IO (file access, request success etc).
-// async fn preprocess_transfer_tar_k8s(kinfo: K8sOptions, location: Location, address: impl AsRef<str>, prof: ProfileScopeHandle<'_>) -> Result<AccessKind, PreprocessError> {
+// async fn preprocess_transfer_tar_k8s(kinfo: K8sOptions, location: Location, address: impl AsRef<str>, prof: ProfileScopeHandle) -> Result<AccessKind, PreprocessError> {
 //     debug!("Preprocessing by executing a data transfer");
 //     let address: &str  = address.as_ref();
 //     debug!("Downloading from {} ({}) to Kubernetes cluster", location, address);
@@ -532,7 +532,7 @@ pub async fn preprocess_transfer_tar(
     workflow: Workflow,
     location: Location,
     dataname: DataName,
-    prof: ProfileScopeHandle<'_>,
+    prof: ProfileScopeHandle,
 ) -> Result<AccessKind, PreprocessError> {
     debug!("Preprocessing tar...");
 
@@ -892,7 +892,7 @@ async fn get_container(
 async fn get_container_ids(
     worker_cfg: &WorkerConfig,
     image_path: impl AsRef<Path>,
-    prof: ProfileScopeHandle<'_>,
+    prof: ProfileScopeHandle,
 ) -> Result<(String, Option<String>), ExecuteError> {
     let image_path: &Path = image_path.as_ref();
     debug!("Computing ID and hash for '{}'...", image_path.display());
@@ -980,7 +980,7 @@ async fn ensure_container(
     proxy: Arc<ProxyClient>,
     endpoint: impl AsRef<str>,
     image: &Image,
-    prof: ProfileScopeHandle<'_>,
+    prof: ProfileScopeHandle,
 ) -> Result<(PathBuf, String, Option<String>), ExecuteError> {
     // Download the file if we don't have it locally already
     let image_path: PathBuf = match prof.time_func("cache checking", || get_cached_container(worker_cfg, image)) {
@@ -1021,7 +1021,7 @@ async fn execute_task_local(
     container_path: impl AsRef<Path>,
     tinfo: TaskInfo,
     keep_container: bool,
-    prof: ProfileScopeHandle<'_>,
+    prof: ProfileScopeHandle,
 ) -> Result<FullValue, JobStatus> {
     let container_path: &Path = container_path.as_ref();
     let mut tinfo: TaskInfo = tinfo;
@@ -1149,7 +1149,7 @@ async fn execute_task_local(
 // ///
 // /// # Errors
 // /// This function errors if the task fails for whatever reason or we didn't even manage to launch it.
-// async fn execute_task_k8s(worker_cfg: &WorkerConfig, kinfo: K8sOptions, tx: &Sender<Result<ExecuteReply, Status>>, container_path: impl AsRef<Path>, tinfo: TaskInfo, prof: ProfileScopeHandle<'_>) -> Result<FullValue, JobStatus> {
+// async fn execute_task_k8s(worker_cfg: &WorkerConfig, kinfo: K8sOptions, tx: &Sender<Result<ExecuteReply, Status>>, container_path: impl AsRef<Path>, tinfo: TaskInfo, prof: ProfileScopeHandle) -> Result<FullValue, JobStatus> {
 //     let container_path : &Path    = container_path.as_ref();
 //     let mut tinfo      : TaskInfo = tinfo;
 //     let image          : Image    = tinfo.image.clone().unwrap();
@@ -1275,7 +1275,7 @@ async fn execute_task(
     cinfo: CentralNodeInfo,
     tinfo: TaskInfo,
     keep_container: bool,
-    prof: ProfileScopeHandle<'_>,
+    prof: ProfileScopeHandle,
 ) -> Result<(), ExecuteError> {
     let mut tinfo = tinfo;
 
@@ -1465,7 +1465,7 @@ async fn commit_result(
     worker_cfg: &WorkerConfig,
     name: impl AsRef<str>,
     data_name: impl AsRef<str>,
-    prof: ProfileScopeHandle<'_>,
+    prof: ProfileScopeHandle,
 ) -> Result<(), CommitError> {
     let name: &str = name.as_ref();
     let data_name: &str = data_name.as_ref();

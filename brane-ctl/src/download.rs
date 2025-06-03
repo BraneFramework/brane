@@ -25,6 +25,7 @@ use enum_debug::EnumDebug as _;
 use log::{debug, info, warn};
 use specifications::arch::Arch;
 use specifications::container::Image;
+use specifications::profiling::ProfileScopeHandle;
 use specifications::version::Version;
 use tempfile::TempDir;
 
@@ -272,7 +273,7 @@ pub async fn services(
 
                 // Make sure the image is pulled
                 println!("Downloading auxillary image {}...", style(image).bold().green());
-                ensure_image(&docker, Image::new(name, None::<&str>, None::<&str>), ImageSource::Registry(image.into()))
+                ensure_image(&docker, Image::new(name, None::<&str>, None::<&str>), ImageSource::Registry(image.into()), ProfileScopeHandle::dummy())
                     .await
                     .map_err(|source| Error::PullError { name: name.into(), image: image.into(), source })?;
 

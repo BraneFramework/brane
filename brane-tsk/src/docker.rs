@@ -36,6 +36,7 @@ use sha2::{Digest, Sha256};
 use specifications::container::{Image, VolumeBind};
 use specifications::data::{AccessKind, DataName};
 use specifications::package::Capability;
+use specifications::profiling::ProfileScopeHandle;
 use tokio::fs::{self as tfs, File as TFile};
 use tokio::io::{self as tio, AsyncReadExt as _, AsyncWriteExt as _};
 use tokio_tar::Archive;
@@ -538,18 +539,20 @@ fn preprocess_arg(
 /// # Arguments
 /// - `docker`: The Docker instance to use for accessing the container.
 /// - `info`: The ExecuteInfo describing what to launch and how.
+/// - `scope`: Some [`ProfileScopeHandle`] to report profile timings in. Use [`ProfileScopeHandle::dummy()`] if you're not interested in the results.
 ///
 /// # Returns
 /// The name of the container such that it can be waited on later.
 ///
 /// # Errors
 /// This function may error for many reasons, which usually means that the container failed to be created or started (wow!).
-async fn create_and_start_container(docker: &Docker, info: &ExecuteInfo) -> Result<String, Error> {
+async fn create_and_start_container(docker: &Docker, info: &ExecuteInfo, scope: ProfileScopeHandle) -> Result<String, Error> {
     // Generate unique (temporary) container name
     let container_name: String = format!("{}-{}", info.name, &uuid::Uuid::new_v4().to_string()[..6]);
     let create_options = CreateContainerOptions { name: &container_name, platform: None };
 
     // Extract device requests from the capabilities
+    let guard = scope.time("Config initialization");
     #[allow(clippy::unnecessary_filter_map)]
     let device_requests: Vec<DeviceRequest> = info
         .capabilities
@@ -588,16 +591,16 @@ async fn create_and_start_container(docker: &Docker, info: &ExecuteInfo) -> Resu
     // Create the container confic
     let create_config =
         Config { image: Some(info.image.name()), cmd: Some(info.command.clone()), host_config: Some(host_config), ..Default::default() };
+    drop(guard);
 
     // Run it with that config
     debug!("Launching container with name '{}' (image: {})...", info.name, info.image.name());
-    docker.create_container(Some(create_options), create_config).await.map_err(|source| Error::CreateContainerError {
-        name: info.name.clone(),
-        image: Box::new(info.image.clone()),
-        source,
-    })?;
+    scope
+        .time_fut("Container creation", docker.create_container(Some(create_options), create_config))
+        .await
+        .map_err(|source| Error::CreateContainerError { name: info.name.clone(), image: Box::new(info.image.clone()), source })?;
     debug!(" > Container created");
-    match docker.start_container(&container_name, None::<StartContainerOptions<String>>).await {
+    match scope.time_fut("Container launching", docker.start_container(&container_name, None::<StartContainerOptions<String>>)).await {
         Ok(_) => {
             debug!(" > Container '{}' started", container_name);
             Ok(container_name)
@@ -613,26 +616,29 @@ async fn create_and_start_container(docker: &Docker, info: &ExecuteInfo) -> Resu
 /// - `name`: The name of the container to wait on.
 /// - `image`: The image that was run (used for debugging).
 /// - `keep_container`: Whether to keep the container around after it's finished or not.
+/// - `scope`: Some [`ProfileScopeHandle`] to report profile timings in. Use [`ProfileScopeHandle::dummy()`] if you're not interested in the results.
 ///
 /// # Returns
 /// The return code of the docker container, its stdout and its stderr (in that order).
 ///
 /// # Errors
 /// This function may error for many reasons, which usually means that the container is unknown or the Docker engine is unreachable.
-async fn join_container(docker: &Docker, name: &str, keep_container: bool) -> Result<(i32, String, String), Error> {
+async fn join_container(docker: &Docker, name: &str, keep_container: bool, scope: ProfileScopeHandle) -> Result<(i32, String, String), Error> {
     // Wait for the container to complete
-    docker
-        .wait_container(name, None::<WaitContainerOptions<String>>)
-        .try_collect::<Vec<_>>()
+    scope
+        .time_fut("Container runtime", docker.wait_container(name, None::<WaitContainerOptions<String>>).try_collect::<Vec<_>>())
         .await
         .map_err(|source| Error::WaitError { name: name.into(), source })?;
 
     // Get stdout and stderr logs from container
     let logs_options = Some(LogsOptions::<String> { stdout: true, stderr: true, ..Default::default() });
-    let log_outputs =
-        docker.logs(name, logs_options).try_collect::<Vec<LogOutput>>().await.map_err(|source| Error::LogsError { name: name.into(), source })?;
+    let log_outputs = scope
+        .time_fut("Log retrieval", docker.logs(name, logs_options).try_collect::<Vec<LogOutput>>())
+        .await
+        .map_err(|source| Error::LogsError { name: name.into(), source })?;
 
     // Collect them in one string per output channel
+    let guard = scope.time("Log postprocessing");
     let mut stderr = String::new();
     let mut stdout = String::new();
     for log_output in log_outputs {
@@ -644,13 +650,14 @@ async fn join_container(docker: &Docker, name: &str, keep_container: bool) -> Re
             },
         }
     }
+    drop(guard);
 
     // Get the container's exit status by inspecting it
-    let code = returncode_container(docker, name).await?;
+    let code = scope.nest_fut("Retrieving container returncode", |scope| returncode_container(docker, name, scope)).await?;
 
     // Don't leave behind any waste: remove container (but only if told to do so!)
     if !keep_container {
-        remove_container(docker, name).await?;
+        scope.time_fut("Container removal", remove_container(docker, name)).await?;
     }
 
     // Return the return data of this container!
@@ -662,17 +669,21 @@ async fn join_container(docker: &Docker, name: &str, keep_container: bool) -> Re
 /// # Arguments
 /// - `docker`: The Docker instance to use for accessing the container.
 /// - `name`: The container's name.
+/// - `scope`: Some [`ProfileScopeHandle`] to report profile timings in. Use [`ProfileScopeHandle::dummy()`] if you're not interested in the results.
 ///
 /// # Returns
 /// The exit-/returncode that was returned by the container.
 ///
 /// # Errors
 /// This function errors if the Docker daemon could not be reached, such a container did not exist, could not be inspected or did not have a return code (yet).
-async fn returncode_container(docker: &Docker, name: impl AsRef<str>) -> Result<i32, Error> {
+async fn returncode_container(docker: &Docker, name: impl AsRef<str>, scope: ProfileScopeHandle) -> Result<i32, Error> {
     let name: &str = name.as_ref();
 
     // Do the inspect call
-    let info = docker.inspect_container(name, None).await.map_err(|source| Error::InspectContainerError { name: name.into(), source })?;
+    let info = scope
+        .time_fut("Inspecting container", docker.inspect_container(name, None))
+        .await
+        .map_err(|source| Error::InspectContainerError { name: name.into(), source })?;
 
     // Try to get the execution state from the container
     let state = match info.state {
@@ -995,15 +1006,16 @@ pub async fn hash_container(container_path: impl AsRef<Path>) -> Result<String, 
 /// - `docker`: An already connected local instance of Docker.
 /// - `image`: The Docker image name, version & potential digest to pull.
 /// - `source`: Where to get the image from should it not be present already.
+/// - `scope`: Some [`ProfileScopeHandle`] to report profile timings in. Use [`ProfileScopeHandle::dummy()`] if you're not interested in the results.
 ///
 /// # Errors
 /// This function errors if it failed to ensure the image existed (i.e., import or pull failed).
-pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl Into<ImageSource>) -> Result<(), Error> {
+pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl Into<ImageSource>, scope: ProfileScopeHandle) -> Result<(), Error> {
     let image: Image = image.into();
     let source: ImageSource = source.into();
 
     // Abort if image is already loaded
-    match docker.inspect_image(&image.docker().to_string()).await {
+    match scope.time_fut("Checking image existance", docker.inspect_image(&image.docker().to_string())).await {
         Ok(_) => {
             debug!("Image '{}' already exists in Docker deamon.", image.docker());
             return Ok(());
@@ -1020,12 +1032,12 @@ pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl
     match source {
         ImageSource::Path(path) => {
             debug!(" > Importing file '{}'...", path.display());
-            import_image(docker, image, path).await
+            scope.time_fut(format!("Importing image {:?}", path.display()), import_image(docker, image, path)).await
         },
 
         ImageSource::Registry(source) => {
             debug!(" > Pulling image '{}'...", image);
-            pull_image(docker, image, source).await
+            scope.time_fut(format!("Pulling image {source:?}"), pull_image(docker, image, source)).await
         },
     }
 }
@@ -1107,10 +1119,10 @@ pub async fn launch(opts: impl AsRef<DockerOptions>, exec: ExecuteInfo) -> Resul
     let docker: Docker = connect_local(opts)?;
 
     // Either import or pull image, if not already present
-    ensure_image(&docker, &exec.image, &exec.image_source).await?;
+    ensure_image(&docker, &exec.image, &exec.image_source, ProfileScopeHandle::dummy()).await?;
 
     // Start container, return immediately (propagating any errors that occurred)
-    create_and_start_container(&docker, &exec).await
+    create_and_start_container(&docker, &exec, ProfileScopeHandle::dummy()).await
 }
 
 /// Joins the container with the given name, i.e., waits for it to complete and returns its results.
@@ -1132,7 +1144,7 @@ pub async fn join(opts: impl AsRef<DockerOptions>, name: impl AsRef<str>, keep_c
     let docker: Docker = connect_local(opts)?;
 
     // And now wait for it
-    join_container(&docker, name, keep_container).await
+    join_container(&docker, name, keep_container, ProfileScopeHandle::dummy()).await
 }
 
 /// Launches the given container and waits until its completed.
@@ -1143,25 +1155,31 @@ pub async fn join(opts: impl AsRef<DockerOptions>, name: impl AsRef<str>, keep_c
 /// - `opts`: The DockerOptions that contains information on how we can connect to the local daemon.
 /// - `exec`: The ExecuteInfo describing what to launch and how.
 /// - `keep_container`: If true, then will not remove the container after it has been launched. This is very useful for debugging.
+/// - `scope`: Some [`ProfileScopeHandle`] to report profile timings in. Use [`ProfileScopeHandle::dummy()`] if you're not interested in the results.
 ///
 /// # Returns
 /// The return code of the docker container, its stdout and its stderr (in that order).
 ///
 /// # Errors
 /// This function errors for many reasons, some of which include not being able to connect to Docker or the container failing.
-pub async fn run_and_wait(opts: impl AsRef<DockerOptions>, exec: ExecuteInfo, keep_container: bool) -> Result<(i32, String, String), Error> {
+pub async fn run_and_wait(
+    opts: impl AsRef<DockerOptions>,
+    exec: ExecuteInfo,
+    keep_container: bool,
+    scope: ProfileScopeHandle,
+) -> Result<(i32, String, String), Error> {
     // This next bit's basically launch but copied so that we have a docker connection of our own.
     // Connect to docker
     let docker: Docker = connect_local(opts)?;
 
     // Either import or pull image, if not already present
-    ensure_image(&docker, &exec.image, &exec.image_source).await?;
+    scope.nest_fut("Ensuring image", |scope| ensure_image(&docker, &exec.image, &exec.image_source, scope)).await?;
 
     // Start container, return immediately (propagating any errors that occurred)
-    let name: String = create_and_start_container(&docker, &exec).await?;
+    let name: String = scope.nest_fut("Launching container", |scope| create_and_start_container(&docker, &exec, scope)).await?;
 
     // And now wait for it
-    join_container(&docker, &name, keep_container).await
+    scope.nest_fut("Joining container", |scope| join_container(&docker, &name, keep_container, scope)).await
 }
 
 /// Tries to return the (IP-)address of the container with the given name.

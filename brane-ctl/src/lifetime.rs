@@ -37,6 +37,7 @@ use rand::Rng;
 use rand::distr::Alphanumeric;
 use serde::{Deserialize, Serialize};
 use specifications::container::Image;
+use specifications::profiling::ProfileScopeHandle;
 use specifications::version::Version;
 
 pub use crate::errors::LifetimeError as Error;
@@ -487,7 +488,7 @@ async fn load_images(docker: &Docker, images: HashMap<impl AsRef<str>, ImageSour
         };
 
         // Simply rely on ensure_image
-        ensure_image(docker, &image, &image_source).await.map_err(|source| Error::ImageLoadError {
+        ensure_image(docker, &image, &image_source, ProfileScopeHandle::dummy()).await.map_err(|source| Error::ImageLoadError {
             image: Box::new(image),
             image_source: Box::new(image_source),
             source,

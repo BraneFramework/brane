@@ -143,7 +143,7 @@ impl VmPlugin for DummyPlugin {
         _loc: Location,
         name: DataName,
         _preprocess: specifications::data::PreprocessKind,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<AccessKind, Self::PreprocessError> {
         info!("Processing dummy `DummyVm::preprocess()` call for intermediate result '{name}' in {pc}");
 
@@ -155,7 +155,7 @@ impl VmPlugin for DummyPlugin {
         global: &Arc<RwLock<Self::GlobalState>>,
         _local: &Self::LocalState,
         info: TaskInfo<'_>,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<Option<FullValue>, Self::ExecuteError> {
         info!(
             "Processing dummy call to '{}'@'{}' with {} in {}[{}]...",
@@ -179,7 +179,7 @@ impl VmPlugin for DummyPlugin {
         _local: &Self::LocalState,
         text: &str,
         newline: bool,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<(), Self::StdoutError> {
         info!("Processing dummy stdout write (newline: {})...", if newline { "yes" } else { "no" },);
 
@@ -198,7 +198,7 @@ impl VmPlugin for DummyPlugin {
         _loc: &Location,
         name: &str,
         path: &Path,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<(), Self::CommitError> {
         info!("Processing dummy publicize for result '{}' @ '{:?}'...", name, path.display(),);
 
@@ -213,7 +213,7 @@ impl VmPlugin for DummyPlugin {
         name: &str,
         path: &Path,
         data_name: &str,
-        _prof: ProfileScopeHandle<'_>,
+        _prof: ProfileScopeHandle,
     ) -> Result<(), Self::CommitError> {
         info!("Processing dummy commit for result '{}' @ '{:?}' to '{}'...", name, path.display(), data_name,);
 
