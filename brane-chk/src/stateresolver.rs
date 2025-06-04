@@ -185,74 +185,6 @@ impl From<&Error> for StatusCode {
 
 
 /***** HELPER FUNCTIONS *****/
-
-
-
-/// Checks if all users, datasets, packages etc exist in the given workflow.
-///
-/// # Arguments
-/// - `wf`: The [`Workflow`] who's context to verify.
-/// - `usecase`: The usecase identifier to resolve.
-/// - `usecases`: The map of usescases to resolve the `usecase` to a registry address with.
-///
-/// # Returns
-/// A [`DataIndex`] that contains the known data in the system.
-///
-/// # Errors
-/// This function may error if the `usecase` is unknown, or if the remote registry does not reply (correctly).
-async fn assert_workflow_context(_wf: &Workflow, usecase: &str, usecases: &HashMap<String, WorkerUsecase>) -> Result<(), Error> {
-    // Resolve the usecase to an address to query
-    debug!("Resolving usecase {usecase:?} to registry address...");
-    let _api: &Address = match usecases.get(usecase) {
-        Some(usecase) => &usecase.api,
-        None => return Err(Error::UnknownUsecase { usecase: usecase.into() }),
-    };
-
-
-    // // TODO: Finish this
-    // // Cannot really do it for now, since, unfortunately, we do not know all users (i.e., no idea
-    // // about scientists). Some kind of user database is, clearly, essential.
-
-    // // // Send the request to the Brane API registry to get the current state of the datasets
-    // // let users: String = format!("http://{api}/infra/registries");
-    // // debug!("Retrieving list of users from registry at {users:?}...");
-    // // let users: HashSet<String> = send_request::<HashMap<String, Address>>(&users).await?.into_keys().collect();
-
-    // // // Check if the users are all found in the system
-    // // debug!("Asserting all users in workflow {:?} exist...", wf.id);
-    // // if let Some(user) = &wf.user {
-    // //     if !users.contains(&user.id) {
-    // //         return Err(Error::UnknownWorkflowUser { workflow: wf.id.clone(), user: user.id.clone() });
-    // //     }
-    // // }
-    // // wf.visit(AssertUserExistance::new(&wf.id, &users))?;
-
-
-    // // Check if all the packages mentioned exist in the system
-    // let graphql: String = format!("http://{api}/graphql");
-    // debug!("Retrieving list of packages from registry at {graphql:?}...");
-    // let packages: PackageIndex = match brane_tsk::api::get_package_index(&graphql).await {
-    //     Ok(index) => index,
-    //     Err(err) => return Err(Error::PackageIndex { addr: graphql, err }),
-    // };
-
-    // debug!("Asserting all packages in workflow {:?} exist...", wf.id);
-    // wf.visit(AssertPackageExistance::new(&wf.id, &packages))?;
-
-
-    // // Check if all the datasets mentioned exist in the system
-    // let datasets: String = format!("http://{api}/data/info");
-    // debug!("Retrieving list of datasets from registry at {datasets:?}...");
-    // let datasets: HashSet<String> = send_request::<HashMap<String, DataInfo>>(&datasets).await?.into_keys().collect();
-
-    // debug!("Asserting all input datasets in workflow {:?} exist...", wf.id);
-    // wf.visit(AssertDataExistance::new(&wf.id, datasets))?;
-
-
-    // Done!
-    Ok(())
-}
-
 /// Interacts with the database to get the currently active policy.
 ///
 /// # Arguments
@@ -479,8 +411,7 @@ impl StateResolver for BraneStateResolver {
         let id: String = state.workflow.id.clone();
         let wf: Workflow = compile(state.workflow).map_err(|source| Error::ResolveWorkflow { id, source })?;
 
-        // Verify whether all things in the workflow exist
-        assert_workflow_context(&wf, &state.usecase, &self.usecases).await?;
+        // FIXME: Verify whether all things in the workflow exist
 
         // Now check some question-specific input...
         match state.input {
