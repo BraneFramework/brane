@@ -968,7 +968,7 @@ mod tests {
                 },
             };
             // Emit the compiled workflow
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("{BLOCK_SEPARATOR}");
             println!("Test '{id}'");
             println!();
             ast::do_traversal(&wir, std::io::stdout()).unwrap();
@@ -1016,14 +1016,14 @@ mod tests {
             }
 
             // Start by the name to always know which file this is
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("{BLOCK_SEPARATOR}");
             println!("File '{}' gave us:", path.display());
 
             // Skip some files, sadly
             if let Some(name) = path.file_name() {
                 if name == OsStr::new("class.bs") {
                     println!("Skipping test, since instance calling is not supported in checker workflows...");
-                    println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+                    println!("{BLOCK_SEPARATOR}\n\n");
                     return;
                 }
             }
@@ -1069,7 +1069,7 @@ mod tests {
 
             // Now print the file for prettyness
             ast::do_traversal(&wir, std::io::stdout()).unwrap();
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+            println!("{BLOCK_SEPARATOR}\n\n");
         });
     }
 }
