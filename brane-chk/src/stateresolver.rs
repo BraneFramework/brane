@@ -280,15 +280,10 @@ async fn get_active_policy(base_policy_hash: &str, db: &SQLiteDatabase<String>, 
     let Some(md) = conn.get_version_metadata(version).await.map_err(|source| Error::DatabaseGetActiveVersionMetadata { version, source })? else {
         return Err(Error::DatabaseInconsistentActive { version });
     };
-    if md.attached.language.len() < 15
-        || &md.attached.language.as_bytes()[..15] != b"eflint-haskell-"
-        || &md.attached.language.as_bytes()[15..] != base_policy_hash.as_bytes()
-    {
-        return Err(Error::DatabaseActiveVersionMismatch {
-            version,
-            got: md.attached.language,
-            expected: format!("eflint-haskell-{base_policy_hash}"),
-        });
+
+    let expected_language = format!("eflint-haskell-{base_policy_hash}");
+    if md.attached.language != expected_language {
+        return Err(Error::DatabaseActiveVersionMismatch { version, got: md.attached.language, expected: expected_language });
     }
 
     debug!("Fetching active policy {version}...");
@@ -381,21 +376,19 @@ impl<'w> Visitor<'w> for CallInputFinder<'w> {
         // Check if it's the one
         if self.call == elem.id {
             // It is, so mark it (or complain we've seen it before)
-            if !self.found_call {
-                self.found_call = true;
-            } else {
+            if self.found_call {
                 return Err(Error::DuplicateCallId { workflow: self.wf_id.into(), call: elem.id.clone() });
             }
+            self.found_call = true;
 
             // Also verify the input exists in this call
             let mut found_input: bool = false;
             for i in &elem.input {
                 if self.input == i.id {
-                    if !found_input {
-                        found_input = true;
-                    } else {
+                    if found_input {
                         return Err(Error::DuplicateInputId { workflow: self.wf_id.into(), call: elem.id.clone(), input: i.id.clone() });
                     }
+                    found_input = true;
                 }
             }
             if !found_input {
