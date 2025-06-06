@@ -37,6 +37,8 @@ use specifications::wir::locations::{Location, Locations};
 use specifications::working::{ExecuteReply as TaskReply, TaskStatus};
 use tonic::Status;
 
+/***** CONSTANTS *****/
+const BLOCK_SEPARATOR: &str = "--------------------------------------------------------------------------------";
 
 /***** AUXILLARY *****/
 /// Turns a [`String`] into something that [`Error`]s.
@@ -560,11 +562,10 @@ pub enum DockerError {
     #[error("Failed to import image file '{}' into Docker engine", path.display())]
     ImageImportError { path: PathBuf, source: bollard::errors::Error },
     /// Failed to find the digest after importing the given image.
-    #[error("Failed to read digest after importing image '{}'\n\nReturned infos:\n{}\n{}\n{}\n",
-                path.display(),
-                "-".repeat(80),
-                infos.iter().map(|i| format!("{i:?}")).collect::<Vec<String>>().join("\n"),
-                "-".repeat(80))]
+    #[error("Failed to read digest after importing image '{}'\n\nReturned infos:\n{BLOCK_SEPARATOR}\n{}{BLOCK_SEPARATOR}\n",
+        path.display(),
+        infos.iter().fold(String::new(), |mut acc, line| { writeln!(acc, "{line:?}").expect("Writing to string"); acc }),
+    )]
     ImageImportFindId { path: PathBuf, infos: Vec<BuildInfo> },
     /// Failed to create the given image file.
     #[error("Failed to create image file '{}'", path.display())]
@@ -583,11 +584,10 @@ pub enum DockerError {
     #[error("Failed to pull image '{source}' into Docker engine")]
     ImagePullError { image_source: String, source: bollard::errors::Error },
     /// Failed to find the digest after pulling the given image.
-    #[error("Failed to read digest after pulling image '{}'\n\nReturned infos:\n{}\n{}\n{}\n",
-                image_source,
-                "-".repeat(80),
-                infos.iter().map(|i| format!("{i:?}")).collect::<Vec<String>>().join("\n"),
-                "-".repeat(80))]
+    #[error("Failed to read digest after pulling image '{}'\n\nReturned infos:\n{BLOCK_SEPARATOR}\n{}{BLOCK_SEPARATOR}\n",
+        image_source,
+        infos.iter().fold(String::new(), |mut acc, line| { writeln!(acc, "{line:?}").expect("Writing to string"); acc }),
+    )]
     ImagePullFindId { image_source: String, infos: Vec<CreateImageInfo> },
     /// Failed to appropriately tag the pulled image.
     #[error("Failed to tag pulled image '{source}' as '{image}'")]
