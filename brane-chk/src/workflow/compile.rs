@@ -475,7 +475,7 @@ pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
     analyse_data_lkls(&mut lkls, &wir, ProgramCounter::start(), None);
 
     // Alright now attempt to re-build the graph in the new style
-    let graph: Elem = reconstruct_graph(&wir, &wf_id, &calls, &mut lkls, ProgramCounter::start(), Elem::Stop, None)?;
+    let graph = reconstruct_graph(&wir, &wf_id, &calls, &mut lkls, ProgramCounter::start(), Elem::Stop, None)?;
 
     // Build a new Workflow with that!
     Ok(Workflow {

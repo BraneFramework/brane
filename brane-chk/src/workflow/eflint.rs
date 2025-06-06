@@ -306,14 +306,7 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
         // +node-input(#node, asset("#package[#version]")).
         // +function(node-input(#node, asset("#package[#version]")), #name).
         // ```
-        let package: &str = match elem.task.find("::") {
-            Some(pos) => &elem.task[..pos],
-            None => &elem.task,
-        };
-        let function: &str = match elem.task.find("::") {
-            Some(pos) => &elem.task[pos + 2..],
-            None => &elem.task,
-        };
+        let (package, function) = elem.task.split_once("::").unwrap_or((&elem.task, &elem.task));
         let code_input: String = constr_app!("node-input", node.clone(), constr_app!("asset", str_lit!(package)));
         self.phrases.push(create!(code_input.clone()));
         self.phrases.push(create!(constr_app!("function", code_input.clone(), str_lit!(function))));
