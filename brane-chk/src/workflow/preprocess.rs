@@ -884,7 +884,7 @@ pub fn simplify(mut wir: Workflow) -> Result<(Workflow, HashMap<ProgramCounter, 
     wir = inline_functions(wir, &mut calls);
 
     // Done!
-    if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+    if tracing::enabled!(Level::DEBUG) {
         let mut buf: Vec<u8> = vec![];
         brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
         debug!("Simplified workflow:\n\n{}\n", String::from_utf8_lossy(&buf));

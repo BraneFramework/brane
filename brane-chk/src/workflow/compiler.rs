@@ -277,7 +277,7 @@ fn run(args: Arguments) -> Result<(), BinaryError> {
         err: Some(source.into_boxed_dyn_error()),
     })?;
 
-    if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+    if tracing::enabled!(Level::DEBUG) {
         debug!(
             "Parsed workflow form input:\n{}\n{}\n{}",
             (0..80).map(|_| '-').collect::<String>(),
