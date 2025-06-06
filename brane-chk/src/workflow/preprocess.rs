@@ -65,18 +65,16 @@ pub enum Error {
 /// - [`None`] means that nothing was pushed, i.e., whatever was on top is still on top.
 fn pushes_func_id(instrs: &[EdgeInstr], idx: usize) -> Option<Option<usize>> {
     // Pop the next instruction
-    let instr: &EdgeInstr = if idx < instrs.len() {
-        &instrs[idx]
-    } else {
-        // If we reached the last instruction, then we know no value was pushed :celebrate:
-        return None;
-    };
-
     // Examine what it does
     // NOTE: The BraneScript compiler only supports function calls over identifiers and projections. So we can ignore gnarly array stuff etc!
     // NOTE: Actually... we know violently little statically of class calls in general, because they are fully pushed to dynamic land. We _could_ learn it by tracking
     //       a variable's contents over multiple edges, but that fucks; let's give up and only support direct calls for now.
-    match instr {
+    if idx >= instrs.len() {
+        // If we reached the last instruction, then we know no value was pushed :celebrate:
+        return None;
+    }
+
+    match &instrs[idx] {
         // What we're looking for!
         EdgeInstr::Function { def } => Some(Some(*def)),
 
