@@ -39,6 +39,8 @@ struct UnknownInputLanguageError(String);
 #[error("Unknown output language '{0}'")]
 struct UnknownOutputLanguageError(String);
 
+/***** CONSTANTS *****/
+const BLOCK_SEPARATOR: &str = "--------------------------------------------------------------------------------";
 
 
 
@@ -271,12 +273,7 @@ fn run(args: Arguments) -> anyhow::Result<()> {
     let workflow: Workflow = input_to_workflow(&args.input, args.input_lang).context("Could not convert input to workflow")?;
 
     if tracing::enabled!(Level::DEBUG) {
-        debug!(
-            "Parsed workflow form input:\n{}\n{}\n{}",
-            (0..80).map(|_| '-').collect::<String>(),
-            workflow.visualize(),
-            (0..80).map(|_| '-').collect::<String>()
-        );
+        debug!("Parsed workflow form input:\n{BLOCK_SEPARATOR}\n{}\n{BLOCK_SEPARATOR}", workflow.visualize());
     }
 
     // Then write to the output workflow

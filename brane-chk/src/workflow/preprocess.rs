@@ -905,6 +905,8 @@ mod tests {
     use specifications::data::DataIndex;
     use specifications::package::PackageIndex;
 
+    const BLOCK_SEPARATOR: &str = "--------------------------------------------------------------------------------";
+
     use super::*;
 
     /// Runs checks to verify the workflow inlining analysis
