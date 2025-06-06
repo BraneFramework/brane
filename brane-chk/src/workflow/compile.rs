@@ -453,7 +453,7 @@ pub fn pc_to_id(wir: &ast::Workflow, pc: ProgramCounter) -> String { format!("{}
 /// # Errors
 /// This function can error at any time if the given `wf` is in an invalid shape for compilation.
 pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
-    if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+    if tracing::enabled!(Level::DEBUG) {
         let mut buf: Vec<u8> = Vec::new();
         brane_ast::traversals::print::ast::do_traversal(&value, &mut buf).unwrap();
         debug!("Compiling workflow:\n\n{}\n", String::from_utf8(buf).unwrap());
@@ -463,7 +463,7 @@ pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
     let wf_id: String = value.id.clone();
     let wf_user: Option<String> = Option::clone(&value.user);
     let (wir, calls) = preprocess::simplify(value).map_err(|source| Error::Preprocess { source })?;
-    if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+    if tracing::enabled!(Level::DEBUG) {
         // Write the processed graph
         let mut buf: Vec<u8> = vec![];
         brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
