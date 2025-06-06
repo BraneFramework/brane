@@ -12,7 +12,7 @@
 
 # NOTE: Ensure this is the same as used by `brane-cli`!
 FROM ubuntu:20.04
-LABEL org.opencontainers.image.source=https://github.com/epi-project/brane
+LABEL org.opencontainers.image.source=https://github.com/BraneFramework/brane
 
 # Define some build args
 ARG USERID=1000

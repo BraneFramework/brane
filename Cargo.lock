@@ -4357,7 +4357,7 @@ dependencies = [
 [[package]]
 name = "socksx"
 version = "2.0.0"
-source = "git+https://github.com/epi-project/socksx?tag=v2.0.0#9ad245649bb8a3e155aea95313cbcb9d7850ff6d"
+source = "git+https://github.com/braneframework/socksx?tag=v2.0.0#9ad245649bb8a3e155aea95313cbcb9d7850ff6d"
 dependencies = [
  "anyhow",
  "async-trait",
