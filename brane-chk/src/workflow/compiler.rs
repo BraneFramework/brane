@@ -270,7 +270,7 @@ fn run(args: Arguments) -> anyhow::Result<()> {
     // Get the input workflow
     let workflow: Workflow = input_to_workflow(&args.input, args.input_lang).context("Could not convert input to workflow")?;
 
-    if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+    if tracing::enabled!(Level::DEBUG) {
         debug!(
             "Parsed workflow form input:\n{}\n{}\n{}",
             (0..80).map(|_| '-').collect::<String>(),

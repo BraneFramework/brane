@@ -109,7 +109,7 @@ fn test_checker_workflow_unoptimized() {
         prepare_workflow(&mut wir);
 
         // Print the WIR in debug mode
-        if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+        if tracing::enabled!(Level::DEBUG) {
             // Write the processed graph
             let mut buf: Vec<u8> = vec![];
             brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
@@ -185,7 +185,7 @@ fn test_checker_workflow_optimized() {
         prepare_workflow(&mut wir);
 
         // Print the WIR in debug mode
-        if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+        if tracing::enabled!(Level::DEBUG) {
             // Write the processed graph
             let mut buf: Vec<u8> = vec![];
             brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
