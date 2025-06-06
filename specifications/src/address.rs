@@ -316,12 +316,8 @@ impl FromStr for Host {
                 }
 
                 // Assert it's only good
-                for c in s.chars() {
-                    // NOTE: I'm petty
-                    #[allow(clippy::manual_range_contains)]
-                    if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' {
-                        return Err(HostParseError::IllegalChar { c, raw: s.into() });
-                    }
+                if let Some(c) = s.chars().find(|&c| !(c.is_ascii_alphanumeric() || c == '-' || c == '.')) {
+                    return Err(HostParseError::IllegalChar { c, raw: s.into() });
                 }
 
                 // OK, it's good
@@ -720,15 +716,17 @@ impl FromStr for AddressOpt {
         }
 
         // Check the split
-        let (host, port): (&str, Option<&str>) = if let Some(pos) = s.find(':') { (&s[..pos], Some(&s[pos + 1..])) } else { (s, None) };
+        let (host, port) = match s.rsplit_once(':') {
+            Some((host, port)) => (host, Some(port)),
+            None => (s, None),
+        };
 
         // Parse the host
-        let host: Host = Host::from_str(host).map_err(|source| AddressParseError::IllegalHost { raw: host.into(), source })?;
-        let port: Option<u16> = if let Some(port) = port {
-            Some(u16::from_str(port).map_err(|source| AddressParseError::IllegalPort { raw: port.into(), source })?)
-        } else {
-            None
-        };
+        let host = Host::from_str(host).map_err(|source| AddressParseError::IllegalHost { raw: host.into(), source })?;
+
+        let port = port
+            .map(|port_str| u16::from_str(port_str).map_err(|source| AddressParseError::IllegalPort { raw: port_str.into(), source }))
+            .transpose()?;
 
         // OK
         Ok(Self { host, port })

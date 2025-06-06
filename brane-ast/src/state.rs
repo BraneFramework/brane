@@ -25,6 +25,7 @@ use specifications::package::Capability;
 use specifications::version::Version;
 use specifications::wir::builtins::{BuiltinClasses, BuiltinFunctions};
 use specifications::wir::{ClassDef, ComputeTaskDef, Edge, FunctionDef, SymTable, TaskDef, VarDef};
+use strum::IntoEnumIterator;
 
 use crate::dsl::{dtype_ast_to_dsl, dtype_dsl_to_ast};
 
@@ -65,9 +66,9 @@ impl TableState {
     /// A new instance of the TableState.
     pub fn new() -> Self {
         // Construct the TableLists separately.
-        let mut funcs: Vec<FunctionState> = BuiltinFunctions::all().into_iter().map(|f| f.into()).collect();
+        let mut funcs: Vec<FunctionState> = BuiltinFunctions::iter().into_iter().map(|f| f.into()).collect();
         let tasks: Vec<TaskState> = Vec::new();
-        let classes: Vec<ClassState> = BuiltinClasses::all().into_iter().map(|c| ClassState::from_builtin(c, &mut funcs)).collect();
+        let classes: Vec<ClassState> = BuiltinClasses::iter().into_iter().map(|c| ClassState::from_builtin(c, &mut funcs)).collect();
         let vars: Vec<VarState> = Vec::new();
 
         // use that to construct the rest

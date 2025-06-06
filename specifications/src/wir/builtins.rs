@@ -12,12 +12,14 @@
 //!   Defines builtin functions & classes in the WIR.
 //
 
+use strum::IntoEnumIterator;
+
 use super::data_type::DataType;
 
 
 /***** LIBRARY *****/
 /// Defines the builtin functions that exist in BraneScript.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, strum_macros::EnumIter)]
 pub enum BuiltinFunctions {
     /// The print-function, which prints some text to stdout.
     Print,
@@ -46,10 +48,6 @@ impl BuiltinFunctions {
         }
     }
 
-    /// Returns an array with all the builtin functions in it.
-    #[inline]
-    pub const fn all() -> [Self; 4] { [Self::Print, Self::PrintLn, Self::Len, Self::CommitResult] }
-
     /// Checks if the given string is a builtin.
     #[inline]
     pub fn is_builtin(name: impl AsRef<str>) -> bool { name.as_ref().parse::<Self>().is_ok() }
@@ -59,7 +57,7 @@ impl std::str::FromStr for BuiltinFunctions {
     type Err = ParseBuiltinFunctionsError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        for builtin in Self::all() {
+        for builtin in Self::iter() {
             if s == builtin.name() {
                 return Ok(builtin);
             }
@@ -76,7 +74,7 @@ pub struct ParseBuiltinFunctionsError {
 
 
 /// Defines the builtin classes that exist in BraneScript.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, strum_macros::EnumIter)]
 pub enum BuiltinClasses {
     /// The data-class.
     Data,
@@ -94,10 +92,6 @@ impl BuiltinClasses {
             IntermediateResult => "IntermediateResult",
         }
     }
-
-    /// Returns an array with all the builtin classes in it.
-    #[inline]
-    pub fn all() -> [Self; 2] { [Self::Data, Self::IntermediateResult] }
 
     /// Defines the fields of this class.
     ///
