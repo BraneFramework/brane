@@ -16,11 +16,12 @@
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::fs;
 use std::io::{Read, Write};
+use std::process::ExitCode;
 use std::str::FromStr;
 
 use brane_chk::workflow::{WorkflowToEflint, compile};
 use clap::Parser;
-use error_trace::trace;
+use miette::{Context as _, IntoDiagnostic as _};
 use policy_reasoner::workflow::Workflow;
 use specifications::wir::Workflow as Wir;
 use thiserror::Error;
@@ -158,28 +159,17 @@ struct Arguments {
 /// # Errors
 /// This function fails if we failed to read the input (file or stdin), or if the input couldn't
 /// be compiled (it was invalid somehow).
-///
-/// Note that it errors by calling [`std::process::exit()`].
 #[inline]
-fn input_to_workflow(path: &str, lang: InputLanguage) -> Workflow {
+fn input_to_workflow(path: &str, lang: InputLanguage) -> miette::Result<Workflow> {
     // Read the input file
     let input: String = if path == "-" {
         debug!("Reading input from stdin...");
         let mut input: String = String::new();
-        if let Err(err) = std::io::stdin().read_to_string(&mut input) {
-            error!("{}", trace!(("Failed to read from stdin"), err));
-            std::process::exit(1);
-        }
+        std::io::stdin().read_to_string(&mut input).into_diagnostic().context("Failed to read from stdin")?;
         input
     } else {
         debug!("Reading input '{path}' from file...");
-        match fs::read_to_string(path) {
-            Ok(input) => input,
-            Err(err) => {
-                error!("{}", trace!(("Failed to read input file '{path}'"), err));
-                std::process::exit(1);
-            },
-        }
+        fs::read_to_string(path).into_diagnostic().with_context(|| format!("Failed to read input file '{path}'"))?
     };
 
     // See if we need to parse it as a Workflow or as a WIR
@@ -187,42 +177,22 @@ fn input_to_workflow(path: &str, lang: InputLanguage) -> Workflow {
         InputLanguage::Wir => {
             // Parse it as WIR, first
             debug!("Parsing input as Brane WIR...");
-            let wir: Wir = match serde_json::from_str(&input) {
-                Ok(wir) => wir,
-                Err(err) => {
-                    error!(
-                        "{}",
-                        trace!(("Failed to parse {} as Brane WIR", if path == "-" { "stdin".into() } else { format!("input file '{path}'") }), err)
-                    );
-                    std::process::exit(1);
-                },
-            };
+            let wir: Wir = serde_json::from_str(&input).into_diagnostic().with_context(|| {
+                format!("Failed to parse {} as Brane WIR", if path == "-" { "stdin".into() } else { format!("input file '{path}'") })
+            })?;
 
             // Then compile it to a Workflow
             let wir_id: String = wir.id.clone();
             debug!("Compiling Brane WIR '{wir_id}' to a workflow...");
-            match compile(wir) {
-                Ok(wf) => wf,
-                Err(err) => {
-                    error!("{}", trace!(("Failed to compile input Brane WIR '{wir_id}' to a workflow"), err));
-                    std::process::exit(1);
-                },
-            }
+            compile(wir).into_diagnostic().with_context(|| format!("Failed to compile input Brane WIR '{wir_id}' to a workflow"))
         },
 
         InputLanguage::Workflow => {
             // It sufficies to parse as Workflow directly
             debug!("Parsing input as a workflow...");
-            match serde_json::from_str(&input) {
-                Ok(wf) => wf,
-                Err(err) => {
-                    error!(
-                        "{}",
-                        trace!(("Failed to parse {} as a workflow", if path == "-" { "stdin".into() } else { format!("input file '{path}'") }), err)
-                    );
-                    std::process::exit(1);
-                },
-            }
+            serde_json::from_str(&input).into_diagnostic().with_context(|| {
+                format!("Failed to parse {} as a workflow", if path == "-" { "stdin".into() } else { format!("input file '{path}'") })
+            })
         },
     }
 }
@@ -237,22 +207,16 @@ fn input_to_workflow(path: &str, lang: InputLanguage) -> Workflow {
 /// # Errors
 /// This function fails if we failed to translate the workflow to the appropriate output language,
 /// or if we failed to write to the output (either stdout or file).
-///
-/// Note that it errors by calling [`std::process::exit()`].
 #[inline]
-fn workflow_to_output(path: &str, lang: OutputLanguage, workflow: Workflow) {
+fn workflow_to_output(path: &str, lang: OutputLanguage, workflow: Workflow) -> miette::Result<()> {
     // See if we need to serialize the Workflow or compile it first
     let output: String = match lang {
         OutputLanguage::Workflow => {
             // It sufficies to serialize the Workflow directly
             debug!("Serializing workflow '{}' to JSON...", workflow.id);
-            match serde_json::to_string_pretty(&workflow) {
-                Ok(raw) => raw,
-                Err(err) => {
-                    error!("{}", trace!(("Failed to serialize given workflow '{}'", workflow.id), err));
-                    std::process::exit(1);
-                },
-            }
+            serde_json::to_string_pretty(&workflow)
+                .into_diagnostic()
+                .with_context(|| format!("Failed to serialize given workflow '{}'", workflow.id))?
         },
 
         OutputLanguage::EFlint => {
@@ -265,17 +229,13 @@ fn workflow_to_output(path: &str, lang: OutputLanguage, workflow: Workflow) {
     // OK, now write to out or stdout
     if path == "-" {
         debug!("Writing result to stdout...");
-        if let Err(err) = std::io::stdout().write_all(output.as_bytes()) {
-            error!("{}", trace!(("Failed to write to stdout"), err));
-            std::process::exit(1);
-        }
+        std::io::stdout().write_all(output.as_bytes()).into_diagnostic().context("Failed to write to stdout")?;
     } else {
         debug!("Writing result to output file '{path}'...");
-        if let Err(err) = fs::write(path, output) {
-            error!("{}", trace!(("Failed to write to output file '{path}'"), err));
-            std::process::exit(1);
-        }
+        fs::write(path, output).into_diagnostic().with_context(|| format!("Failed to write to output file '{path}'"))?;
     }
+
+    Ok(())
 }
 
 
@@ -283,7 +243,7 @@ fn workflow_to_output(path: &str, lang: OutputLanguage, workflow: Workflow) {
 
 
 /***** ENTRYPOINT *****/
-fn main() {
+fn main() -> ExitCode {
     // Parse the arguments
     let args = Arguments::parse();
 
@@ -299,8 +259,19 @@ fn main() {
         .init();
     info!("{} - v{}", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION"));
 
+    match run(args) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            error!("{e:?}");
+            ExitCode::FAILURE
+        },
+    }
+}
+
+fn run(args: Arguments) -> miette::Result<()> {
     // Get the input workflow
-    let workflow: Workflow = input_to_workflow(&args.input, args.input_lang);
+    let workflow: Workflow = input_to_workflow(&args.input, args.input_lang).context("Could not convert input to workflow")?;
+
     if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
         debug!(
             "Parsed workflow form input:\n{}\n{}\n{}",
@@ -311,7 +282,7 @@ fn main() {
     }
 
     // Then write to the output workflow
-    workflow_to_output(&args.output, args.output_lang, workflow);
+    workflow_to_output(&args.output, args.output_lang, workflow).context("Could not convert workflow to output")?;
 
     // Done!
     println!(
@@ -321,4 +292,6 @@ fn main() {
         if args.output == "-" { "stdout".into() } else { format!("output file '{}'", args.output) },
         args.output_lang,
     );
+
+    Ok(())
 }
