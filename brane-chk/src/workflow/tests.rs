@@ -31,6 +31,7 @@ use crate::workflow::compile::compile;
 /***** CONSTANTS *****/
 /// Defines the location of the tests
 pub(crate) const TESTS_DIR: &str = "../../../tests";
+const BLOCK_SEPARATOR: &str = "--------------------------------------------------------------------------------";
 
 
 
@@ -62,14 +63,14 @@ fn test_checker_workflow_unoptimized() {
     // Run the compiler for every applicable DSL file
     test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
         // Start by the name to always know which file this is
-        println!("{}", (0..80).map(|_| '-').collect::<String>());
+        println!("{BLOCK_SEPARATOR}");
         println!("File '{}' gave us:", path.display());
 
         // Skip some files, sadly
         if let Some(name) = path.file_name() {
             if name == OsStr::new("class.bs") {
                 println!("Skipping test, since instance calling is not supported in checker workflows...");
-                println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+                println!("{BLOCK_SEPARATOR}\n\n");
                 return;
             }
         }
@@ -126,7 +127,7 @@ fn test_checker_workflow_unoptimized() {
 
         // Now print the file for prettyness
         println!("{}", wf.visualize());
-        println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+        println!("{BLOCK_SEPARATOR}\n\n");
     });
 }
 
@@ -138,14 +139,14 @@ fn test_checker_workflow_optimized() {
     // Run the compiler for every applicable DSL file
     test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
         // Start by the name to always know which file this is
-        println!("{}", (0..80).map(|_| '-').collect::<String>());
+        println!("{BLOCK_SEPARATOR}");
         println!("(Optimized) File '{}' gave us:", path.display());
 
         // Skip some files, sadly
         if let Some(name) = path.file_name() {
             if name == OsStr::new("class.bs") {
                 println!("Skipping test, since instance calling is not supported in checker workflows...");
-                println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+                println!("{BLOCK_SEPARATOR}\n\n");
                 return;
             }
         }
@@ -205,6 +206,6 @@ fn test_checker_workflow_optimized() {
 
         // Now print the file for prettyness
         println!("{}", wf.visualize());
-        println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
+        println!("{BLOCK_SEPARATOR}\n\n");
     });
 }
