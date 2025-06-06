@@ -58,6 +58,7 @@ policy-store = { git = "https://github.com/BraneFramework/policy-store.git", def
 
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
+brane-shr = { path = "../brane-shr" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
 
