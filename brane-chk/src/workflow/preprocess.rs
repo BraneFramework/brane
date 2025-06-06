@@ -17,6 +17,7 @@ use std::collections::{HashMap, HashSet};
 use std::panic::catch_unwind;
 use std::sync::Arc;
 
+use brane_shr::utilities::retain_unique_in_order;
 use enum_debug::EnumDebug as _;
 use specifications::pc::{ProgramCounter, ResolvedProgramCounter};
 use specifications::wir::builtins::BuiltinFunctions;
@@ -468,24 +469,6 @@ fn order_inlinable<'i>(ordered: &mut Vec<usize>, inlinable: &HashMap<usize, Opti
     }
 }
 
-/// Given a vector, removes all duplicates from it.
-///
-/// Retains the **first** occurrences.
-///
-/// # Arguments
-/// - `data`: The vector to deduplicate.
-fn keep_unique_first(data: &mut Vec<usize>) {
-    // A buffer of seen elements
-    let mut seen: HashSet<usize> = HashSet::new();
-    data.retain(|elem| {
-        if seen.contains(elem) {
-            false
-        } else {
-            seen.insert(*elem);
-            true
-        }
-    });
-}
 
 /// Traverses the given function body and replaces all [`Edge::Return`] with an [`Edge::Linear`] pointing to the given edge index.
 ///
@@ -800,7 +783,7 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
     // Order them so that we satisfy function dependencies
     let mut inline_order: Vec<usize> = Vec::with_capacity(inlinable.len());
     order_inlinable(&mut inline_order, &inlinable, inlinable.keys());
-    keep_unique_first(&mut inline_order);
+    retain_unique_in_order(&mut inline_order);
     debug!(
         "Inline order: {}",
         inline_order
