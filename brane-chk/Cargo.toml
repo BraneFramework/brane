@@ -19,6 +19,7 @@ path = "src/workflow/compiler.rs"
 
 
 [dependencies]
+anyhow = "1.0.0"
 axum = { version = "0.8.0", features = ["macros"] }
 base16ct = { version = "0.2.0", features = ["std"] }
 clap = { version = "4.5.0", features = ["derive", "env"] }
