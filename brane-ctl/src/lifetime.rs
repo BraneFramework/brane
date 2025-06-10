@@ -572,15 +572,9 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
             let WorkerServices { reg, job, chk, prx } = &node.services;
 
             // Generate the token for this run
-            let delib_token: String = match specifications::policy::generate_policy_token(
-                "branectl",
-                &node.name,
-                Duration::from_secs(365 * 24 * 3600),
-                policy_delib_secret,
-            ) {
-                Ok(token) => token,
-                Err(err) => return Err(Error::TokenGenerate { key: policy_delib_secret.clone(), err }),
-            };
+            let delib_token: String =
+                specifications::policy::generate_policy_token("branectl", &node.name, Duration::from_secs(365 * 24 * 3600), policy_delib_secret)
+                    .map_err(|source| Error::TokenGenerate { key: policy_delib_secret.clone(), source })?;
 
             // Add the environment variables, which are basically just central-specific paths to mount in the compose file
             res.extend([

@@ -13,8 +13,10 @@
 //
 
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::fs::{self, DirEntry, ReadDir};
 use std::future::Future;
+use std::hash::Hash;
 use std::path::{Path, PathBuf};
 
 use humanlog::{DebugMode, HumanLogger};
@@ -474,8 +476,17 @@ pub fn is_ip_addr(address: impl AsRef<str>) -> bool {
     }
 }
 
-
-
+/// Given a vector, removes all duplicates from it.
+///
+/// Retains the **first** occurrences.
+///
+/// # Arguments
+/// - `data`: The vector to deduplicate.
+pub fn retain_unique_in_order<T: Hash + Eq + Copy>(data: &mut Vec<T>) {
+    // A buffer of seen elements
+    let mut seen: HashSet<T> = HashSet::new();
+    data.retain(|elem| seen.insert(*elem))
+}
 
 
 /***** TESTS *****/
@@ -501,5 +512,24 @@ mod tests {
 
         let url = ensure_http_schema("https://localhost", false).unwrap();
         assert_eq!(url, "https://localhost");
+    }
+
+    #[test]
+    fn test_retain_unique_ordered() {
+        let mut deduped: Vec<usize> = Vec::new();
+        retain_unique_in_order(&mut deduped);
+        assert_eq!(deduped, Vec::<usize>::new());
+
+        let mut deduped: Vec<usize> = vec![1, 2, 3];
+        retain_unique_in_order(&mut deduped);
+        assert_eq!(deduped, vec![1, 2, 3]);
+
+        let mut deduped: Vec<usize> = vec![1, 2, 3, 2, 1];
+        retain_unique_in_order(&mut deduped);
+        assert_eq!(deduped, vec![1, 2, 3]);
+
+        let mut deduped: Vec<usize> = vec![1, 2, 3, 2, 3, 1];
+        retain_unique_in_order(&mut deduped);
+        assert_eq!(deduped, vec![1, 2, 3]);
     }
 }
