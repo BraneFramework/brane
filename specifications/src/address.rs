@@ -36,7 +36,7 @@ pub enum HostParseError {
     #[error("No host given")]
     NoInput,
     /// The input contained an illegal character for a hostname.
-    #[error("Found illegal character {c:?} in host {raw:?} (only a-z, A-Z, 0-9 and '-' are accepted)")]
+    #[error("Found illegal character {c:?} in host {raw:?} (only a-z, A-Z, 0-9, '-', and '.' are accepted)")]
     IllegalChar { c: char, raw: String },
 }
 
@@ -518,15 +518,11 @@ impl FromStr for Address {
         }
 
         // Check the split
-        let (host, port): (&str, &str) = if let Some(pos) = s.find(':') {
-            (&s[..pos], &s[pos + 1..])
-        } else {
-            return Err(AddressParseError::MissingColon { raw: s.into() });
-        };
+        let (host_str, port_str) = s.rsplit_once(':').ok_or_else(|| AddressParseError::MissingColon { raw: s.into() })?;
 
         // Parse the host
-        let host: Host = Host::from_str(host).map_err(|source| AddressParseError::IllegalHost { raw: host.into(), source })?;
-        let port: u16 = u16::from_str(port).map_err(|source| AddressParseError::IllegalPort { raw: port.into(), source })?;
+        let host = Host::from_str(host_str).map_err(|source| AddressParseError::IllegalHost { raw: host_str.into(), source })?;
+        let port = u16::from_str(port_str).map_err(|source| AddressParseError::IllegalPort { raw: port_str.into(), source })?;
 
         // OK
         Ok(Self { host, port })

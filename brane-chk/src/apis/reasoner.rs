@@ -19,8 +19,9 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::routing::get;
 use axum::{Extension, Router};
-use brane_shr::errors::confidentiality::HttpError;
+use brane_shr::errors::confidentiality::{Confidentiality, HttpError};
 use hyper::StatusCode;
+use miette::Report;
 use policy_reasoner::spec::ReasonerConnector;
 use policy_store::servers::axum::AxumServer;
 use policy_store::spec::AuthResolver;
@@ -59,8 +60,13 @@ where
     let res = GetContextResponse { context: this.context() };
 
     // Serialize and send back
-    let res = serde_json::to_string(&res)
-        .map_err(|source| HttpError::new("Failed to serialize context".into(), Box::new(source), StatusCode::INTERNAL_SERVER_ERROR).expose())?;
+    let res = serde_json::to_string(&res).map_err(|source| {
+        HttpError::new_from_report(
+            Confidentiality::Public,
+            Report::from_err(source).wrap_err("Failed to serialize context"),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        )
+    })?;
 
     Ok((StatusCode::OK, res))
 }
@@ -89,7 +95,7 @@ where
     debug!("Injecting additional axum paths...");
     let get_context: Router = Router::new()
         .route("/context", get(get_context::<R>))
-        .layer(axum::middleware::from_fn_with_state(server, policy_store::servers::axum::AxumServer::check))
+        .layer(axum::middleware::from_fn_with_state(server, policy_store::servers::axum::AxumServer::authorize))
         .with_state(reasoner.clone());
     router.nest("/v2/", get_context)
 }

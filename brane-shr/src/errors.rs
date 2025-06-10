@@ -70,16 +70,56 @@ impl<T: Error> ErrorTrace for T {
 
 
 
+/// Helper struct that wraps serde errors to provide better diagnostics
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("Failed to deserialize")]
+pub struct SerdeError<T: std::fmt::Debug + std::fmt::Display> {
+    cause:  T,
+    #[source_code]
+    input:  String,
+    #[label("{cause}")]
+    offset: miette::SourceOffset,
+}
+
+#[cfg(feature = "yaml")]
+impl SerdeError<serde_yaml::Error> {
+    pub fn from_yaml(source: String, value: serde_yaml::Error) -> Self {
+        let offset = value.location().map(|loc| miette::SourceOffset::from_location(&source, loc.line(), loc.column())).unwrap();
+        Self { cause: value, input: source, offset }
+    }
+}
+
+#[cfg(feature = "json")]
+impl SerdeError<serde_json::Error> {
+    pub fn from_json(source: String, value: serde_json::Error) -> Self {
+        let offset = miette::SourceOffset::from_location(&source, value.line(), value.column());
+        Self { cause: value, input: source, offset }
+    }
+}
+
+
 
 pub mod confidentiality {
+    use std::collections::HashMap;
+    use std::error::Error;
+    use std::fmt::Write as _;
+    use std::marker::PhantomData;
     use std::process::ExitCode;
 
     use error_trace::ErrorTrace as _;
+    use http::HeaderValue;
+    use miette::{Diagnostic, Report};
     use rand::RngCore as _;
 
     #[derive(Debug, Clone)]
-    pub enum ConfidentialityKind {
-        Confidential,
+    pub enum Confidentiality {
+        /// No details should be shown whatsoever
+        FullyConfidential,
+        /// Only the first error should be shown
+        OnlyMessage,
+        /// An alternative message should be shown to the original error
+        AlternativeMessage(String),
+        /// Show as much information as possible
         Public,
     }
 
@@ -87,60 +127,106 @@ pub mod confidentiality {
         fn identifier(&self) -> u64;
         fn generate_identifier() -> u64 { rand::rng().next_u64() }
     }
+    pub trait HttpErrorSerializer {}
+    #[derive(Debug)]
+    pub struct ProblemDetailsSerializer;
+    impl HttpErrorSerializer for ProblemDetailsSerializer {}
+    #[derive(Debug)]
+    pub struct PlainSerializer;
+    impl HttpErrorSerializer for PlainSerializer {}
 
     /// Note: that this error is lazy. It does nothing unless you convert it to another type. Therefore
     /// it is must use.
     #[derive(Debug)]
     #[must_use]
-    pub struct HttpError {
-        pub confidentiality: ConfidentialityKind,
+    pub struct HttpError<S: HttpErrorSerializer = ProblemDetailsSerializer> {
+        pub confidentiality: Confidentiality,
         pub identifier: u64,
-        pub msg: String,
-        pub err: Option<Box<dyn std::error::Error>>,
+        pub err: Report,
 
         // Http specific fields
         pub status_code: http::StatusCode,
-    }
 
-    impl ConfidentialError for HttpError {
-        fn identifier(&self) -> u64 { self.identifier }
-    }
-
-    impl HttpError {
-        pub fn new(msg: String, err: Box<dyn std::error::Error>, status_code: http::StatusCode) -> Self {
-            Self { confidentiality: ConfidentialityKind::Confidential, identifier: Self::generate_identifier(), msg, status_code, err: Some(err) }
-        }
-
-        pub fn from_error<E>(err: E, status_code: http::StatusCode) -> Self
-        where
-            E: std::error::Error + 'static,
-            E: Sized,
-        {
-            Self {
-                confidentiality: ConfidentialityKind::Confidential,
-                identifier: Self::generate_identifier(),
-                msg: format!("{err}"),
-                err: Some(Box::new(err)),
-                status_code,
-            }
-        }
-
-        pub fn expose(mut self) -> Self {
-            self.confidentiality = ConfidentialityKind::Public;
-            self
-        }
+        _ser: PhantomData<S>,
     }
 
     #[derive(Debug)]
     #[must_use]
     pub struct BinaryError {
-        pub confidentiality: ConfidentialityKind,
         pub identifier: u64,
-        pub msg: String,
-        pub err: Option<Box<dyn std::error::Error>>,
+        pub err: Report,
 
         // Binary specific fields
         pub exit_code: ExitCode,
+    }
+
+    pub trait HttpStatus {
+        fn status_code(&self) -> http::StatusCode;
+    }
+
+    pub trait IntoHttpError<S: HttpErrorSerializer> {
+        fn into_http_error(self, confidentiality: Confidentiality) -> HttpError<S>;
+    }
+
+    impl<E, S> IntoHttpError<S> for E
+    where
+        E: Diagnostic + HttpStatus + Send + Sync + 'static,
+        S: HttpErrorSerializer,
+    {
+        fn into_http_error(self, confidentiality: Confidentiality) -> HttpError<S> {
+            let status_code = self.status_code();
+            HttpError { confidentiality, identifier: <HttpError<S>>::generate_identifier(), err: Report::new(self), status_code, _ser: PhantomData }
+        }
+    }
+
+    pub trait IntoExitCode {
+        fn exit_code(&self) -> ExitCode;
+    }
+
+    pub trait IntoBinaryError {
+        fn into_binary_error(self) -> BinaryError;
+    }
+
+    impl<E> IntoBinaryError for E
+    where
+        E: Diagnostic + Send + Sync + 'static,
+    {
+        fn into_binary_error(self) -> BinaryError {
+            // TODO: Use IntoExitCode
+            // let exit_code = self.exit_code();
+            BinaryError::new_from_diagnostic(Box::new(self), ExitCode::FAILURE)
+        }
+    }
+
+    impl<S: HttpErrorSerializer> ConfidentialError for HttpError<S> {
+        fn identifier(&self) -> u64 { self.identifier }
+    }
+
+    impl<S: HttpErrorSerializer> HttpError<S> {
+        pub fn new_from_error(confidentiality: Confidentiality, err: Box<dyn Error + Send + Sync>, status_code: http::StatusCode) -> Self {
+            Self { confidentiality, identifier: Self::generate_identifier(), status_code, err: Report::new_boxed(err.into()), _ser: PhantomData }
+        }
+
+        pub fn new_from_diagnostic(confidentiality: Confidentiality, err: Box<dyn Diagnostic + Send + Sync>, status_code: http::StatusCode) -> Self {
+            Self { confidentiality, identifier: Self::generate_identifier(), status_code, err: Report::new_boxed(err), _ser: PhantomData }
+        }
+
+        pub fn new_from_report(confidentiality: Confidentiality, err: Report, status_code: http::StatusCode) -> Self {
+            Self { confidentiality, identifier: Self::generate_identifier(), status_code, err, _ser: PhantomData }
+        }
+
+        pub fn expose(mut self) -> Self {
+            self.confidentiality = Confidentiality::Public;
+            self
+        }
+
+        pub fn message(&self) -> String {
+            match self.confidentiality {
+                Confidentiality::AlternativeMessage(ref message) => message.clone(),
+                Confidentiality::OnlyMessage | Confidentiality::Public => format!("{}", self.err),
+                Confidentiality::FullyConfidential => "Error message has been redacted".to_owned(),
+            }
+        }
     }
 
     impl ConfidentialError for BinaryError {
@@ -148,71 +234,114 @@ pub mod confidentiality {
     }
 
     impl BinaryError {
-        pub fn new(msg: String, err: Option<Box<dyn std::error::Error>>, exit_code: ExitCode) -> Self {
-            Self { confidentiality: ConfidentialityKind::Public, identifier: Self::generate_identifier(), msg, err, exit_code }
+        pub fn new_from_error(err: Box<dyn Error + Send + Sync>, exit_code: ExitCode) -> Self {
+            Self { identifier: Self::generate_identifier(), err: Report::new_boxed(err.into()), exit_code }
         }
 
-        pub fn without_source(msg: String) -> Self {
-            Self {
-                confidentiality: ConfidentialityKind::Public,
-                identifier: Self::generate_identifier(),
-                msg,
-                err: None,
-                exit_code: ExitCode::FAILURE,
-            }
+        pub fn new_from_diagnostic(err: Box<dyn Diagnostic + Send + Sync>, exit_code: ExitCode) -> Self {
+            Self { identifier: Self::generate_identifier(), err: Report::new_boxed(err), exit_code }
         }
 
-        pub fn from_error<E>(msg: String, err: E) -> Self
-        where
-            E: std::error::Error + 'static,
-            E: Sized,
-        {
-            Self {
-                confidentiality: ConfidentialityKind::Public,
-                identifier: Self::generate_identifier(),
-                msg,
-                err: Some(Box::new(err)),
-                exit_code: ExitCode::FAILURE,
-            }
-        }
+        pub fn new_from_report(err: Report, exit_code: ExitCode) -> Self { Self { identifier: Self::generate_identifier(), err, exit_code } }
     }
 
     #[cfg(feature = "axum")]
-    impl axum::response::IntoResponse for HttpError {
+    impl axum::response::IntoResponse for HttpError<PlainSerializer> {
         fn into_response(self) -> axum::response::Response {
             let status_code = self.status_code;
-            tracing::error!("{}", self.to_log_message());
-            match self.confidentiality {
-                ConfidentialityKind::Confidential => {
-                    // TODO: Create random identifier, surface it and log it so we can relate a user
-                    // error to our logs
-                    (status_code, self.msg).into_response()
-                },
-                ConfidentialityKind::Public => {
-                    let msg = match self.err {
-                        Some(err) => err.trace().to_string(),
-                        None => self.msg,
-                    };
-                    tracing::error!("Returned an error:\n{msg}");
-                    (status_code, msg).into_response()
-                },
+            self.log();
+
+            let mut message = self.message();
+
+            if let Confidentiality::Public = self.confidentiality {
+                writeln!(&mut message, "\nCaused by: {trace}", trace = self.err.trace()).expect("Writing to string should never fail");
             }
+
+            writeln!(&mut message, "\nIdentifier: {id}", id = self.identifier).expect("Writing to string should never fail");
+            (status_code, message).into_response()
         }
     }
 
-    impl HttpError {
-        pub fn to_log_message(&self) -> String {
-            match self.confidentiality {
-                ConfidentialityKind::Confidential => {
-                    // TODO: Create random identifier, surface it and log it so we can relate a user
-                    // error to our logs
-                    format!("Returned a confidential error: {msg}", msg = self.msg)
-                },
-                ConfidentialityKind::Public => match &self.err {
-                    Some(err) => format!("{msg}\n{err}", msg = self.msg, err = err.trace()),
-                    None => self.msg.clone(),
-                },
+    #[cfg(feature = "problem-details")]
+    #[cfg(feature = "axum")]
+    impl axum::response::IntoResponse for HttpError<ProblemDetailsSerializer> {
+        fn into_response(self) -> axum::response::Response {
+            let mut response = (self.status_code, axum::Json(self.into_problem_details())).into_response();
+            response.headers_mut().insert(http::header::CONTENT_TYPE, HeaderValue::from_str("application/problem+json").unwrap());
+            response
+        }
+    }
+
+    #[cfg(feature = "problem-details")]
+    pub use problem_details::ProblemDetails;
+    #[cfg(feature = "problem-details")]
+    use serde_json::json;
+
+    #[cfg(feature = "problem-details")]
+    impl<S: HttpErrorSerializer> HttpError<S> {
+        pub fn into_problem_details(self) -> problem_details::ProblemDetails<HashMap<&'static str, serde_json::Value>> {
+            self.log();
+
+            let mut details = ProblemDetails::new();
+            let mut extensions: HashMap<&'static str, serde_json::Value> = Default::default();
+
+
+            details = details.with_title(self.message());
+            details = details.with_status(self.status_code);
+            extensions.insert("confidentiality", json!(format!("{:?}", self.confidentiality)));
+            extensions.insert("identifier", json!(self.identifier));
+
+            if matches!(self.confidentiality, Confidentiality::Public) {
+                let causes = self.err.chain().map(|x| format!("{x}")).collect::<Vec<_>>();
+                extensions.insert("errors", json!(causes));
+
+                extensions.insert("details", json!(format!("{err:?}", err = self.err)));
+                if let Some(ref help) = self.err.help() {
+                    extensions.insert("help", json!(format!("{help}")));
+                };
+
+                if let Some(ref url) = self.err.url() {
+                    extensions.insert("url", json!(format!("{url}")));
+                };
             }
+
+            details.with_extensions(extensions)
+        }
+    }
+
+    impl<T: HttpErrorSerializer> HttpError<T> {
+        pub fn log(&self) {
+            match self.confidentiality {
+                Confidentiality::AlternativeMessage(ref msg) => {
+                    tracing::error!(
+                        identifier = self.identifier,
+                        confidentiality = ?self.confidentiality,
+                        trace = %self.err.trace(),
+                        "[Confidential http error: '{id:x}'] {msg}",
+                        id = self.identifier,
+                    );
+                },
+                Confidentiality::Public => {
+                    let msg = self.message();
+                    tracing::error!(
+                        identifier = self.identifier,
+                        confidentiality = ?self.confidentiality,
+                        trace = %self.err.trace(),
+                        "[Public http error: '{id:x}'] {msg}",
+                        id = self.identifier,
+                    );
+                },
+                Confidentiality::FullyConfidential | Confidentiality::OnlyMessage => {
+                    let msg = self.message();
+                    tracing::error!(
+                        identifier = self.identifier,
+                        confidentiality = ?self.confidentiality,
+                        trace = %self.err.trace(),
+                        "[Confidential http error: '{id:x}'] {msg}",
+                        id = self.identifier,
+                    );
+                },
+            };
         }
     }
 }

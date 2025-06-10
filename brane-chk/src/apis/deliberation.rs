@@ -16,19 +16,21 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 
+use axum::body::Bytes;
 use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
 use axum::extract::{ConnectInfo, Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
-use axum::response::{IntoResponse, Response};
+use axum::response::Response;
 use axum::routing::on;
-use axum::{Extension, Router};
-use brane_shr::errors::confidentiality::HttpError;
+use axum::{Extension, Json, Router};
+use brane_shr::errors::SerdeError;
+use brane_shr::errors::confidentiality::{Confidentiality, HttpError};
 use error_trace::trace;
-use futures::StreamExt as _;
 use hyper::body::Incoming;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto::Builder as HyperBuilder;
+use miette::Report;
 use policy_reasoner::spec::auditlogger::SessionedAuditLogger;
 use policy_reasoner::spec::{AuditLogger, ReasonerConnector, StateResolver};
 use policy_store::auth::jwk::JwkResolver;
@@ -56,7 +58,6 @@ use crate::workflow::compile::pc_to_id;
 /***** CONSTANTS *****/
 /// The initiator claim that must be given in the input header token.
 pub const INITIATOR_CLAIM: &str = "username";
-const BLOCK_SEPARATOR: &str = "--------------------------------------------------------------------------------";
 
 
 
@@ -70,51 +71,6 @@ pub enum Error {
     KidResolver { source: policy_store::auth::jwk::keyresolver::kid::ServerError },
     #[error("Failed to bind server on address '{addr}'")]
     ListenerBind { addr: SocketAddr, source: std::io::Error },
-}
-
-
-
-
-/***** HELPER FUNCTIONS *****/
-/// Turns the given [`Request`] into a deserialized object.
-///
-/// This is done instead of using the [`Json`](axum::extract::Json) extractor because we want to
-/// log the raw inputs upon failure.
-///
-/// # Generics
-/// - `T`: The thing to deserialize to.
-///
-/// # Arguments
-/// - `request`: The [`Request`] to download and turn into JSON.
-///
-/// # Returns
-/// A parsed `T`.
-///
-/// # Errors
-/// This function errors if we failed to download the request body, or it was not valid JSON.
-async fn download_request<T: DeserializeOwned>(request: Request) -> Result<T, HttpError> {
-    // Download the entire request first
-    let mut req: Vec<u8> = Vec::new();
-    let mut request = request.into_body().into_data_stream();
-    while let Some(next) = request.next().await {
-        // Unwrap the chunk
-        let next =
-            next.map_err(|source| HttpError::new("Failed to download request body".into(), Box::new(source), StatusCode::INTERNAL_SERVER_ERROR))?;
-
-        // Append it
-        req.extend(next);
-    }
-
-    // Deserialize the request contents
-    serde_json::from_slice(&req).map_err(|source| {
-        let msg: String = format!(
-            "{}Raw body:\n{BLOCK_SEPARATOR}\n{}\n{BLOCK_SEPARATOR}\n",
-            trace!(("Failed to deserialize request body"), source),
-            String::from_utf8_lossy(&req)
-        );
-
-        HttpError::new(msg, Box::new(source), StatusCode::BAD_REQUEST)
-    })
 }
 
 
@@ -201,8 +157,9 @@ impl<S, P, L> Deliberation<S, P, L>
 where
     S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
     for<'e> &'e S::Error: Into<StatusCode>,
-    S::Error: std::error::Error,
+    S::Error: std::error::Error + Send + Sync,
     P: 'static + Send + Sync + ReasonerConnector,
+    P::Error: Send + Sync + 'static,
     P::Reason: Serialize,
     L: Send + Sync + AuditLogger,
 {
@@ -215,12 +172,13 @@ where
     ///
     /// # Returns
     /// The status code of the response and a message to attach to it.
-    async fn check(this: Arc<Self>, reference: &str, input: Input) -> Result<Response, HttpError> {
+    async fn check(this: Arc<Self>, reference: &str, input: Input) -> Result<Json<CheckResponse<<P as ReasonerConnector>::Reason>>, HttpError> {
         // Build the state, then resolve it
         let (state, question): (P::State, P::Question) =
             this.resolver.resolve(input, &SessionedAuditLogger::new(reference, &this.logger)).await.map_err(|source| {
                 let status_code = (&source).into();
-                HttpError::new("Failed to resolve input to the reasoner".into(), Box::new(source), status_code)
+                let report = Report::from_err(source).wrap_err("Failed to resolve input to the reasoner");
+                HttpError::new_from_report(Confidentiality::OnlyMessage, report, status_code)
             })?;
 
         // With that in order, hit the reasoner
@@ -228,14 +186,9 @@ where
             .reasoner
             .consult(state, question, &SessionedAuditLogger::new(reference, &this.logger))
             .await
-            .map_err(|source| HttpError::from_error(Box::new(source), StatusCode::INTERNAL_SERVER_ERROR).expose())?;
+            .map_err(|source| HttpError::new_from_error(Confidentiality::Public, Box::new(source), StatusCode::INTERNAL_SERVER_ERROR).expose())?;
 
-        // Serialize the response
-        let res: String = serde_json::to_string(&CheckResponse { verdict: res })
-            .map_err(|source| HttpError::new("Failed to serialize reasoner response".into(), Box::new(source), StatusCode::INTERNAL_SERVER_ERROR))?;
-
-        // OK
-        Ok((StatusCode::OK, res).into_response())
+        Ok(Json(CheckResponse { verdict: res }))
     }
 
     /// Authorization middle layer for the Deliberation.
@@ -254,10 +207,21 @@ where
             .auth
             .authorize(request.headers())
             .await
-            .map_err(|source| HttpError::new("Failed to authorize incoming request".into(), Box::new(source), StatusCode::INTERNAL_SERVER_ERROR))?
+            .map_err(|source| {
+                HttpError::new_from_report(
+                    Confidentiality::OnlyMessage,
+                    Report::from_err(source).wrap_err("Failed to authorize incoming request"),
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                )
+            })?
             .map_err(|source| {
                 let status_code = source.status_code();
-                HttpError::new("Failed to authorize incoming request".into(), Box::new(source), status_code).expose()
+                HttpError::new_from_report(
+                    Confidentiality::OnlyMessage,
+                    Report::new(source).wrap_err("Failed to authorize incoming request"),
+                    status_code,
+                )
+                .expose()
             })?;
 
         // If we found a context, then inject it in the request as an extension; then continue
@@ -276,15 +240,17 @@ where
     /// - 404 NOT FOUND if the given use-case was unknown; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     #[instrument(skip_all, fields(user = auth.id, reference))]
-    async fn check_workflow(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, HttpError> {
+    async fn check_workflow(
+        State(this): State<Arc<Self>>,
+        Extension(auth): Extension<User>,
+        MietteJson(request): MietteJson<CheckWorkflowRequest>,
+    ) -> Result<Json<CheckResponse<<P as ReasonerConnector>::Reason>>, HttpError> {
         let reference = Reference::create(&auth.id);
         Span::current().record("reference", reference.as_str());
 
-        // Get the request
-        let req: CheckWorkflowRequest = download_request(request).await?;
-
         // Decide the input
-        let input = Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input: QuestionInput::ValidateWorkflow };
+        let input =
+            Input { store: this.store.clone(), usecase: request.usecase, workflow: request.workflow, input: QuestionInput::ValidateWorkflow };
 
         // Continue with the agnostic function for maintainability
         Self::check(this, reference.as_str(), input).await
@@ -300,19 +266,20 @@ where
     /// - 404 BAD REQUEST with the reason why we failed to parse the request; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     #[instrument(skip_all, fields(user = auth.id, reference))]
-    async fn check_task(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, HttpError> {
+    async fn check_task(
+        State(this): State<Arc<Self>>,
+        Extension(auth): Extension<User>,
+        MietteJson(request): MietteJson<CheckTaskRequest>,
+    ) -> Result<Json<CheckResponse<<P as ReasonerConnector>::Reason>>, HttpError> {
         let reference = Reference::create(&auth.id);
         Span::current().record("reference", reference.as_str());
 
-        // Get the request
-        let req: CheckTaskRequest = download_request(request).await?;
-
         // Decide the input
-        let task_id: String = pc_to_id(&req.workflow, req.task);
+        let task_id: String = pc_to_id(&request.workflow, request.task);
         let input = Input {
             store:    this.store.clone(),
-            usecase:  req.usecase,
-            workflow: req.workflow,
+            usecase:  request.usecase,
+            workflow: request.workflow,
             input:    QuestionInput::ExecuteTask { task: task_id },
         };
 
@@ -330,22 +297,23 @@ where
     /// - 404 BAD REQUEST with the reason why we failed to parse the request; or
     /// - 500 INTERNAL SERVER ERROR with a message what went wrong.
     #[instrument(skip_all, fields(user = auth.id, reference))]
-    async fn check_transfer(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> Result<Response, HttpError> {
+    async fn check_transfer(
+        State(this): State<Arc<Self>>,
+        Extension(auth): Extension<User>,
+        MietteJson(request): MietteJson<CheckTransferRequest>,
+    ) -> Result<Json<CheckResponse<<P as ReasonerConnector>::Reason>>, HttpError> {
         let reference = Reference::create(&auth.id);
         Span::current().record("reference", reference.as_str());
 
-        // Get the request
-        let req: CheckTransferRequest = download_request(request).await?;
-
-        let input = if let Some(task) = req.task {
-            let task_id: String = pc_to_id(&req.workflow, task);
-            QuestionInput::TransferInput { task: task_id, input: req.input }
+        let input = if let Some(task) = request.task {
+            let task_id: String = pc_to_id(&request.workflow, task);
+            QuestionInput::TransferInput { task: task_id, input: request.input }
         } else {
-            QuestionInput::TransferResult { result: req.input }
+            QuestionInput::TransferResult { result: request.input }
         };
 
         // Decide the input
-        let input = Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input };
+        let input = Input { store: this.store.clone(), usecase: request.usecase, workflow: request.workflow, input };
 
         // Continue with the agnostic function for maintainability
         Self::check(this, reference.as_str(), input).await
@@ -357,8 +325,9 @@ impl<S, P, L> Deliberation<S, P, L>
 where
     S: 'static + Send + Sync + StateResolver<State = Input, Resolved = (P::State, P::Question)>,
     for<'e> &'e S::Error: Into<StatusCode>,
-    S::Error: std::error::Error,
+    S::Error: std::error::Error + Send + Sync + 'static,
     P: 'static + Send + Sync + ReasonerConnector,
+    P::Error: Send + Sync + 'static,
     P::Reason: Serialize,
     L: 'static + Send + Sync + AuditLogger,
 {
@@ -378,20 +347,13 @@ where
 
         // First, define the axum paths
         debug!("Building axum paths...");
-        let check_workflow: Router = Router::new()
+        let router: IntoMakeServiceWithConnectInfo<Router, SocketAddr> = Router::new()
             .route(CHECK_WORKFLOW_PATH.path, on(CHECK_WORKFLOW_PATH.method.try_into().unwrap(), Self::check_workflow))
-            .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
-            .with_state(this.clone());
-        let check_task: Router = Router::new()
             .route(CHECK_TASK_PATH.path, on(CHECK_TASK_PATH.method.try_into().unwrap(), Self::check_task))
-            .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
-            .with_state(this.clone());
-        let check_transfer: Router = Router::new()
             .route(CHECK_TRANSFER_PATH.path, on(CHECK_TRANSFER_PATH.method.try_into().unwrap(), Self::check_transfer))
+            .with_state(this.clone())
             .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
-            .with_state(this.clone());
-        let router: IntoMakeServiceWithConnectInfo<Router, SocketAddr> =
-            Router::new().nest("/", check_workflow).nest("/", check_task).nest("/", check_transfer).into_make_service_with_connect_info();
+            .into_make_service_with_connect_info();
 
         // Bind the TCP Listener
         debug!("Binding server on '{}'...", this.addr);
@@ -435,5 +397,33 @@ where
         if let Err(err) = HyperBuilder::new(TokioExecutor::new()).serve_connection_with_upgrades(socket, service).await {
             error!("{}", trace!(("Failed to serve incoming connection"), *err));
         }
+    }
+}
+
+
+use axum::body::Body;
+use axum::extract::FromRequest;
+
+pub struct MietteJson<T>(pub T);
+
+impl<S, T> FromRequest<S, Body> for MietteJson<T>
+where
+    T: DeserializeOwned + Send,
+    S: Send + Sync,
+{
+    type Rejection = HttpError;
+
+    async fn from_request(req: axum::extract::Request<Body>, state: &S) -> Result<Self, Self::Rejection> {
+        // let (parts, body) = req.into_parts();
+        let bytes = Bytes::from_request(req, state).await.unwrap();
+
+        // FIXME: Check if body is empty
+
+        let value = serde_json::from_slice(&bytes).map_err(|err| {
+            let diag = Box::new(SerdeError::from_json(String::from_utf8(bytes.to_vec()).unwrap(), err));
+            HttpError::new_from_diagnostic(Confidentiality::Public, diag, StatusCode::BAD_REQUEST)
+        })?;
+
+        Ok(MietteJson(value))
     }
 }

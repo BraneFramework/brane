@@ -21,7 +21,9 @@ use std::str::FromStr;
 
 use anyhow::Context as _;
 use brane_chk::workflow::{WorkflowToEflint, compile};
+use brane_shr::errors::confidentiality::BinaryError;
 use clap::Parser;
+use miette::{Diagnostic, Report};
 use policy_reasoner::workflow::Workflow;
 use specifications::wir::Workflow as Wir;
 use thiserror::Error;
@@ -262,22 +264,35 @@ fn main() -> ExitCode {
     match run(args) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            error!("{e}");
+            // FIXME: Do something with confidentiality
+            error!(err = ?e.err, "{:?}", e.err);
             ExitCode::FAILURE
         },
     }
 }
 
-fn run(args: Arguments) -> anyhow::Result<()> {
+fn run(args: Arguments) -> Result<(), BinaryError> {
     // Get the input workflow
-    let workflow: Workflow = input_to_workflow(&args.input, args.input_lang).context("Could not convert input to workflow")?;
+    let workflow: Workflow = input_to_workflow(&args.input, args.input_lang).map_err(|source| {
+        BinaryError::new_from_report(
+            Report::new_boxed(Into::<Box<dyn Diagnostic + Send + Sync>>::into(source.into_boxed_dyn_error()))
+                .wrap_err("Could not convert input to workflow"),
+            ExitCode::FAILURE,
+        )
+    })?;
 
     if tracing::enabled!(Level::DEBUG) {
         debug!("Parsed workflow form input:\n{BLOCK_SEPARATOR}\n{}\n{BLOCK_SEPARATOR}", workflow.visualize());
     }
 
     // Then write to the output workflow
-    workflow_to_output(&args.output, args.output_lang, workflow).context("Could not convert workflow to output")?;
+    workflow_to_output(&args.output, args.output_lang, workflow).map_err(|source| {
+        BinaryError::new_from_report(
+            Report::new_boxed(Into::<Box<dyn miette::Diagnostic + Send + Sync>>::into(source.into_boxed_dyn_error()))
+                .wrap_err("Could not convert workflow to output"),
+            ExitCode::FAILURE,
+        )
+    })?;
 
     // Done!
     println!(

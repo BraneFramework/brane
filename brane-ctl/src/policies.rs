@@ -27,6 +27,7 @@ use console::style;
 use dialoguer::theme::ColorfulTheme;
 use enum_debug::EnumDebug;
 use error_trace::trace;
+use http::HeaderValue;
 use log::{debug, info};
 use policy_store::servers::axum::spec::{ActivateRequest, GetActiveVersionResponse, GetVersionsResponse};
 use policy_store::spec::metadata::{AttachedMetadata, Metadata};
@@ -75,13 +76,14 @@ pub enum Error {
     PromptVersions { source: Box<Self> },
     #[error("Failed to build new {kind}-request to '{addr}'")]
     RequestBuild { kind: &'static str, addr: String, source: reqwest::Error },
-    #[error("Request to '{}' failed with status {} ({}){}",
+    #[error("Request to '{}' failed with status {} ({})\n{details}\n{}",
                 addr,
                 code.as_u16(),
                 code.canonical_reason().unwrap_or("???"),
-                if let Some(response) = response { format!("\n\nResponse:\n{}\n", BlockFormatter::new(response)) } else { String::new() }
+                if let Some(response) = response { format!("\nResponse:\n{}\n", BlockFormatter::new(response)) } else { String::new() },
+                details = if let Some(details) = details { format!("\nError on server:\n{}\n", BlockFormatter::new(details)) } else { String::new() },
             )]
-    RequestFailure { addr: String, code: StatusCode, response: Option<String> },
+    RequestFailure { addr: String, code: StatusCode, response: Option<String>, details: Option<String> },
     #[error("Failed to send {kind}-request to '{addr}'")]
     RequestSend { kind: &'static str, addr: String, source: reqwest::Error },
     #[error("Failed to deserialize response from '{}' as JSON\n\nResponse:\n{}\n", addr, BlockFormatter::new(raw))]
@@ -238,7 +240,7 @@ async fn get_context_from_checker(address: &Address, token: &str) -> Result<EFli
 
     debug!("Server responded with {}", res.status());
     if !res.status().is_success() {
-        return Err(Error::RequestFailure { addr: url.clone(), code: res.status(), response: res.text().await.ok() });
+        return Err(Error::RequestFailure { addr: url.clone(), code: res.status(), response: res.text().await.ok(), details: None });
     }
 
     // Attempt to parse the result as a list of policy versions
@@ -284,7 +286,7 @@ async fn get_version_body_from_checker(address: &Address, token: &str, version: 
 
     debug!("Server responded with {}", res.status());
     if !res.status().is_success() {
-        return Err(Error::RequestFailure { addr: url.clone(), code: res.status(), response: res.text().await.ok() });
+        return Err(Error::RequestFailure { addr: url.clone(), code: res.status(), response: res.text().await.ok(), details: None });
     }
 
     // Attempt to parse the result as a list of policy versions
@@ -327,7 +329,24 @@ async fn get_versions_on_checker(address: &Address, token: &str) -> Result<HashM
 
     debug!("Server responded with {}", res.status());
     if !res.status().is_success() {
-        return Err(Error::RequestFailure { addr: url, code: res.status(), response: res.text().await.ok() });
+        // FIXME: Unwrap
+        let content_type = res.headers().get(http::header::CONTENT_TYPE).cloned();
+        let status = res.status();
+        let raw = res.text().await.unwrap();
+
+        if content_type == Some(HeaderValue::from_str("application/problem+json").unwrap()) {
+            // TODO: Big potential for pretty errors
+            let json_obj: serde_json::Value = serde_json::from_str(&raw).unwrap();
+            let pretty = serde_json::to_string_pretty(&json_obj).unwrap();
+            return Err(Error::RequestFailure {
+                addr:     url,
+                code:     status,
+                response: Some(pretty),
+                details:  json_obj.get("details").map(|x| x.as_str().map(|y| y.to_owned())).flatten(),
+            });
+        }
+
+        return Err(Error::RequestFailure { addr: url, code: status, response: Some(raw), details: None });
     }
 
     // Attempt to parse the result as a list of policy versions
@@ -375,7 +394,7 @@ async fn get_active_version_on_checker(address: &Address, token: &str) -> Result
         StatusCode::OK => {},
         // No policy was active
         StatusCode::NOT_FOUND => return Ok(None),
-        code => return Err(Error::RequestFailure { addr: url, code, response: res.text().await.ok() }),
+        code => return Err(Error::RequestFailure { addr: url, code, response: res.text().await.ok(), details: None }),
     }
 
     // Attempt to parse the result as a list of policy versions
@@ -446,16 +465,37 @@ fn prompt_user_version(
         // Get the version for this ID
         let version: &Metadata = versions.get(id).unwrap();
 
+        let mut line = String::new();
+
         // See if it's selected to print either bold or not
-        let mut line: String = if active_version == Some(version.version) { style("Version ").bold().to_string() } else { "Version ".into() };
-        line.push_str(&style(version.version).bold().green().to_string());
+        // Highlight the active version
         if active_version == Some(version.version) {
-            write!(line, " (created at {}, by {} ({}))", version.created.format("%H:%M:%S %d-%m-%Y"), version.creator.name, version.creator.id)
-                .expect("Write! should never fail on Strings");
+            write!(
+                line,
+                "{}",
+                style(format_args!(
+                    "Version {version} (created at {time}, by {name} ({id}))",
+                    version = style(version.version).green().bold(),
+                    time = version.created.format("%H:%M:%S %d-%m-%Y"),
+                    name = version.creator.name,
+                    id = version.creator.id
+                ))
+                .bold(),
+            )
         } else {
-            write!(line, " (created at {}, by {} ({}))", version.created.format("%H:%M:%S %d-%m-%Y"), version.creator.name, version.creator.id)
-                .expect("Write! should never fail on Strings");
+            write!(
+                line,
+                "{}",
+                style(format_args!(
+                    "Version {version} (created at {time}, by {name} ({id}))",
+                    version = style(version.version).green().bold(),
+                    time = version.created.format("%H:%M:%S %d-%m-%Y"),
+                    name = version.creator.name,
+                    id = version.creator.id
+                ))
+            )
         }
+        .expect("Writing to string should never fail");
 
         // Add the rendered line to the list
         sversions.push(line);
@@ -570,7 +610,7 @@ pub async fn activate(node_config_path: PathBuf, version: Option<u64>, address: 
 
     debug!("Server responded with {}", res.status());
     if !res.status().is_success() {
-        return Err(Error::RequestFailure { addr: url, code: res.status(), response: res.text().await.ok() });
+        return Err(Error::RequestFailure { addr: url, code: res.status(), response: res.text().await.ok(), details: None });
     }
 
     // Done!
@@ -696,7 +736,7 @@ pub async fn add(
 
     debug!("Server responded with {}", res.status());
     if !res.status().is_success() {
-        return Err(Error::RequestFailure { addr: url, code: res.status(), response: res.text().await.ok() });
+        return Err(Error::RequestFailure { addr: url, code: res.status(), response: res.text().await.ok(), details: None });
     }
 
     // Log the response body

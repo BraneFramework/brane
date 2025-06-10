@@ -19,6 +19,7 @@ path = "src/workflow/compiler.rs"
 
 
 [dependencies]
+async-trait = "0.1.88"
 anyhow = "1.0.0"
 axum = { version = "0.8.0", features = ["macros"] }
 base16ct = { version = "0.2.0", features = ["std"] }
@@ -36,6 +37,8 @@ tokio = { version = "1.44.2", default-features = false, features = ["signal"] }
 tower-service = "0.3.3"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.10", features = ["env-filter"] }
+serde_yaml = { version = "0.10.0", package = "serde_yaml_ng" }
+miette.workspace = true
 
 # eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant", features = ["display_eflint"] }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.1.0" }
@@ -59,7 +62,7 @@ policy-store = { git = "https://github.com/BraneFramework/policy-store.git", def
 # Workspace
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
-brane-shr = { path = "../brane-shr", features = ["axum"] }
+brane-shr = { path = "../brane-shr", features = ["axum", "problem-details", "json"] }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
 

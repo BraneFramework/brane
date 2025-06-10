@@ -14,12 +14,13 @@
 //
 
 use std::error::Error;
-use std::fmt::{Debug, Display, Formatter, Result as FResult};
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
+use brane_shr::errors::SerdeError;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use tokio::fs::File as TFile;
@@ -28,64 +29,37 @@ use tokio::io::AsyncReadExt as _;
 
 /***** ERRORS *****/
 /// Defines general errors for configs.
-#[derive(Debug)]
-pub enum InfoError<E: Debug> {
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+pub enum InfoError<E: std::error::Error + Send + Sync + 'static> {
     /// Failed to create the output file.
-    OutputCreateError { path: PathBuf, err: std::io::Error },
+    #[error("Failed to create output file '{}'", path.display())]
+    OutputCreateError { path: PathBuf, source: std::io::Error },
     /// Failed to open the input file.
-    InputOpenError { path: PathBuf, err: std::io::Error },
+    #[error("Failed to open input file '{}'", path.display())]
+    InputOpenError { path: PathBuf, source: std::io::Error },
     /// Failed to read the input file.
-    InputReadError { path: PathBuf, err: std::io::Error },
+    #[error("Failed to read input file '{}'", path.display())]
+    InputReadError { path: PathBuf, source: std::io::Error },
 
     /// Failed to serialize the config to a string.
-    StringSerializeError { err: E },
+    #[error("Failed to serialize to string")]
+    StringSerializeError { source: E },
     /// Failed to serialize the config to a given writer.
-    WriterSerializeError { err: E },
+    #[error("Failed to serialize to a writer")]
+    WriterSerializeError { source: E },
     /// Failed to serialize the config to a given file.
-    FileSerializeError { path: PathBuf, err: E },
+    #[error("Failed to serialize to output file '{}'", path.display())]
+    FileSerializeError { path: PathBuf, source: E },
 
-    /// Failed to deserialize a string to the config.
-    StringDeserializeError { err: E },
+    #[error("Failed to deserialize from string")]
+    #[diagnostic(transparent)]
+    StringDeserializeError(#[from] SerdeError<serde_yaml::Error>),
     /// Failed to deserialize a reader to the config.
-    ReaderDeserializeError { err: E },
+    #[error("Failed to deserialize from a reader")]
+    ReaderDeserializeError { source: E },
     /// Failed to deserialize a file to the config.
-    FileDeserializeError { path: PathBuf, err: E },
-}
-impl<E: Error> Display for InfoError<E> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use InfoError::*;
-        match self {
-            OutputCreateError { path, .. } => write!(f, "Failed to create output file '{}'", path.display()),
-            InputOpenError { path, .. } => write!(f, "Failed to open input file '{}'", path.display()),
-            InputReadError { path, .. } => write!(f, "Failed to read input file '{}'", path.display()),
-
-            StringSerializeError { .. } => write!(f, "Failed to serialize to string"),
-            WriterSerializeError { .. } => write!(f, "Failed to serialize to a writer"),
-            FileSerializeError { path, .. } => write!(f, "Failed to serialize to output file '{}'", path.display()),
-
-            StringDeserializeError { .. } => write!(f, "Failed to deserialize from string"),
-            ReaderDeserializeError { .. } => write!(f, "Failed to deserialize from a reader"),
-            FileDeserializeError { path, .. } => write!(f, "Failed to deserialize from input file '{}'", path.display()),
-        }
-    }
-}
-impl<E: 'static + Error> Error for InfoError<E> {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        use InfoError::*;
-        match self {
-            OutputCreateError { err, .. } => Some(err),
-            InputOpenError { err, .. } => Some(err),
-            InputReadError { err, .. } => Some(err),
-
-            StringSerializeError { err } => Some(err),
-            WriterSerializeError { err } => Some(err),
-            FileSerializeError { err, .. } => Some(err),
-
-            StringDeserializeError { err } => Some(err),
-            ReaderDeserializeError { err } => Some(err),
-            FileDeserializeError { err, .. } => Some(err),
-        }
-    }
+    #[error("Failed to deserialize from input file '{}'", path.display())]
+    FileDeserializeError { path: PathBuf, source: E },
 }
 
 
@@ -97,7 +71,7 @@ impl<E: 'static + Error> Error for InfoError<E> {
 #[async_trait]
 pub trait Info: Clone + Debug {
     /// The types of errors that may be thrown by the serialization function(s).
-    type Error: Error;
+    type Error: Error + Send + Sync;
 
 
     // Child-provided
@@ -162,15 +136,15 @@ pub trait Info: Clone + Debug {
         // Attempt to create the new file
         let handle: File = match File::create(path) {
             Ok(handle) => handle,
-            Err(err) => {
-                return Err(InfoError::OutputCreateError { path: path.into(), err });
+            Err(source) => {
+                return Err(InfoError::OutputCreateError { path: path.into(), source });
             },
         };
 
         // Write it using the child function, wrapping the error that may occur
         match self.to_writer(handle, true) {
             Ok(_) => Ok(()),
-            Err(InfoError::WriterSerializeError { err }) => Err(InfoError::FileSerializeError { path: path.into(), err }),
+            Err(InfoError::WriterSerializeError { source }) => Err(InfoError::FileSerializeError { path: path.into(), source }),
             Err(err) => Err(err),
         }
     }
@@ -188,15 +162,15 @@ pub trait Info: Clone + Debug {
         // Attempt to open the given file
         let handle: File = match File::open(path) {
             Ok(handle) => handle,
-            Err(err) => {
-                return Err(InfoError::InputOpenError { path: path.into(), err });
+            Err(source) => {
+                return Err(InfoError::InputOpenError { path: path.into(), source });
             },
         };
 
         // Write it using the child function, wrapping the error that may occur
         match Self::from_reader(handle) {
             Ok(config) => Ok(config),
-            Err(InfoError::ReaderDeserializeError { err }) => Err(InfoError::FileDeserializeError { path: path.into(), err }),
+            Err(InfoError::ReaderDeserializeError { source }) => Err(InfoError::FileDeserializeError { path: path.into(), source }),
             Err(err) => Err(err),
         }
     }
@@ -217,15 +191,15 @@ pub trait Info: Clone + Debug {
             // Attempt to open the given file
             let mut handle: TFile = match TFile::open(path).await {
                 Ok(handle) => handle,
-                Err(err) => {
-                    return Err(InfoError::InputOpenError { path: path.into(), err });
+                Err(source) => {
+                    return Err(InfoError::InputOpenError { path: path.into(), source });
                 },
             };
 
             // Read everything to a string
             let mut raw: String = String::new();
-            if let Err(err) = handle.read_to_string(&mut raw).await {
-                return Err(InfoError::InputReadError { path: path.into(), err });
+            if let Err(source) = handle.read_to_string(&mut raw).await {
+                return Err(InfoError::InputReadError { path: path.into(), source });
             }
             raw
         };
@@ -233,7 +207,7 @@ pub trait Info: Clone + Debug {
         // Write it using the child function, wrapping the error that may occur
         match Self::from_string(raw) {
             Ok(config) => Ok(config),
-            Err(InfoError::ReaderDeserializeError { err }) => Err(InfoError::FileDeserializeError { path: path.into(), err }),
+            Err(InfoError::ReaderDeserializeError { source }) => Err(InfoError::FileDeserializeError { path: path.into(), source }),
             Err(err) => Err(err),
         }
     }
@@ -249,28 +223,35 @@ impl<T: DeserializeOwned + Serialize + for<'de> YamlInfo<'de>> Info for T {
     fn to_string(&self, _pretty: bool) -> Result<String, InfoError<Self::Error>> {
         match serde_yaml::to_string(self) {
             Ok(raw) => Ok(raw),
-            Err(err) => Err(InfoError::StringSerializeError { err }),
+            Err(err) => Err(InfoError::StringSerializeError { source: err }),
         }
     }
 
     fn to_writer(&self, writer: impl Write, _pretty: bool) -> Result<(), InfoError<Self::Error>> {
         match serde_yaml::to_writer(writer, self) {
             Ok(raw) => Ok(raw),
-            Err(err) => Err(InfoError::ReaderDeserializeError { err }),
+            Err(err) => Err(InfoError::ReaderDeserializeError { source: err }),
         }
     }
 
     fn from_string(raw: impl AsRef<str>) -> Result<Self, InfoError<Self::Error>> {
-        match serde_yaml::from_str(raw.as_ref()) {
+        let raw = raw.as_ref();
+        match serde_yaml::from_str(raw) {
             Ok(config) => Ok(config),
-            Err(err) => Err(InfoError::StringDeserializeError { err }),
+            Err(err) => {
+                // let loc = err.location().unwrap();
+                // let offset = SourceOffset::from_location(raw, loc.line(), loc.column());
+                //
+                // Err(InfoError::StringDeserializeError { source: err, offset, source_code: raw.to_owned() })
+                Err(<SerdeError<serde_yaml::Error>>::from_yaml(raw.to_owned(), err).into())
+            },
         }
     }
 
     fn from_reader(reader: impl Read) -> Result<Self, InfoError<Self::Error>> {
         match serde_yaml::from_reader(reader) {
             Ok(config) => Ok(config),
-            Err(err) => Err(InfoError::ReaderDeserializeError { err }),
+            Err(err) => Err(InfoError::ReaderDeserializeError { source: err }),
         }
     }
 }

@@ -37,6 +37,7 @@ use brane_chk::stateresolver::BraneStateResolver;
 use brane_shr::errors::confidentiality::BinaryError;
 use clap::Parser;
 use enum_debug::EnumDebug as _;
+use miette::Report;
 use policy_reasoner::loggers::file::FileLogger;
 use policy_reasoner::reasoners::eflint_haskell::reasons::PrefixedHandler;
 use policy_reasoner::spec::reasonerconn::ReasonerConnector as _;
@@ -111,7 +112,8 @@ async fn main() -> ExitCode {
     match run(args).await {
         Ok(_) => ExitCode::SUCCESS,
         Err(e) => {
-            error!(err = e.err, "{msg}", msg = e.msg);
+            // TODO: This logging should actually use binaryerror
+            error!("An unrecoverble error occurred, exiting\n{:?}", e.err);
             ExitCode::FAILURE
         },
     }
@@ -121,14 +123,17 @@ async fn run(args: Arguments) -> Result<(), BinaryError> {
     /* Step 1: Prepare the servers */
     // Read the node YAML file.
     let config = NodeConfig::from_path_async(&args.node_config_path).await.map_err(|source| {
-        BinaryError::from_error(format!("Failed to lode node config file '{}'", args.node_config_path.display()), Box::new(source))
+        BinaryError::new_from_report(
+            Report::new(source).wrap_err(format!("Failed to load node config file '{}'", args.node_config_path.display())),
+            ExitCode::FAILURE,
+        )
     })?;
 
-    let node = match config.node {
-        NodeSpecificConfig::Worker(cfg) => cfg,
-        other => {
-            return Err(BinaryError::without_source(format!("Found node.yml for a {}, expected a Worker", other.variant())));
-        },
+    let NodeSpecificConfig::Worker(node) = config.node else {
+        return Err(BinaryError::new_from_report(
+            miette::miette!("Found node.yml for a {}, expected a Worker", config.node.variant()),
+            ExitCode::FAILURE,
+        ));
     };
 
     // Setup the logger
@@ -142,7 +147,7 @@ async fn run(args: Arguments) -> Result<(), BinaryError> {
         &logger,
     )
     .await
-    .map_err(|err| BinaryError::from_error("Could not setup the reasoner".into(), err))?;
+    .map_err(|err| BinaryError::new_from_report(Report::from_err(err).wrap_err("Could not setup the reasoner"), ExitCode::FAILURE))?;
 
     let reasoner = Arc::new(reasoner);
 
@@ -151,18 +156,26 @@ async fn run(args: Arguments) -> Result<(), BinaryError> {
 
     // Setup the database connection
     let conn = SQLiteDatabase::new_async(&args.database_path, policy_store::databases::sqlite::MIGRATIONS).await.map_err(|source| {
-        BinaryError::from_error(format!("Failed to setup connection to SQLiteDatabase '{}'", args.database_path.display()), source)
+        BinaryError::new_from_report(
+            Report::from_err(source).wrap_err(format!("Failed to setup connection to SQLiteDatabase '{}'", args.database_path.display())),
+            ExitCode::FAILURE,
+        )
     })?;
     let conn = Arc::new(conn);
 
     /* Step 2: Setup the deliberation & store APIs */
     // Deliberation
-    let delib = Deliberation::new(args.delib_addr, &args.delib_keys, conn.clone(), resolver, reasoner.clone(), logger)
-        .map_err(|source| BinaryError::from_error("Failed to create deliberation API server".to_owned(), source))?;
+    let delib = Deliberation::new(args.delib_addr, &args.delib_keys, conn.clone(), resolver, reasoner.clone(), logger).map_err(|source| {
+        BinaryError::new_from_report(Report::from_err(source).wrap_err("Failed to create deliberation API server"), ExitCode::FAILURE)
+    })?;
 
     // Store
-    let resolver = KidResolver::new(&args.store_keys)
-        .map_err(|source| BinaryError::from_error(format!("Failed to create KidResolver with file {:?}", args.store_keys.display()), source))?;
+    let resolver = KidResolver::new(&args.store_keys).map_err(|source| {
+        BinaryError::new_from_report(
+            Report::from_err(source).wrap_err(format!("Failed to create KidResolver with file {:?}", args.store_keys.display())),
+            ExitCode::FAILURE,
+        )
+    })?;
 
     let store = Arc::new(AxumServer::new(args.store_addr, JwkResolver::new("username", resolver), conn));
 
@@ -174,11 +187,11 @@ async fn run(args: Arguments) -> Result<(), BinaryError> {
     /* Step 3: Host them concurrently */
     tokio::select! {
         res = delib.serve() => {
-            res.map_err(|source| BinaryError::from_error("Failed to host deliberation API".to_owned(), source))?;
+            res.map_err(|source| BinaryError::new_from_report(Report::from_err(source).wrap_err("Failed to host deliberation API"), ExitCode::FAILURE))?;
             info!("Terminated.");
         },
         res = AxumServer::serve_router(store, paths) => {
-            res.map_err(|source| BinaryError::from_error("Failed to host store API".to_owned(), source))?;
+            res.map_err(|source| BinaryError::new_from_report(Report::from_err(source).wrap_err("Failed to host store API"), ExitCode::FAILURE))?;
             info!("Terminated.")
         }
     }

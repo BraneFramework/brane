@@ -226,9 +226,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.87"
+version = "0.1.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d556ec1359574147ec0c4fc5eb525f3f23263a592b1a9c07e0a75b427de55c97"
+checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -375,11 +375,10 @@ dependencies = [
 [[package]]
 name = "axum-server"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#360a64831d469808499744cf476395d6bb6f584a"
 dependencies = [
  "axum 0.8.4",
  "axum-server-spec",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.2.1)",
+ "error-trace",
  "futures",
  "hyper 1.6.0",
  "hyper-util",
@@ -395,7 +394,6 @@ dependencies = [
 [[package]]
 name = "axum-server-spec"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#360a64831d469808499744cf476395d6bb6f584a"
 dependencies = [
  "axum 0.8.4",
  "http 1.3.1",
@@ -416,6 +414,15 @@ dependencies = [
  "object",
  "rustc-demangle",
  "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "backtrace-ext"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "537beee3be4a18fb023b570f80e3ae28003db9167a751266b259926e25539d50"
+dependencies = [
+ "backtrace",
 ]
 
 [[package]]
@@ -538,7 +545,7 @@ dependencies = [
  "dotenvy",
  "enum-debug",
  "env_logger 0.11.7",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "juniper",
  "juniper_warp",
  "log",
@@ -604,8 +611,10 @@ name = "brane-cfg"
 version = "3.0.0"
 dependencies = [
  "async-trait",
+ "brane-shr",
  "enum-debug",
  "log",
+ "miette",
  "rustls 0.21.12",
  "rustls-pemfile 1.0.4",
  "serde",
@@ -621,6 +630,7 @@ name = "brane-chk"
 version = "3.0.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum 0.8.4",
  "base16ct",
  "brane-ast",
@@ -629,11 +639,12 @@ dependencies = [
  "brane-tsk",
  "clap",
  "enum-debug",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "futures",
  "humanlog",
  "hyper 1.6.0",
  "hyper-util",
+ "miette",
  "names 0.1.0 (git+https://github.com/Lut99/names-rs)",
  "policy-reasoner",
  "policy-store",
@@ -641,6 +652,7 @@ dependencies = [
  "reqwest 0.12.14",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
  "shlex",
  "specifications 3.0.0",
  "thiserror 2.0.12",
@@ -671,7 +683,7 @@ dependencies = [
  "dirs 6.0.0",
  "dotenvy",
  "enum-debug",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "flate2",
  "fs_extra",
  "futures-util",
@@ -742,8 +754,9 @@ dependencies = [
  "dotenvy",
  "download",
  "enum-debug",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "hex-literal",
+ "http 1.3.1",
  "human-panic 2.0.2",
  "humanlog",
  "humantime",
@@ -779,7 +792,7 @@ dependencies = [
  "dotenvy",
  "enum-debug",
  "env_logger 0.11.7",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "log",
  "policy-reasoner",
  "prost 0.12.6",
@@ -848,7 +861,7 @@ dependencies = [
  "dotenvy",
  "enum-debug",
  "env_logger 0.11.7",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "futures-util",
  "hyper 1.6.0",
  "log",
@@ -897,7 +910,7 @@ dependencies = [
  "brane-tsk",
  "clap",
  "dotenvy",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "humanlog",
  "log",
  "parking_lot",
@@ -921,7 +934,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "env_logger 0.11.7",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "log",
  "never-say-never",
  "reqwest 0.12.14",
@@ -948,7 +961,7 @@ dependencies = [
  "dotenvy",
  "enum-debug",
  "env_logger 0.11.7",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "log",
  "policy-reasoner",
  "reqwest 0.12.14",
@@ -968,21 +981,26 @@ dependencies = [
 name = "brane-shr"
 version = "3.0.0"
 dependencies = [
+ "anyhow",
  "async-compression",
  "axum 0.8.4",
  "console",
  "dialoguer",
  "enum-debug",
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "fs2",
  "hex",
  "http 1.3.1",
  "humanlog",
  "indicatif",
  "log",
+ "miette",
+ "problem_details",
  "rand 0.9.0",
  "regex",
  "reqwest 0.12.14",
+ "serde_json",
+ "serde_yaml_ng",
  "sha2",
  "specifications 3.0.0",
  "tempfile",
@@ -1574,9 +1592,9 @@ dependencies = [
 [[package]]
 name = "eflint-haskell-reasoner"
 version = "0.1.0"
-source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#42cbedf8f7c4762551fbebc85e8dceb783d112f3"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#72dc21ee00f612b5dd8f8c16ded07ae64578eaed"
 dependencies = [
- "error-trace 3.2.1 (git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0)",
+ "error-trace",
  "serde",
  "sha2",
  "specifications 0.2.0",
@@ -1689,16 +1707,9 @@ checksum = "a5d9305ccc6942a704f4335694ecd3de2ea531b114ac2d51f5f843750787a92f"
 
 [[package]]
 name = "error-trace"
-version = "3.2.1"
-source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.2.1#afe09a38a8cb2eaf4eb75c197993a79f1191c054"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "error-trace"
-version = "3.2.1"
-source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0#09b802c7f582e33318968b612e08d4a558a31c14"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f003273bc107da5ef350a569bef0171f58da33da8aad8793bb1d79d81a5f10f2"
 dependencies = [
  "serde",
 ]
@@ -1734,7 +1745,7 @@ dependencies = [
 [[package]]
 name = "file-logger"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#42cbedf8f7c4762551fbebc85e8dceb783d112f3"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#72dc21ee00f612b5dd8f8c16ded07ae64578eaed"
 dependencies = [
  "chrono",
  "enum-debug",
@@ -2217,6 +2228,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "http-serde"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f056c8559e3757392c8d091e796416e4649d8e49e88b8d76df6c002f05027fd"
+dependencies = [
+ "http 1.3.1",
+ "serde",
+]
+
+[[package]]
 name = "httparse"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2652,6 +2673,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "is_ci"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7655c9839580ee829dfacba1d1278c2b7883e50a277ff7541299489d6bdfdc45"
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2787,11 +2814,11 @@ dependencies = [
 [[package]]
 name = "jwk-auth"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#360a64831d469808499744cf476395d6bb6f584a"
 dependencies = [
  "base64ct",
  "http 1.3.1",
  "jsonwebtoken",
+ "miette",
  "serde_json",
  "specifications 0.1.0",
  "thiserror 2.0.12",
@@ -2915,6 +2942,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "miette"
+version = "7.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f98efec8807c63c752b5bd61f862c165c115b0a35685bdcfd9238c7aeb592b7"
+dependencies = [
+ "backtrace",
+ "backtrace-ext",
+ "cfg-if",
+ "miette-derive",
+ "owo-colors",
+ "supports-color",
+ "supports-hyperlinks",
+ "supports-unicode",
+ "terminal_size",
+ "textwrap",
+ "unicode-width 0.1.14",
+]
+
+[[package]]
+name = "miette-derive"
+version = "7.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db5b29714e950dbb20d5e6f74f9dcec4edbcc1067bb7f8ed198c097b8c1a818b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -3269,6 +3326,12 @@ name = "overview"
 version = "3.0.0"
 
 [[package]]
+name = "owo-colors"
+version = "4.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26995317201fa17f3656c36716aed4a7c81743a9634ac4c99c0eeda495db0cec"
+
+[[package]]
 name = "parking_lot"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3360,7 +3423,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 [[package]]
 name = "policy-reasoner"
 version = "1.0.0"
-source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#42cbedf8f7c4762551fbebc85e8dceb783d112f3"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#72dc21ee00f612b5dd8f8c16ded07ae64578eaed"
 dependencies = [
  "eflint-haskell-reasoner",
  "file-logger",
@@ -3371,7 +3434,6 @@ dependencies = [
 [[package]]
 name = "policy-store"
 version = "0.1.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#360a64831d469808499744cf476395d6bb6f584a"
 dependencies = [
  "axum-server",
  "axum-server-spec",
@@ -3422,6 +3484,18 @@ dependencies = [
  "lazy_static",
  "term",
  "unicode-width 0.1.14",
+]
+
+[[package]]
+name = "problem_details"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "777f7cf33eca7f41687a047c133ec7df9a03b13757a2666062d8b9cfa446e397"
+dependencies = [
+ "http 1.3.1",
+ "http-serde",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4432,7 +4506,6 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "0.1.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#360a64831d469808499744cf476395d6bb6f584a"
 dependencies = [
  "chrono",
  "http 1.3.1",
@@ -4442,7 +4515,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#42cbedf8f7c4762551fbebc85e8dceb783d112f3"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#72dc21ee00f612b5dd8f8c16ded07ae64578eaed"
 dependencies = [
  "paste",
  "serde",
@@ -4493,7 +4566,6 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "sqlite-database"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#360a64831d469808499744cf476395d6bb6f584a"
 dependencies = [
  "chrono",
  "diesel",
@@ -4570,6 +4642,27 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+
+[[package]]
+name = "supports-color"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c64fc7232dd8d2e4ac5ce4ef302b1d81e0b80d055b9d77c7c4f51f6aa4c867d6"
+dependencies = [
+ "is_ci",
+]
+
+[[package]]
+name = "supports-hyperlinks"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "804f44ed3c63152de6a9f90acbea1a110441de43006ea51bcce8f436196a288b"
+
+[[package]]
+name = "supports-unicode"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7401a30af6cb5818bb64852270bb722533397edcfc7344954a38f420819ece2"
 
 [[package]]
 name = "syn"
@@ -4704,6 +4797,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "terminal_size"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45c6481c4829e4cc63825e62c49186a34538b7b2750b73b266581ffb612fb5ed"
+dependencies = [
+ "rustix",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "textwrap"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c13547615a44dc9c452a8a534638acdf07120d4b6847c8178705da06306a3057"
+dependencies = [
+ "unicode-linebreak",
+ "unicode-width 0.2.0",
 ]
 
 [[package]]
@@ -5159,6 +5272,12 @@ name = "unicode-ident"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
+
+[[package]]
+name = "unicode-linebreak"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b09c83c3c29d37506a3e260c08c03743a6bb66a9cd432c6934ab501a190571f"
 
 [[package]]
 name = "unicode-segmentation"
@@ -5767,7 +5886,7 @@ dependencies = [
 [[package]]
 name = "workflow"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#42cbedf8f7c4762551fbebc85e8dceb783d112f3"
+source = "git+https://github.com//BraneFramework/policy-reasoner.git?branch=lib-refactor#72dc21ee00f612b5dd8f8c16ded07ae64578eaed"
 dependencies = [
  "enum-debug",
  "serde",

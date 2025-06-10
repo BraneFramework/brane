@@ -57,12 +57,7 @@ impl std::str::FromStr for BuiltinFunctions {
     type Err = ParseBuiltinFunctionsError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        for builtin in Self::iter() {
-            if s == builtin.name() {
-                return Ok(builtin);
-            }
-        }
-        Err(ParseBuiltinFunctionsError { provided: s.into() })
+        Self::iter().into_iter().find(|func| s == func.name()).ok_or_else(|| ParseBuiltinFunctionsError { provided: s.into() })
     }
 }
 
