@@ -156,8 +156,16 @@ impl ReferenceId {
 
         Self::new(reference.into_boxed_str())
     }
+}
 
-    pub fn as_str(&self) -> &str { &self.0 }
+impl std::ops::Deref for ReferenceId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl Clone for ReferenceId {
+    fn clone(&self) -> Self { Self(Arc::clone(&self.0)) }
 }
 
 
@@ -226,21 +234,21 @@ where
     ///
     /// # Returns
     /// The status code of the response and a message to attach to it.
-    async fn check(this: Arc<Self>, reference: &str, input: Input) -> (StatusCode, String) {
+    async fn check(this: Arc<Self>, reference: ReferenceId, input: Input) -> (StatusCode, String) {
         // Build the state, then resolve it
-        let (state, question): (P::State, P::Question) = match this.resolver.resolve(input, &SessionedAuditLogger::new(reference, &this.logger)).await
-        {
-            Ok(state) => state,
-            Err(err) => {
-                let status: StatusCode = (&err).into();
-                let err = Trace::from_source("Failed to resolve input to the reasoner", err);
-                error!("{}", err.trace());
-                return (status, err.to_string());
-            },
-        };
+        let (state, question): (P::State, P::Question) =
+            match this.resolver.resolve(input, &SessionedAuditLogger::new(&*reference, &this.logger)).await {
+                Ok(state) => state,
+                Err(err) => {
+                    let status: StatusCode = (&err).into();
+                    let err = Trace::from_source("Failed to resolve input to the reasoner", err);
+                    error!("{}", err.trace());
+                    return (status, err.to_string());
+                },
+            };
 
         // With that in order, hit the reasoner
-        match this.reasoner.consult(state, question, &SessionedAuditLogger::new(reference, &this.logger)).await {
+        match this.reasoner.consult(state, question, &SessionedAuditLogger::new(&*reference, &this.logger)).await {
             Ok(res) => {
                 // Serialize the response
                 let res: String = match serde_json::to_string(&CheckResponse { verdict: res }) {
@@ -309,7 +317,7 @@ where
     #[instrument(skip_all, fields(user = auth.id, reference))]
     async fn check_workflow(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> (StatusCode, String) {
         let reference = ReferenceId::create(&auth.id);
-        Span::current().record("reference", reference.as_str());
+        Span::current().record("reference", &*reference);
 
         // Get the request
         let req: CheckWorkflowRequest = match download_request(request).await {
@@ -322,7 +330,7 @@ where
             Input { store: this.store.clone(), usecase: req.usecase, workflow: req.workflow, input: QuestionInput::ValidateWorkflow };
 
         // Continue with the agnostic function for maintainability
-        Self::check(this, reference.as_str(), input).await
+        Self::check(this, reference, input).await
     }
 
     /// Handler for `GET /v2/task` (i.e., checking a task in a workflow).
@@ -337,7 +345,7 @@ where
     #[instrument(skip_all, fields(user = auth.id, reference))]
     async fn check_task(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> (StatusCode, String) {
         let reference = ReferenceId::create(&auth.id);
-        Span::current().record("reference", reference.as_str());
+        Span::current().record("reference", &*reference);
 
         // Get the request
         let req: CheckTaskRequest = match download_request(request).await {
@@ -355,7 +363,7 @@ where
         };
 
         // Continue with the agnostic function for maintainability
-        Self::check(this, reference.as_str(), input).await
+        Self::check(this, reference, input).await
     }
 
     /// Handler for `GET /v2/transfer` (i.e., checking a transfer for a task in a workflow).
@@ -370,7 +378,7 @@ where
     #[instrument(skip_all, fields(user = auth.id, reference))]
     async fn check_transfer(State(this): State<Arc<Self>>, Extension(auth): Extension<User>, request: Request) -> (StatusCode, String) {
         let reference = ReferenceId::create(&auth.id);
-        Span::current().record("reference", reference.as_str());
+        Span::current().record("reference", &*reference);
 
         // Get the request
         let req: CheckTransferRequest = match download_request(request).await {
@@ -397,7 +405,7 @@ where
         };
 
         // Continue with the agnostic function for maintainability
-        Self::check(this, reference.as_str(), input).await
+        Self::check(this, reference, input).await
     }
 }
 
