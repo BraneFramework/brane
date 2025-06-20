@@ -375,7 +375,7 @@ dependencies = [
 [[package]]
 name = "axum-server"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#bee18fc954a73a986e1881bd440f31e91d713e39"
+source = "git+https://github.com//BraneFramework/policy-store.git#64c8186f673eea9261a65f5478a8551443153964"
 dependencies = [
  "axum 0.8.4",
  "axum-server-spec",
@@ -395,7 +395,7 @@ dependencies = [
 [[package]]
 name = "axum-server-spec"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#bee18fc954a73a986e1881bd440f31e91d713e39"
+source = "git+https://github.com//BraneFramework/policy-store.git#64c8186f673eea9261a65f5478a8551443153964"
 dependencies = [
  "axum 0.8.4",
  "http 1.3.1",
@@ -2781,7 +2781,7 @@ dependencies = [
 [[package]]
 name = "jwk-auth"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#bee18fc954a73a986e1881bd440f31e91d713e39"
+source = "git+https://github.com//BraneFramework/policy-store.git#64c8186f673eea9261a65f5478a8551443153964"
 dependencies = [
  "base64ct",
  "http 1.3.1",
@@ -3387,7 +3387,7 @@ dependencies = [
 [[package]]
 name = "policy-store"
 version = "0.1.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#bee18fc954a73a986e1881bd440f31e91d713e39"
+source = "git+https://github.com//BraneFramework/policy-store.git#64c8186f673eea9261a65f5478a8551443153964"
 dependencies = [
  "axum-server",
  "axum-server-spec",
@@ -4448,7 +4448,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "0.1.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#bee18fc954a73a986e1881bd440f31e91d713e39"
+source = "git+https://github.com//BraneFramework/policy-store.git#64c8186f673eea9261a65f5478a8551443153964"
 dependencies = [
  "chrono",
  "http 1.3.1",
@@ -4509,7 +4509,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "sqlite-database"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?branch=minimal-versions#bee18fc954a73a986e1881bd440f31e91d713e39"
+source = "git+https://github.com//BraneFramework/policy-store.git#64c8186f673eea9261a65f5478a8551443153964"
 dependencies = [
  "chrono",
  "diesel",

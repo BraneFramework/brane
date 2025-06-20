@@ -92,7 +92,7 @@ policy-reasoner = { git = "https://github.com//BraneFramework/policy-reasoner.gi
 
 [patch."https://github.com/braneframework/policy-store"]
 # NOTE: Double slash is necessary because of: https://github.com/rust-lang/cargo/issues/5478
-policy-store = { git = "https://github.com//BraneFramework/policy-store.git", branch = "minimal-versions" }
+policy-store = { git = "https://github.com//BraneFramework/policy-store.git" }
 #
 # [patch."https://github.com/Lut99/error-trace-rs"]
 # error-trace = { path = "../forks/error-trace-rs" }
