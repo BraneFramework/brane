@@ -730,19 +730,16 @@ async fn read_digest(docker: &Docker, image: impl AsRef<Image>) -> Result<Option
         .map_err(|source| Error::ImageList { source })?
     {
         for tag in &info.repo_tags {
-            let tag = tag.split(':').collect::<Vec<&str>>();
             if let Some(image_version) = &image.version {
-                if let [name, version] = tag.as_slice() {
+                if let Some((name, version)) = tag.split_once(':') {
                     if *name == image.name && version == image_version {
-                        let id: &str = if info.id.starts_with("sha256:") { &info.id[7..] } else { &info.id };
+                        let id = info.id.strip_prefix("sha256:").unwrap_or(&info.id);
                         return Ok(Some(id.into()));
                     }
                 }
-            } else if let [name] = tag.as_slice() {
-                if *name == image.name {
-                    let id: &str = if info.id.starts_with("sha256:") { &info.id[7..] } else { &info.id };
-                    return Ok(Some(id.into()));
-                }
+            } else if *tag == image.name {
+                let id = info.id.strip_prefix("sha256:").unwrap_or(&info.id);
+                return Ok(Some(id.into()));
             }
         }
     }
@@ -774,29 +771,24 @@ async fn import_image(docker: &Docker, image: impl Into<Image>, image_source: im
     // If successful, open the byte with a FramedReader, freezing all the chunk we read
     let byte_stream = FramedRead::new(file, BytesCodec::new()).map(|r| r.unwrap().freeze());
 
-    image.digest = match docker.import_image_stream(options, byte_stream, None).try_collect::<Vec<_>>().await {
-        Ok(res) => {
-            // See if Docker told us the ID directly
-            let mut id: Option<String> = None;
-            for info in &res {
-                if let Some(stream) = &info.stream {
-                    if stream.starts_with("Loaded image ID: sha256:") && stream.ends_with("\n") {
-                        id = Some(stream[24..stream.len() - 1].into());
-                        break;
-                    }
-                }
-            }
+    let res = docker
+        .import_image_stream(options, byte_stream, None)
+        .try_collect::<Vec<_>>()
+        .await
+        .map_err(|source| Error::ImageImportError { path: PathBuf::from(image_source), source })?;
 
-            // If not, then we'll try to manually retrieve it
-            if id.is_none() {
-                id = read_digest(docker, &image).await?;
-            }
+    // See if Docker told us the ID directly
+    let mut id: Option<String> = res
+        .iter()
+        .filter_map(|info| info.stream.as_ref())
+        .find_map(|stream| stream.strip_prefix("Loaded image ID: sha256:").and_then(|s| s.strip_suffix("\n")).map(ToOwned::to_owned));
 
-            // Return!
-            Some(id.ok_or_else(|| Error::ImageImportFindId { path: image_source.into(), infos: res })?)
-        },
-        Err(source) => return Err(Error::ImageImportError { path: PathBuf::from(image_source), source }),
-    };
+    // If not, then we'll try to manually retrieve it
+    if id.is_none() {
+        id = read_digest(docker, &image).await?;
+    }
+
+    image.digest = Some(id.ok_or_else(|| Error::ImageImportFindId { path: image_source.into(), infos: res })?);
 
     // Tag it with the appropriate name & version
     let options = Some(TagImageOptions { repo: image.name.clone(), tag: image.version.clone().unwrap() });
@@ -823,37 +815,32 @@ async fn pull_image(docker: &Docker, image: impl Into<Image>, image_source: impl
     let options = Some(CreateImageOptions { from_image: image_source.clone(), ..Default::default() });
 
     // Try to create it
-    image.digest = match docker.create_image(options, None, None).try_collect::<Vec<_>>().await {
-        Ok(res) => {
-            let mut id: Option<String> = None;
-            for info in &res {
-                if let Some(status) = &info.status {
-                    if let Some(status) = status.strip_prefix("Digest: sha256:") {
-                        id = Some(status.into());
-                        break;
-                    }
-                }
-            }
-            match id {
-                Some(id) => Some(id),
-                None => return Err(Error::ImagePullFindId { image_source, infos: res }),
-            }
-        },
-        Err(source) => return Err(Error::ImagePullError { image_source, source }),
-    };
+    let res = docker
+        .create_image(options, None, None)
+        .try_collect::<Vec<_>>()
+        .await
+        .map_err(|source| Error::ImagePullError { image_source: image_source.clone(), source })?;
+
+    image.digest = Some(
+        res.iter()
+            .filter_map(|info| info.status.as_ref())
+            .find_map(|status| status.strip_prefix("Digest: sha256:"))
+            .map(ToOwned::to_owned)
+            .ok_or_else(|| Error::ImagePullFindId { image_source: image_source.clone(), infos: res })?,
+    );
+
 
     // Set the options
-    let options: Option<TagImageOptions<_>> = Some(if let Some(version) = &image.version {
-        TagImageOptions { repo: image.name.clone(), tag: version.clone() }
-    } else {
-        TagImageOptions { repo: image.name.clone(), ..Default::default() }
-    });
+    let options = TagImageOptions { repo: image.name.clone(), tag: image.version.clone().unwrap_or_default() };
 
     // Now tag it
-    match docker.tag_image(&image_source, options).await {
-        Ok(_) => Ok(image),
-        Err(source) => Err(Error::ImageTagError { image: Box::new(image), image_source, source }),
-    }
+    docker.tag_image(&image_source, Some(options)).await.map_err(|source| Error::ImageTagError {
+        image: Box::new(image.clone()),
+        image_source,
+        source,
+    })?;
+
+    Ok(image)
 }
 
 
@@ -1084,7 +1071,7 @@ pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl
     // Abort if image is already loaded
     match docker.inspect_image(&image.docker().to_string()).await {
         Ok(_) => {
-            debug!("Image '{}' already exists in Docker deamon.", image.docker());
+            debug!("Image '{}' already exists in Docker daemon.", image.docker());
             return Ok(image);
         },
         Err(bollard::errors::Error::DockerResponseServerError { status_code: 404, message: _ }) => {

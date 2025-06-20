@@ -136,12 +136,3 @@ pub struct ForwardConfig {
     /// The protocol that we use to communicate to the proxy.
     pub protocol: ProxyProtocol,
 }
-// impl Debug for ForwardConfig {
-//     #[inline]
-//     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-//         let mut fmt = f.debug_struct("ForwardConfig");
-//         fmt.field("address", &&self.address);
-//         fmt.field("protocol", &self.protocol);
-//         fmt.finish()
-//     }
-// }
