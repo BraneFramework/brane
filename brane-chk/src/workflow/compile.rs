@@ -48,10 +48,7 @@ pub enum Error {
     MissingUser,
     /// Failed to preprocess the given workflow.
     #[error("Failed to preprocess input WIR workflow")]
-    Preprocess {
-        #[source]
-        err: super::preprocess::Error,
-    },
+    Preprocess { source: super::preprocess::Error },
     /// Function ID was out-of-bounds.
     #[error("Program counter {} is out-of-bounds (function {} has {} edges)",
                 pc,
@@ -309,10 +306,8 @@ fn reconstruct_graph(
             }
 
             // Let us checkout that the merge point is a join
-            let merge_edge: &ast::Edge = match utils::get_edge(wir, pc.jump(*merge)) {
-                Some(edge) => edge,
-                None => return Err(Error::ParallelMergeOutOfBounds { pc: pc.resolved(&wir.table), merge: pc.jump(*merge).resolved(&wir.table) }),
-            };
+            let merge_edge: &ast::Edge = utils::get_edge(wir, pc.jump(*merge))
+                .ok_or_else(|| Error::ParallelMergeOutOfBounds { pc: pc.resolved(&wir.table), merge: pc.jump(*merge).resolved(&wir.table) })?;
             let next: usize = if let ast::Edge::Join { merge: _, next } = merge_edge {
                 *next
             } else {
@@ -349,68 +344,65 @@ fn reconstruct_graph(
 
         ast::Edge::Call { input, result, next } => {
             // Attempt to get the call ID & matching definition
-            let func_def: &ast::FunctionDef = match calls.get(&pc) {
-                Some(id) => match wir.table.funcs.get(*id) {
-                    Some(def) => def,
-                    None => panic!("Encountered unknown function '{id}' after preprocessing"),
-                },
-                None => panic!("Encountered unresolved call after preprocessing"),
-            };
+            let call_id = calls.get(&pc).unwrap_or_else(|| panic!("Encountered unresolved call after preprocessing"));
+            let func_def: &ast::FunctionDef =
+                wir.table.funcs.get(*call_id).unwrap_or_else(|| panic!("Encountered unknown function '{call_id}' after preprocessing"));
+
 
             // Only allow calls to builtins
-            if func_def.name == BuiltinFunctions::CommitResult.name() {
-                // Deduce the commit's location (or rather, the output location) based on the inputs
-                let mut locs: HashSet<String> = HashSet::with_capacity(input.len());
-                let mut new_input: Vec<Dataset> = Vec::with_capacity(input.len());
-                for i in input {
-                    // See if it has any known locations
-                    let location: Option<String> = lkls.get(i).and_then(|locs| locs.iter().next().cloned());
+            let built_in: BuiltinFunctions =
+                func_def.name.parse().map_err(|_source| Error::IllegalCall { pc: pc.resolved(&wir.table), name: func_def.name.clone() })?;
 
-                    // Add it to the list of possible input locations
-                    if let Some(location) = &location {
-                        locs.insert(location.clone());
+            match built_in {
+                BuiltinFunctions::CommitResult => {
+                    // Deduce the commit's location (or rather, the output location) based on the inputs
+                    let mut locs: HashSet<String> = HashSet::with_capacity(input.len());
+                    let mut new_input: Vec<Dataset> = Vec::with_capacity(input.len());
+                    for i in input {
+                        // See if it has any known locations
+                        let location: Option<String> = lkls.get(i).and_then(|locs| locs.iter().next().cloned());
+
+                        // Add it to the list of possible input locations
+                        if let Some(location) = &location {
+                            locs.insert(location.clone());
+                        }
+
+                        // Then create a new Dataset with that
+                        new_input.push(Dataset { id: i.name().into(), from: location.map(|id| Entity { id }) });
                     }
 
-                    // Then create a new Dataset with that
-                    new_input.push(Dataset { id: i.name().into(), from: location.map(|id| Entity { id }) });
-                }
+                    // Attempt to fetch the name of the dataset
+                    if result.len() > 1 {
+                        return Err(Error::CommitTooMuchOutput { pc: pc.resolved(&wir.table), got: result.len() });
+                    }
 
-                // Attempt to fetch the name of the dataset
-                if result.len() > 1 {
-                    return Err(Error::CommitTooMuchOutput { pc: pc.resolved(&wir.table), got: result.len() });
-                }
-                let data_name: String = if let Some(name) = result.iter().next() {
-                    if let DataName::Data(name) = name {
-                        name.clone()
-                    } else {
+                    let Some(name) = result.iter().next() else {
+                        return Err(Error::CommitNoOutput { pc: pc.resolved(&wir.table) });
+                    };
+
+                    let DataName::Data(data_name) = name else {
                         return Err(Error::CommitReturnsResult { pc: pc.resolved(&wir.table) });
-                    }
-                } else {
-                    return Err(Error::CommitNoOutput { pc: pc.resolved(&wir.table) });
-                };
+                    };
 
-                // Construct next first
-                let next: Elem = reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*next), plug, breakpoint)?;
+                    // Construct next first
+                    let next: Elem = reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*next), plug, breakpoint)?;
 
-                // Then we wrap the rest in a commit
-                let at: Option<Entity> = locs.into_iter().next().map(|id| Entity { id });
-                Ok(Elem::Call(ElemCall {
-                    id: format!("{}-{}-commit", wf_id, pc.resolved(&wir.table)),
-                    task: COMMIT_CALL_NAME.into(),
-                    input: new_input,
-                    output: vec![Dataset { id: data_name, from: at.clone() }],
-                    at,
-                    metadata: vec![],
-                    next: Box::new(next),
-                }))
-            } else if func_def.name == BuiltinFunctions::Print.name()
-                || func_def.name == BuiltinFunctions::PrintLn.name()
-                || func_def.name == BuiltinFunctions::Len.name()
-            {
-                // Using them is OK, we just ignore them for the improved workflow
-                reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*next), plug, breakpoint)
-            } else {
-                Err(Error::IllegalCall { pc: pc.resolved(&wir.table), name: func_def.name.clone() })
+                    // Then we wrap the rest in a commit
+                    let at: Option<Entity> = locs.into_iter().next().map(|id| Entity { id });
+                    Ok(Elem::Call(ElemCall {
+                        id: format!("{}-{}-commit", wf_id, pc.resolved(&wir.table)),
+                        task: COMMIT_CALL_NAME.into(),
+                        input: new_input,
+                        output: vec![Dataset { id: data_name.clone(), from: at.clone() }],
+                        at,
+                        metadata: vec![],
+                        next: Box::new(next),
+                    }))
+                },
+                BuiltinFunctions::Len | BuiltinFunctions::Print | BuiltinFunctions::PrintLn => {
+                    // Using them is OK, we just ignore them for the improved workflow
+                    reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*next), plug, breakpoint)
+                },
             }
         },
 
@@ -461,7 +453,7 @@ pub fn pc_to_id(wir: &ast::Workflow, pc: ProgramCounter) -> String { format!("{}
 /// # Errors
 /// This function can error at any time if the given `wf` is in an invalid shape for compilation.
 pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
-    if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+    if tracing::enabled!(Level::DEBUG) {
         let mut buf: Vec<u8> = Vec::new();
         brane_ast::traversals::print::ast::do_traversal(&value, &mut buf).unwrap();
         debug!("Compiling workflow:\n\n{}\n", String::from_utf8(buf).unwrap());
@@ -470,11 +462,8 @@ pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
     // First, analyse the calls in the workflow as much as possible (and simplify)
     let wf_id: String = value.id.clone();
     let wf_user: Option<String> = Option::clone(&value.user);
-    let (wir, calls): (ast::Workflow, HashMap<ProgramCounter, usize>) = match preprocess::simplify(value) {
-        Ok(res) => res,
-        Err(err) => return Err(Error::Preprocess { err }),
-    };
-    if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+    let (wir, calls) = preprocess::simplify(value).map_err(|source| Error::Preprocess { source })?;
+    if tracing::enabled!(Level::DEBUG) {
         // Write the processed graph
         let mut buf: Vec<u8> = vec![];
         brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
@@ -486,7 +475,7 @@ pub fn compile(value: ast::Workflow) -> Result<Workflow, Error> {
     analyse_data_lkls(&mut lkls, &wir, ProgramCounter::start(), None);
 
     // Alright now attempt to re-build the graph in the new style
-    let graph: Elem = reconstruct_graph(&wir, &wf_id, &calls, &mut lkls, ProgramCounter::start(), Elem::Stop, None)?;
+    let graph = reconstruct_graph(&wir, &wf_id, &calls, &mut lkls, ProgramCounter::start(), Elem::Stop, None)?;
 
     // Build a new Workflow with that!
     Ok(Workflow {
