@@ -89,7 +89,3 @@ suspicious = "deny"
 [patch."https://github.com/BraneFramework/policy-reasoner"]
 # NOTE: Double slash is necessary because of: https://github.com/rust-lang/cargo/issues/5478
 policy-reasoner = { git = "https://github.com//BraneFramework/policy-reasoner.git", rev = "b7ff17c" }
-
-[patch."https://github.com/braneframework/policy-store"]
-# NOTE: Double slash is necessary because of: https://github.com/rust-lang/cargo/issues/5478
-policy-store = { git = "https://github.com//BraneFramework/policy-store.git", rev = "f8c2b4b" }
