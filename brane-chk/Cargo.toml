@@ -21,33 +21,33 @@ path = "src/workflow/compiler.rs"
 [dependencies]
 axum = "0.7.7"
 base16ct = { version = "0.2.0", features = ["std"] }
-clap = { version = "4.5.20", features = ["derive", "env"] }
-futures = "0.3.31"
-hyper = "1.5.0"
-hyper-util = "0.1.9"
-reqwest = "0.12.9"
-serde = "1.0.213"
-serde_json = "1.0.120"
+clap = { version = "4.5.0", features = ["derive", "env"] }
+futures = "0.3.22"
+hyper = "1.3.0"
+hyper-util = "0.1.5"
 rand = "0.9.0"
+reqwest = "0.12.0"
+serde = "1.0.195"
+serde_json = "1.0.50"
 shlex = "1.3.0"
-thiserror = "1.0.61"
-tokio = { version = "1.42.0", default-features = false, features = ["signal"] }
+thiserror = "2.0.0"
+tokio = { version = "1.44.2", default-features = false, features = ["signal"] }
 tower-service = "0.3.3"
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.10", features = ["env-filter"] }
 
 # eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant", features = ["display_eflint"] }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.1.0" }
-error-trace = { git = "https://github.com/Lut99/error-trace-rs", tag = "v3.3.0", features = [
+error-trace = { workspace = true, features = [
     "serde",
 ] }
-policy-reasoner = { git = "https://github.com/BraneFramework/policy-reasoner", branch = "lib-refactor", default-features = false, features = [
+policy-reasoner = { git = "https://github.com/BraneFramework/policy-reasoner.git", default-features = false, features = [
     "eflint-haskell-reasoner",
     "file-logger",
     "serde",
     "workflow",
 ] }
-policy-store = { git = "https://github.com/BraneFramework/policy-store", default-features = false, features = [
+policy-store = { git = "https://github.com/BraneFramework/policy-store.git", default-features = false, features = [
     "axum-server",
     "jwk-auth",
     "jwk-auth-kid",

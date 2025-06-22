@@ -321,7 +321,7 @@ source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8
 dependencies = [
  "axum",
  "axum-server-spec",
- "error-trace 3.3.1",
+ "error-trace",
  "futures",
  "hyper 1.6.0",
  "hyper-util",
@@ -480,7 +480,7 @@ dependencies = [
  "dotenvy",
  "enum-debug",
  "env_logger 0.11.7",
- "error-trace 3.0.0",
+ "error-trace",
  "juniper",
  "juniper_warp",
  "log",
@@ -488,7 +488,7 @@ dependencies = [
  "reqwest 0.12.14",
  "scylla",
  "serde_json",
- "serde_yml",
+ "serde_yaml_ng",
  "specifications 3.0.0",
  "tempfile",
  "thiserror 2.0.12",
@@ -551,7 +551,7 @@ dependencies = [
  "rustls 0.21.12",
  "rustls-pemfile 1.0.4",
  "serde",
- "serde_yml",
+ "serde_yaml_ng",
  "specifications 3.0.0",
  "thiserror 2.0.12",
  "tokio",
@@ -570,7 +570,7 @@ dependencies = [
  "brane-tsk",
  "clap",
  "enum-debug",
- "error-trace 3.3.0",
+ "error-trace",
  "futures",
  "humanlog",
  "hyper 1.6.0",
@@ -584,7 +584,7 @@ dependencies = [
  "serde_json",
  "shlex",
  "specifications 3.0.0",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tower-service",
  "tracing",
@@ -612,7 +612,7 @@ dependencies = [
  "dirs 6.0.0",
  "dotenvy",
  "enum-debug",
- "error-trace 3.0.0",
+ "error-trace",
  "flate2",
  "fs_extra",
  "futures-util",
@@ -634,7 +634,7 @@ dependencies = [
  "rustyline-derive",
  "serde",
  "serde_json",
- "serde_yml",
+ "serde_yaml_ng",
  "specifications 3.0.0",
  "tar",
  "tempfile",
@@ -683,7 +683,7 @@ dependencies = [
  "dotenvy",
  "download",
  "enum-debug",
- "error-trace 3.0.0",
+ "error-trace",
  "hex-literal",
  "human-panic 2.0.2",
  "humanlog",
@@ -697,7 +697,7 @@ dependencies = [
  "reqwest 0.12.14",
  "serde",
  "serde_json",
- "serde_yml",
+ "serde_yaml_ng",
  "shlex",
  "specifications 3.0.0",
  "tempfile",
@@ -720,7 +720,7 @@ dependencies = [
  "dotenvy",
  "enum-debug",
  "env_logger 0.11.7",
- "error-trace 3.0.0",
+ "error-trace",
  "log",
  "policy-reasoner",
  "prost 0.12.6",
@@ -789,7 +789,7 @@ dependencies = [
  "dotenvy",
  "enum-debug",
  "env_logger 0.11.7",
- "error-trace 3.0.0",
+ "error-trace",
  "futures-util",
  "hyper 1.6.0",
  "log",
@@ -798,7 +798,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_json_any_key",
- "serde_yml",
+ "serde_yaml_ng",
  "specifications 3.0.0",
  "thiserror 2.0.12",
  "tokio",
@@ -820,7 +820,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
- "serde_yml",
+ "serde_yaml_ng",
  "specifications 3.0.0",
  "thiserror 2.0.12",
  "tokio",
@@ -838,7 +838,7 @@ dependencies = [
  "brane-tsk",
  "clap",
  "dotenvy",
- "error-trace 3.0.0",
+ "error-trace",
  "humanlog",
  "log",
  "parking_lot",
@@ -862,7 +862,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "env_logger 0.11.7",
- "error-trace 3.0.0",
+ "error-trace",
  "log",
  "never-say-never",
  "reqwest 0.12.14",
@@ -889,14 +889,14 @@ dependencies = [
  "dotenvy",
  "enum-debug",
  "env_logger 0.11.7",
- "error-trace 3.0.0",
+ "error-trace",
  "log",
  "policy-reasoner",
  "reqwest 0.12.14",
  "rustls 0.21.12",
  "serde",
  "serde_json",
- "serde_yml",
+ "serde_yaml_ng",
  "specifications 3.0.0",
  "tempfile",
  "thiserror 2.0.12",
@@ -959,7 +959,7 @@ dependencies = [
  "reqwest 0.12.14",
  "serde",
  "serde_json",
- "serde_yml",
+ "serde_yaml_ng",
  "sha2",
  "specifications 3.0.0",
  "thiserror 2.0.12",
@@ -1513,7 +1513,7 @@ name = "eflint-haskell-reasoner"
 version = "0.1.0"
 source = "git+https://github.com//BraneFramework/policy-reasoner.git?rev=b7ff17c#b7ff17c288f0cc2b5693be175f8d4a458a97a33f"
 dependencies = [
- "error-trace 3.3.1",
+ "error-trace",
  "serde",
  "sha2",
  "specifications 0.2.0",
@@ -1623,19 +1623,6 @@ name = "error-code"
 version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5d9305ccc6942a704f4335694ecd3de2ea531b114ac2d51f5f843750787a92f"
-
-[[package]]
-name = "error-trace"
-version = "3.0.0"
-source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.0.0#a026dc304b5bcc40bc68574f21459d2f1b6cad90"
-
-[[package]]
-name = "error-trace"
-version = "3.3.0"
-source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.3.0#6db81b192df2323f9d675bf5c78f6e0d21f49b49"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "error-trace"
@@ -2774,12 +2761,6 @@ dependencies = [
  "pkg-config",
  "vcpkg",
 ]
-
-[[package]]
-name = "libyml"
-version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e281a65eeba3d4503a2839252f86374528f9ceafe6fed97c1d3b52e1fb625c1"
 
 [[package]]
 name = "libz-sys"
@@ -4229,20 +4210,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yml"
-version = "0.0.10"
+name = "serde_yaml_ng"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78ce6afeda22f0b55dde2c34897bce76a629587348480384231205c14b59a01f"
+checksum = "7b4db627b98b36d4203a7b458cf3573730f2bb591b28871d916dfa9efabfd41f"
 dependencies = [
  "indexmap 2.8.0",
  "itoa",
- "libyml",
- "log",
- "memchr",
  "ryu",
  "serde",
- "serde_json",
- "tempfile",
+ "unsafe-libyaml",
 ]
 
 [[package]]
@@ -4423,7 +4400,7 @@ dependencies = [
  "serde_json_any_key",
  "serde_test",
  "serde_with",
- "serde_yml",
+ "serde_yaml_ng",
  "strum 0.27.1",
  "strum_macros 0.27.1",
  "thiserror 2.0.12",
@@ -5130,6 +5107,12 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"
