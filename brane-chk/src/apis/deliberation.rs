@@ -433,22 +433,22 @@ where
     pub async fn serve(self) -> Result<(), Error> {
         let this: Arc<Self> = Arc::new(self);
 
-            // First, define the axum paths
-            debug!("Building axum paths...");
-            let check_workflow: Router = Router::new()
-                .route(CHECK_WORKFLOW_PATH.path, on(CHECK_WORKFLOW_PATH.method.try_into().unwrap(), Self::check_workflow))
-                .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
-                .with_state(this.clone());
-            let check_task: Router = Router::new()
-                .route(CHECK_TASK_PATH.path, on(CHECK_TASK_PATH.method.try_into().unwrap(), Self::check_task))
-                .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
-                .with_state(this.clone());
-            let check_transfer: Router = Router::new()
-                .route(CHECK_TRANSFER_PATH.path, on(CHECK_TRANSFER_PATH.method.try_into().unwrap(), Self::check_transfer))
-                .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
-                .with_state(this.clone());
-            let router: IntoMakeServiceWithConnectInfo<Router, SocketAddr> =
-                Router::new().merge(check_workflow).merge(check_task).merge(check_transfer).into_make_service_with_connect_info();
+        // First, define the axum paths
+        debug!("Building axum paths...");
+        let check_workflow: Router = Router::new()
+            .route(CHECK_WORKFLOW_PATH.path, on(CHECK_WORKFLOW_PATH.method.try_into().unwrap(), Self::check_workflow))
+            .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
+            .with_state(this.clone());
+        let check_task: Router = Router::new()
+            .route(CHECK_TASK_PATH.path, on(CHECK_TASK_PATH.method.try_into().unwrap(), Self::check_task))
+            .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
+            .with_state(this.clone());
+        let check_transfer: Router = Router::new()
+            .route(CHECK_TRANSFER_PATH.path, on(CHECK_TRANSFER_PATH.method.try_into().unwrap(), Self::check_transfer))
+            .layer(axum::middleware::from_fn_with_state(this.clone(), Self::authorize))
+            .with_state(this.clone());
+        let router: IntoMakeServiceWithConnectInfo<Router, SocketAddr> =
+            Router::new().merge(check_workflow).merge(check_task).merge(check_transfer).into_make_service_with_connect_info();
 
         // Bind the TCP Listener
         debug!("Binding server on '{}'...", this.addr);
