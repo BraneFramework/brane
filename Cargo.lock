@@ -266,8 +266,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edca88bc138befd0323b20752846e6587272d3b03b0343c8ea28a6f819e6e71f"
 dependencies = [
  "async-trait",
- "axum-core",
+ "axum-core 0.4.5",
  "bytes",
+ "futures-util",
+ "http 1.3.1",
+ "http-body 1.0.1",
+ "http-body-util",
+ "itoa",
+ "matchit 0.7.3",
+ "memchr",
+ "mime",
+ "percent-encoding",
+ "pin-project-lite",
+ "rustversion",
+ "serde",
+ "sync_wrapper 1.0.2",
+ "tower 0.5.2",
+ "tower-layer",
+ "tower-service",
+]
+
+[[package]]
+name = "axum"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "021e862c184ae977658b36c4500f7feac3221ca5da43e3f25bd04ab6c79a29b5"
+dependencies = [
+ "axum-core 0.5.2",
+ "axum-macros",
+ "bytes",
+ "form_urlencoded",
  "futures-util",
  "http 1.3.1",
  "http-body 1.0.1",
@@ -275,7 +303,7 @@ dependencies = [
  "hyper 1.6.0",
  "hyper-util",
  "itoa",
- "matchit",
+ "matchit 0.8.4",
  "memchr",
  "mime",
  "percent-encoding",
@@ -311,15 +339,45 @@ dependencies = [
  "sync_wrapper 1.0.2",
  "tower-layer",
  "tower-service",
+]
+
+[[package]]
+name = "axum-core"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68464cd0412f486726fb3373129ef5d2993f90c34bc2bc1c1e9943b2f4fc7ca6"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "http 1.3.1",
+ "http-body 1.0.1",
+ "http-body-util",
+ "mime",
+ "pin-project-lite",
+ "rustversion",
+ "sync_wrapper 1.0.2",
+ "tower-layer",
+ "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "axum-macros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "604fde5e028fea851ce1d8570bbdc034bec850d157f7569d10f347d06808c05c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]
 name = "axum-server"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
+source = "git+https://github.com/BraneFramework/policy-store.git#8afd377d3562b6159496691e4165304a41b38e17"
 dependencies = [
- "axum",
+ "axum 0.8.4",
  "axum-server-spec",
  "error-trace",
  "futures",
@@ -337,10 +395,11 @@ dependencies = [
 [[package]]
 name = "axum-server-spec"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
+source = "git+https://github.com/BraneFramework/policy-store.git#8afd377d3562b6159496691e4165304a41b38e17"
 dependencies = [
- "axum",
+ "axum 0.8.4",
  "http 1.3.1",
+ "itertools 0.14.0",
  "serde",
  "specifications 0.1.0",
 ]
@@ -562,7 +621,7 @@ dependencies = [
 name = "brane-chk"
 version = "3.0.0"
 dependencies = [
- "axum",
+ "axum 0.8.4",
  "base16ct",
  "brane-ast",
  "brane-cfg",
@@ -1294,6 +1353,47 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "575f75dfd25738df5b91b8e43e14d44bda14637a58fae779fd2b064f8bf3e010"
 
 [[package]]
+name = "deadpool"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ed5957ff93768adf7a65ab167a17835c3d2c3c50d084fe305174c112f468e2f"
+dependencies = [
+ "deadpool-runtime",
+ "num_cpus",
+ "tokio",
+]
+
+[[package]]
+name = "deadpool-diesel"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "590573e9e29c5190a5ff782136f871e6e652e35d598a349888e028693601adf1"
+dependencies = [
+ "deadpool",
+ "deadpool-sync",
+ "diesel",
+]
+
+[[package]]
+name = "deadpool-runtime"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "092966b41edc516079bdf31ec78a2e0588d1d0c08f78b91d8307215928642b2b"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
+name = "deadpool-sync"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "524bc3df0d57e98ecd022e21ba31166c2625e7d3e5bcc4510efaeeab4abcab04"
+dependencies = [
+ "deadpool-runtime",
+ "tracing",
+]
+
+[[package]]
 name = "der-parser"
 version = "10.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1350,7 +1450,6 @@ dependencies = [
  "chrono",
  "diesel_derives",
  "libsqlite3-sys",
- "r2d2",
  "time",
 ]
 
@@ -2700,7 +2799,7 @@ dependencies = [
 [[package]]
 name = "jwk-auth"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
+source = "git+https://github.com/BraneFramework/policy-store.git#8afd377d3562b6159496691e4165304a41b38e17"
 dependencies = [
  "base64ct",
  "http 1.3.1",
@@ -2808,6 +2907,12 @@ name = "matchit"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e7465ac9959cc2b1404e8e2367b43684a6d13790fe23056cc8c6c5a6b7bcb94"
+
+[[package]]
+name = "matchit"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "memchr"
@@ -3076,6 +3181,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_cpus"
+version = "1.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
+dependencies = [
+ "hermit-abi",
+ "libc",
+]
+
+[[package]]
 name = "num_enum"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3300,7 +3415,7 @@ dependencies = [
 [[package]]
 name = "policy-store"
 version = "0.1.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
+source = "git+https://github.com/BraneFramework/policy-store.git#8afd377d3562b6159496691e4165304a41b38e17"
 dependencies = [
  "axum-server",
  "axum-server-spec",
@@ -3487,17 +3602,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
 dependencies = [
  "proc-macro2",
-]
-
-[[package]]
-name = "r2d2"
-version = "0.8.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51de85fb3fb6524929c8a2eb85e6b6d363de4e8c48f9e2c2eac4944abc181c93"
-dependencies = [
- "log",
- "parking_lot",
- "scheduled-thread-pool",
 ]
 
 [[package]]
@@ -3970,15 +4074,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "scheduled-thread-pool"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cbc66816425a074528352f5789333ecff06ca41b36b0b0efdfbb29edc391a19"
-dependencies = [
- "parking_lot",
-]
-
-[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4361,7 +4456,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "0.1.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
+source = "git+https://github.com/BraneFramework/policy-store.git#8afd377d3562b6159496691e4165304a41b38e17"
 dependencies = [
  "chrono",
  "http 1.3.1",
@@ -4422,9 +4517,11 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "sqlite-database"
 version = "0.2.0"
-source = "git+https://github.com//BraneFramework/policy-store.git?rev=f8c2b4b#f8c2b4b0719b5c06e184f83522bea215c9e9f14e"
+source = "git+https://github.com/BraneFramework/policy-store.git#8afd377d3562b6159496691e4165304a41b38e17"
 dependencies = [
  "chrono",
+ "deadpool",
+ "deadpool-diesel",
  "diesel",
  "diesel_migrations",
  "serde",
@@ -4904,7 +5001,7 @@ checksum = "877c5b330756d856ffcc4553ab34a5684481ade925ecc54bcd1bf02b1d0d4d52"
 dependencies = [
  "async-stream",
  "async-trait",
- "axum",
+ "axum 0.7.9",
  "base64 0.22.1",
  "bytes",
  "h2 0.4.8",

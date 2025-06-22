@@ -222,7 +222,7 @@ async fn get_context_from_checker(address: &Address, token: &str) -> Result<EFli
     info!("Retrieving context from checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}{}", address, GET_CONTEXT_PATH.instantiated_path::<String>(None));
+    let url: String = format!("http://{}{}", address, GET_CONTEXT_PATH.instantiated_path(None));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
     let req: Request = client.request(GET_CONTEXT_PATH.method, &url).bearer_auth(token).build().map_err(|source| Error::RequestBuild {
@@ -268,7 +268,7 @@ async fn get_version_body_from_checker(address: &Address, token: &str, version: 
     info!("Retrieving policy '{version}' from checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}{}", address, GET_VERSION_CONTENT_PATH.instantiated_path([version]));
+    let url: String = format!("http://{}{}", address, GET_VERSION_CONTENT_PATH.instantiated_path([version.to_string().as_str()]));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
     let req: Request = client.request(GET_VERSION_CONTENT_PATH.method, &url).bearer_auth(token).build().map_err(|source| Error::RequestBuild {
@@ -311,7 +311,7 @@ async fn get_versions_on_checker(address: &Address, token: &str) -> Result<HashM
     info!("Retrieving policies on checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}{}", address, GET_VERSIONS_PATH.instantiated_path::<String>(None));
+    let url: String = format!("http://{}{}", address, GET_VERSIONS_PATH.instantiated_path(None));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
     let req: Request = client.request(GET_VERSIONS_PATH.method, &url).bearer_auth(token).build().map_err(|source| Error::RequestBuild {
@@ -356,7 +356,7 @@ async fn get_active_version_on_checker(address: &Address, token: &str) -> Result
     info!("Retrieving active policy of checker '{address}'");
 
     // Prepare the request
-    let url: String = format!("http://{}{}", address, GET_ACTIVE_VERSION_PATH.instantiated_path::<String>(None));
+    let url: String = format!("http://{}{}", address, GET_ACTIVE_VERSION_PATH.instantiated_path(None));
     debug!("Building GET-request to '{url}'...");
     let client: Client = Client::new();
     let req: Request = client.request(GET_ACTIVE_VERSION_PATH.method, &url).bearer_auth(token).build().map_err(|source| Error::RequestBuild {
@@ -574,7 +574,7 @@ pub async fn activate(node_config_path: PathBuf, version: Option<u64>, address: 
     debug!("Activating policy version {version}");
 
     // Now build the request and send it
-    let url: String = format!("http://{}{}", address, ACTIVATE_PATH.instantiated_path::<String>(None));
+    let url: String = format!("http://{}{}", address, ACTIVATE_PATH.instantiated_path(None));
     debug!("Building PUT-request to '{url}'...");
     let client: Client = Client::new();
     let req: Request = client
@@ -692,7 +692,7 @@ pub async fn add(
     let context: EFlintHaskellReasonerWithInterfaceContext = get_context_from_checker(&address, &token).await?;
 
     // Finally, construct a request for the checker
-    let url: String = format!("http://{}{}", address, ADD_VERSION_PATH.instantiated_path::<String>(None));
+    let url: String = format!("http://{}{}", address, ADD_VERSION_PATH.instantiated_path(None));
     debug!("Building POST-request to '{url}'...");
     let client: Client = Client::new();
     let contents: AddVersionRequest<String> = AddVersionRequest {
