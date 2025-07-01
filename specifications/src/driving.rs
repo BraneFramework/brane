@@ -20,10 +20,10 @@ pub use DriverServiceError as Error;
 use async_trait::async_trait;
 use futures::Stream;
 use prost::Message;
-use tonic::body::{BoxBody, empty_body};
+use tonic::body::Body;
 use tonic::client::Grpc as GrpcClient;
 use tonic::codec::{ProstCodec, Streaming};
-use tonic::codegen::{Body, BoxFuture, Context, Poll, Service, StdError, http};
+use tonic::codegen::{self, BoxFuture, Context, Poll, Service, StdError, http};
 use tonic::server::{Grpc as GrpcServer, NamedService, ServerStreamingService, UnaryService};
 use tonic::transport::{Channel, Endpoint};
 use tonic::{Code, Request, Response, Status};
@@ -310,12 +310,12 @@ impl<T> DriverServiceServer<T> {
 impl<T: DriverService, B> Service<http::Request<B>> for DriverServiceServer<T>
 where
     T: DriverService,
-    B: 'static + Send + Body,
+    B: 'static + Send + codegen::Body,
     B::Error: 'static + Send + Into<StdError>,
 {
     type Error = std::convert::Infallible;
     type Future = BoxFuture<Self::Response, Self::Error>;
-    type Response = http::Response<BoxBody>;
+    type Response = http::Response<Body>;
 
     #[inline]
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> { Poll::Ready(Ok(())) }
@@ -409,7 +409,7 @@ where
                         .status(200)
                         .header("grpc-status", "12")
                         .header("content-type", "application/grpc")
-                        .body(empty_body())
+                        .body(Body::empty())
                         .unwrap())
                 })
             },
