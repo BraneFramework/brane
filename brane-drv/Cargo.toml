@@ -23,7 +23,7 @@ serde_json_any_key = "2.0.0"
 thiserror = "2.0.0"
 tokio = { version = "1.44.2", default-features = false, features = ["macros", "rt", "signal"] }
 tokio-stream = "0.1.6"
-tonic = "0.12.0"
+tonic = "0.13.0"
 
 # Workspace dependencies
 reqwest = { workspace = true }
