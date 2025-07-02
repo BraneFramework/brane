@@ -95,6 +95,34 @@ pub(crate) fn binaries(parents: bool, force: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Installs the Brane binaries in the relevant user directories
+///
+/// # Arguments
+/// - parents: Creates the relevant directories if they don't exist yet
+/// - force: overwrite files if they already exist
+pub(crate) fn images(parents: bool, force: bool) -> anyhow::Result<()> {
+    info!("Installing images");
+    let target_directory = PathBuf::from("./target/release");
+    let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
+    let dest_dir = base_dir.data_dir().join("brane").join("images");
+
+    for target in REGISTRY.search_for_system("images", OS, ARCH) {
+        let img_name = target.output_name;
+        let src_path = target_directory.join(&img_name);
+
+        let dest_path = dest_dir.join(&img_name);
+        debug!("Installing to {}", dest_path.display());
+
+        match copy(src_path, dest_path, force, parents) {
+            Ok(_) => (),
+            // Err(ref err @ CopyError::FileAlreadyExists { .. }) => warn!("{err}, Skipping"),
+            Err(ref err) => { warn!("{err:?}, skipping") },
+        }
+    }
+
+    Ok(())
+}
+
 /// Installs the Brane man pages in the relevant usre directories
 ///
 /// # Arguments
