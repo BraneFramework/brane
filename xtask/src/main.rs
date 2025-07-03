@@ -18,6 +18,8 @@ mod man;
 #[cfg(feature = "ci")]
 mod set_version;
 
+use std::process::Command;
+
 use anyhow::Context as _;
 use clap::Parser;
 use tracing_subscriber::layer::SubscriberExt as _;
@@ -78,7 +80,53 @@ async fn main() -> anyhow::Result<()> {
         XTaskSubcommand::SetVersion { semver, prerelease, metadata } => {
             set_version::set_version(semver, prerelease, metadata).context("Could not rewrite version")?;
         },
+
+        XTaskSubcommand::CI { ci_command } => match ci_command {
+            cli::xtask::CICommand::Run { items } => {
+                let registry = [Runnable {
+                    name: String::from("rustfmt"),
+                    func: || {
+                        let cmd = Command::new("cargo").arg("+nightly").output().context("biem")?;
+                        Ok((cmd.status, String::from_utf8_lossy(&cmd.stdout).into_owned()))
+                    },
+                }];
+
+                let todo = items
+                    .iter()
+                    .map(|item| {
+                        registry.iter().find(|runnable| &runnable.name == item).ok_or_else(|| anyhow::anyhow!("Could not find runnable `{item}`"))
+                    })
+                    .collect::<Result<Vec<_>, _>>();
+
+                match todo {
+                    Ok(runnables) => {
+                        // TODO: Execute runnables
+                        println!("{runnables:?}");
+
+                        for runnable in runnables {
+                            if (runnable.func)()?.0.success() {
+                                // Hide message show, success
+                            } else {
+                                // Show error
+                            }
+                        }
+                    },
+                    Err(err) => return Err(err),
+                }
+
+                println!("{items:?}");
+            },
+            cli::xtask::CICommand::Profile { profiles } => {
+                println!("{profiles:?}");
+            },
+        },
     }
 
     Ok(())
+}
+
+#[derive(Debug)]
+struct Runnable {
+    name: String,
+    func: fn() -> anyhow::Result<(std::process::ExitStatus, String)>,
 }
