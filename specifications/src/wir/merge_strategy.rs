@@ -64,13 +64,3 @@ impl From<&str> for MergeStrategy {
         }
     }
 }
-
-impl From<&String> for MergeStrategy {
-    #[inline]
-    fn from(value: &String) -> Self { Self::from(value.as_str()) }
-}
-
-impl From<String> for MergeStrategy {
-    #[inline]
-    fn from(value: String) -> Self { Self::from(value.as_str()) }
-}

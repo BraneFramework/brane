@@ -19,7 +19,7 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use policy_reasoner::workflow::visitor::Visitor;
 use policy_reasoner::workflow::{Dataset, Elem, ElemBranch, ElemCall, ElemLoop, ElemParallel, Entity, Metadata, Workflow};
 use rand::Rng as _;
-use rand::distributions::Alphanumeric;
+use rand::distr::Alphanumeric;
 use tracing::{trace, warn};
 
 use super::compile::COMMIT_CALL_NAME;
@@ -137,7 +137,7 @@ impl<'w> Visitor<'w> for LoopNamer<'w> {
         // Generate a name for this loop
         self.loops.insert(
             elem as *const ElemLoop,
-            format!("{}-{}-loop", self.wf_id, rand::thread_rng().sample_iter(Alphanumeric).take(4).map(char::from).collect::<String>()),
+            format!("{}-{}-loop", self.wf_id, rand::rng().sample_iter(Alphanumeric).take(4).map(char::from).collect::<String>()),
         );
 
         // Continue
@@ -306,14 +306,7 @@ impl<'w> Visitor<'w> for EFlintCompiler<'w> {
         // +node-input(#node, asset("#package[#version]")).
         // +function(node-input(#node, asset("#package[#version]")), #name).
         // ```
-        let package: &str = match elem.task.find("::") {
-            Some(pos) => &elem.task[..pos],
-            None => &elem.task,
-        };
-        let function: &str = match elem.task.find("::") {
-            Some(pos) => &elem.task[pos + 2..],
-            None => &elem.task,
-        };
+        let (package, function) = elem.task.split_once("::").unwrap_or((&elem.task, &elem.task));
         let code_input: String = constr_app!("node-input", node.clone(), constr_app!("asset", str_lit!(package)));
         self.phrases.push(create!(code_input.clone()));
         self.phrases.push(create!(constr_app!("function", code_input.clone(), str_lit!(function))));

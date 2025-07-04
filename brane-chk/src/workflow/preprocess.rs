@@ -14,11 +14,10 @@
 //
 
 use std::collections::{HashMap, HashSet};
-use std::error;
-use std::fmt::{Display, Formatter, Result as FResult};
 use std::panic::catch_unwind;
 use std::sync::Arc;
 
+use brane_shr::utilities::retain_unique_in_order;
 use enum_debug::EnumDebug as _;
 use specifications::pc::{ProgramCounter, ResolvedProgramCounter};
 use specifications::wir::builtins::BuiltinFunctions;
@@ -30,214 +29,23 @@ use tracing::{Level, debug, trace};
 use super::utils;
 
 
-/***** TESTS *****/
-#[cfg(test)]
-mod tests {
-    use std::ffi::OsStr;
-    use std::path::PathBuf;
-
-    use brane_ast::traversals::print::ast;
-    use brane_ast::{CompileResult, ParserOptions, compile_program};
-    use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
-    use humanlog::{DebugMode, HumanLogger};
-    use specifications::data::DataIndex;
-    use specifications::package::PackageIndex;
-
-    use super::*;
-
-    /// Runs checks to verify the workflow inlining analysis
-    #[test]
-    fn test_checker_workflow_inline_analysis() {
-        // Setup logger if told
-        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
-            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
-                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
-            }
-        }
-
-        // Defines a few test files with expected inlinable functions
-        // NOTE: Sorry Clippy, it may be a complex type but at least you can see what's expected
-        // from every line. Not gonna go through the hassle of splitting this up for just a quick
-        // inline one.
-        #[allow(clippy::type_complexity)]
-        let tests: [(&str, &str, HashMap<usize, Option<HashSet<usize>>>); 5] = [
-            ("case1", r#"println("Hello, world!");"#, HashMap::from([(1, None)])),
-            (
-                "case2",
-                r#"func hello_world() { return "Hello, world!"; } println(hello_world());"#,
-                HashMap::from([(1, None), (4, Some(HashSet::new()))]),
-            ),
-            (
-                "case3",
-                r#"func foo() { return "Foo"; } func foobar() { return foo() + "Bar"; } println(foobar());"#,
-                HashMap::from([(1, None), (4, Some(HashSet::new())), (5, Some(HashSet::from([4])))]),
-            ),
-            ("case4", r#"import hello_world; println(hello_world());"#, HashMap::from([(1, None)])),
-            (
-                "case5",
-                r#"func hello_world(n) { if (n <= 0) { return "Hello, world!"; } else { return "Hello, " + hello_world(n - 1) + "\n"; } } println(hello_world(3));"#,
-                HashMap::from([(1, None), (4, None)]),
-            ),
-        ];
-
-        // Load example package- and data indices
-        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
-        let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
-        let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
-
-        // Test them each
-        for (id, test, gold) in tests.into_iter() {
-            // Compile to BraneScript (we'll assume this works)
-            let wir: Workflow = match compile_program(test.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
-                CompileResult::Workflow(wir, _) => wir,
-                CompileResult::Err(errs) => {
-                    for err in errs {
-                        err.prettyprint(format!("<{id}>"), test);
-                    }
-                    panic!("Failed to compile BraneScript (see error above)");
-                },
-                CompileResult::Eof(err) => {
-                    err.prettyprint(format!("<{id}>"), test);
-                    panic!("Failed to compile BraneScript (see error above)");
-                },
-
-                _ => {
-                    unreachable!();
-                },
-            };
-            // Emit the compiled workflow
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("Test '{id}'");
-            println!();
-            ast::do_traversal(&wir, std::io::stdout()).unwrap();
-            println!();
-
-            // Analyse function calls (we'll assume this works too)
-            let calls: HashMap<ProgramCounter, usize> = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::start(), None, None).unwrap().0;
-            println!(
-                "Resolved functions calls: {:?}",
-                calls.iter().map(|(pc, func_id)| (format!("{}", pc.resolved(&wir.table)), *func_id)).collect::<HashMap<String, usize>>()
-            );
-
-            // Analyse the inlinable funcs
-            let mut pred: HashMap<usize, Option<HashSet<usize>>> = HashMap::with_capacity(calls.len());
-            find_inlinable_funcs(&wir, &calls, &mut vec![], ProgramCounter::start(), None, &mut pred);
-            println!("Inlinable functions: {pred:?}");
-            println!();
-
-            // Neat, done, assert it was right
-            assert_eq!(pred, gold);
-        }
-    }
-
-    /// Runs the workflow inlining on the test files only
-    #[test]
-    fn test_checker_workflow_simplify() {
-        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
-
-        // Setup logger if told
-        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
-            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
-                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
-            }
-        }
-        // Scope the function
-        let test_file: Option<String> = std::env::var("TEST_FILE").ok();
-
-        // Run the compiler for every applicable DSL file
-        test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
-            // Skip if not the file we're looking for
-            if let Some(test_file) = &test_file {
-                if path.file_name().is_none() || path.file_name().unwrap().to_string_lossy() != test_file.as_str() {
-                    return;
-                }
-            }
-
-            // Start by the name to always know which file this is
-            println!("{}", (0..80).map(|_| '-').collect::<String>());
-            println!("File '{}' gave us:", path.display());
-
-            // Skip some files, sadly
-            if let Some(name) = path.file_name() {
-                if name == OsStr::new("class.bs") {
-                    println!("Skipping test, since instance calling is not supported in checker workflows...");
-                    println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-                    return;
-                }
-            }
-
-            // Load the package index
-            let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
-            let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
-
-            // Compile the raw source to WIR
-            let wir: Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
-                CompileResult::Workflow(wir, warns) => {
-                    // Print warnings if any
-                    for w in warns {
-                        w.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    wir
-                },
-                CompileResult::Eof(err) => {
-                    // Print the error
-                    err.prettyprint(path.to_string_lossy(), &code);
-                    panic!("Failed to compile to WIR (see output above)");
-                },
-                CompileResult::Err(errs) => {
-                    // Print the errors
-                    for e in errs {
-                        e.prettyprint(path.to_string_lossy(), &code);
-                    }
-                    panic!("Failed to compile to WIR (see output above)");
-                },
-
-                _ => {
-                    unreachable!();
-                },
-            };
-
-            // Alright preprocess it
-            let wir: Workflow = match simplify(wir) {
-                Ok((wir, _)) => wir,
-                Err(err) => {
-                    panic!("Failed to preprocess WIR: {err}");
-                },
-            };
-
-            // Now print the file for prettyness
-            ast::do_traversal(&wir, std::io::stdout()).unwrap();
-            println!("{}\n\n", (0..80).map(|_| '-').collect::<String>());
-        });
-    }
-}
-
-
 
 
 
 /***** ERRORS *****/
 /// Defines errors that may occur when preprocessing a [`Workflow`].
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Unknown task given.
+    #[error("Encountered unknown task ID {id} in Node")]
     UnknownTask { id: usize },
     /// Unknown function given.
+    #[error("Encountered unknown function ID {id} in Call")]
     UnknownFunc { id: FunctionId },
     /// A [`Call`](Edge::Call)-edge was encountered while we didn't know of a function ID on the stack.
+    #[error("Attempted to call function at {pc} without statically known task ID on the stack")]
     CallingWithoutId { pc: ResolvedProgramCounter },
 }
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        use Error::*;
-        match self {
-            UnknownTask { id } => write!(f, "Encountered unknown task ID {id} in Node"),
-            UnknownFunc { id } => write!(f, "Encountered unknown function ID {id} in Call"),
-            CallingWithoutId { pc } => write!(f, "Attempted to call function at {pc} without statically known task ID on the stack"),
-        }
-    }
-}
-impl error::Error for Error {}
 
 
 
@@ -257,18 +65,11 @@ impl error::Error for Error {}
 /// - [`None`] means that nothing was pushed, i.e., whatever was on top is still on top.
 fn pushes_func_id(instrs: &[EdgeInstr], idx: usize) -> Option<Option<usize>> {
     // Pop the next instruction
-    let instr: &EdgeInstr = if idx < instrs.len() {
-        &instrs[idx]
-    } else {
-        // If we reached the last instruction, then we know no value was pushed :celebrate:
-        return None;
-    };
-
     // Examine what it does
     // NOTE: The BraneScript compiler only supports function calls over identifiers and projections. So we can ignore gnarly array stuff etc!
     // NOTE: Actually... we know violently little statically of class calls in general, because they are fully pushed to dynamic land. We _could_ learn it by tracking
     //       a variable's contents over multiple edges, but that fucks; let's give up and only support direct calls for now.
-    match instr {
+    match instrs.get(idx)? {
         // What we're looking for!
         EdgeInstr::Function { def } => Some(Some(*def)),
 
@@ -344,9 +145,8 @@ fn resolve_calls(
     }
 
     // Get the edge in the workflow
-    let edge: &Edge = match utils::get_edge(wir, pc) {
-        Some(edge) => edge,
-        None => return Ok((HashMap::new(), None)),
+    let Some(edge) = utils::get_edge(wir, pc) else {
+        return Ok((HashMap::new(), None));
     };
 
     // Match to recursively process it
@@ -354,10 +154,7 @@ fn resolve_calls(
     match edge {
         Edge::Node { task, next, .. } => {
             // Attempt to discover the return type of the Node.
-            let def: &TaskDef = match table.tasks.get(*task) {
-                Some(def) => def,
-                None => return Err(Error::UnknownTask { id: *task }),
-            };
+            let def: &TaskDef = table.tasks.get(*task).ok_or(Error::UnknownTask { id: *task })?;
 
             // Alright, recurse with the next instruction
             resolve_calls(wir, table, trace, pc.jump(*next), if def.func().ret.is_void() { stack_id } else { None }, breakpoint)
@@ -432,12 +229,7 @@ fn resolve_calls(
 
         Edge::Call { input: _, result: _, next } => {
             // Alright time to jump functions based on the current top-of-the-stack
-            let stack_id: usize = match stack_id {
-                Some(id) => id,
-                None => {
-                    return Err(Error::CallingWithoutId { pc: pc.resolved(table) });
-                },
-            };
+            let stack_id: usize = stack_id.ok_or_else(|| Error::CallingWithoutId { pc: pc.resolved(table) })?;
 
             // We can early quit upon recursion
             if trace.contains(&pc) {
@@ -469,10 +261,7 @@ fn resolve_calls(
             }
 
             // To see whether we pass a function ID, consult the function definition
-            let def: &FunctionDef = match catch_unwind(|| table.func(pc.func_id)) {
-                Ok(def) => def,
-                Err(_) => return Err(Error::UnknownFunc { id: pc.func_id }),
-            };
+            let def: &FunctionDef = catch_unwind(|| table.func(pc.func_id)).map_err(|_source| Error::UnknownFunc { id: pc.func_id })?;
 
             // Only return the current one if the function returns void
             if def.ret.is_void() { Ok((HashMap::new(), stack_id)) } else { Ok((HashMap::new(), None)) }
@@ -579,17 +368,11 @@ fn find_inlinable_funcs(
                 // OK, the exciting point!
 
                 // Resolve the function ID we're calling
-                let func_id: usize = match calls.get(&pc) {
-                    Some(id) => *id,
-                    None => {
-                        panic!("Encountered unresolved call after running call analysis");
-                    },
+                let func_id: usize = *calls.get(&pc).expect("Encountered unresolved call after running call analysis");
+                let Some(def) = wir.table.funcs.get(func_id) else {
+                    panic!("Failed to get definition of function {func_id} after call analysis");
                 };
-                let def: &FunctionDef = match wir.table.funcs.get(func_id) {
-                    Some(def) => def,
-                    None => panic!("Failed to get definition of function {func_id} after call analysis"),
-                };
-                // let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, pc.jump(*next), None, inlinable);
+
                 dependencies.insert(func_id);
 
                 // Functions are not inlinable if builtins; if so, return
@@ -609,6 +392,7 @@ fn find_inlinable_funcs(
                     pc.jump_mut(*next);
                     continue;
                 }
+
                 if inlinable.contains_key(&func_id) {
                     // We've already seen this one! However, _don't_ change our mind about its inlinability because it means a repeated function call
                     // NOTE: No need to go into the call body, as we've done this the first time we saw it
@@ -616,6 +400,7 @@ fn find_inlinable_funcs(
                     pc.jump_mut(*next);
                     continue;
                 }
+
                 trace!("Function {} ('{}') is assumed as inlinable until we see it recursive", func_id, def.name);
 
                 // For now assume that the function exist with no deps; we inject these later
@@ -649,18 +434,15 @@ fn find_inlinable_funcs(
 /// - `inlinable`: The map of inlinable functions to their dependencies.
 fn order_inlinable<'i>(ordered: &mut Vec<usize>, inlinable: &HashMap<usize, Option<HashSet<usize>>>, mut next: impl Iterator<Item = &'i usize>) {
     // Get a function to inline
-    let func_id: usize = match next.next() {
-        Some(id) => *id,
-        None => return,
+    let Some(&func_id) = next.next() else {
+        return;
     };
-    let deps: &HashSet<usize> = match inlinable.get(&func_id).unwrap() {
-        Some(deps) => deps,
-        None => {
-            // No need to inline this one, so just continue
-            trace!("order_inlinable(): Not considering function {func_id} because it is not inlinable (deps is None)");
-            order_inlinable(ordered, inlinable, next);
-            return;
-        },
+
+    let Some(deps) = inlinable.get(&func_id).unwrap() else {
+        // No need to inline this one, so just continue
+        trace!("order_inlinable(): Not considering function {func_id} because it is not inlinable (deps is None)");
+        order_inlinable(ordered, inlinable, next);
+        return;
     };
 
     // Examine the dependencies
@@ -680,24 +462,6 @@ fn order_inlinable<'i>(ordered: &mut Vec<usize>, inlinable: &HashMap<usize, Opti
     }
 }
 
-/// Given a vector, removes all duplicates from it.
-///
-/// Retains the **first** occurrences.
-///
-/// # Arguments
-/// - `data`: The vector to deduplicate.
-fn keep_unique_first(data: &mut Vec<usize>) {
-    // A buffer of seen elements
-    let mut seen: HashSet<usize> = HashSet::new();
-    data.retain(|elem| {
-        if seen.contains(elem) {
-            false
-        } else {
-            seen.insert(*elem);
-            true
-        }
-    });
-}
 
 /// Traverses the given function body and replaces all [`Edge::Return`] with an [`Edge::Linear`] pointing to the given edge index.
 ///
@@ -727,9 +491,8 @@ fn prep_func_body(
         }
     }
     // Attempt to get the edge
-    let edge: &mut Edge = match edges.get_mut(pc) {
-        Some(edge) => edge,
-        None => return,
+    let Some(edge) = edges.get_mut(pc) else {
+        return;
     };
 
     // Match on its kind
@@ -868,9 +631,8 @@ fn inline_funcs_in_body(
     }
     // Attempt to get the edge
     let body_len: usize = body.len();
-    let edge: &mut Edge = match body.get_mut(pc) {
-        Some(edge) => edge,
-        None => return,
+    let Some(edge) = body.get_mut(pc) else {
+        return;
     };
 
     // Match on its kind
@@ -931,12 +693,7 @@ fn inline_funcs_in_body(
             let next: usize = *next;
 
             // Resolve the function ID we're calling
-            let call_id: usize = match calls.get(&ProgramCounter::new(func_id, pc)) {
-                Some(id) => *id,
-                None => {
-                    panic!("Encountered unresolved call after running inline analysis");
-                },
-            };
+            let call_id: usize = *calls.get(&ProgramCounter::new(func_id, pc)).expect("Encountered unresolved call after running inline analysis");
 
             // Assert this is an inlinable function (and not external)
             if inlinable.get(&call_id).map(|deps| deps.is_none()).unwrap_or(true) {
@@ -1019,7 +776,7 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
     // Order them so that we satisfy function dependencies
     let mut inline_order: Vec<usize> = Vec::with_capacity(inlinable.len());
     order_inlinable(&mut inline_order, &inlinable, inlinable.keys());
-    keep_unique_first(&mut inline_order);
+    retain_unique_in_order(&mut inline_order);
     debug!(
         "Inline order: {}",
         inline_order
@@ -1103,10 +860,194 @@ pub fn simplify(mut wir: Workflow) -> Result<(Workflow, HashMap<ProgramCounter, 
     wir = inline_functions(wir, &mut calls);
 
     // Done!
-    if tracing::level_filters::STATIC_MAX_LEVEL >= Level::DEBUG {
+    if tracing::enabled!(Level::DEBUG) {
         let mut buf: Vec<u8> = vec![];
         brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
         debug!("Simplified workflow:\n\n{}\n", String::from_utf8_lossy(&buf));
     }
     Ok((wir, calls))
+}
+
+/***** TESTS *****/
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+    use std::path::PathBuf;
+
+    use brane_ast::traversals::print::ast;
+    use brane_ast::{CompileResult, ParserOptions, compile_program};
+    use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
+    use humanlog::{DebugMode, HumanLogger};
+    use specifications::data::DataIndex;
+    use specifications::package::PackageIndex;
+
+    use super::*;
+
+    const BLOCK_SEPARATOR: &str = "--------------------------------------------------------------------------------";
+
+    /// Runs checks to verify the workflow inlining analysis
+    #[test]
+    fn test_checker_workflow_inline_analysis() {
+        // Setup logger if told
+        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
+            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
+                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
+            }
+        }
+
+        // Defines a few test files with expected inlinable functions
+        // NOTE: Sorry Clippy, it may be a complex type but at least you can see what's expected
+        // from every line. Not gonna go through the hassle of splitting this up for just a quick
+        // inline one.
+        #[allow(clippy::type_complexity)]
+        let tests: [(&str, &str, HashMap<usize, Option<HashSet<usize>>>); 5] = [
+            ("case1", r#"println("Hello, world!");"#, HashMap::from([(1, None)])),
+            (
+                "case2",
+                r#"func hello_world() { return "Hello, world!"; } println(hello_world());"#,
+                HashMap::from([(1, None), (4, Some(HashSet::new()))]),
+            ),
+            (
+                "case3",
+                r#"func foo() { return "Foo"; } func foobar() { return foo() + "Bar"; } println(foobar());"#,
+                HashMap::from([(1, None), (4, Some(HashSet::new())), (5, Some(HashSet::from([4])))]),
+            ),
+            ("case4", r#"import hello_world; println(hello_world());"#, HashMap::from([(1, None)])),
+            (
+                "case5",
+                r#"func hello_world(n) { if (n <= 0) { return "Hello, world!"; } else { return "Hello, " + hello_world(n - 1) + "\n"; } } println(hello_world(3));"#,
+                HashMap::from([(1, None), (4, None)]),
+            ),
+        ];
+
+        // Load example package- and data indices
+        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
+        let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
+        let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
+
+        // Test them each
+        for (id, test, gold) in tests.into_iter() {
+            // Compile to BraneScript (we'll assume this works)
+            let wir: Workflow = match compile_program(test.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
+                CompileResult::Workflow(wir, _) => wir,
+                CompileResult::Err(errs) => {
+                    for err in errs {
+                        err.prettyprint(format!("<{id}>"), test);
+                    }
+                    panic!("Failed to compile BraneScript (see error above)");
+                },
+                CompileResult::Eof(err) => {
+                    err.prettyprint(format!("<{id}>"), test);
+                    panic!("Failed to compile BraneScript (see error above)");
+                },
+
+                _ => {
+                    unreachable!();
+                },
+            };
+            // Emit the compiled workflow
+            println!("{BLOCK_SEPARATOR}");
+            println!("Test '{id}'");
+            println!();
+            ast::do_traversal(&wir, std::io::stdout()).unwrap();
+            println!();
+
+            // Analyse function calls (we'll assume this works too)
+            let calls: HashMap<ProgramCounter, usize> = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::start(), None, None).unwrap().0;
+            println!(
+                "Resolved functions calls: {:?}",
+                calls.iter().map(|(pc, func_id)| (format!("{}", pc.resolved(&wir.table)), *func_id)).collect::<HashMap<String, usize>>()
+            );
+
+            // Analyse the inlinable funcs
+            let mut pred: HashMap<usize, Option<HashSet<usize>>> = HashMap::with_capacity(calls.len());
+            find_inlinable_funcs(&wir, &calls, &mut vec![], ProgramCounter::start(), None, &mut pred);
+            println!("Inlinable functions: {pred:?}");
+            println!();
+
+            // Neat, done, assert it was right
+            assert_eq!(pred, gold);
+        }
+    }
+
+    /// Runs the workflow inlining on the test files only
+    #[test]
+    fn test_checker_workflow_simplify() {
+        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
+
+        // Setup logger if told
+        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
+            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
+                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
+            }
+        }
+        // Scope the function
+        let test_file: Option<String> = std::env::var("TEST_FILE").ok();
+
+        // Run the compiler for every applicable DSL file
+        test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
+            // Skip if not the file we're looking for
+            if let Some(test_file) = &test_file {
+                if path.file_name().is_none() || path.file_name().unwrap().to_string_lossy() != test_file.as_str() {
+                    return;
+                }
+            }
+
+            // Start by the name to always know which file this is
+            println!("{BLOCK_SEPARATOR}");
+            println!("File '{}' gave us:", path.display());
+
+            // Skip some files, sadly
+            if let Some(name) = path.file_name() {
+                if name == OsStr::new("class.bs") {
+                    println!("Skipping test, since instance calling is not supported in checker workflows...");
+                    println!("{BLOCK_SEPARATOR}\n\n");
+                    return;
+                }
+            }
+
+            // Load the package index
+            let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
+            let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
+
+            // Compile the raw source to WIR
+            let wir: Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
+                CompileResult::Workflow(wir, warns) => {
+                    // Print warnings if any
+                    for w in warns {
+                        w.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    wir
+                },
+                CompileResult::Eof(err) => {
+                    // Print the error
+                    err.prettyprint(path.to_string_lossy(), &code);
+                    panic!("Failed to compile to WIR (see output above)");
+                },
+                CompileResult::Err(errs) => {
+                    // Print the errors
+                    for e in errs {
+                        e.prettyprint(path.to_string_lossy(), &code);
+                    }
+                    panic!("Failed to compile to WIR (see output above)");
+                },
+
+                _ => {
+                    unreachable!();
+                },
+            };
+
+            // Alright preprocess it
+            let wir: Workflow = match simplify(wir) {
+                Ok((wir, _)) => wir,
+                Err(source) => {
+                    panic!("Failed to preprocess WIR: {source}");
+                },
+            };
+
+            // Now print the file for prettyness
+            ast::do_traversal(&wir, std::io::stdout()).unwrap();
+            println!("{BLOCK_SEPARATOR}\n\n");
+        });
+    }
 }
