@@ -76,9 +76,12 @@ RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password bra
 RUN ln -s /opt/ghc/9.2.8/bin/ghc /opt/ghc/9.2.8/bin/ghc-9.2
 
 # Fetch the repo & compile it
+# NOTE: The `rm -f ~/.cabal/packages/hackage.haskell.org/*.json` exists to remove old keys
+#       See: <https://github.com/haskell/hackage-server/issues/547#issuecomment-251212946>
 USER brane
 ADD --chown=brane:brane https://gitlab.com/eflint/haskell-implementation/-/archive/$EFLINT_COMMIT/haskell-implementation-$EFLINT_COMMIT.zip /home/brane/haskell-implementation.zip
 RUN cd /home/brane \
+ && rm -f ~/.cabal/packages/hackage.haskell.org/*.json \
  && unzip haskell-implementation.zip \
  && cd haskell-implementation-$EFLINT_COMMIT \
  && cabal update \
