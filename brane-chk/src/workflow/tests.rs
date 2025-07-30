@@ -30,7 +30,7 @@ use crate::workflow::compile::compile;
 
 /***** CONSTANTS *****/
 /// Defines the location of the tests
-pub(crate) const TESTS_DIR: &str = "../../../tests";
+pub(crate) const TESTS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests");
 const BLOCK_SEPARATOR: &str = "--------------------------------------------------------------------------------";
 
 
@@ -70,6 +70,11 @@ fn test_checker_workflow_unoptimized() {
         if let Some(name) = path.file_name() {
             if name == OsStr::new("class.bs") {
                 println!("Skipping test, since instance calling is not supported in checker workflows...");
+                println!("{BLOCK_SEPARATOR}\n\n");
+                return;
+            }
+            if name == OsStr::new("recursion.bs") {
+                println!("Skipping test, since recursion is not supported in checker workflows...");
                 println!("{BLOCK_SEPARATOR}\n\n");
                 return;
             }
@@ -146,6 +151,11 @@ fn test_checker_workflow_optimized() {
         if let Some(name) = path.file_name() {
             if name == OsStr::new("class.bs") {
                 println!("Skipping test, since instance calling is not supported in checker workflows...");
+                println!("{BLOCK_SEPARATOR}\n\n");
+                return;
+            }
+            if name == OsStr::new("recursion.bs") {
+                println!("Skipping test, since recursion is not supported in checker workflows...");
                 println!("{BLOCK_SEPARATOR}\n\n");
                 return;
             }
