@@ -61,7 +61,7 @@ ENTRYPOINT [ "/bin/bash" ]
 
 
 ### This target does the eflint-repl binary
-FROM haskell:9.2.8 AS build-eflint-repl
+FROM ubuntu:22.04 AS build-eflint-repl
 
 # Define build args
 ARG USERID=1000
@@ -72,16 +72,31 @@ ARG EFLINT_COMMIT=87d2be70c400b6f252fa28b51a4b5afbc947117c
 RUN addgroup --gid $GROUPID brane
 RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password brane
 
-# Add a haskell GHC alias for 9.2
-RUN ln -s /opt/ghc/9.2.8/bin/ghc /opt/ghc/9.2.8/bin/ghc-9.2
+# Install system deps for building Haskell
+# (See <https://www.haskell.org/ghcup/install/#version-2010-23>)
+RUN apt-get update && apt-get install -y \
+    build-essential curl libffi-dev libffi8ubuntu1 libgmp-dev libgmp10 libncurses-dev libncurses5 libtinfo5 \
+    unzip \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install GHC & friends through GHCup
+# NOTE: We use this over the Haskell image because that appears to be broken with hackage updating
+# its keys (at least for the time being). See:
+# <https://github.com/haskell/hackage-server/issues/547#issuecomment-251212946>
+USER brane
+WORKDIR /home/brane
+ADD --chown=brane:brane https://get-ghcup.haskell.org /home/brane/ghcup.sh
+RUN BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_MINIMAL=1 sh ghcup.sh \
+ && . /home/brane/.ghcup/env \
+ && ghcup install cabal \
+ && ghcup install ghc 9.2
+
+# # Add a haskell GHC alias for 9.2
+# RUN ln -s /opt/ghc/9.2.8/bin/ghc /opt/ghc/9.2.8/bin/ghc-9.2
 
 # Fetch the repo & compile it
-# NOTE: The `rm -f ~/.cabal/packages/hackage.haskell.org/*.json` exists to remove old keys
-#       See: <https://github.com/haskell/hackage-server/issues/547#issuecomment-251212946>
-USER brane
 ADD --chown=brane:brane https://gitlab.com/eflint/haskell-implementation/-/archive/$EFLINT_COMMIT/haskell-implementation-$EFLINT_COMMIT.zip /home/brane/haskell-implementation.zip
-RUN cd /home/brane \
- && rm -f ~/.cabal/packages/hackage.haskell.org/*.json \
+RUN . /home/brane/.ghcup/env \
  && unzip haskell-implementation.zip \
  && cd haskell-implementation-$EFLINT_COMMIT \
  && cabal update \
