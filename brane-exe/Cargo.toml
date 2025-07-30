@@ -1,8 +1,8 @@
 [package]
 name = "brane-exe"
-rust-version = "1.81"
+rust-version = "1.82"
 edition = "2021"
-authors = [ "Tim Müller" ]
+authors = ["Tim Müller"]
 version.workspace = true
 repository.workspace = true
 license.workspace = true
@@ -31,7 +31,7 @@ brane-shr = { path = "../brane-shr" }
 
 [features]
 print_exec_path = []
-test_logging    = []
+test_logging = []
 
 [lints]
 workspace = true

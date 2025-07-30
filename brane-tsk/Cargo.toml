@@ -1,8 +1,8 @@
 [package]
 name = "brane-tsk"
 edition = "2021"
-rust-version = "1.81"
-authors = [ "Tim Müller" ]
+rust-version = "1.82"
+authors = ["Tim Müller"]
 version.workspace = true
 repository.workspace = true
 license.workspace = true
@@ -35,7 +35,7 @@ tonic = "0.13.0"
 uuid = { version = "1.7.0", features = ["v4"] }
 
 # Workspace dependencies
-reqwest = { workspace = true, features = ["json","stream","multipart"] }
+reqwest = { workspace = true, features = ["json", "stream", "multipart"] }
 brane-ast = { path = "../brane-ast" }
 brane-cfg = { path = "../brane-cfg" }
 brane-exe = { path = "../brane-exe" }

@@ -1,6 +1,6 @@
 [package]
 name = "brane-api"
-rust-version = "1.81"
+rust-version = "1.82"
 edition = "2021"
 version.workspace = true
 repository.workspace = true

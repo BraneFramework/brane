@@ -1,6 +1,6 @@
 [package]
 name = "brane-cli"
-rust-version = "1.81"
+rust-version = "1.82"
 edition = "2021"
 default-run = "brane"
 version.workspace = true
