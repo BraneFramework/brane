@@ -18,7 +18,7 @@ async-trait = "0.1.67"
 base64 = "0.22.0"
 bollard = "0.18.0"
 chrono = "0.4.30"
-clap = { version = "4.5.0", features = ["derive","env"] }
+clap = { version = "4.5.0", features = ["derive", "env"] }
 console = "0.15.5"
 dialoguer = "0.11.0"
 dirs = "6.0.0"
@@ -51,7 +51,7 @@ tar = "0.4.21"
 tempfile = "3.10.1"
 thiserror = "2.0.0"
 tokio = { version = "1.44.2", features = ["full"] }
-tokio-stream = "0.1.6"
+tokio-stream = "0.1.16"
 tokio-util = { version = "0.7.1", features = ["codec"] }
 tonic = "0.13.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
@@ -69,7 +69,7 @@ brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }
 
 [features]
-print_exec_path = [ "brane-exe/print_exec_path" ]
+print_exec_path = ["brane-exe/print_exec_path"]
 
 [lints]
 workspace = true

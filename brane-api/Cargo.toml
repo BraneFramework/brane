@@ -8,10 +8,10 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-async-compression = { version = "0.4.0", features = ["tokio","gzip"] }
+async-compression = { version = "0.4.0", features = ["tokio", "gzip"] }
 bytes = "1.2.1"
 chrono = "0.4.30"
-clap = { version = "4.5.0", features = ["derive","env"] }
+clap = { version = "4.5.0", features = ["derive", "env"] }
 dotenvy = "0.15"
 enum-debug.workspace = true
 env_logger = "0.11.0"
@@ -27,8 +27,12 @@ serde_json = "1.0.50"
 serde_yaml = { version = "0.10.0", package = "serde_yaml_ng" }
 tempfile = "3.10.1"
 thiserror = "2.0.0"
-tokio = { version = "1.44.2", default-features = false, features = ["macros", "rt", "signal"] }
-tokio-stream = "0.1.6"
+tokio = { version = "1.44.2", default-features = false, features = [
+    "macros",
+    "rt",
+    "signal",
+] }
+tokio-stream = "0.1.16"
 tokio-tar = "0.3.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 warp = "0.3.2"
@@ -36,9 +40,9 @@ warp = "0.3.2"
 # Workspace dependencies
 reqwest = { workspace = true }
 
-brane-cfg      = { path = "../brane-cfg" }
-brane-prx      = { path = "../brane-prx" }
-brane-shr      = { path = "../brane-shr" }
+brane-cfg = { path = "../brane-cfg" }
+brane-prx = { path = "../brane-prx" }
+brane-shr = { path = "../brane-shr" }
 specifications = { path = "../specifications" }
 
 [lints]

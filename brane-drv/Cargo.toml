@@ -9,7 +9,7 @@ license.workspace = true
 
 [dependencies]
 async-trait = "0.1.67"
-clap = { version = "4.5.0", features = ["derive","env"] }
+clap = { version = "4.5.0", features = ["derive", "env"] }
 dashmap = "6.0.0"
 dotenvy = "0.15.0"
 enum-debug.workspace = true
@@ -21,8 +21,12 @@ prost = "0.12.0"
 serde_json = "1.0.50"
 serde_json_any_key = "2.0.0"
 thiserror = "2.0.0"
-tokio = { version = "1.44.2", default-features = false, features = ["macros", "rt", "signal"] }
-tokio-stream = "0.1.6"
+tokio = { version = "1.44.2", default-features = false, features = [
+    "macros",
+    "rt",
+    "signal",
+] }
+tokio-stream = "0.1.16"
 tonic = "0.13.0"
 
 # Workspace dependencies
