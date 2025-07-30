@@ -39,9 +39,7 @@ tracing-subscriber = { version = "0.3.10", features = ["env-filter"] }
 
 # eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant", features = ["display_eflint"] }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.1.0" }
-error-trace = { workspace = true, features = [
-    "serde",
-] }
+error-trace = { workspace = true, features = ["serde"] }
 policy-reasoner = { git = "https://github.com/BraneFramework/policy-reasoner.git", default-features = false, features = [
     "eflint-haskell-reasoner",
     "file-logger",
