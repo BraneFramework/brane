@@ -737,7 +737,7 @@ impl TypeError {
             ParallelNoReturn { range, .. } => prettywrite_err(writer, file, source, self, range),
             ParallelUnexpectedReturn { range, .. } => prettywrite_err(writer, file, source, self, range),
             ParallelIncompleteReturn { range, .. } => prettywrite_err(writer, file, source, self, range),
-            ParallelIllegalType { range, reason, .. } => prettywrite_err_reasons(writer, file, source, self, range, &[reason.clone()]),
+            ParallelIllegalType { range, reason, .. } => prettywrite_err_reasons(writer, file, source, self, range, std::slice::from_ref(reason)),
             ParallelNoStrategy { range, .. } => prettywrite_err(writer, file, source, self, range),
 
             NonFunctionCall { range, defined_range, .. } => prettywrite_err_defined(writer, file, source, self, range, defined_range),
