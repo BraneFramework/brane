@@ -1550,7 +1550,7 @@ enum CheckRequest {
 impl CheckRequest {
     /// Explains what is being requested.
     #[inline]
-    fn what(&self) -> Cow<str> {
+    fn what(&self) -> Cow<'_, str> {
         match self {
             Self::Workflow(_) => Cow::Borrowed("workflow"),
             Self::Task(t) => Cow::Owned(format!("task {:?} in workflow", pc_to_id(&t.workflow, t.task))),

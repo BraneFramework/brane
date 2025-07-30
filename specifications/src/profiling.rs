@@ -12,7 +12,7 @@
 //!   A second version of the profiling library, with better support for
 //!   generate dynamic yet pretty and (most of all) ordered profiling
 //!   logs.
-//!   
+//!
 //!   Note that, while this library is not designed for Edge timings (i.e.,
 //!   user-relevant profiling), some parts of it can probably be re-used for
 //!   that (especially the Timing struct).
@@ -196,7 +196,7 @@ impl Timing {
     /// # Returns
     /// A [`TimingFormatter`] that implements Display to do this kind of formatting on this Timing.
     #[inline]
-    pub fn display(&self) -> TimingFormatter { TimingFormatter(self) }
+    pub fn display(&self) -> TimingFormatter<'_> { TimingFormatter(self) }
 
     /// Returns the time that has been elapsed, in seconds.
     ///
@@ -456,7 +456,7 @@ impl ProfileScope {
     ///
     /// # Returns
     /// A new [`TimerGuard`] struct to take a timing.
-    pub fn time(&self, name: impl Into<String>) -> TimerGuard {
+    pub fn time(&self, name: impl Into<String>) -> TimerGuard<'_> {
         // Get a lock
         let mut lock: MutexGuard<Vec<ProfileTiming>> = self.timings.lock();
 
@@ -531,7 +531,7 @@ impl ProfileScope {
     ///
     /// # Returns
     /// A new `ProfileScope` that can be used to take timings.
-    pub fn nest(&self, name: impl Into<String>) -> ProfileScopeHandle {
+    pub fn nest(&self, name: impl Into<String>) -> ProfileScopeHandle<'_> {
         // Create the new scope
         let scope: Self = Self::new(name);
 
@@ -627,7 +627,7 @@ impl ProfileScope {
     /// # Returns
     /// A new [`ProfileScopeFormatter`].
     #[inline]
-    pub fn display(&self) -> ProfileScopeFormatter { ProfileScopeFormatter { scope: self, indent: 0 } }
+    pub fn display(&self) -> ProfileScopeFormatter<'_> { ProfileScopeFormatter { scope: self, indent: 0 } }
 
     /// Returns a formatter that neatly displays the results of this scope with a given number of spaces before each line.
     ///
@@ -639,5 +639,5 @@ impl ProfileScope {
     /// # Returns
     /// A new [`ProfileScopeFormatter`].
     #[inline]
-    pub fn display_indented(&self, indent: usize) -> ProfileScopeFormatter { ProfileScopeFormatter { scope: self, indent } }
+    pub fn display_indented(&self, indent: usize) -> ProfileScopeFormatter<'_> { ProfileScopeFormatter { scope: self, indent } }
 }

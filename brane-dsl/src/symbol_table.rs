@@ -656,14 +656,14 @@ impl SymbolTable {
     /// # Returns
     /// The iterator returned by the internal HashMap.
     #[inline]
-    pub fn functions(&self) -> std::collections::hash_map::Iter<std::string::String, Rc<RefCell<FunctionEntry>>> { self.functions.iter() }
+    pub fn functions(&self) -> std::collections::hash_map::Iter<'_, std::string::String, Rc<RefCell<FunctionEntry>>> { self.functions.iter() }
 
     /// Returns a muteable iterator over the defined functions (as `(name, entry)` pairs).
     ///
     /// # Returns
     /// The iterator returned by the internal HashMap.
     #[inline]
-    pub fn functions_mut(&mut self) -> std::collections::hash_map::IterMut<std::string::String, Rc<RefCell<FunctionEntry>>> {
+    pub fn functions_mut(&mut self) -> std::collections::hash_map::IterMut<'_, std::string::String, Rc<RefCell<FunctionEntry>>> {
         self.functions.iter_mut()
     }
 
@@ -693,14 +693,14 @@ impl SymbolTable {
     /// # Returns
     /// The iterator returned by the internal HashMap.
     #[inline]
-    pub fn classes(&self) -> std::collections::hash_map::Iter<std::string::String, Rc<RefCell<ClassEntry>>> { self.classes.iter() }
+    pub fn classes(&self) -> std::collections::hash_map::Iter<'_, std::string::String, Rc<RefCell<ClassEntry>>> { self.classes.iter() }
 
     /// Returns a muteable iterator over the defined classes (as `(name, entry)` pairs).
     ///
     /// # Returns
     /// The iterator returned by the internal HashMap.
     #[inline]
-    pub fn classes_mut(&mut self) -> std::collections::hash_map::IterMut<std::string::String, Rc<RefCell<ClassEntry>>> { self.classes.iter_mut() }
+    pub fn classes_mut(&mut self) -> std::collections::hash_map::IterMut<'_, std::string::String, Rc<RefCell<ClassEntry>>> { self.classes.iter_mut() }
 
     /// Returns a consuming iterator over the defined classes (as `(name, entry)` pairs).
     ///
@@ -728,14 +728,16 @@ impl SymbolTable {
     /// # Returns
     /// The iterator returned by the internal HashMap.
     #[inline]
-    pub fn variables(&self) -> std::collections::hash_map::Iter<std::string::String, Rc<RefCell<VarEntry>>> { self.variables.iter() }
+    pub fn variables(&self) -> std::collections::hash_map::Iter<'_, std::string::String, Rc<RefCell<VarEntry>>> { self.variables.iter() }
 
     /// Returns a muteable iterator over the defined variables (as `(name, entry)` pairs).
     ///
     /// # Returns
     /// The iterator returned by the internal HashMap.
     #[inline]
-    pub fn variables_mut(&mut self) -> std::collections::hash_map::IterMut<std::string::String, Rc<RefCell<VarEntry>>> { self.variables.iter_mut() }
+    pub fn variables_mut(&mut self) -> std::collections::hash_map::IterMut<'_, std::string::String, Rc<RefCell<VarEntry>>> {
+        self.variables.iter_mut()
+    }
 
     /// Returns a consuming iterator over the defined variables (as `(name, entry)` pairs).
     ///

@@ -181,7 +181,7 @@ impl Token<'_> {
 
     pub fn is_none(&self) -> bool { matches!(self, Token::None) }
 
-    pub fn inner(&self) -> &Span {
+    pub fn inner(&self) -> &'_ Span<'_> {
         use Token::*;
 
         match self {

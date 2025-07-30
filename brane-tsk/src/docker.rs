@@ -231,7 +231,7 @@ impl ImageSource {
 
     /// Returns a formatter for the ImageSource that can serialize it in a deterministic manner. This method should be preferred if `ImageSource::from_str()` should read it.
     #[inline]
-    pub fn serialize(&self) -> ImageSourceSerializer { ImageSourceSerializer { source: self } }
+    pub fn serialize(&self) -> ImageSourceSerializer<'_> { ImageSourceSerializer { source: self } }
 }
 
 impl Display for ImageSource {

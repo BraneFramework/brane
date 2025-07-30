@@ -68,7 +68,7 @@ pub enum IndexLocation {
 impl IndexLocation {
     /// Returns a formatter for the IndexLocation that writes it in an unambigious, serialized way.
     #[inline]
-    pub fn serialize(&self) -> IndexLocationSerializer { IndexLocationSerializer { loc: self } }
+    pub fn serialize(&self) -> IndexLocationSerializer<'_> { IndexLocationSerializer { loc: self } }
 
     /// Returns whether this index location is a local path.
     #[inline]

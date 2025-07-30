@@ -59,11 +59,11 @@ pub trait ErrorTrace: Error {
     ///
     /// # Returns
     /// A new [`ErrorTraceFormatter`] that can write this error and its sources.
-    fn trace(&self) -> ErrorTraceFormatter;
+    fn trace(&self) -> ErrorTraceFormatter<'_>;
 }
 
 // We auto-implement [`ErrorTrace`] for everything [`Error`]
 impl<T: Error> ErrorTrace for T {
     #[inline]
-    fn trace(&self) -> ErrorTraceFormatter { ErrorTraceFormatter { err: self } }
+    fn trace(&self) -> ErrorTraceFormatter<'_> { ErrorTraceFormatter { err: self } }
 }

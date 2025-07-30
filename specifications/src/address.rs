@@ -425,7 +425,7 @@ impl Address {
     /// # Returns
     /// A `Cow<str>` that either contains a reference to the already String hostname, or else a newly created string that is the serialized version of an IP.
     #[inline]
-    pub fn domain(&self) -> Cow<str> {
+    pub fn domain(&self) -> Cow<'_, str> {
         match &self.host {
             Host::IPv4(addr) => Cow::Owned(addr.to_string()),
             Host::IPv6(addr) => Cow::Owned(addr.to_string()),
