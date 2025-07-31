@@ -257,7 +257,7 @@ COPY --from=build-brane --chown=brane:brane /home/brane/brane-chk /brane-chk
 RUN chmod +x /brane-chk
 
 # Copy `eflint-repl` from build stage
-COPY --from=build-eflint-repl --chown=brane:brane /home/brane/.cabal/bin/eflint-repl /home/brane/eflint-repl
+COPY --from=build-eflint-repl --chown=brane:brane /home/brane/.local/bin/eflint-repl /home/brane/eflint-repl
 
 # Copy the base policy
 COPY --chown=brane:brane ./brane-chk/policy /home/brane/policy
