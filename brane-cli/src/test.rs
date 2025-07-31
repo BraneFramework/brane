@@ -4,7 +4,7 @@
 //  Created:
 //    21 Sep 2022, 16:23:37
 //  Last edited:
-//    25 May 2023, 20:12:59
+//    29 Apr 2025, 11:32:04
 //  Auto updated?
 //    Yes
 //
@@ -16,7 +16,6 @@ use std::fs;
 use std::path::PathBuf;
 
 use brane_ast::ParserOptions;
-use brane_ast::ast::Snippet;
 use brane_exe::FullValue;
 use brane_tsk::docker::DockerOptions;
 use brane_tsk::input::prompt_for_input;
@@ -26,6 +25,7 @@ use specifications::package::PackageInfo;
 use specifications::version::Version;
 
 use crate::errors::TestError;
+use crate::repl::Snippet;
 use crate::run::{self, OfflineVmState, initialize_offline_vm, run_offline_vm};
 use crate::utils::{ensure_datasets_dir, ensure_package_dir};
 

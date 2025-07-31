@@ -1,6 +1,6 @@
 [package]
 name = "brane-cfg"
-rust-version = "1.81"
+rust-version = "1.82"
 edition = "2021"
 authors = ["Onno Valkering", "Tim Müller"]
 version.workspace = true
@@ -13,10 +13,10 @@ enum-debug.workspace = true
 log = "0.4.22"
 rustls = "0.21.6"
 rustls-pemfile = "1.0.1"
-serde = { version = "1.0.204", features = ["derive"] }
-serde_yaml = { version = "0.0.10", package = "serde_yml" }
+serde = { version = "1.0.195", features = ["derive"] }
+serde_yaml = { version = "0.10.0", package = "serde_yaml_ng" }
 thiserror = "2.0.0"
-tokio = { version = "1.38.0", features = [] }
+tokio = { version = "1.44.2", features = [] }
 x509-parser = "0.17.0"
 
 specifications = { path = "../specifications" }

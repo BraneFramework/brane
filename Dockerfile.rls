@@ -10,8 +10,16 @@
 
 ##### BUILD STAGE #####
 ### This file will act as the bottom for both builder images
-FROM rust:1 AS build-common
-LABEL org.opencontainers.image.source https://github.com/braneframework/brane
+FROM rust:1 AS build-brane
+LABEL org.opencontainers.image.source=https://github.com/BraneFramework/brane
+
+# Define some build args
+ARG USERID=1000
+ARG GROUPID=1000
+
+# Setup a user mirroring the main one
+RUN addgroup --gid $GROUPID brane
+RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password brane
 
 # Install build dependencies (that are not in the rust image already)
 RUN apt-get update && apt-get install -y \
@@ -21,33 +29,30 @@ RUN apt-get update && apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy over relevant crates & other files
-RUN mkdir /build
-COPY . /build
-
-
-
-### This file does the Brane services
-FROM build-common AS build-brane
-LABEL org.opencontainers.image.source https://github.com/braneframework/brane
+RUN mkdir /build && chown -R brane:brane /build
+COPY --chown=brane:brane . /build
 
 # Build optimized binaries
+USER brane
 WORKDIR /build
-RUN --mount=type=cache,id=cargoidx,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=branecache,target=/build/target \
+RUN --mount=type=cache,id=cargoidx,uid=$USERID,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=branecache,uid=$USERID,target=/build/target \
     cargo build \
         --release \
         --package brane-api \
+        --package brane-chk \
         --package brane-drv \
         --package brane-job \
         --package brane-prx \
         --package brane-plr \
         --package brane-reg \
-    && cp ./target/release/brane-api /brane-api \
-    && cp ./target/release/brane-drv /brane-drv \
-    && cp ./target/release/brane-job /brane-job \
-    && cp ./target/release/brane-prx /brane-prx \
-    && cp ./target/release/brane-plr /brane-plr \
-    && cp ./target/release/brane-reg /brane-reg
+    && cp ./target/release/brane-api /home/brane/brane-api \
+    && cp ./target/release/brane-chk /home/brane/brane-chk \
+    && cp ./target/release/brane-drv /home/brane/brane-drv \
+    && cp ./target/release/brane-job /home/brane/brane-job \
+    && cp ./target/release/brane-prx /home/brane/brane-prx \
+    && cp ./target/release/brane-plr /home/brane/brane-plr \
+    && cp ./target/release/brane-reg /home/brane/brane-reg
 
 # If ever run, run a shell
 WORKDIR /
@@ -55,53 +60,47 @@ ENTRYPOINT [ "/bin/bash" ]
 
 
 
-### This file does the policy reasoner service
-FROM build-common AS build-policy-reasoner
-LABEL org.opencontainers.image.source https://github.com/braneframework/brane
-
-# Fetch the reasoner code next
-WORKDIR /
-ARG REASONER=eflint
-ARG REASONER_BRANCH=main
-ADD "https://github.com/braneframework/policy-reasoner/zipball/${REASONER_BRANCH}/" /policy-reasoner.zip
-RUN unzip /policy-reasoner.zip && mv /BraneFramework-policy-reasoner* /policy-reasoner
-
-# Touch a `policy.db` into action to avoid the policy reasoner's `build.rs` building it for us (unnecessary)
-RUN mkdir -p /policy-reasoner/data && touch /policy-reasoner/data/policy.db
-
-# Compile it!
-WORKDIR /policy-reasoner
-RUN --mount=type=cache,id=cargoidx,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=reasonercache,target=/policy-reasoner/target \
-    cargo build --release --bin $REASONER --features brane-api-resolver \
- && cp ./target/release/$REASONER /brane-chk
-
-# If ever run, run a shell
-WORKDIR /
-ENTRYPOINT [ "/bin/bash" ]
-
-
-
-### This target does the eflint-server binary
-FROM ubuntu:22.04 AS build-eflint-server
+### This target does the eflint-repl binary
+FROM ubuntu:22.04 AS build-eflint-repl
 
 # Define build args
-ARG ARCH=amd64
+ARG USERID=1000
+ARG GROUPID=1000
+ARG EFLINT_COMMIT=87d2be70c400b6f252fa28b51a4b5afbc947117c
 
-# Install deps
+# Setup a user mirroring the main one
+RUN addgroup --gid $GROUPID brane
+RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password brane
+
+# Install system deps for building Haskell
+# (See <https://www.haskell.org/ghcup/install/#version-2010-23>)
 RUN apt-get update && apt-get install -y \
-    git wget \
+    build-essential curl libffi-dev libffi8ubuntu1 libgmp-dev libgmp10 libncurses-dev libncurses5 libtinfo5 \
+    unzip \
  && rm -rf /var/lib/apt/lists/*
 
-# Install go
-RUN wget https://go.dev/dl/go1.22.1.linux-$ARCH.tar.gz -O - | tar -xvz
+# Install GHC & friends through GHCup
+# NOTE: We use this over the Haskell image because that appears to be broken with hackage updating
+# its keys (at least for the time being). See:
+# <https://github.com/haskell/hackage-server/issues/547#issuecomment-251212946>
+USER brane
+WORKDIR /home/brane
+ADD --chown=brane:brane https://get-ghcup.haskell.org /home/brane/ghcup.sh
+RUN BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_MINIMAL=1 sh ghcup.sh \
+ && . /home/brane/.ghcup/env \
+ && ghcup install cabal \
+ && ghcup install ghc 9.2
+
+# # Add a haskell GHC alias for 9.2
+# RUN ln -s /opt/ghc/9.2.8/bin/ghc /opt/ghc/9.2.8/bin/ghc-9.2
 
 # Fetch the repo & compile it
-RUN PATH="$PATH:/go/bin" \
- && git clone https://github.com/epi-project/eflint-server-go /eflint-server-go \
- && cd /eflint-server-go/cmd/eflint-server \
- && go build . \
- && mv ./eflint-server /eflint-server
+ADD --chown=brane:brane https://gitlab.com/eflint/haskell-implementation/-/archive/$EFLINT_COMMIT/haskell-implementation-$EFLINT_COMMIT.zip /home/brane/haskell-implementation.zip
+RUN . /home/brane/.ghcup/env \
+ && unzip haskell-implementation.zip \
+ && cd haskell-implementation-$EFLINT_COMMIT \
+ && cabal update \
+ && cabal install eflint-repl
 
 
 
@@ -110,19 +109,28 @@ RUN PATH="$PATH:/go/bin" \
 ##### BASE IMAGE #####
 # This image defines the base image for all Brane service images.
 FROM ubuntu:22.04 AS brane-base
-LABEL org.opencontainers.image.source https://github.com/braneframework/brane
+LABEL org.opencontainers.image.source=https://github.com/BraneFramework/brane
+
+# Define some build args
+ARG USERID=1000
+ARG GROUPID=1000
+
+# Setup a user mirroring the main one
+RUN addgroup --gid $GROUPID brane
+RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password brane
 
 # Add the log directory
-RUN mkdir -p /logs/profile
+RUN mkdir -p /logs/profile && chown -R brane:brane /logs/profile
+USER brane
 
-# Add an ubuntu 21.10 source for libssl1.1 (insecure, but it's the dev image anyway)
-# Can't get around that, even in release, since libssl1.1 is only available in old repos
-RUN echo "deb http://old-releases.ubuntu.com/ubuntu impish-security main" >> /etc/apt/sources.list
+# # Add an ubuntu 21.10 source for libssl1.1 (insecure, but it's the dev image anyway)
+# # Can't get around that, even in release, since libssl1.1 is only available in old repos
+# RUN echo "deb http://old-releases.ubuntu.com/ubuntu impish-security main" >> /etc/apt/sources.list
 
-# Install libssl (the Rust crate depends on it)
-RUN apt-get update && apt-get install -y \
-    libssl1.1 \
- && rm -rf /var/lib/apt/lists/*
+# # Install libssl (the Rust crate depends on it)
+# RUN apt-get update && apt-get install -y \
+#     libssl1.1 \
+#  && rm -rf /var/lib/apt/lists/*
 
 # If ever run, run a shell
 ENTRYPOINT [ "/bin/bash" ]
@@ -136,10 +144,10 @@ ENTRYPOINT [ "/bin/bash" ]
 FROM brane-base AS brane-prx
 
 # Copy `brane-prx` from build stage
-COPY --from=build-brane /brane-prx /brane-prx
+COPY --from=build-brane --chown=brane:brane /home/brane//brane-prx /brane-prx
 
 # Run the compiled executable as base
-ENTRYPOINT [ "./brane-prx" ]
+ENTRYPOINT [ "/brane-prx" ]
 
 
 
@@ -150,15 +158,17 @@ ENTRYPOINT [ "./brane-prx" ]
 FROM brane-base AS brane-api
 
 # Install additional runtime dependencies specific for brane-api
+USER root
 RUN apt-get update && apt-get install -y \
     gnupg2 \
     wget \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy `brane-api` from build stage
-COPY --from=build-brane /brane-api /brane-api
+COPY --from=build-brane --chown=brane:brane /home/brane/brane-api /brane-api
 
 # Run the compiled executable as base
+USER brane
 ENTRYPOINT [ "/brane-api" ]
 
 
@@ -170,10 +180,10 @@ ENTRYPOINT [ "/brane-api" ]
 FROM brane-base AS brane-drv
 
 # Copy `brane-drv` from build stage
-COPY --from=build-brane /brane-drv /brane-drv
+COPY --from=build-brane --chown=brane:brane /home/brane/brane-drv /brane-drv
 
 # Run the compiled executable as base
-ENTRYPOINT [ "./brane-drv" ]
+ENTRYPOINT [ "/brane-drv" ]
 
 
 
@@ -184,10 +194,10 @@ ENTRYPOINT [ "./brane-drv" ]
 FROM brane-base AS brane-plr
 
 # Copy `brane-plr` from build stage
-COPY --from=build-brane /brane-plr /brane-plr
+COPY --from=build-brane --chown=brane:brane /home/brane/brane-plr /brane-plr
 
 # Run the compiled executable as base
-ENTRYPOINT [ "./brane-plr" ]
+ENTRYPOINT [ "/brane-plr" ]
 
 
 
@@ -197,11 +207,19 @@ ENTRYPOINT [ "./brane-plr" ]
 # This image contains the Brane job service.
 FROM brane-base AS brane-job
 
+# ARG SOCK_GROUPID=1000
+
+# Add the brane user to the group we need to access the Docker socket
+# Very unfortunate, this. Don't know how else to mount the socket as non-root :/
+USER root
+RUN adduser brane root
+
 # Copy `brane-job` from build stage
-COPY --from=build-brane /brane-job /brane-job
+COPY --from=build-brane --chown=brane:brane /home/brane/brane-job /brane-job
 
 # Run the compiled executable as base
-ENTRYPOINT [ "./brane-job" ]
+# USER brane
+ENTRYPOINT [ "/brane-job" ]
 
 
 
@@ -212,10 +230,10 @@ ENTRYPOINT [ "./brane-job" ]
 FROM brane-base AS brane-reg
 
 # Copy `brane-reg` from build stage
-COPY --from=build-brane /brane-reg /brane-reg
+COPY --from=build-brane --chown=brane:brane /home/brane/brane-reg /brane-reg
 
 # Run the compiled executable as base
-ENTRYPOINT [ "./brane-reg" ]
+ENTRYPOINT [ "/brane-reg" ]
 
 
 
@@ -223,31 +241,29 @@ ENTRYPOINT [ "./brane-reg" ]
 
 ##### BRANE-CHK #####
 # This image contains the policy reasoner / checker!
-FROM ubuntu:22.04 AS brane-chk
+FROM brane-base AS brane-chk
 
-# Install deps
+# Define build args
+ENV POLICY_FILE="./main.eflint"
+
+# Install more deps
+USER root
 RUN apt-get update && apt-get install -y \
     sqlite3 \
  && rm -rf /var/lib/apt/lists/*
 
-# Generate a start script
-RUN printf '#!/bin/bash\n# Startup script for the policy reasoner container\n\n# Spawn the eFLINT reasoner itself\n/eflint-server 2>&1 &\n\n# Launch the policy reasoner binary\n/brane-chk $@\n\n' > /startup.sh \
- && chmod +x /startup.sh
-
-# Install the eFLINT JSON server
-# ADD https://github.com/Olaf-Erkemeij/eflint-server/raw/bd3997df89441f13cbc82bd114223646df41540d/eflint-server /eflint-server
-# RUN chmod +x /eflint-server
-
-# Copy some config from the build stage
-COPY --from=build-policy-reasoner /policy-reasoner/examples/config/jwt_resolver.yaml /examples/config/jwt_resolver.yaml
-
 # Copy `policy-reasoner` from build stage
-COPY --from=build-policy-reasoner /brane-chk /brane-chk
+COPY --from=build-brane --chown=brane:brane /home/brane/brane-chk /brane-chk
 RUN chmod +x /brane-chk
 
-# Copy `eflint-server` from build stage
-COPY --from=build-eflint-server /eflint-server /eflint-server
+# Copy `eflint-repl` from build stage
+COPY --from=build-eflint-repl --chown=brane:brane /home/brane/.local/bin/eflint-repl /home/brane/eflint-repl
+
+# Copy the base policy
+COPY --chown=brane:brane ./brane-chk/policy /home/brane/policy
 
 # Run the compiler executable as base
-WORKDIR /
-ENTRYPOINT [ "/startup.sh" ]
+USER brane
+# NOTE: Working from this dir to make the exposed `POLICY_FILE` env a little sensible
+WORKDIR /home/brane/policy
+ENTRYPOINT [ "/brane-chk", "--backend-cmd", "/home/brane/eflint-repl" ]

@@ -4,7 +4,7 @@
 //  Created:
 //    31 Aug 2022, 11:32:04
 //  Last edited:
-//    31 Jan 2024, 11:35:39
+//    14 Nov 2024, 17:18:56
 //  Auto updated?
 //    Yes
 //
@@ -20,14 +20,15 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use brane_dsl::ast as dsl;
-use brane_dsl::spec::MergeStrategy;
 use brane_dsl::symbol_table::{FunctionEntry, VarEntry};
 use enum_debug::EnumDebug as _;
 use log::warn;
 use specifications::data::DataName;
+use specifications::wir as ast;
+use specifications::wir::merge_strategy::MergeStrategy;
 
-use crate::ast;
 use crate::ast_unresolved::UnresolvedWorkflow;
+use crate::dsl::{dtype_dsl_to_ast, locs_dsl_to_ast};
 use crate::edgebuffer::EdgeBuffer;
 use crate::errors::AstError;
 use crate::state::{CompileState, TableState};
@@ -409,7 +410,7 @@ fn pass_stmt(stmt: dsl::Stmt, edges: &mut EdgeBuffer, f_edges: &mut HashMap<usiz
             }
 
             // Add that as a parallel statement
-            edges.write_parallel(branches, merge.map(|m| MergeStrategy::from(m.value)).unwrap_or(MergeStrategy::None));
+            edges.write_parallel(branches, merge.map(|m| MergeStrategy::from(m.value.as_ref())).unwrap_or(MergeStrategy::None));
 
             // If required, add a variable set afterwards
             if let Some(st_entry) = st_entry {
@@ -496,7 +497,7 @@ fn pass_expr(expr: dsl::Expr, edges: &mut EdgeBuffer, _table: &TableState) {
             pass_expr(*expr, edges, _table);
 
             // Insert a linear edge with the cast instruction
-            edges.write(ast::Edge::Linear { instrs: vec![ast::EdgeInstr::Cast { res_type: (&target).into() }], next: usize::MAX });
+            edges.write(ast::Edge::Linear { instrs: vec![ast::EdgeInstr::Cast { res_type: dtype_dsl_to_ast(target) }], next: usize::MAX });
         },
 
         Call { expr, args, st_entry, locations, input, result, metadata, range: _ } => {
@@ -524,7 +525,7 @@ fn pass_expr(expr: dsl::Expr, edges: &mut EdgeBuffer, _table: &TableState) {
                 // It's an external call; replace with a Node edge (so sorry everyone)
                 edges.write(ast::Edge::Node {
                     task: st_entry.unwrap().borrow().index,
-                    locs: locations.into(),
+                    locs: locs_dsl_to_ast(locations),
                     at: None,
                     input: input.into_iter().map(|d| (d.into(), None)).collect(),
                     result,
@@ -549,7 +550,7 @@ fn pass_expr(expr: dsl::Expr, edges: &mut EdgeBuffer, _table: &TableState) {
 
             // Now add the Array instruction in a linear edge
             edges.write(ast::Edge::Linear {
-                instrs: vec![ast::EdgeInstr::Array { length: values_len, res_type: (&data_type).into() }],
+                instrs: vec![ast::EdgeInstr::Array { length: values_len, res_type: dtype_dsl_to_ast(data_type) }],
                 next:   usize::MAX,
             });
         },
@@ -559,7 +560,7 @@ fn pass_expr(expr: dsl::Expr, edges: &mut EdgeBuffer, _table: &TableState) {
             pass_expr(*index, edges, _table);
 
             // Write the index instruction in a linear edge
-            edges.write(ast::Edge::Linear { instrs: vec![ast::EdgeInstr::ArrayIndex { res_type: (&data_type).into() }], next: usize::MAX });
+            edges.write(ast::Edge::Linear { instrs: vec![ast::EdgeInstr::ArrayIndex { res_type: dtype_dsl_to_ast(data_type) }], next: usize::MAX });
         },
 
         UnaOp { op, expr, .. } => {

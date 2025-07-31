@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:46:26
 //  Last edited:
-//    26 Jun 2024, 16:44:55
+//    01 May 2025, 10:43:15
 //  Auto updated?
 //    Yes
 //
@@ -186,7 +186,7 @@ pub enum GenerateError {
     MigrationsRetrieve { path: PathBuf, source: diesel_migrations::MigrationError },
     /// Failed to connect to the database file.
     #[error("Failed to connect to SQLite database file '{}'", path.display())]
-    DatabaseConnect { path: PathBuf, source: diesel::ConnectionError },
+    DatabaseCreate { path: PathBuf, source: policy_store::databases::sqlite::DatabaseError },
     /// Failed to apply a set of mitigations.
     #[error("Failed to apply migrations to SQLite database file '{}'", path.display())]
     MigrationsApply { path: PathBuf, source: Box<dyn 'static + Error> },
@@ -277,6 +277,10 @@ pub enum LifetimeError {
     /// The given job failed.
     #[error("Command '{}' failed with exit code {} (see output above)", style(format!("{command:?}")).bold(), style(status.code().map(|c| c.to_string()).unwrap_or_else(|| "non-zero".into())).bold())]
     JobFailure { command: Command, status: ExitStatus },
+
+    /// Failed to generate a new JWT given the given key.
+    #[error("Failed to generate a JWT with the given key {key:?}")]
+    TokenGenerate { key: PathBuf, source: specifications::policy::Error },
 }
 
 /// Errors that relate to package subcommands.
@@ -372,7 +376,7 @@ pub enum PairParseError {
 #[derive(Debug, thiserror::Error)]
 pub enum PolicyInputLanguageParseError {
     /// The given identifier was not recognized.
-    #[error("Unknown policy input language '{raw}' (options are 'eflint' or 'eflint-json')")]
+    #[error("Unknown policy input language '{raw}' (options are 'eflint')")]
     Unknown { raw: String },
 }
 

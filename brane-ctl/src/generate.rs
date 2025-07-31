@@ -4,7 +4,7 @@
 //  Created:
 //    21 Nov 2022, 15:40:47
 //  Last edited:
-//    01 May 2024, 15:20:56
+//    29 Apr 2025, 14:00:41
 //  Auto updated?
 //    Yes
 //
@@ -27,25 +27,23 @@ use brane_cfg::backend::{BackendFile, Credentials};
 use brane_cfg::info::Info as _;
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::node::{
-    self, CentralConfig, CentralPaths, CentralServices, ExternalService, NodeConfig, NodeSpecificConfig, PrivateOrExternalService, PrivateService,
-    ProxyPaths, ProxyServices, PublicService, WorkerConfig, WorkerPaths, WorkerServices, WorkerUsecase,
+    self, CentralConfig, CentralPaths, CentralServices, DoublePrivateService, ExternalService, NodeConfig, NodeSpecificConfig,
+    PrivateOrExternalService, PrivateService, ProxyPaths, ProxyServices, PublicService, WorkerConfig, WorkerPaths, WorkerServices, WorkerUsecase,
 };
 use brane_cfg::proxy::{self, ForwardConfig};
-use brane_shr::fs::{DownloadSecurity, set_executable};
+use brane_shr::fs::set_executable;
 use console::style;
-use diesel::{Connection as _, SqliteConnection};
-use diesel_migrations::{FileBasedMigrations, MigrationHarness as _};
 use enum_debug::EnumDebug as _;
 use jsonwebtoken::jwk::{self, Jwk, JwkSet, KeyAlgorithm, OctetKeyParameters, OctetKeyType, PublicKeyUse};
 use log::{debug, info, warn};
+use policy_store::databases::sqlite::SQLiteDatabase;
 use rand::distr::Alphanumeric;
 use rand::rngs::OsRng;
 use rand::{Rng as _, TryRngCore};
 use serde::Serialize;
-use specifications::address::Address;
+use specifications::address::{Address, Host};
 use specifications::package::Capability;
 use specifications::policy::generate_policy_token;
-use tempfile::TempDir;
 
 pub use crate::errors::GenerateError as Error;
 use crate::spec::{GenerateBackendSubcommand, GenerateCertsSubcommand, GenerateNodeSubcommand, Pair};
@@ -675,21 +673,21 @@ pub fn node(
                         api: PublicService {
                             name:    api_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), api_port).into(),
-                            address: Address::Hostname(format!("http://{api_name}"), api_port),
+                            address: Address::hostname(api_name.to_string(), api_port),
 
-                            external_address: Address::Hostname(format!("http://{hostname}"), api_port),
+                            external_address: Address::hostname(hostname.to_string(), api_port),
                         },
                         drv: PublicService {
                             name:    drv_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), drv_port).into(),
-                            address: Address::Hostname(format!("grpc://{drv_name}"), drv_port),
+                            address: Address::hostname(drv_name.to_string(), drv_port),
 
-                            external_address: Address::Hostname(format!("grpc://{hostname}"), drv_port),
+                            external_address: Address::hostname(hostname.to_string(), drv_port),
                         },
                         plr: PrivateService {
                             name:    plr_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), plr_port).into(),
-                            address: Address::Hostname(format!("http://{plr_name}"), plr_port),
+                            address: Address::hostname(plr_name.to_string(), plr_port),
                         },
                         prx: if let Some(address) = external_proxy {
                             PrivateOrExternalService::External(ExternalService { address })
@@ -697,14 +695,14 @@ pub fn node(
                             PrivateOrExternalService::Private(PrivateService {
                                 name:    prx_name.clone(),
                                 bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                                address: Address::Hostname(format!("http://{prx_name}"), prx_port),
+                                address: Address::hostname(prx_name.to_string(), prx_port),
                             })
                         },
 
                         aux_scylla: PrivateService {
                             name:    "aux-scylla".into(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 9042).into(),
-                            address: Address::Hostname("aux-scylla".into(), 9042),
+                            address: Address::hostname("aux-scylla", 9042),
                         },
                     },
                 }),
@@ -718,8 +716,8 @@ pub fn node(
             use_cases,
             backend,
             policy_database,
-            policy_deliberation_secret,
-            policy_expert_secret,
+            policy_delib_secret,
+            policy_store_secret,
             policy_audit_log,
             proxy,
             certs,
@@ -736,7 +734,8 @@ pub fn node(
             prx_port,
             reg_port,
             job_port,
-            chk_port,
+            chk_delib_port,
+            chk_store_port,
         } => {
             // Remove any scheme, paths, ports, whatever from the hostname
             let mut hostname: &str = &hostname;
@@ -754,8 +753,8 @@ pub fn node(
 
             // Resolve any path depending on the '$CONFIG'
             let backend: PathBuf = resolve_config_path(backend, &config_path);
-            let policy_deliberation_secret: PathBuf = resolve_config_path(policy_deliberation_secret, &config_path);
-            let policy_expert_secret: PathBuf = resolve_config_path(policy_expert_secret, &config_path);
+            let policy_delib_secret: PathBuf = resolve_config_path(policy_delib_secret, &config_path);
+            let policy_store_secret: PathBuf = resolve_config_path(policy_store_secret, &config_path);
             let policy_audit_log: Option<PathBuf> = policy_audit_log.map(|p| resolve_config_path(p, &config_path));
             let proxy: PathBuf = resolve_config_path(proxy, &config_path);
             let certs: PathBuf = resolve_config_path(certs, &config_path);
@@ -763,8 +762,8 @@ pub fn node(
             // Ensure the directory structure is there
             ensure_dir_of(&backend, fix_dirs)?;
             ensure_dir_of(&policy_database, fix_dirs)?;
-            ensure_dir_of(&policy_deliberation_secret, fix_dirs)?;
-            ensure_dir_of(&policy_expert_secret, fix_dirs)?;
+            ensure_dir_of(&policy_delib_secret, fix_dirs)?;
+            ensure_dir_of(&policy_store_secret, fix_dirs)?;
             if let Some(policy_audit_log) = &policy_audit_log {
                 ensure_dir_of(policy_audit_log, fix_dirs)?;
             }
@@ -792,8 +791,8 @@ pub fn node(
 
                         backend: canonicalize(backend)?,
                         policy_database: canonicalize(policy_database)?,
-                        policy_deliberation_secret: canonicalize(policy_deliberation_secret)?,
-                        policy_expert_secret: canonicalize(policy_expert_secret)?,
+                        policy_delib_secret: canonicalize(policy_delib_secret)?,
+                        policy_store_secret: canonicalize(policy_store_secret)?,
                         policy_audit_log: policy_audit_log.map(canonicalize).transpose()?,
                         proxy: if external_proxy.is_some() { None } else { Some(canonicalize(proxy)?) },
 
@@ -807,21 +806,22 @@ pub fn node(
                         reg: PublicService {
                             name:    reg_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), reg_port).into(),
-                            address: Address::Hostname(format!("https://{reg_name}"), reg_port),
+                            address: Address::hostname(reg_name.to_string(), reg_port),
 
-                            external_address: Address::Hostname(format!("https://{hostname}"), reg_port),
+                            external_address: Address::hostname(hostname.to_string(), reg_port),
                         },
                         job: PublicService {
                             name:    job_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), job_port).into(),
-                            address: Address::Hostname(format!("grpc://{job_name}"), job_port),
+                            address: Address::hostname(job_name.to_string(), job_port),
 
-                            external_address: Address::Hostname(format!("grpc://{hostname}"), job_port),
+                            external_address: Address::hostname(hostname.to_string(), job_port),
                         },
-                        chk: PrivateService {
-                            name:    chk_name.clone(),
-                            bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), chk_port).into(),
-                            address: Address::Hostname(format!("http://{chk_name}"), chk_port),
+                        chk: DoublePrivateService {
+                            name:  chk_name.clone(),
+                            host:  Host::new_name(chk_name),
+                            delib: chk_delib_port,
+                            store: chk_store_port,
                         },
                         prx: if let Some(address) = external_proxy {
                             PrivateOrExternalService::External(ExternalService { address })
@@ -829,7 +829,7 @@ pub fn node(
                             PrivateOrExternalService::Private(PrivateService {
                                 name:    prx_name.clone(),
                                 bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                                address: Address::Hostname(format!("http://{prx_name}"), prx_port),
+                                address: Address::hostname(prx_name.to_string(), prx_port),
                             })
                         },
                     },
@@ -867,9 +867,9 @@ pub fn node(
                         prx: PublicService {
                             name:    prx_name.clone(),
                             bind:    SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), prx_port).into(),
-                            address: Address::Hostname(format!("http://{prx_name}"), prx_port),
+                            address: Address::hostname(prx_name.to_string(), prx_port),
 
-                            external_address: Address::Hostname(format!("http://{hostname}"), prx_port),
+                            external_address: Address::hostname(hostname.to_string(), prx_port),
                         },
                     },
                 }),
@@ -1140,8 +1140,8 @@ pub fn infra(
     for loc in locations {
         locs.insert(loc.0.clone(), InfraLocation {
             name:     beautify_id(loc.0),
-            registry: Address::hostname(format!("https://{}", loc.1), 50051),
-            delegate: Address::hostname(format!("grpc://{}", loc.1), 50052),
+            registry: Address::hostname(loc.1.to_string(), 50051),
+            delegate: Address::hostname(loc.1.to_string(), 50052),
         });
     }
 
@@ -1156,7 +1156,7 @@ pub fn infra(
     }
     for port in reg_ports {
         match locs.get_mut(&port.0) {
-            Some(loc) => *loc.registry.port_mut() = port.1,
+            Some(loc) => loc.registry.port = port.1,
             None => {
                 return Err(Error::UnknownLocation { loc: port.0 });
             },
@@ -1164,7 +1164,7 @@ pub fn infra(
     }
     for port in job_ports {
         match locs.get_mut(&port.0) {
-            Some(loc) => *loc.delegate.port_mut() = port.1,
+            Some(loc) => loc.delegate.port = port.1,
             None => {
                 return Err(Error::UnknownLocation { loc: port.0 });
             },
@@ -1259,56 +1259,16 @@ pub fn backend(
 ///
 /// # Errors
 /// This function may error if I/O errors occur while writing the file.
-pub async fn policy_database(fix_dirs: bool, path: PathBuf, branch: String) -> Result<(), Error> {
-    info!("Generating policies.db at '{}'...", path.display());
+pub async fn policy_database(fix_dirs: bool, path: PathBuf) -> Result<(), Error> {
+    info!("Generating policies.db at {:?}...", path.display());
 
-    // First, touch the file alive
-    debug!("Creating policy database file '{}'...", path.display());
+    // First, ensure the parent exists
+    debug!("Creating policy database file {:?} parent directory...", path.display());
     ensure_dir_of(&path, fix_dirs)?;
-    File::create(&path).map_err(|source| Error::FileCreateError { what: "policy database", path: path.clone(), source })?;
-
-    // Next, fetch the migrations to run
-    debug!("Retrieving up-to-date mitigations from 'https://github.com/braneframework/policy-reasoner ({branch})...");
-    // NOTE: We're not using `_dir`, but keep it to prevent the directory from being removed once the objects gets dropped
-    let (_dir, migrations): (TempDir, FileBasedMigrations) = {
-        // Prepare the input URL and output directory
-        let url = format!("https://api.github.com/repos/braneframework/policy-reasoner/tarball/{branch}");
-        let dir = TempDir::new().map_err(|source| Error::TempDirError { source })?;
-
-        // Download the file
-        let tar_path: PathBuf = dir.path().join("repo.tar.gz");
-        let dir_path: PathBuf = dir.path().join("repo");
-        brane_shr::fs::download_file_async(&url, &tar_path, DownloadSecurity { checksum: None, https: true }, None)
-            .await
-            .map_err(|source| Error::RepoDownloadError { repo: url, target: dir_path.clone(), source })?;
-        brane_shr::fs::unarchive_async(&tar_path, &dir_path).await.map_err(|source| Error::RepoUnpackError {
-            tar: tar_path,
-            target: dir_path.clone(),
-            source,
-        })?;
-
-        // Resolve that one weird folder in there
-        let dir_path: PathBuf = brane_shr::fs::recurse_in_only_child_async(&dir_path)
-            .await
-            .map_err(|source| Error::RepoRecurseError { target: dir_path.clone(), source })?;
-
-        // Read that as the migrations
-        let migrations: FileBasedMigrations = FileBasedMigrations::find_migrations_directory_in_path(&dir_path)
-            .map_err(|source| Error::MigrationsRetrieve { path: dir_path.clone(), source })?;
-
-        (dir, migrations)
-    };
-
-    // Apply that with diesel
-    {
-        // Connect to the database
-        debug!("Applying migrations...");
-        let mut conn: SqliteConnection =
-            SqliteConnection::establish(&path.display().to_string()).map_err(|source| Error::DatabaseConnect { path: path.clone(), source })?;
-
-        // Attempt to run the migration
-        conn.run_pending_migrations(migrations).map_err(|source| Error::MigrationsApply { path: path.clone(), source })?;
-    }
+    // Now we touch the file alive by making a brief connection
+    SQLiteDatabase::<()>::new_async(&path, policy_store::databases::sqlite::MIGRATIONS)
+        .await
+        .map_err(|source| Error::DatabaseCreate { path: path.clone(), source })?;
 
     // Done
     println!("Successfully generated {}", style(path.display().to_string()).bold().green());

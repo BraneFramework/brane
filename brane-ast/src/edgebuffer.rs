@@ -4,7 +4,7 @@
 //  Created:
 //    05 Sep 2022, 09:27:32
 //  Last edited:
-//    02 Nov 2023, 14:25:07
+//    14 Nov 2024, 17:20:32
 //  Auto updated?
 //    Yes
 //
@@ -20,9 +20,8 @@ use std::hash::{Hash, Hasher};
 use std::mem;
 use std::rc::Rc;
 
-use brane_dsl::spec::MergeStrategy;
-
-use crate::ast::Edge;
+use specifications::wir::Edge;
+use specifications::wir::merge_strategy::MergeStrategy;
 
 
 /***** TESTS *****/
@@ -180,14 +179,14 @@ impl EdgeBufferNodePtr {
     /// # Returns
     /// A `Ref` that represents the borrow to the buffer.
     #[inline]
-    pub fn borrow(&self) -> Ref<EdgeBufferNode> { self.0.borrow() }
+    pub fn borrow(&self) -> Ref<'_, EdgeBufferNode> { self.0.borrow() }
 
     /// Borrows the underlying EdgeBuffer mutably.
     ///
     /// # Returns
     /// A `Ref` that represents the mutable borrow to the buffer.
     #[inline]
-    pub fn borrow_mut(&self) -> RefMut<EdgeBufferNode> { self.0.borrow_mut() }
+    pub fn borrow_mut(&self) -> RefMut<'_, EdgeBufferNode> { self.0.borrow_mut() }
 }
 
 impl Eq for EdgeBufferNodePtr {}

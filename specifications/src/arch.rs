@@ -138,35 +138,35 @@ impl Arch {
     /// # Returns
     /// An `ArchBraneFormatter` that implements Display in a Brane-compatible way.
     #[inline]
-    pub fn brane(&self) -> ArchBraneFormatter { ArchBraneFormatter { arch: self } }
+    pub fn brane(&self) -> ArchBraneFormatter<'_> { ArchBraneFormatter { arch: self } }
 
     /// Allows one to serialize the architecture for use in the Rust ecosystem.
     ///
     /// # Returns
     /// An `ArchRustFormatter` that implements Display in a Rust-compatible way.
     #[inline]
-    pub fn rust(&self) -> ArchRustFormatter { ArchRustFormatter { arch: self } }
+    pub fn rust(&self) -> ArchRustFormatter<'_> { ArchRustFormatter { arch: self } }
 
     /// Allows one to serialize the architecture for use in the Docker ecosystem.
     ///
     /// # Returns
     /// An `ArchDockerFormatter` that implements Display in a Docker-compatible way.
     #[inline]
-    pub fn docker(&self) -> ArchDockerFormatter { ArchDockerFormatter { arch: self } }
+    pub fn docker(&self) -> ArchDockerFormatter<'_> { ArchDockerFormatter { arch: self } }
 
     /// Allows one to serialize the architecture for use in the Juice FS ecosystem.
     ///
     /// # Returns
     /// An `ArchJuiceFsFormatter` that implements Display in a Juice FS-compatible way.
     #[inline]
-    pub fn juicefs(&self) -> ArchJuiceFsFormatter { ArchJuiceFsFormatter { arch: self } }
+    pub fn juicefs(&self) -> ArchJuiceFsFormatter<'_> { ArchJuiceFsFormatter { arch: self } }
 
     /// Allows one to serialize the architecture for use to download cfssl binaries.
     ///
     /// # Returns
     /// An `ArchCfsslFormatter` that implements [`Display`]` in a cfssl-compatible way.
     #[inline]
-    pub fn cfssl(&self) -> ArchCfsslFormatter { ArchCfsslFormatter { os: self } }
+    pub fn cfssl(&self) -> ArchCfsslFormatter<'_> { ArchCfsslFormatter { os: self } }
 }
 
 impl Display for Arch {

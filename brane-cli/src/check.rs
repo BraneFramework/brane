@@ -4,7 +4,7 @@
 //  Created:
 //    02 Feb 2024, 11:08:20
 //  Last edited:
-//    08 Feb 2024, 17:18:29
+//    14 Nov 2024, 17:58:12
 //  Auto updated?
 //    Yes
 //
@@ -17,7 +17,7 @@ use std::io::Read;
 use std::sync::Arc;
 use std::{fs, io};
 
-use brane_ast::{CompileResult, Workflow};
+use brane_ast::CompileResult;
 use brane_dsl::{Language, ParserOptions};
 use console::style;
 use error_trace::trace;
@@ -26,6 +26,7 @@ use specifications::data::DataIndex;
 use specifications::driving::{CheckReply, CheckRequest, DriverServiceClient};
 use specifications::package::PackageIndex;
 use specifications::profiling::{self};
+use specifications::wir::Workflow;
 
 pub use crate::errors::CheckError as Error;
 use crate::instance::InstanceInfo;
@@ -122,10 +123,8 @@ pub async fn handle(file: String, language: Language, user: Option<String>, prof
         ("<stdin>".into(), source)
     } else {
         // Read from a file
-        match fs::read_to_string(&file) {
-            Ok(source) => (file, source),
-            Err(err) => return Err(Error::InputFileRead { path: file.into(), source: err }),
-        }
+        let src = fs::read_to_string(&file).map_err(|source| Error::InputFileRead { path: (&file).into(), source })?;
+        (file, src)
     };
     load.stop();
 

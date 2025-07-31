@@ -4,7 +4,7 @@
 //  Created:
 //    19 Sep 2022, 14:57:17
 //  Last edited:
-//    08 Feb 2024, 15:15:18
+//    02 May 2025, 11:26:36
 //  Auto updated?
 //    Yes
 //
@@ -231,7 +231,7 @@ impl ImageSource {
 
     /// Returns a formatter for the ImageSource that can serialize it in a deterministic manner. This method should be preferred if `ImageSource::from_str()` should read it.
     #[inline]
-    pub fn serialize(&self) -> ImageSourceSerializer { ImageSourceSerializer { source: self } }
+    pub fn serialize(&self) -> ImageSourceSerializer<'_> { ImageSourceSerializer { source: self } }
 }
 
 impl Display for ImageSource {
@@ -707,39 +707,95 @@ async fn remove_container(docker: &Docker, name: impl AsRef<str>) -> Result<(), 
     docker.remove_container(name, remove_options).await.map_err(|source| Error::ContainerRemoveError { name: name.into(), source })
 }
 
+/// Given an Image, will attempt search the Docker instance to find its digest.
+///
+/// This is different from [`get_digest()`] as that one searches files.
+///
+/// # Arguments
+/// - `docker`: An already connected local instance of Docker.
+/// - `image`: Some [`Image`] to find the digest of. Any digest already present is ignored.
+///
+/// # Returns
+/// The found digest, or [`None`] if we did not find the image in the instance.
+///
+/// # Errors
+/// This function fails if we failed to commune with the given Docker instance.
+async fn read_digest(docker: &Docker, image: impl AsRef<Image>) -> Result<Option<String>, Error> {
+    let image: &Image = image.as_ref();
+
+    // Attempt to list all images
+    for info in docker
+        .list_images(Some(bollard::image::ListImagesOptions::<String> { all: true, digests: true, ..Default::default() }))
+        .await
+        .map_err(|source| Error::ImageList { source })?
+    {
+        for tag in &info.repo_tags {
+            if let Some(image_version) = &image.version {
+                if let Some((name, version)) = tag.split_once(':') {
+                    if *name == image.name && version == image_version {
+                        let id = info.id.strip_prefix("sha256:").unwrap_or(&info.id);
+                        return Ok(Some(id.into()));
+                    }
+                }
+            } else if *tag == image.name {
+                let id = info.id.strip_prefix("sha256:").unwrap_or(&info.id);
+                return Ok(Some(id.into()));
+            }
+        }
+    }
+
+    // Didn't find it!
+    Ok(None)
+}
+
 /// Tries to import the image at the given path into the given Docker instance.
 ///
 /// # Arguments
 /// - `docker`: An already connected local instance of Docker.
 /// - `image`: The image to pull.
-/// - `source`: Path to the image to import.
+/// - `image_source`: Path to the image to import.
 ///
 /// # Returns
-/// Nothing on success, or an ExecutorError otherwise.
-async fn import_image(docker: &Docker, image: impl Into<Image>, source: impl AsRef<Path>) -> Result<(), Error> {
-    let image: Image = image.into();
-    let source: &Path = source.as_ref();
+/// The given `image`, possibly updated with a new ID if another was returned by Docker.
+///
+/// # Errors
+/// This function errors if we failed to import the given image file or tag it.
+async fn import_image(docker: &Docker, image: impl Into<Image>, image_source: impl AsRef<Path>) -> Result<Image, Error> {
+    let mut image: Image = image.into();
+    let image_source: &Path = image_source.as_ref();
     let options = ImportImageOptions { quiet: true };
 
     // Try to read the file
-    let file = TFile::open(source).await.map_err(|err_source| Error::ImageFileOpenError { path: PathBuf::from(source), source: err_source })?;
+    let file = TFile::open(image_source).await.map_err(|source| Error::ImageFileOpenError { path: PathBuf::from(image_source), source })?;
 
     // If successful, open the byte with a FramedReader, freezing all the chunk we read
     let byte_stream = FramedRead::new(file, BytesCodec::new()).map(|r| r.unwrap().freeze());
 
-    docker
+    let res = docker
         .import_image_stream(options, byte_stream, None)
         .try_collect::<Vec<_>>()
         .await
-        .map_err(|err_source| Error::ImageImportError { path: PathBuf::from(source), source: err_source })?;
+        .map_err(|source| Error::ImageImportError { path: PathBuf::from(image_source), source })?;
+
+    // See if Docker told us the ID directly
+    let mut id: Option<String> = res
+        .iter()
+        .filter_map(|info| info.stream.as_ref())
+        .find_map(|stream| stream.strip_prefix("Loaded image ID: sha256:").and_then(|s| s.strip_suffix("\n")).map(ToOwned::to_owned));
+
+    // If not, then we'll try to manually retrieve it
+    if id.is_none() {
+        id = read_digest(docker, &image).await?;
+    }
+
+    image.digest = Some(id.ok_or_else(|| Error::ImageImportFindId { path: image_source.into(), infos: res })?);
 
     // Tag it with the appropriate name & version
     let options = Some(TagImageOptions { repo: image.name.clone(), tag: image.version.clone().unwrap() });
-    docker.tag_image(image.digest.as_ref().unwrap(), options).await.map_err(|err_source| Error::ImageTagError {
-        image: Box::new(image),
-        image_source: source.to_string_lossy().to_string(),
-        source: err_source,
-    })
+    match docker.tag_image(image.digest.as_ref().unwrap(), options).await {
+        Ok(_) => Ok(image),
+        Err(source) => Err(Error::ImageTagError { image: Box::new(image), image_source: image_source.to_string_lossy().to_string(), source }),
+    }
 }
 
 /// Pulls a new image from the given Docker image ID / URL (?) and imports it in the Docker instance.
@@ -751,33 +807,40 @@ async fn import_image(docker: &Docker, image: impl Into<Image>, source: impl AsR
 ///
 /// # Errors
 /// This function errors if we failed to pull the image, e.g., the Docker engine did not know where to find it, or there was no internet.
-async fn pull_image(docker: &Docker, image: impl Into<Image>, image_source: impl Into<String>) -> Result<(), Error> {
-    let image: Image = image.into();
+async fn pull_image(docker: &Docker, image: impl Into<Image>, image_source: impl Into<String>) -> Result<Image, Error> {
+    let mut image: Image = image.into();
     let image_source: String = image_source.into();
 
     // Define the options for this image
     let options = Some(CreateImageOptions { from_image: image_source.clone(), ..Default::default() });
 
     // Try to create it
-    docker
+    let res = docker
         .create_image(options, None, None)
         .try_collect::<Vec<_>>()
         .await
         .map_err(|source| Error::ImagePullError { image_source: image_source.clone(), source })?;
 
+    image.digest = Some(
+        res.iter()
+            .filter_map(|info| info.status.as_ref())
+            .find_map(|status| status.strip_prefix("Digest: sha256:"))
+            .map(ToOwned::to_owned)
+            .ok_or_else(|| Error::ImagePullFindId { image_source: image_source.clone(), infos: res })?,
+    );
+
+
     // Set the options
-    let options: Option<TagImageOptions<_>> = Some(if let Some(version) = &image.version {
-        TagImageOptions { repo: image.name.clone(), tag: version.clone() }
-    } else {
-        TagImageOptions { repo: image.name.clone(), ..Default::default() }
-    });
+    let options = TagImageOptions { repo: image.name.clone(), tag: image.version.clone().unwrap_or_default() };
 
     // Now tag it
-    docker.tag_image(&image_source, options).await.map_err(|source| Error::ImageTagError {
-        image: Box::new(image),
-        image_source: image_source.clone(),
+    docker.tag_image(&image_source, Some(options)).await.map_err(|source| Error::ImageTagError {
+        image: Box::new(image.clone()),
+        image_source,
         source,
-    })
+    })?;
+
+    Ok(image)
 }
 
 
@@ -996,17 +1059,20 @@ pub async fn hash_container(container_path: impl AsRef<Path>) -> Result<String, 
 /// - `image`: The Docker image name, version & potential digest to pull.
 /// - `source`: Where to get the image from should it not be present already.
 ///
+/// # Returns
+/// The given `image`, possibly updated with a new ID if another was returned by Docker.
+///
 /// # Errors
 /// This function errors if it failed to ensure the image existed (i.e., import or pull failed).
-pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl Into<ImageSource>) -> Result<(), Error> {
+pub async fn ensure_image(docker: &Docker, image: impl Into<Image>, source: impl Into<ImageSource>) -> Result<Image, Error> {
     let image: Image = image.into();
     let source: ImageSource = source.into();
 
     // Abort if image is already loaded
     match docker.inspect_image(&image.docker().to_string()).await {
         Ok(_) => {
-            debug!("Image '{}' already exists in Docker deamon.", image.docker());
-            return Ok(());
+            debug!("Image '{}' already exists in Docker daemon.", image.docker());
+            return Ok(image);
         },
         Err(bollard::errors::Error::DockerResponseServerError { status_code: 404, message: _ }) => {
             debug!("Image '{}' doesn't exist in Docker daemon.", image.docker());

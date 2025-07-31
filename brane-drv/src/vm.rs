@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2022, 10:14:26
 //  Last edited:
-//    07 Mar 2024, 14:18:12
+//    02 May 2025, 15:10:41
 //  Auto updated?
 //    Yes
 //
@@ -19,13 +19,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use async_trait::async_trait;
-use brane_ast::Workflow;
-use brane_ast::func_id::FunctionId;
-use brane_ast::locations::Location;
 use brane_cfg::info::Info as _;
 use brane_cfg::infra::InfraFile;
 use brane_cfg::node::{CentralConfig, NodeConfig, NodeSpecificConfig};
-use brane_exe::pc::ProgramCounter;
 use brane_exe::spec::{TaskInfo, VmPlugin};
 use brane_exe::{Error as VmError, FullValue, RunState, Vm};
 use brane_prx::client::ProxyClient;
@@ -36,7 +32,11 @@ use log::{debug, info, warn};
 use serde_json_any_key::MapIterToJson;
 use specifications::address::Address;
 use specifications::data::{AccessKind, DataName, PreprocessKind};
+use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileScopeHandle;
+use specifications::wir::Workflow;
+use specifications::wir::func_id::FunctionId;
+use specifications::wir::locations::Location;
 use specifications::working::TransferRegistryTar;
 use specifications::{driving as driving_grpc, working as working_grpc};
 use tokio::sync::mpsc::Sender;
@@ -88,7 +88,7 @@ impl VmPlugin for InstancePlugin {
 
         // Resolve the location to an address (and get the proxy while we have a lock anyway)
         let disk = prof.time("File loading");
-        let (proxy, delegate_address, workflow): (Arc<ProxyClient>, Address, String) = {
+        let (proxy, delegate_address, workflow): (Arc<ProxyClient>, String, String) = {
             // Load the node config file to get the path to...
             let state: RwLockReadGuard<GlobalState> = global.read().unwrap();
 
@@ -96,7 +96,7 @@ impl VmPlugin for InstancePlugin {
             match state.infra.as_ref().unwrap().get(&loc) {
                 Some(info) => (
                     state.proxy.clone(),
-                    info.delegate.clone(),
+                    format!("grpc://{}", info.delegate),
                     state.workflow.clone().unwrap_or_else(|| panic!("Workflow state not injected by the time the workflow is being executed")),
                 ),
                 None => {
@@ -170,14 +170,14 @@ impl VmPlugin for InstancePlugin {
 
         // Resolve the location to an address (and get the proxy and the workflow while we have a lock anyway)
         let disk = prof.time("File loading");
-        let (proxy, delegate_address, workflow): (Arc<ProxyClient>, Address, String) = {
+        let (proxy, delegate_address, workflow): (Arc<ProxyClient>, String, String) = {
             let state: RwLockReadGuard<GlobalState> = global.read().unwrap();
 
             // Resolve to an address and return that with the other addresses
             (
                 state.proxy.clone(),
                 match state.infra.as_ref().unwrap().get(info.location) {
-                    Some(info) => info.delegate.clone(),
+                    Some(info) => format!("grpc://{}", info.delegate),
                     None => {
                         return Err(ExecuteError::UnknownLocationError { loc: info.location.clone() });
                     },
@@ -435,12 +435,12 @@ impl VmPlugin for InstancePlugin {
 
         // Resolve the location to an address (and get the proxy client while at it)
         let disk = prof.time("File loading");
-        let (proxy, delegate_address): (Arc<ProxyClient>, Address) = {
+        let (proxy, delegate_address): (Arc<ProxyClient>, String) = {
             let state: RwLockReadGuard<GlobalState> = global.read().unwrap();
 
             // Resolve to an address
             match state.infra.as_ref().unwrap().get(loc) {
-                Some(info) => (state.proxy.clone(), info.delegate.clone()),
+                Some(info) => (state.proxy.clone(), format!("grpc://{}", info.delegate)),
                 None => {
                     return Err(CommitError::UnknownLocationError { loc: loc.clone() });
                 },

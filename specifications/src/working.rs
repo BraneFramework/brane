@@ -4,7 +4,7 @@
 //  Created:
 //    06 Jan 2023, 15:01:17
 //  Last edited:
-//    07 Mar 2024, 11:58:09
+//    02 May 2025, 15:07:33
 //  Auto updated?
 //    Yes
 //
@@ -21,14 +21,17 @@ use std::sync::Arc;
 pub use JobServiceError as Error;
 use async_trait::async_trait;
 use futures::Stream;
+use policy_reasoner::spec::reasons::ManyReason;
 use prost::{Enumeration, Message, Oneof};
-use tonic::body::{BoxBody, empty_body};
+use tonic::body::Body;
 use tonic::client::Grpc as GrpcClient;
 use tonic::codec::{ProstCodec, Streaming};
-use tonic::codegen::{Body, BoxFuture, Context, Poll, Service, StdError, http};
+use tonic::codegen::{self, BoxFuture, Context, Poll, Service, StdError, http};
 use tonic::server::{Grpc as GrpcServer, NamedService, ServerStreamingService, UnaryService};
 use tonic::transport::{Channel, Endpoint};
 use tonic::{Code, Request, Response, Status};
+
+use crate::checking::deliberation::{CheckResponse, CheckTaskRequest, CheckWorkflowRequest, Prost};
 
 
 /***** ERRORS *****/
@@ -232,44 +235,6 @@ pub enum TaskStatus {
 
 
 /***** MESSAGES *****/
-/// Request for checking workflow validity with the worker's checker.
-#[derive(Clone, Message)]
-pub struct CheckWorkflowRequest {
-    /// Some identifier relating to the worker which use-case (registry) is being used.
-    #[prost(tag = "1", required, string)]
-    pub use_case: String,
-    /// The workflow that should be checked.
-    #[prost(tag = "2", required, string)]
-    pub workflow: String,
-}
-
-/// Request for checking workflow validity with the worker's checker.
-#[derive(Clone, Message)]
-pub struct CheckTaskRequest {
-    /// Some identifier relating to the worker which use-case (registry) is being used.
-    #[prost(tag = "1", required, string)]
-    pub use_case: String,
-    /// The workflow that should be checked.
-    #[prost(tag = "2", required, string)]
-    pub workflow: String,
-    /// A pointer to the task in the `workflow` that should be specifically permitted.
-    #[prost(tag = "3", required, string)]
-    pub task_id:  String,
-}
-
-/// The reply sent by the worker if a workflow- or task is permitted (i.e., as response to [`CheckWorkflowRequest`] or [`CheckTaskRequest`]).
-#[derive(Clone, Message)]
-pub struct CheckReply {
-    /// Whether the checker approved or denied
-    #[prost(tag = "1", required, bool)]
-    pub verdict: bool,
-    /// If `verdict` is false, then this _may_ denote a list of reasons for denying it.
-    #[prost(tag = "2", repeated, string)]
-    pub reasons: Vec<String>,
-}
-
-
-
 /// Request for preprocessing a given dataset.
 #[derive(Clone, Message)]
 pub struct PreprocessRequest {
@@ -420,11 +385,14 @@ impl JobServiceClient {
     /// - `request`: The [`CheckWorkflowRequest`] to send to the endpoint.
     ///
     /// # Returns
-    /// The [`CheckReply`] the endpoint returns.
+    /// The [`CheckResponse`] the endpoint returns.
     ///
     /// # Errors
     /// This function errors if either we failed to send the request or the endpoint itself failed to process it.
-    pub async fn check_workflow(&mut self, request: impl tonic::IntoRequest<CheckWorkflowRequest>) -> Result<Response<CheckReply>, Status> {
+    pub async fn check_workflow(
+        &mut self,
+        request: impl tonic::IntoRequest<Prost<CheckWorkflowRequest>>,
+    ) -> Result<Response<Prost<CheckResponse<ManyReason<String>>>>, Status> {
         // Assert the client is ready to get the party started
         if let Err(err) = self.client.ready().await {
             return Err(Status::new(Code::Unknown, format!("Service was not ready: {err}")));
@@ -442,11 +410,14 @@ impl JobServiceClient {
     /// - `request`: The [`CheckTaskRequest`] to send to the endpoint.
     ///
     /// # Returns
-    /// The [`CheckReply`] the endpoint returns.
+    /// The [`CheckResponse`] the endpoint returns.
     ///
     /// # Errors
     /// This function errors if either we failed to send the request or the endpoint itself failed to process it.
-    pub async fn check_task(&mut self, request: impl tonic::IntoRequest<CheckTaskRequest>) -> Result<Response<CheckReply>, Status> {
+    pub async fn check_task(
+        &mut self,
+        request: impl tonic::IntoRequest<Prost<CheckTaskRequest>>,
+    ) -> Result<Response<Prost<CheckResponse<ManyReason<String>>>>, Status> {
         // Assert the client is ready to get the party started
         if let Err(err) = self.client.ready().await {
             return Err(Status::new(Code::Unknown, format!("Service was not ready: {err}")));
@@ -543,11 +514,14 @@ pub trait JobService: 'static + Send + Sync {
     /// - `request`: The ([`tonic::Request`]-wrapped) [`CheckWorkflowRequest`] containing the relevant details.
     ///
     /// # Returns
-    /// A [`CheckReply`] for this request, wrapped in a [`tonic::Response`].
+    /// A [`CheckResponse`] for this request, wrapped in a [`tonic::Response`].
     ///
     /// # Errors
     /// This function may error (i.e., send back a `tonic::Status`) whenever it fails.
-    async fn check_workflow(&self, request: Request<CheckWorkflowRequest>) -> Result<Response<CheckReply>, Status>;
+    async fn check_workflow(
+        &self,
+        request: Request<Prost<CheckWorkflowRequest>>,
+    ) -> Result<Response<Prost<CheckResponse<ManyReason<String>>>>, Status>;
 
     /// Handle for when a [`CheckTaskRequest`] comes in.
     ///
@@ -555,11 +529,11 @@ pub trait JobService: 'static + Send + Sync {
     /// - `request`: The ([`tonic::Request`]-wrapped) [`CheckTaskRequest`] containing the relevant details.
     ///
     /// # Returns
-    /// A [`CheckReply`] for this request, wrapped in a [`tonic::Response`].
+    /// A [`CheckResponse`] for this request, wrapped in a [`tonic::Response`].
     ///
     /// # Errors
     /// This function may error (i.e., send back a `tonic::Status`) whenever it fails.
-    async fn check_task(&self, request: Request<CheckTaskRequest>) -> Result<Response<CheckReply>, Status>;
+    async fn check_task(&self, request: Request<Prost<CheckTaskRequest>>) -> Result<Response<Prost<CheckResponse<ManyReason<String>>>>, Status>;
 
     /// Handle for when a PreprocessRequest comes in.
     ///
@@ -620,12 +594,12 @@ impl<T> JobServiceServer<T> {
 impl<T, B> Service<http::Request<B>> for JobServiceServer<T>
 where
     T: JobService,
-    B: 'static + Send + Body,
+    B: 'static + Send + codegen::Body,
     B::Error: 'static + Send + Into<StdError>,
 {
     type Error = std::convert::Infallible;
     type Future = BoxFuture<Self::Response, Self::Error>;
-    type Response = http::Response<BoxBody>;
+    type Response = http::Response<Body>;
 
     #[inline]
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> { Poll::Ready(Ok(())) }
@@ -636,11 +610,11 @@ where
             "/job.JobService/CheckWorkflow" => {
                 /// Helper struct for the given [`JobService`] that focusses specifically on this request.
                 struct CheckWorkflowSvc<T>(Arc<T>);
-                impl<T: JobService> UnaryService<CheckWorkflowRequest> for CheckWorkflowSvc<T> {
+                impl<T: JobService> UnaryService<Prost<CheckWorkflowRequest>> for CheckWorkflowSvc<T> {
                     type Future = BoxFuture<Response<Self::Response>, Status>;
-                    type Response = CheckReply;
+                    type Response = Prost<CheckResponse<ManyReason<String>>>;
 
-                    fn call(&mut self, req: Request<CheckWorkflowRequest>) -> Self::Future {
+                    fn call(&mut self, req: Request<Prost<CheckWorkflowRequest>>) -> Self::Future {
                         // Return the service function as the future to run
                         let service = self.0.clone();
                         let fut = async move { (*service).check_workflow(req).await };
@@ -662,11 +636,11 @@ where
             "/job.JobService/CheckTask" => {
                 /// Helper struct for the given [`JobService`] that focusses specifically on this request.
                 struct CheckTaskSvc<T>(Arc<T>);
-                impl<T: JobService> UnaryService<CheckTaskRequest> for CheckTaskSvc<T> {
+                impl<T: JobService> UnaryService<Prost<CheckTaskRequest>> for CheckTaskSvc<T> {
                     type Future = BoxFuture<Response<Self::Response>, Status>;
-                    type Response = CheckReply;
+                    type Response = Prost<CheckResponse<ManyReason<String>>>;
 
-                    fn call(&mut self, req: Request<CheckTaskRequest>) -> Self::Future {
+                    fn call(&mut self, req: Request<Prost<CheckTaskRequest>>) -> Self::Future {
                         // Return the service function as the future to run
                         let service = self.0.clone();
                         let fut = async move { (*service).check_task(req).await };
@@ -771,7 +745,7 @@ where
                         .status(200)
                         .header("grpc-status", "12")
                         .header("content-type", "application/grpc")
-                        .body(empty_body())
+                        .body(Body::empty())
                         .unwrap())
                 })
             },

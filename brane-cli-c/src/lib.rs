@@ -4,7 +4,7 @@
 //  Created:
 //    14 Jun 2023, 17:38:09
 //  Last edited:
-//    04 Mar 2024, 13:33:55
+//    02 May 2025, 15:05:31
 //  Auto updated?
 //    Yes
 //
@@ -27,7 +27,6 @@ use std::rc::Rc;
 use std::sync::{Arc, Once};
 use std::time::Instant;
 
-use brane_ast::ast::Workflow;
 use brane_ast::state::CompileState;
 use brane_ast::traversals::print::ast;
 use brane_ast::{CompileResult, Error as AstError, ParserOptions, Warning as AstWarning};
@@ -40,6 +39,7 @@ use log::{debug, error, info, trace};
 use parking_lot::{Mutex, MutexGuard};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
+use specifications::wir::Workflow;
 use tokio::runtime::{Builder, Runtime};
 
 
@@ -1174,8 +1174,8 @@ pub unsafe extern "C" fn fvalue_serialize(fvalue: *const FullValue, data_dir: *c
 
     // Serialize the result only if there is anything to serialize
     let mut sfvalue: String = String::new();
-    if fvalue != &FullValue::Void {
-        writeln!(&mut sfvalue, "\nWorkflow returned value {}", style(format!("'{fvalue}'")).bold().cyan()).unwrap();
+    if !matches!(fvalue, FullValue::Void) {
+        writeln!(&mut sfvalue, "\nWorkflow returned value {}", style(format!("'{}'", fvalue)).bold().cyan()).unwrap();
 
         // Treat some values special
         match fvalue {
@@ -1342,7 +1342,7 @@ pub unsafe extern "C" fn vm_free(vm: *mut VirtualMachine) {
 /// - `vm`: The [`VirtualMachine`] that we execute with. This determines which backend to use.
 /// - `workflow`: The compiled workflow to execute.
 /// - `prints`: A newly allocated string which represents any stdout- or stderr prints done during workflow execution. Will be [`NULL`] if there is an error (see below).
-/// - `result`: A [`FullValue`] which represents the return value of the workflow. Will be [`NULL`] if there is an error (see below).
+/// - `result`: A [`FullValue`] which represents the return value of the workflow, and a [`ProgramCounter`] that denotes which instruction produced it (or [`None`] if the workflow was empty). Will be [`NULL`] if there is an error (see below).
 ///
 /// # Returns
 /// An [`Error`]-struct that contains the error occurred, or [`NULL`] otherwise.

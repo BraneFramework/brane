@@ -4,7 +4,7 @@
 //  Created:
 //    06 Feb 2024, 11:46:14
 //  Last edited:
-//    08 Feb 2024, 14:39:13
+//    02 May 2025, 15:09:05
 //  Auto updated?
 //    Yes
 //
@@ -15,20 +15,20 @@
 use std::error;
 use std::fmt::{Display, Formatter, Result as FResult};
 
-use brane_ast::Workflow;
-use brane_ast::ast::Edge;
-use brane_ast::func_id::FunctionId;
 use brane_cfg::infra::{InfraFile, InfraLocation};
-use brane_exe::pc::ProgramCounter;
 use brane_shr::formatters::BlockFormatter;
 use enum_debug::EnumDebug as _;
 use log::{debug, info};
+use policy_reasoner::spec::reasonerconn::ReasonerResponse;
+use policy_reasoner::spec::reasons::ManyReason;
 use reqwest::{Client, Request, Response, StatusCode};
-use serde_json::Value;
 use specifications::address::Address;
+use specifications::checking::deliberation::{CheckResponse, CheckTaskRequest, CheckTransferRequest, CheckWorkflowRequest, Prost};
 use specifications::data::{AvailabilityKind, DataName, PreprocessKind};
-use specifications::registering::{CheckTransferReply, CheckTransferRequest};
-use specifications::working::{self, JobServiceClient};
+use specifications::pc::ProgramCounter;
+use specifications::wir::func_id::FunctionId;
+use specifications::wir::{Edge, Workflow};
+use specifications::working::JobServiceClient;
 use tokio::task::JoinHandle;
 
 
@@ -151,11 +151,11 @@ impl error::Error for Error {
 ///
 /// # Errors
 /// This future may error if it failed to send the request.
-async fn request_workflow(checker: String, address: Address, id: String, sworkflow: String) -> RequestOutput {
+async fn request_workflow(checker: String, address: Address, id: String, workflow: Workflow) -> RequestOutput {
     info!("Spawning workflow-validation request to validate workflow '{id}' with checker '{checker}'");
 
     // Create the request
-    let req: working::CheckWorkflowRequest = working::CheckWorkflowRequest { use_case: "central".into(), workflow: sworkflow.clone() };
+    let req: CheckWorkflowRequest = CheckWorkflowRequest { usecase: "central".into(), workflow: workflow.clone() };
 
     // Connect to the worker
     debug!("[workflow '{id}' -> '{checker}'] Connecting to worker '{address}'...");
@@ -166,14 +166,17 @@ async fn request_workflow(checker: String, address: Address, id: String, sworkfl
 
     // Send the request
     debug!("[workflow '{id}' -> '{checker}'] Sending CheckRequest to worker '{address}'...");
-    let res: working::CheckReply = match client.check_workflow(req).await {
-        Ok(res) => res.into_inner(),
+    let res: CheckResponse<ManyReason<String>> = match client.check_workflow(Prost::<CheckWorkflowRequest>::new(req)).await {
+        Ok(res) => res.into_inner().into_inner(),
         Err(err) => return Err(Error::WorkerCheck { domain: checker, addr: address, err }),
     };
 
     // Evaluate the worker's response
-    debug!("[workflow '{id}' -> '{checker}'] Worker '{address}' replied with {}", if res.verdict { "ALLOW" } else { "DENY" });
-    if res.verdict { Ok(None) } else { Ok(Some((checker, res.reasons))) }
+    debug!(
+        "[workflow '{id}' -> '{checker}'] Worker '{address}' replied with {}",
+        if matches!(res.verdict, ReasonerResponse::Success) { "ALLOW" } else { "DENY" }
+    );
+    if let ReasonerResponse::Violated(reasons) = res.verdict { Ok(Some((checker, reasons.into_iter().collect()))) } else { Ok(None) }
 }
 
 /// The future that sends a request to assert a dataset transfer's permission.
@@ -191,16 +194,12 @@ async fn request_workflow(checker: String, address: Address, id: String, sworkfl
 ///
 /// # Errors
 /// This future may error if it failed to send the request.
-async fn request_transfer(checker: String, address: Address, id: String, vworkflow: Value, task: ProgramCounter, data: DataName) -> RequestOutput {
+async fn request_transfer(checker: String, address: Address, id: String, workflow: Workflow, task: ProgramCounter, data: DataName) -> RequestOutput {
     info!("Spawning task-execute request to validate task '{task}' in workflow '{id}' with checker '{checker}'");
 
     // Create the request
     let url: String = format!("{address}/{}/check/{}", if data.is_data() { "data" } else { "results" }, data.name());
-    let req: CheckTransferRequest = CheckTransferRequest {
-        use_case: "central".into(),
-        workflow: vworkflow,
-        task:     Some((if task.is_main() { None } else { Some(task.func_id.id() as u64) }, task.edge_idx as u64)),
-    };
+    let req: CheckTransferRequest = CheckTransferRequest { usecase: "central".into(), workflow, task: Some(task), input: data.name().into() };
 
     // Create the request
     debug!("[task '{id}' -> '{checker}'] Connecting to worker '{address}'...");
@@ -225,14 +224,17 @@ async fn request_transfer(checker: String, address: Address, id: String, vworkfl
         Ok(res) => res,
         Err(err) => return Err(Error::RegistryResponseDownload { domain: checker, addr: address, err }),
     };
-    let res: CheckTransferReply = match serde_json::from_str(&res) {
+    let res: CheckResponse<ManyReason<String>> = match serde_json::from_str(&res) {
         Ok(res) => res,
         Err(err) => return Err(Error::RegistryResponseParse { domain: checker, addr: address, raw: res, err }),
     };
 
     // Evaluate the worker's response
-    debug!("[task '{id}' -> '{checker}'] Worker '{address}' replied with {}", if res.verdict { "ALLOW" } else { "DENY" });
-    if res.verdict { Ok(None) } else { Ok(Some((checker, res.reasons))) }
+    debug!(
+        "[task '{id}' -> '{checker}'] Worker '{address}' replied with {}",
+        if matches!(res.verdict, ReasonerResponse::Success) { "ALLOW" } else { "DENY" }
+    );
+    if let ReasonerResponse::Violated(reasons) = res.verdict { Ok(Some((checker, reasons.into_iter().collect()))) } else { Ok(None) }
 }
 
 /// The future that sends a request to assert a task execution's permission.
@@ -249,12 +251,11 @@ async fn request_transfer(checker: String, address: Address, id: String, vworkfl
 ///
 /// # Errors
 /// This future may error if it failed to send the request.
-async fn request_execute(checker: String, address: Address, id: String, sworkflow: String, task: ProgramCounter) -> RequestOutput {
+async fn request_execute(checker: String, address: Address, id: String, workflow: Workflow, task: ProgramCounter) -> RequestOutput {
     info!("Spawning task-execute request to validate task '{task}' in workflow '{id}' with checker '{checker}'");
 
     // Create the request
-    let req: working::CheckTaskRequest =
-        working::CheckTaskRequest { use_case: "central".into(), workflow: sworkflow.clone(), task_id: serde_json::to_string(&task).unwrap() };
+    let req: CheckTaskRequest = CheckTaskRequest { usecase: "central".into(), workflow, task };
 
     // Connect to the worker
     debug!("[task '{id}' -> '{checker}'] Connecting to worker '{address}'...");
@@ -265,14 +266,17 @@ async fn request_execute(checker: String, address: Address, id: String, sworkflo
 
     // Send the request
     debug!("[task '{id}' -> '{checker}'] Sending CheckTaskRequest to worker '{address}'...");
-    let res: working::CheckReply = match client.check_task(req).await {
-        Ok(res) => res.into_inner(),
+    let res: CheckResponse<ManyReason<String>> = match client.check_task(Prost::<CheckTaskRequest>::new(req)).await {
+        Ok(res) => res.into_inner().into_inner(),
         Err(err) => return Err(Error::WorkerCheck { domain: checker, addr: address, err }),
     };
 
     // Evaluate the worker's response
-    debug!("[task '{id}' -> '{checker}'] Worker '{address}' replied with {}", if res.verdict { "ALLOW" } else { "DENY" });
-    if res.verdict { Ok(None) } else { Ok(Some((checker, res.reasons))) }
+    debug!(
+        "[task '{id}' -> '{checker}'] Worker '{address}' replied with {}",
+        if matches!(res.verdict, ReasonerResponse::Success) { "ALLOW" } else { "DENY" }
+    );
+    if let ReasonerResponse::Violated(reasons) = res.verdict { Ok(Some((checker, reasons.into_iter().collect()))) } else { Ok(None) }
 }
 
 
@@ -285,8 +289,6 @@ async fn request_execute(checker: String, address: Address, id: String, sworkflo
 /// # Arguments
 /// - `infra`: An [`InfraFile`] that determines all workers known to us.
 /// - `workflow`: The [`Workflow`] to generate requests for.
-/// - `vworkflow`: An already serialized, yet still abstract-as-JSON counterpart to `workflow`.
-/// - `sworkflow`: An already (fully) serialized counterpart to `workflow`.
 /// - `pc`: A [`ProgramCounter`] that denotes which edge we're investigating.
 /// - `breakpoint`: An optional [`ProgramCounter`] that, when given, will force termination once `pc` is the same.
 /// - `handles`: The list of [`JoinHandle`]s on which to push new ones for every request we find.
@@ -296,8 +298,6 @@ async fn request_execute(checker: String, address: Address, id: String, sworkflo
 fn traverse_and_request(
     infra: &InfraFile,
     workflow: &Workflow,
-    vworkflow: &Value,
-    sworkflow: &String,
     mut pc: ProgramCounter,
     breakpoint: Option<ProgramCounter>,
     handles: &mut Vec<(String, JoinHandle<RequestOutput>)>,
@@ -372,7 +372,7 @@ fn traverse_and_request(
                                         location.clone(),
                                         info.registry.clone(),
                                         workflow.id.clone(),
-                                        vworkflow.clone(),
+                                        workflow.clone(),
                                         pc,
                                         dataname.clone(),
                                     )),
@@ -393,7 +393,7 @@ fn traverse_and_request(
                     None => return Err(Error::UnknownExecutor { id: workflow.id.clone(), node: pc, domain: at.clone() }),
                 };
                 handles
-                    .push((at.clone(), tokio::spawn(request_execute(at.clone(), info.delegate.clone(), workflow.id.clone(), sworkflow.clone(), pc))));
+                    .push((at.clone(), tokio::spawn(request_execute(at.clone(), info.delegate.clone(), workflow.id.clone(), workflow.clone(), pc))));
 
                 // Alright done continue
                 pc = pc.jump(*next);
@@ -407,10 +407,10 @@ fn traverse_and_request(
 
             Branch { true_next, false_next, merge } => {
                 // Recurse into the true next
-                traverse_and_request(infra, workflow, vworkflow, sworkflow, pc.jump(*true_next), merge.map(|m| pc.jump(m)), handles)?;
+                traverse_and_request(infra, workflow, pc.jump(*true_next), merge.map(|m| pc.jump(m)), handles)?;
                 // Recurse into the false next, if any
                 if let Some(false_next) = false_next {
-                    traverse_and_request(infra, workflow, vworkflow, sworkflow, pc.jump(*false_next), merge.map(|m| pc.jump(m)), handles)?;
+                    traverse_and_request(infra, workflow, pc.jump(*false_next), merge.map(|m| pc.jump(m)), handles)?;
                 }
 
                 // Continue with the merge, if any
@@ -424,7 +424,7 @@ fn traverse_and_request(
             Parallel { branches, merge } => {
                 // Recurse into each branch
                 for b in branches {
-                    traverse_and_request(infra, workflow, vworkflow, sworkflow, pc.jump(*b), Some(pc.jump(*merge)), handles)?;
+                    traverse_and_request(infra, workflow, pc.jump(*b), Some(pc.jump(*merge)), handles)?;
                 }
                 pc = pc.jump(*merge);
                 continue;
@@ -436,9 +436,9 @@ fn traverse_and_request(
 
             Loop { cond, body, next } => {
                 // Recurse into the condition
-                traverse_and_request(infra, workflow, vworkflow, sworkflow, pc.jump(*cond), Some(pc.jump(*body - 1)), handles)?;
+                traverse_and_request(infra, workflow, pc.jump(*cond), Some(pc.jump(*body - 1)), handles)?;
                 // Recurse into the body
-                traverse_and_request(infra, workflow, vworkflow, sworkflow, pc.jump(*body), Some(pc.jump(*cond)), handles)?;
+                traverse_and_request(infra, workflow, pc.jump(*body), Some(pc.jump(*cond)), handles)?;
                 // Continue with next
                 if let Some(next) = next {
                     pc = pc.jump(*next);
@@ -479,26 +479,16 @@ fn traverse_and_request(
 ///
 /// Request failure must be checked at join time.
 pub fn spawn_requests(infra: &InfraFile, workflow: &Workflow) -> Result<Vec<(String, JoinHandle<RequestOutput>)>, Error> {
-    // Serialize the workflow once
-    let vworkflow: Value = match serde_json::to_value(workflow) {
-        Ok(swf) => swf,
-        Err(err) => return Err(Error::WorkflowSerialize { id: workflow.id.clone(), err }),
-    };
-    let sworkflow: String = match serde_json::to_string(&vworkflow) {
-        Ok(swf) => swf,
-        Err(err) => return Err(Error::WorkflowSerialize { id: workflow.id.clone(), err }),
-    };
-
     // Spawn the workflow-global requests for every checker
     let mut handles: Vec<(String, JoinHandle<RequestOutput>)> = Vec::with_capacity(4 * infra.len());
     for (name, info) in infra {
-        handles.push((name.clone(), tokio::spawn(request_workflow(name.clone(), info.delegate.clone(), workflow.id.clone(), sworkflow.clone()))));
+        handles.push((name.clone(), tokio::spawn(request_workflow(name.clone(), info.delegate.clone(), workflow.id.clone(), workflow.clone()))));
     }
 
     // Delegate to a recursive function that traverses the workflow that does the other two types
-    traverse_and_request(infra, workflow, &vworkflow, &sworkflow, ProgramCounter::start(), None, &mut handles)?;
+    traverse_and_request(infra, workflow, ProgramCounter::start(), None, &mut handles)?;
     for id in workflow.funcs.keys() {
-        traverse_and_request(infra, workflow, &vworkflow, &sworkflow, ProgramCounter::start_of(*id), None, &mut handles)?;
+        traverse_and_request(infra, workflow, ProgramCounter::start_of(*id), None, &mut handles)?;
     }
 
     // Done

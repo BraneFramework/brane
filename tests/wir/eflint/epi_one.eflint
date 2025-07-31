@@ -1,0 +1,18 @@
++workflow("workflow-t5mblXM9").
++node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:1-task").
++node-input(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:1-task"), asset("epi[1.0.0]")).
++function(node-input(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:1-task"), asset("epi[1.0.0]")), "local_compute").
++node-input(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:1-task"), asset("umc_utrecht_ect")).
++node-output(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:1-task"), asset("result_local_compute_6f5828")).
++node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:3-task").
++node-input(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:3-task"), asset("epi[1.0.0]")).
++function(node-input(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:3-task"), asset("epi[1.0.0]")), "aggregate").
++node-input(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:3-task"), asset("result_local_compute_6f5828")).
++node-output(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:3-task"), asset("result_aggregate_596814")).
++node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:5-commit").
++commit(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:5-commit")).
++node-input(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:5-commit"), asset("__brane_internals")).
++function(node-input(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:5-commit"), asset("__brane_internals")), "commit").
++node-input(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:5-commit"), asset("result_aggregate_596814")).
++node-output(node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:5-commit"), asset("surf_res")).
++node(workflow("workflow-t5mblXM9"), "workflow-t5mblXM9-<main>:6-return").

@@ -1,36 +1,40 @@
 [package]
 name = "brane-reg"
 edition = "2021"
-authors = [ "Tim Müller" ]
-rust-version = "1.81"
+authors = ["Tim Müller"]
+rust-version = "1.82"
 version.workspace = true
 repository.workspace = true
 license.workspace = true
 
 [dependencies]
-clap = { version = "4.5.6", features = ["derive","env"] }
-deliberation = { git = "https://github.com/braneframework/policy-reasoner" }
+clap = { version = "4.5.0", features = ["derive", "env"] }
 dotenvy = "0.15.0"
 enum-debug.workspace = true
 env_logger = "0.11.0"
 error-trace.workspace = true
 log = "0.4.22"
 rustls = "0.21.6"
-serde = { version = "1.0.204", features = ["rc"] }
-serde_json = "1.0.120"
-serde_yaml = { version = "0.0.10", package = "serde_yml" }
+serde = { version = "1.0.195", features = ["rc"] }
+serde_json = "1.0.50"
+serde_yaml = { version = "0.10.0", package = "serde_yaml_ng" }
 tempfile = "3.10.1"
 thiserror = "2.0.0"
-tokio = { version = "1.38.0", features = ["rt","rt-multi-thread","macros","io-util", "signal"] }
+tokio = { version = "1.44.2", features = [
+    "rt",
+    "rt-multi-thread",
+    "macros",
+    "io-util",
+    "signal",
+] }
 tokio-rustls = "0.24.0"
 warp = "0.3.2"
 
 # Workspace dependencies
 reqwest = { workspace = true }
 
-brane-ast = { path = "../brane-ast" }
+policy-reasoner = { git = "https://github.com/BraneFramework/policy-reasoner.git" }
 brane-cfg = { path = "../brane-cfg" }
-brane-exe = { path = "../brane-exe" }
 brane-shr = { path = "../brane-shr" }
 brane-tsk = { path = "../brane-tsk" }
 specifications = { path = "../specifications" }

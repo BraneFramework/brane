@@ -4,7 +4,7 @@
 //  Created:
 //    18 Aug 2022, 15:24:54
 //  Last edited:
-//    12 Dec 2023, 17:13:11
+//    14 Nov 2024, 17:17:16
 //  Auto updated?
 //    Yes
 //
@@ -19,7 +19,6 @@ use std::rc::Rc;
 
 use brane_dsl::ast::{Block, Expr, Identifier, Node, Program, Stmt};
 use brane_dsl::data_type::{ClassSignature, FunctionSignature};
-use brane_dsl::spec::MergeStrategy;
 use brane_dsl::symbol_table::{ClassEntry, FunctionEntry, SymbolTableEntry, VarEntry};
 use brane_dsl::{DataType, SymbolTable, TextRange};
 use enum_debug::EnumDebug as _;
@@ -27,10 +26,11 @@ use log::trace;
 use specifications::data::DataIndex;
 use specifications::package::{PackageIndex, PackageInfo};
 use specifications::version::Version;
+use specifications::wir::builtins::{BuiltinClasses, BuiltinFunctions};
+use specifications::wir::merge_strategy::MergeStrategy;
 
 use crate::errors::AstError;
 pub use crate::errors::ResolveError as Error;
-use crate::spec::{BuiltinClasses, BuiltinFunctions};
 use crate::state::CompileState;
 
 
@@ -426,7 +426,7 @@ fn pass_stmt(
         Parallel { result, blocks, merge, st_entry, attrs: _, range } => {
             // First, very silly, but double-check the merge is parseable
             if let Some(merge) = merge {
-                if let MergeStrategy::None = MergeStrategy::from(&merge.value) {
+                if let MergeStrategy::None = MergeStrategy::from(merge.value.as_ref()) {
                     errors.push(Error::UnknownMergeStrategy { raw: merge.value.clone(), range: merge.range.clone() });
                 }
             }

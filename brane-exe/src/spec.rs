@@ -4,7 +4,7 @@
 //  Created:
 //    26 Aug 2022, 18:26:40
 //  Last edited:
-//    31 Jan 2024, 11:36:19
+//    14 Nov 2024, 17:22:02
 //  Auto updated?
 //    Yes
 //
@@ -18,15 +18,15 @@ use std::error::Error;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use brane_ast::ast::SymTable;
-use brane_ast::locations::Location;
 use specifications::data::{AccessKind, DataName, PreprocessKind};
 use specifications::package::Capability;
+use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileScopeHandle;
 use specifications::version::Version;
+use specifications::wir::SymTable;
+use specifications::wir::locations::Location;
 
 use crate::frame_stack::FrameStack;
-use crate::pc::ProgramCounter;
 use crate::value::FullValue;
 
 

@@ -4,7 +4,7 @@
 //  Created:
 //    04 Oct 2022, 11:04:33
 //  Last edited:
-//    31 Jan 2024, 15:53:29
+//    14 Nov 2024, 14:49:46
 //  Auto updated?
 //    Yes
 //
@@ -70,11 +70,11 @@ impl InfraFile {
 
     /// Returns an iterator-by-reference over the internal map.
     #[inline]
-    pub fn iter(&self) -> std::collections::hash_map::Iter<String, InfraLocation> { self.into_iter() }
+    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, String, InfraLocation> { self.into_iter() }
 
     /// Returns a muteable iterator-by-reference over the internal map.
     #[inline]
-    pub fn iter_mut(&mut self) -> std::collections::hash_map::IterMut<String, InfraLocation> { self.into_iter() }
+    pub fn iter_mut(&mut self) -> std::collections::hash_map::IterMut<'_, String, InfraLocation> { self.into_iter() }
 
     /// Returns the number of locations in this file.
     #[inline]

@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 18:12:44
 //  Last edited:
-//    13 Dec 2023, 08:22:16
+//    29 Apr 2025, 13:39:18
 //  Auto updated?
 //    Yes
 //
@@ -19,8 +19,8 @@ use brane_dsl::{Error as ParseError, ParserOptions};
 use log::trace;
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
+use specifications::wir::Workflow;
 
-use crate::ast::Workflow;
 use crate::ast_unresolved::UnresolvedWorkflow;
 pub use crate::errors::AstError as Error;
 use crate::state::CompileState;

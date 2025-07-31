@@ -1,8 +1,8 @@
 [package]
 name = "brane-ast"
-rust-version = "1.81.0"
+rust-version = "1.82.0"
 edition = "2021"
-authors = [ "Tim Müller" ]
+authors = ["Tim Müller"]
 version.workspace = true
 repository.workspace = true
 license.workspace = true
@@ -10,11 +10,11 @@ license.workspace = true
 [dependencies]
 console = "0.15.5"
 enum-debug.workspace = true
-lazy_static = "1.4.0"
+lazy_static = "1.5.0"
 log = "0.4.22"
 rand = "0.9.0"
 num-traits = "0.2.18"
-serde = { version = "1.0.204", features = ["rc"] }
+serde = { version = "1.0.195", features = ["rc"] }
 serde_json_any_key = "2.0.0"
 strum = { version = "0.27.0", features = ["derive"] }
 thiserror = "2.0.0"

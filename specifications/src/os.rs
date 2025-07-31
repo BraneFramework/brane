@@ -126,7 +126,7 @@ impl Os {
     /// # Returns
     /// An `OsCfsslFormatter` that implements [`Display`] in a cfssl-compatible way.
     #[inline]
-    pub fn cfssl(&self) -> OsCfsslFormatter { OsCfsslFormatter { os: self } }
+    pub fn cfssl(&self) -> OsCfsslFormatter<'_> { OsCfsslFormatter { os: self } }
 }
 
 impl Display for Os {

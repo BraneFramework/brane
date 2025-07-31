@@ -1,0 +1,56 @@
+# DOCKERFILE.let for BRANE
+#   by Tim Müller
+#
+# Contains the Dockerfile for building a `branelet` binary in a container.
+#
+# This is necessary when running a non-released Brane (i.e., no precompiled binaries) and on a
+# system that has a newer GLIBC than would run in the container.
+#
+# The easiest way to use it is through `make brane-let-docker`
+#
+
+
+# NOTE: Ensure this is the same as used by `brane-cli`!
+FROM ubuntu:20.04
+LABEL org.opencontainers.image.source=https://github.com/BraneFramework/brane
+
+# Define some build args
+ARG USERID=1000
+ARG GROUPID=1000
+
+# Setup a user mirroring the main one
+RUN if [ -z "$(getent group "$GROUPID")" ]; then groupadd -g "$GROUPID" brane; fi
+RUN useradd -u "$USERID" -g "$GROUPID" -m brane
+
+# Install build dependencies
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y \
+    gcc g++ \
+    make cmake \
+    perl curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install rust
+USER brane
+RUN bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y" \
+ && echo ". /home/brane/.cargo/env" >> /home/brane/.profile
+
+# Copy over relevant crates & other files
+USER root
+COPY . /build
+RUN mkdir -p /build/target \
+ && chown -R brane:$(getent group "$GROUPID" | cut -d: -f1) /build
+
+# Build the binary
+WORKDIR /build
+USER brane
+RUN --mount=type=cache,id=cargoidx,uid=$USERID,target=/home/brane/.cargo/registry \
+    --mount=type=cache,id=braneletcache,uid=$USERID,target=/build/target \
+    . /home/brane/.profile \
+ && cargo build \
+    --release \
+    --package brane-let \
+ && cp ./target/release/branelet /home/brane/branelet
+
+# Done
+ENTRYPOINT ["cp", "/home/brane/branelet", "/output/branelet"]
+

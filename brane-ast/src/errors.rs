@@ -4,7 +4,7 @@
 //  Created:
 //    10 Aug 2022, 13:52:37
 //  Last edited:
-//    31 Jan 2024, 11:35:11
+//    14 Nov 2024, 17:15:21
 //  Auto updated?
 //    Yes
 //
@@ -17,12 +17,11 @@ use std::fmt::Display;
 use std::io::Write;
 
 use brane_dsl::ast::Expr;
-use brane_dsl::spec::MergeStrategy;
 use brane_dsl::{DataType, TextRange};
 use console::{Style, style};
 use specifications::version::Version;
-
-use crate::spec::BuiltinClasses;
+use specifications::wir::builtins::BuiltinClasses;
+use specifications::wir::merge_strategy::MergeStrategy;
 
 
 /***** HELPER MACROS *****/
@@ -738,7 +737,7 @@ impl TypeError {
             ParallelNoReturn { range, .. } => prettywrite_err(writer, file, source, self, range),
             ParallelUnexpectedReturn { range, .. } => prettywrite_err(writer, file, source, self, range),
             ParallelIncompleteReturn { range, .. } => prettywrite_err(writer, file, source, self, range),
-            ParallelIllegalType { range, reason, .. } => prettywrite_err_reasons(writer, file, source, self, range, &[reason.clone()]),
+            ParallelIllegalType { range, reason, .. } => prettywrite_err_reasons(writer, file, source, self, range, std::slice::from_ref(reason)),
             ParallelNoStrategy { range, .. } => prettywrite_err(writer, file, source, self, range),
 
             NonFunctionCall { range, defined_range, .. } => prettywrite_err_defined(writer, file, source, self, range, defined_range),

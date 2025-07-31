@@ -4,7 +4,7 @@
 //  Created:
 //    12 Sep 2022, 17:41:33
 //  Last edited:
-//    12 Dec 2023, 17:20:22
+//    02 May 2025, 15:10:31
 //  Auto updated?
 //    Yes
 //
@@ -16,8 +16,8 @@
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
-use brane_ast::{SymTable, Workflow};
 use specifications::profiling::ProfileScopeHandle;
+use specifications::wir::{SymTable, Workflow};
 
 use crate::errors::VmError;
 use crate::spec::{CustomGlobalState, CustomLocalState, RunState, VmPlugin};
@@ -90,7 +90,7 @@ pub trait Vm {
     /// - `prof`: The ProfileScope that can be used to provide additional information about the timings of the VM (framework-wise, not user-wise).
     ///
     /// # Returns
-    /// The result if the Workflow returned any.
+    /// The result if the Workflow returned any, together with the edge that produced it. Only if the workflow is empty will this be [`None`].
     async fn run<P: VmPlugin<GlobalState = Self::GlobalState, LocalState = Self::LocalState>>(
         this: Arc<RwLock<Self>>,
         snippet: Workflow,

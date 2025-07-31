@@ -1,8 +1,8 @@
 [package]
 name = "brane-exe"
-rust-version = "1.81"
+rust-version = "1.82"
 edition = "2021"
-authors = [ "Tim Müller" ]
+authors = ["Tim Müller"]
 version.workspace = true
 repository.workspace = true
 license.workspace = true
@@ -13,14 +13,13 @@ async-trait = "0.1.67"
 base64 = "0.22.0"
 console = "0.15.5"
 enum-debug.workspace = true
-futures = "0.3.24"
-lazy_static = "1.4.0"
+futures = "0.3.22"
+lazy_static = "1.5.0"
 log = "0.4.22"
-num-traits = "0.2.18"
-serde = "1.0.204"
-serde_json = "1.0.120"
+serde = "1.0.195"
+serde_json = "1.0.50"
 thiserror = "2.0.0"
-tokio = { version = "1.38.0", features = [] }
+tokio = { version = "1.44.2", features = [] }
 
 brane-ast = { path = "../brane-ast" }
 brane-shr = { path = "../brane-shr" }
@@ -32,7 +31,7 @@ brane-shr = { path = "../brane-shr" }
 
 [features]
 print_exec_path = []
-test_logging    = []
+test_logging = []
 
 [lints]
 workspace = true

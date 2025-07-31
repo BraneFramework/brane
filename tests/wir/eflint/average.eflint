@@ -1,0 +1,9 @@
++workflow("workflow-VNprWbCF").
++node(workflow("workflow-VNprWbCF"), "workflow-VNprWbCF-<main>:1-task").
++node-input(node(workflow("workflow-VNprWbCF"), "workflow-VNprWbCF-<main>:1-task"), asset("average[1.0.0]")).
++function(node-input(node(workflow("workflow-VNprWbCF"), "workflow-VNprWbCF-<main>:1-task"), asset("average[1.0.0]")), "average").
++node-input(node(workflow("workflow-VNprWbCF"), "workflow-VNprWbCF-<main>:1-task"), asset("numbers")).
++node(workflow("workflow-VNprWbCF"), "workflow-VNprWbCF-<main>:5-task").
++node-input(node(workflow("workflow-VNprWbCF"), "workflow-VNprWbCF-<main>:5-task"), asset("average[1.0.0]")).
++function(node-input(node(workflow("workflow-VNprWbCF"), "workflow-VNprWbCF-<main>:5-task"), asset("average[1.0.0]")), "average").
++node-input(node(workflow("workflow-VNprWbCF"), "workflow-VNprWbCF-<main>:5-task"), asset("numbers")).

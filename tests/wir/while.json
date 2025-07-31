@@ -1,0 +1,185 @@
+{
+  "id": "workflow-Wx0xKTBQ",
+  "table": {
+    "funcs": [
+      {
+        "n": "print",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "println",
+        "a": [
+          {
+            "kind": "str"
+          }
+        ],
+        "r": {
+          "kind": "void"
+        }
+      },
+      {
+        "n": "len",
+        "a": [
+          {
+            "kind": "arr",
+            "t": {
+              "kind": "any"
+            }
+          }
+        ],
+        "r": {
+          "kind": "int"
+        }
+      },
+      {
+        "n": "commit_result",
+        "a": [
+          {
+            "kind": "str"
+          },
+          {
+            "kind": "res"
+          }
+        ],
+        "r": {
+          "kind": "data"
+        }
+      }
+    ],
+    "tasks": [],
+    "classes": [
+      {
+        "n": "Data",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "name",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      },
+      {
+        "n": "IntermediateResult",
+        "i": null,
+        "v": null,
+        "p": [
+          {
+            "n": "path",
+            "t": {
+              "kind": "str"
+            }
+          }
+        ],
+        "m": []
+      }
+    ],
+    "vars": [
+      {
+        "n": "condition",
+        "t": {
+          "kind": "bool"
+        }
+      }
+    ],
+    "results": {}
+  },
+  "metadata": [],
+  "user": null,
+  "graph": [
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrd",
+          "d": 0
+        },
+        {
+          "kind": "bol",
+          "v": true
+        },
+        {
+          "kind": "vrs",
+          "d": 0
+        }
+      ],
+      "n": 1
+    },
+    {
+      "kind": "loop",
+      "c": 2,
+      "b": 4,
+      "n": 6
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrg",
+          "d": 0
+        }
+      ],
+      "n": 3
+    },
+    {
+      "kind": "brc",
+      "t": 4,
+      "f": 6,
+      "m": 6
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "bol",
+          "v": false
+        }
+      ],
+      "n": 5
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "vrs",
+          "d": 0
+        }
+      ],
+      "n": 2
+    },
+    {
+      "kind": "lin",
+      "i": [
+        {
+          "kind": "str",
+          "v": "That was one iteration :)"
+        },
+        {
+          "kind": "fnc",
+          "d": 1
+        }
+      ],
+      "n": 7
+    },
+    {
+      "kind": "cll",
+      "i": [],
+      "r": [],
+      "n": 8
+    },
+    {
+      "kind": "stp"
+    }
+  ],
+  "funcs": {}
+}

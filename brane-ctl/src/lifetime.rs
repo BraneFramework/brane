@@ -4,7 +4,7 @@
 //  Created:
 //    22 Nov 2022, 11:19:22
 //  Last edited:
-//    07 Mar 2024, 09:55:58
+//    02 May 2025, 11:03:39
 //  Auto updated?
 //    Yes
 //
@@ -22,6 +22,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::str::FromStr as _;
+use std::time::Duration;
 
 use bollard::Docker;
 use brane_cfg::info::Info as _;
@@ -35,7 +36,7 @@ use console::style;
 use log::{debug, info};
 use rand::Rng;
 use rand::distr::Alphanumeric;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use specifications::container::Image;
 use specifications::version::Version;
 
@@ -45,10 +46,8 @@ use crate::spec::{LogsOpts, StartOpts, StartSubcommand};
 
 /***** HELPER STRUCTS *****/
 /// Defines a struct that writes to a valid compose file for overriding hostnames.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct ComposeOverrideFile {
-    /// The version number to use
-    version:  &'static str,
     /// The services themselves
     services: HashMap<&'static str, ComposeOverrideFileService>,
 }
@@ -56,7 +55,7 @@ struct ComposeOverrideFile {
 
 
 /// Defines a struct that defines how a service looks like in a valid compose file for overriding hostnames.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct ComposeOverrideFileService {
     /// Defines any additional mounts
     volumes: Vec<String>,
@@ -296,8 +295,8 @@ fn prepare_host(node_config: &NodeConfig) -> Result<(), Error> {
                         packages: _,
                         backend: _,
                         policy_database: _,
-                        policy_deliberation_secret: _,
-                        policy_expert_secret: _,
+                        policy_delib_secret: _,
+                        policy_store_secret: _,
                         policy_audit_log,
                         proxy: _,
                         data: _,
@@ -377,7 +376,6 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
 
             // Generate the override file for this node
             ComposeOverrideFile {
-                version:  "3.6",
                 services: HashMap::from([("brane-api", svc.clone()), ("brane-drv", svc.clone()), ("brane-plr", svc), ("brane-prx", prx_svc)]),
             }
         },
@@ -409,7 +407,6 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
 
             // Generate the override file for this node
             ComposeOverrideFile {
-                version:  "3.6",
                 services: HashMap::from([("brane-reg", svc.clone()), ("brane-job", svc), ("brane-chk", chk_svc), ("brane-prx", prx_svc)]),
             }
         },
@@ -435,7 +432,7 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
             prx_svc.ports.push(format!("0.0.0.0:{start}-{end}:{start}-{end}"));
 
             // Generate the override file for this node
-            ComposeOverrideFile { version: "3.6", services: HashMap::from([("brane-prx", prx_svc)]) }
+            ComposeOverrideFile { services: HashMap::from([("brane-prx", prx_svc)]) }
         },
     };
 
@@ -562,8 +559,8 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
                 packages,
                 backend,
                 policy_database,
-                policy_deliberation_secret,
-                policy_expert_secret,
+                policy_delib_secret,
+                policy_store_secret,
                 // Note: handled by `generate_override_file()`
                 policy_audit_log: _,
                 proxy,
@@ -574,6 +571,11 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
             } = &node.paths;
             let WorkerServices { reg, job, chk, prx } = &node.services;
 
+            // Generate the token for this run
+            let delib_token: String =
+                specifications::policy::generate_policy_token("branectl", &node.name, Duration::from_secs(365 * 24 * 3600), policy_delib_secret)
+                    .map_err(|source| Error::TokenGenerate { key: policy_delib_secret.clone(), source })?;
+
             // Add the environment variables, which are basically just central-specific paths to mount in the compose file
             res.extend([
                 // Also add the location ID
@@ -583,11 +585,13 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
                 ("CHK_NAME", OsString::from(&chk.name.as_str())),
                 ("JOB_NAME", OsString::from(&job.name.as_str())),
                 ("CHK_NAME", OsString::from(&chk.name.as_str())),
+                // Tokens
+                ("CHECKER_DELIB_TOKEN", OsString::from(&delib_token.as_str())),
                 // Paths
                 ("BACKEND", canonicalize_join(node_config_dir, backend)?.as_os_str().into()),
                 ("POLICY_DB", canonicalize_join(node_config_dir, policy_database)?.as_os_str().into()),
-                ("POLICY_DELIBERATION_SECRET", canonicalize_join(node_config_dir, policy_deliberation_secret)?.as_os_str().into()),
-                ("POLICY_EXPERT_SECRET", canonicalize_join(node_config_dir, policy_expert_secret)?.as_os_str().into()),
+                ("POLICY_DELIB_KEYS", canonicalize_join(node_config_dir, policy_delib_secret)?.as_os_str().into()),
+                ("POLICY_STORE_KEYS", canonicalize_join(node_config_dir, policy_store_secret)?.as_os_str().into()),
                 ("CERTS", canonicalize_join(node_config_dir, certs)?.as_os_str().into()),
                 ("PACKAGES", canonicalize_join(node_config_dir, packages)?.as_os_str().into()),
                 ("DATA", canonicalize_join(node_config_dir, data)?.as_os_str().into()),
@@ -595,7 +599,8 @@ fn construct_envs(version: &Version, node_config_path: &Path, node_config: &Node
                 ("TEMP_DATA", canonicalize_join(node_config_dir, temp_data)?.as_os_str().into()),
                 ("TEMP_RESULTS", canonicalize_join(node_config_dir, temp_results)?.as_os_str().into()),
                 // Ports
-                ("CHK_PORT", OsString::from(format!("{}", chk.bind.port()))),
+                ("CHK_DELIB_PORT", OsString::from(chk.delib.to_string())),
+                ("CHK_STORE_PORT", OsString::from(chk.store.to_string())),
                 ("REG_PORT", OsString::from(format!("{}", reg.bind.port()))),
                 ("JOB_PORT", OsString::from(format!("{}", job.bind.port()))),
             ]);

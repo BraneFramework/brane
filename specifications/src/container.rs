@@ -93,7 +93,7 @@ pub enum VolumeBindOption {
 impl VolumeBindOption {
     /// Returns a formatter that writes a Docker-compatible version of this `VolumeBindOption`.
     #[inline]
-    pub fn docker(&self) -> VolumeBindOptionDockerDisplay { VolumeBindOptionDockerDisplay { option: self } }
+    pub fn docker(&self) -> VolumeBindOptionDockerDisplay<'_> { VolumeBindOptionDockerDisplay { option: self } }
 }
 
 
@@ -196,7 +196,7 @@ impl VolumeBind {
 
     /// Returns a formatter that writes a Docker-compatible version of this [`VolumeBindOption`].
     #[inline]
-    pub fn docker(&self) -> VolumeBindDockerDisplay { VolumeBindDockerDisplay { bind: self } }
+    pub fn docker(&self) -> VolumeBindDockerDisplay<'_> { VolumeBindDockerDisplay { bind: self } }
 }
 
 
@@ -260,7 +260,7 @@ impl Image {
     /// # Returns
     /// An ImageDockerFormatter which handles the formatting.
     #[inline]
-    pub fn docker(&self) -> ImageDockerFormatter { ImageDockerFormatter { image: self } }
+    pub fn docker(&self) -> ImageDockerFormatter<'_> { ImageDockerFormatter { image: self } }
 }
 
 impl Display for Image {
@@ -335,7 +335,7 @@ impl LocalContainerInfo {
     /// **Arguments**
     ///  * `path`: the Path to read the new `LocalContainerInfo` from.
     ///
-    /// **Returns**  
+    /// **Returns**
     /// A new LocalContainerInfo on success, or else a [`LocalContainerInfoError`].
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, LocalContainerInfoError> {
         // Convert the path-like to a Path
@@ -356,7 +356,7 @@ impl LocalContainerInfo {
     /// **Arguments**
     ///  * `reader`: The reader to read from. Will be consumed.
     ///
-    /// **Returns**  
+    /// **Returns**
     /// A new `LocalContainerInfo` on success, or else a [`LocalContainerInfoError`].
     pub fn from_reader<R: Read>(reader: R) -> Result<Self, LocalContainerInfoError> {
         // Simply pass to serde
@@ -371,7 +371,7 @@ impl LocalContainerInfo {
     /// **Arguments**
     ///  * `path`: The target location to write to the `LocalContainerInfo` to.
     ///
-    /// **Returns**  
+    /// **Returns**
     /// Nothing on success, or a [`LocalContainerInfoError`] otherwise.
     pub fn to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), LocalContainerInfoError> {
         // Convert the path-like to a path
@@ -392,7 +392,7 @@ impl LocalContainerInfo {
     /// **Arguments**
     ///  * `writer`: The writer to write to. Will be consumed.
     ///
-    /// **Returns**  
+    /// **Returns**
     /// Nothing on success, or a [`LocalContainerInfoError`] otherwise.
     pub fn to_writer<W: Write>(&self, writer: W) -> Result<(), LocalContainerInfoError> {
         // Simply write with serde
@@ -474,7 +474,7 @@ impl ContainerInfo {
     /// **Arguments**
     ///  * `path`: The path to the container info file.
     ///
-    /// **Returns**  
+    /// **Returns**
     /// The newly constructed `ContainerInfo` instance on success, or a [`ContainerInfoError`] upon failure.
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<ContainerInfo, ContainerInfoError> {
         // Convert the path-like to a path
@@ -492,7 +492,7 @@ impl ContainerInfo {
     /// **Arguments**
     ///  * `r`: The reader with the contents of the raw YAML file.
     ///
-    /// **Returns**  
+    /// **Returns**
     /// The newly constructed `ContainerInfo` instance on success, or a [`ContainerInfoError`] upon failure.
     pub fn from_reader<R: Read>(r: R) -> Result<ContainerInfo, ContainerInfoError> {
         serde_yaml::from_reader(r).map_err(|source| ContainerInfoError::ParseError { source })
@@ -503,7 +503,7 @@ impl ContainerInfo {
     /// **Arguments**
     ///  * `contents`: The text contents of a raw YAML file.
     ///
-    /// **Returns**  
+    /// **Returns**
     /// The newly constructed `ContainerInfo` instance on success, or a [`ContainerInfoError`] upon failure.
     pub fn from_string(contents: String) -> Result<ContainerInfo, ContainerInfoError> {
         serde_yaml::from_str(&contents).map_err(|source| ContainerInfoError::ParseError { source })
@@ -517,7 +517,7 @@ impl ContainerInfo {
     /// **Arguments**
     ///  * `path`: The target location to write to the [`LocalContainerInfo`] to.
     ///
-    /// **Returns**  
+    /// **Returns**
     /// Nothing on success, or a [`ContainerInfoError`] otherwise.
     pub fn to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), ContainerInfoError> {
         // Convert the path-like to a path
@@ -538,7 +538,7 @@ impl ContainerInfo {
     /// **Arguments**
     ///  * `writer`: The writer to write to. Will be consumed.
     ///
-    /// **Returns**  
+    /// **Returns**
     /// Nothing on success, or a [`ContainerInfoError`] otherwise.
     pub fn to_writer<W: Write>(&self, writer: W) -> Result<(), ContainerInfoError> {
         // Simply write with serde

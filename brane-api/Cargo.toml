@@ -1,6 +1,6 @@
 [package]
 name = "brane-api"
-rust-version = "1.81"
+rust-version = "1.82"
 edition = "2021"
 version.workspace = true
 repository.workspace = true
@@ -8,27 +8,31 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-async-compression = { version = "0.4.0", features = ["tokio","gzip"] }
-bytes = "1.2.0"
-chrono = "0.4.35"
-clap = { version = "4.5.6", features = ["derive","env"] }
+async-compression = { version = "0.4.0", features = ["tokio", "gzip"] }
+bytes = "1.2.1"
+chrono = "0.4.30"
+clap = { version = "4.5.0", features = ["derive", "env"] }
 dotenvy = "0.15"
 enum-debug.workspace = true
 env_logger = "0.11.0"
 error-trace.workspace = true
-juniper = { version = "0.16.1", features = ["chrono"] }
+juniper = { version = "0.16.0", features = ["chrono"] }
 juniper_warp = "0.8.0"
 # k8s-openapi = { version = "0.14", default-features = false, features = ["v1_23"] }
 log = "0.4.22"
 rand = "0.9.0"
 # rdkafka = { version = "0.31", features = ["cmake-build"] }
 scylla = "0.12.0"
-serde_json = "1.0.120"
-serde_yaml = { version = "0.0.10", package = "serde_yml" }
+serde_json = "1.0.50"
+serde_yaml = { version = "0.10.0", package = "serde_yaml_ng" }
 tempfile = "3.10.1"
 thiserror = "2.0.0"
-tokio = { version = "1.38.0", default-features = false, features = ["macros", "rt", "signal"] }
-tokio-stream = "0.1.6"
+tokio = { version = "1.44.2", default-features = false, features = [
+    "macros",
+    "rt",
+    "signal",
+] }
+tokio-stream = "0.1.16"
 tokio-tar = "0.3.0"
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 warp = "0.3.2"
@@ -36,9 +40,9 @@ warp = "0.3.2"
 # Workspace dependencies
 reqwest = { workspace = true }
 
-brane-cfg      = { path = "../brane-cfg" }
-brane-prx      = { path = "../brane-prx" }
-brane-shr      = { path = "../brane-shr" }
+brane-cfg = { path = "../brane-cfg" }
+brane-prx = { path = "../brane-prx" }
+brane-shr = { path = "../brane-shr" }
 specifications = { path = "../specifications" }
 
 [lints]

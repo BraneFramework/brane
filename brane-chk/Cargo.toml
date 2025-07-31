@@ -1,0 +1,75 @@
+[package]
+name = "brane-chk"
+edition = "2021"
+rust-version = "1.82"
+version.workspace = true
+repository.workspace = true
+authors = ["Tim Müller", "Bas Kloosterman", "Daniel Voogsgerd"]
+license.workspace = true
+default-run = "brane-chk"
+
+
+[[bin]]
+name = "brane-chk"
+path = "src/main.rs"
+
+[[bin]]
+name = "wirc"
+path = "src/workflow/compiler.rs"
+
+
+[dependencies]
+axum = { version = "0.8.0", features = ["macros"] }
+base16ct = { version = "0.2.0", features = ["std"] }
+clap = { version = "4.5.0", features = ["derive", "env"] }
+futures = "0.3.22"
+hyper = "1.3.0"
+hyper-util = "0.1.5"
+miette = "7.0.0"
+rand = "0.9.0"
+reqwest = "0.12.0"
+serde = "1.0.195"
+serde_json = "1.0.50"
+shlex = "1.3.0"
+thiserror = "2.0.0"
+tokio = { version = "1.44.2", default-features = false, features = ["signal"] }
+tower-service = "0.3.3"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.10", features = ["env-filter"] }
+
+# eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant", features = ["display_eflint"] }
+enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.1.0" }
+error-trace = { workspace = true, features = ["serde"] }
+policy-reasoner = { git = "https://github.com/BraneFramework/policy-reasoner.git", default-features = false, features = [
+    "eflint-haskell-reasoner",
+    "file-logger",
+    "serde",
+    "workflow",
+] }
+policy-store = { git = "https://github.com/BraneFramework/policy-store.git", default-features = false, features = [
+    "axum-server",
+    "jwk-auth",
+    "jwk-auth-kid",
+    "sqlite-database",
+    "sqlite-database-embedded-migrations",
+] }
+
+brane-ast = { path = "../brane-ast" }
+brane-cfg = { path = "../brane-cfg" }
+brane-shr = { path = "../brane-shr" }
+brane-tsk = { path = "../brane-tsk" }
+specifications = { path = "../specifications" }
+
+
+[dev-dependencies]
+humanlog = { git = "https://github.com/Lut99/humanlog-rs", tag = "v0.2.0" }
+names = { git = "https://github.com/Lut99/names-rs", features = [
+    "rand",
+    "three",
+] }
+
+brane-shr = { path = "../brane-shr" }
+
+
+[features]
+default = []

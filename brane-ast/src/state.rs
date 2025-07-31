@@ -4,7 +4,7 @@
 //  Created:
 //    16 Sep 2022, 08:22:47
 //  Last edited:
-//    13 Dec 2023, 08:20:26
+//    14 Nov 2024, 17:47:50
 //  Auto updated?
 //    Yes
 //
@@ -23,9 +23,11 @@ use brane_dsl::symbol_table::{ClassEntry, FunctionEntry, SymbolTable, VarEntry};
 use brane_dsl::{DataType, TextRange};
 use specifications::package::Capability;
 use specifications::version::Version;
+use specifications::wir::builtins::{BuiltinClasses, BuiltinFunctions};
+use specifications::wir::{ClassDef, ComputeTaskDef, Edge, FunctionDef, SymTable, TaskDef, VarDef};
+use strum::IntoEnumIterator;
 
-use crate::ast::{ClassDef, ComputeTaskDef, Edge, FunctionDef, SymTable, TaskDef, VarDef};
-use crate::spec::{BuiltinClasses, BuiltinFunctions};
+use crate::dsl::{dtype_ast_to_dsl, dtype_dsl_to_ast};
 
 
 /***** STATICS *****/
@@ -64,9 +66,9 @@ impl TableState {
     /// A new instance of the TableState.
     pub fn new() -> Self {
         // Construct the TableLists separately.
-        let mut funcs: Vec<FunctionState> = Vec::from(BuiltinFunctions::all_into_state());
+        let mut funcs: Vec<FunctionState> = BuiltinFunctions::iter().map(|f| f.into()).collect();
         let tasks: Vec<TaskState> = Vec::new();
-        let classes: Vec<ClassState> = Vec::from(BuiltinClasses::all_into_state(&mut funcs));
+        let classes: Vec<ClassState> = BuiltinClasses::iter().map(|c| ClassState::from_builtin(c, &mut funcs)).collect();
         let vars: Vec<VarState> = Vec::new();
 
         // use that to construct the rest
@@ -315,6 +317,20 @@ pub struct FunctionState {
     pub range: TextRange,
 }
 
+impl From<BuiltinFunctions> for FunctionState {
+    #[inline]
+    fn from(value: BuiltinFunctions) -> Self {
+        Self {
+            name:      value.name().into(),
+            signature: FunctionSignature::from(value),
+
+            class_name: None,
+
+            range: TextRange::none(),
+        }
+    }
+}
+
 impl From<&FunctionState> for FunctionEntry {
     #[inline]
     fn from(value: &FunctionState) -> Self {
@@ -340,7 +356,11 @@ impl From<&FunctionState> for FunctionEntry {
 impl From<FunctionState> for FunctionDef {
     #[inline]
     fn from(value: FunctionState) -> Self {
-        FunctionDef { name: value.name, args: value.signature.args.into_iter().map(|d| d.into()).collect(), ret: value.signature.ret.into() }
+        FunctionDef {
+            name: value.name,
+            args: value.signature.args.into_iter().map(dtype_dsl_to_ast).collect(),
+            ret:  dtype_dsl_to_ast(value.signature.ret),
+        }
     }
 }
 
@@ -397,8 +417,8 @@ impl From<TaskState> for TaskDef {
 
             function:     Box::new(FunctionDef {
                 name: value.name,
-                args: value.signature.args.into_iter().map(|d| d.into()).collect(),
-                ret:  value.signature.ret.into(),
+                args: value.signature.args.into_iter().map(dtype_dsl_to_ast).collect(),
+                ret:  dtype_dsl_to_ast(value.signature.ret),
             }),
             args_names:   value.arg_names,
             requirements: value.requirements,
@@ -428,6 +448,51 @@ pub struct ClassState {
 }
 
 impl ClassState {
+    /// Converts a builtin class to a ClassState.
+    ///
+    /// # Arguments
+    /// - `builtin`: The [`BuiltinClasses`] to convert.
+    /// - `funcs`: A list of existing function states to extend with this class'es methods.
+    ///
+    /// # Returns
+    /// A new ClassState representing the builtin one.
+    pub fn from_builtin(builtin: BuiltinClasses, funcs: &mut Vec<FunctionState>) -> Self {
+        // Collect the properties
+        let props: Vec<VarState> = builtin
+            .props()
+            .iter()
+            .map(|(name, dtype)| VarState {
+                name: (*name).into(),
+                data_type: dtype_ast_to_dsl(dtype.clone()),
+                function_name: None,
+                class_name: Some(builtin.name().into()),
+                range: TextRange::none(),
+            })
+            .collect();
+
+        // Collect the methods
+        let methods: Vec<usize> = builtin
+            .methods()
+            .iter()
+            .enumerate()
+            .map(|(i, (name, sig))| {
+                funcs.push(FunctionState {
+                    name: (*name).into(),
+                    signature: FunctionSignature {
+                        args: sig.0.iter().map(|dtype| dtype_ast_to_dsl(dtype.clone())).collect(),
+                        ret:  dtype_ast_to_dsl(sig.1.clone()),
+                    },
+                    class_name: Some(builtin.name().into()),
+                    range: TextRange::none(),
+                });
+                i
+            })
+            .collect();
+
+        // Build the final state
+        ClassState { name: builtin.name().into(), props, methods, package_name: None, package_version: None, range: TextRange::none() }
+    }
+
     /// Converts this ClassState into a ClassEntry, using the given list of functions to resolve the internal list.
     ///
     /// # Arguments
@@ -524,7 +589,7 @@ impl From<&VarState> for VarEntry {
 
 impl From<VarState> for VarDef {
     #[inline]
-    fn from(value: VarState) -> Self { Self { name: value.name, data_type: value.data_type.into() } }
+    fn from(value: VarState) -> Self { Self { name: value.name, data_type: dtype_dsl_to_ast(value.data_type) } }
 }
 
 

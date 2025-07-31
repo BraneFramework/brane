@@ -1,14 +1,14 @@
 [package]
 name = "brane-shr"
 edition = "2021"
-rust-version = "1.81"
+rust-version = "1.82"
 version.workspace = true
 repository.workspace = true
 authors.workspace = true
 license.workspace = true
 
 [dependencies]
-async-compression = { version = "0.4.0", features = ["tokio","gzip"] }
+async-compression = { version = "0.4.0", features = ["tokio", "gzip"] }
 console = "0.15.5"
 dialoguer = { version = "0.11.0", features = ["completion", "history"] }
 enum-debug.workspace = true
@@ -20,8 +20,8 @@ log = "0.4.22"
 regex = "1.5.0"
 sha2 = "0.10.6"
 thiserror = "2.0.0"
-tokio = { version = "1.38.0", features = ["rt","macros"] }
-tokio-stream = "0.1.6"
+tokio = { version = "1.44.2", features = ["rt", "macros"] }
+tokio-stream = "0.1.16"
 tokio-tar = "0.3.0"
 url = "2.5.0"
 

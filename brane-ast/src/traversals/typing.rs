@@ -4,7 +4,7 @@
 //  Created:
 //    19 Aug 2022, 16:34:16
 //  Last edited:
-//    08 Dec 2023, 11:09:07
+//    14 Nov 2024, 17:17:26
 //  Auto updated?
 //    Yes
 //
@@ -17,14 +17,14 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 use brane_dsl::ast::{Block, Expr, Node, Program, Stmt};
-use brane_dsl::spec::MergeStrategy;
 use brane_dsl::symbol_table::{ClassEntry, FunctionEntry, SymbolTableEntry, VarEntry};
 use brane_dsl::{DataType, SymbolTable, TextPos, TextRange};
 use enum_debug::EnumDebug as _;
+use specifications::wir::builtins::BuiltinClasses;
+use specifications::wir::merge_strategy::MergeStrategy;
 
 use crate::errors::AstError;
 pub use crate::errors::TypeError as Error;
-use crate::spec::BuiltinClasses;
 use crate::warnings::AstWarning;
 pub use crate::warnings::TypeWarning as Warning;
 
@@ -374,8 +374,11 @@ fn pass_stmt(
             }
 
             // With a return statement in mind, we will now resolve if the type matches the merge strategy
-            let strat: (MergeStrategy, TextRange) =
-                if let Some(merge) = merge { (MergeStrategy::from(&merge.value), merge.range.clone()) } else { (MergeStrategy::None, range.clone()) };
+            let strat: (MergeStrategy, TextRange) = if let Some(merge) = merge {
+                (MergeStrategy::from(merge.value.as_ref()), merge.range.clone())
+            } else {
+                (MergeStrategy::None, range.clone())
+            };
             // Match on the result type
             if let Some(ret) = &ret_type {
                 // Match on the strategy to verify the types

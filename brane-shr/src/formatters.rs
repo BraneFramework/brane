@@ -51,7 +51,7 @@ pub trait Capitalizeable: AsRef<str> {
     /// # Returns
     /// A new CapitalizeFormatter that implements `Display` (only).
     #[inline]
-    fn capitalize(&self) -> CapitalizeFormatter { CapitalizeFormatter::new(self) }
+    fn capitalize(&self) -> CapitalizeFormatter<'_> { CapitalizeFormatter::new(self) }
 }
 impl<T> Capitalizeable for T where T: AsRef<str> {}
 
