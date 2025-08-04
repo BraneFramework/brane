@@ -96,6 +96,18 @@ pub(crate) mod xtask {
             #[clap(short, long)]
             metadata:   Option<crate::set_version::SpecialBuildMetadata>,
         },
+        /// A collection of common tasks often used in CI. Can be run as separate tasks or as
+        /// profiles
+        CI {
+            #[clap(subcommand)]
+            ci_command: CICommand,
+        },
+    }
+
+    #[derive(Debug, Subcommand)]
+    pub enum CICommand {
+        Run { items: Vec<String> },
+        Profile { profiles: Vec<String> },
     }
 
     #[derive(ValueEnum, Debug, Clone)]
