@@ -111,7 +111,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -135,7 +135,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Show toolchain
         run: rustup show active-toolchain
       - name: "Compile documentation"
@@ -148,7 +148,7 @@ jobs:
     name: "Direct minimal versions"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: taiki-e/install-action@cargo-hack
       - uses: taiki-e/install-action@cargo-minimal-versions
       - name: Show toolchain
@@ -165,7 +165,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
       - name: Install Cargo MSRV
@@ -189,7 +189,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Show toolchain
         run: rustup show active-toolchain
       - name: "Check if lockfile update is necessary"
