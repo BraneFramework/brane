@@ -1,0 +1,333 @@
+---
+source: brane-dsl/tests/regression.rs
+expression: res
+---
+Program {
+    block: Block {
+        stmts: [
+            Import {
+                name: Identifier {
+                    value: "hello_world",
+                    range: TextRange {
+                        start: TextPos {
+                            line: 1,
+                            col: 8,
+                        },
+                        end: TextPos {
+                            line: 1,
+                            col: 19,
+                        },
+                    },
+                },
+                version: Semver {
+                    value: "latest",
+                    range: TextRange {
+                        start: TextPos {
+                            line: 18446744073709551615,
+                            col: 18446744073709551615,
+                        },
+                        end: TextPos {
+                            line: 18446744073709551615,
+                            col: 18446744073709551615,
+                        },
+                    },
+                },
+                st_funcs: None,
+                st_classes: None,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 1,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 1,
+                        col: 20,
+                    },
+                },
+            },
+            AttributeInner(
+                List {
+                    key: Identifier {
+                        value: "wf_tag",
+                        range: TextRange {
+                            start: TextPos {
+                                line: 3,
+                                col: 4,
+                            },
+                            end: TextPos {
+                                line: 3,
+                                col: 10,
+                            },
+                        },
+                    },
+                    values: [
+                        String {
+                            value: "foo",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 3,
+                                    col: 11,
+                                },
+                                end: TextPos {
+                                    line: 3,
+                                    col: 16,
+                                },
+                            },
+                        },
+                        String {
+                            value: "bar",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 3,
+                                    col: 18,
+                                },
+                                end: TextPos {
+                                    line: 3,
+                                    col: 23,
+                                },
+                            },
+                        },
+                        String {
+                            value: "baz",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 3,
+                                    col: 25,
+                                },
+                                end: TextPos {
+                                    line: 3,
+                                    col: 30,
+                                },
+                            },
+                        },
+                    ],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 3,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 3,
+                            col: 32,
+                        },
+                    },
+                },
+            ),
+            Attribute(
+                List {
+                    key: Identifier {
+                        value: "tag",
+                        range: TextRange {
+                            start: TextPos {
+                                line: 5,
+                                col: 3,
+                            },
+                            end: TextPos {
+                                line: 5,
+                                col: 6,
+                            },
+                        },
+                    },
+                    values: [
+                        String {
+                            value: "foo2",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 5,
+                                    col: 7,
+                                },
+                                end: TextPos {
+                                    line: 5,
+                                    col: 13,
+                                },
+                            },
+                        },
+                        String {
+                            value: "bar2",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 5,
+                                    col: 15,
+                                },
+                                end: TextPos {
+                                    line: 5,
+                                    col: 21,
+                                },
+                            },
+                        },
+                        String {
+                            value: "baz2",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 5,
+                                    col: 23,
+                                },
+                                end: TextPos {
+                                    line: 5,
+                                    col: 29,
+                                },
+                            },
+                        },
+                    ],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 5,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 5,
+                            col: 31,
+                        },
+                    },
+                },
+            ),
+            Attribute(
+                List {
+                    key: Identifier {
+                        value: "on",
+                        range: TextRange {
+                            start: TextPos {
+                                line: 6,
+                                col: 3,
+                            },
+                            end: TextPos {
+                                line: 6,
+                                col: 5,
+                            },
+                        },
+                    },
+                    values: [
+                        String {
+                            value: "test",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 6,
+                                    col: 6,
+                                },
+                                end: TextPos {
+                                    line: 6,
+                                    col: 12,
+                                },
+                            },
+                        },
+                    ],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 6,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 6,
+                            col: 14,
+                        },
+                    },
+                },
+            ),
+            Expr {
+                expr: Call {
+                    expr: Identifier {
+                        name: Identifier {
+                            value: "println",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 7,
+                                    col: 1,
+                                },
+                                end: TextPos {
+                                    line: 7,
+                                    col: 8,
+                                },
+                            },
+                        },
+                        st_entry: None,
+                    },
+                    args: [
+                        Call {
+                            expr: Identifier {
+                                name: Identifier {
+                                    value: "hello_world",
+                                    range: TextRange {
+                                        start: TextPos {
+                                            line: 7,
+                                            col: 9,
+                                        },
+                                        end: TextPos {
+                                            line: 7,
+                                            col: 20,
+                                        },
+                                    },
+                                },
+                                st_entry: None,
+                            },
+                            args: [],
+                            st_entry: None,
+                            locations: All,
+                            input: {},
+                            result: {},
+                            metadata: {},
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 7,
+                                    col: 9,
+                                },
+                                end: TextPos {
+                                    line: 7,
+                                    col: 22,
+                                },
+                            },
+                        },
+                    ],
+                    st_entry: None,
+                    locations: All,
+                    input: {},
+                    result: {},
+                    metadata: {},
+                    range: TextRange {
+                        start: TextPos {
+                            line: 7,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 7,
+                            col: 23,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 7,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 7,
+                        col: 24,
+                    },
+                },
+            },
+        ],
+        table: RefCell {
+            value: SymbolTable {
+                parent: None,
+                functions: {},
+                classes: {},
+                variables: {},
+            },
+        },
+        ret_type: None,
+        attrs: [],
+        range: TextRange {
+            start: TextPos {
+                line: 1,
+                col: 1,
+            },
+            end: TextPos {
+                line: 7,
+                col: 24,
+            },
+        },
+    },
+    metadata: {},
+}

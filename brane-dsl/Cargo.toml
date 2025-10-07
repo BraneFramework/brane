@@ -23,5 +23,8 @@ thiserror.workspace = true
 brane-shr.workspace = true
 specifications.workspace = true
 
+[dev-dependencies]
+insta = { version = "1.42.2", features=["yaml"] }
+
 [lints]
 workspace = true

@@ -1,0 +1,739 @@
+---
+source: brane-dsl/tests/regression.rs
+expression: res
+---
+Program {
+    block: Block {
+        stmts: [
+            For {
+                initializer: LetAssign {
+                    name: Identifier {
+                        value: "i",
+                        range: TextRange {
+                            start: TextPos {
+                                line: 2,
+                                col: 10,
+                            },
+                            end: TextPos {
+                                line: 2,
+                                col: 11,
+                            },
+                        },
+                    },
+                    value: Literal {
+                        literal: Integer {
+                            value: 0,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 2,
+                                    col: 15,
+                                },
+                                end: TextPos {
+                                    line: 2,
+                                    col: 16,
+                                },
+                            },
+                        },
+                    },
+                    st_entry: None,
+                    attrs: [],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 2,
+                            col: 6,
+                        },
+                        end: TextPos {
+                            line: 2,
+                            col: 17,
+                        },
+                    },
+                },
+                condition: BinOp {
+                    op: Lt {
+                        range: TextRange {
+                            start: TextPos {
+                                line: 2,
+                                col: 20,
+                            },
+                            end: TextPos {
+                                line: 2,
+                                col: 21,
+                            },
+                        },
+                    },
+                    lhs: VarRef {
+                        name: Identifier {
+                            value: "i",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 2,
+                                    col: 18,
+                                },
+                                end: TextPos {
+                                    line: 2,
+                                    col: 19,
+                                },
+                            },
+                        },
+                        st_entry: None,
+                    },
+                    rhs: Literal {
+                        literal: Integer {
+                            value: 10,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 2,
+                                    col: 22,
+                                },
+                                end: TextPos {
+                                    line: 2,
+                                    col: 24,
+                                },
+                            },
+                        },
+                    },
+                    range: TextRange {
+                        start: TextPos {
+                            line: 2,
+                            col: 18,
+                        },
+                        end: TextPos {
+                            line: 2,
+                            col: 24,
+                        },
+                    },
+                },
+                increment: Assign {
+                    name: Identifier {
+                        value: "i",
+                        range: TextRange {
+                            start: TextPos {
+                                line: 2,
+                                col: 26,
+                            },
+                            end: TextPos {
+                                line: 2,
+                                col: 27,
+                            },
+                        },
+                    },
+                    value: BinOp {
+                        op: Add {
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 2,
+                                    col: 33,
+                                },
+                                end: TextPos {
+                                    line: 2,
+                                    col: 34,
+                                },
+                            },
+                        },
+                        lhs: VarRef {
+                            name: Identifier {
+                                value: "i",
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 2,
+                                        col: 31,
+                                    },
+                                    end: TextPos {
+                                        line: 2,
+                                        col: 32,
+                                    },
+                                },
+                            },
+                            st_entry: None,
+                        },
+                        rhs: Literal {
+                            literal: Integer {
+                                value: 1,
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 2,
+                                        col: 35,
+                                    },
+                                    end: TextPos {
+                                        line: 2,
+                                        col: 36,
+                                    },
+                                },
+                            },
+                        },
+                        range: TextRange {
+                            start: TextPos {
+                                line: 2,
+                                col: 31,
+                            },
+                            end: TextPos {
+                                line: 2,
+                                col: 36,
+                            },
+                        },
+                    },
+                    st_entry: None,
+                    attrs: [],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 2,
+                            col: 26,
+                        },
+                        end: TextPos {
+                            line: 2,
+                            col: 36,
+                        },
+                    },
+                },
+                consequent: Block {
+                    stmts: [
+                        Expr {
+                            expr: Call {
+                                expr: Identifier {
+                                    name: Identifier {
+                                        value: "print",
+                                        range: TextRange {
+                                            start: TextPos {
+                                                line: 3,
+                                                col: 5,
+                                            },
+                                            end: TextPos {
+                                                line: 3,
+                                                col: 10,
+                                            },
+                                        },
+                                    },
+                                    st_entry: None,
+                                },
+                                args: [
+                                    VarRef {
+                                        name: Identifier {
+                                            value: "i",
+                                            range: TextRange {
+                                                start: TextPos {
+                                                    line: 3,
+                                                    col: 11,
+                                                },
+                                                end: TextPos {
+                                                    line: 3,
+                                                    col: 12,
+                                                },
+                                            },
+                                        },
+                                        st_entry: None,
+                                    },
+                                ],
+                                st_entry: None,
+                                locations: All,
+                                input: {},
+                                result: {},
+                                metadata: {},
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 3,
+                                        col: 5,
+                                    },
+                                    end: TextPos {
+                                        line: 3,
+                                        col: 13,
+                                    },
+                                },
+                            },
+                            data_type: Any,
+                            attrs: [],
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 3,
+                                    col: 5,
+                                },
+                                end: TextPos {
+                                    line: 3,
+                                    col: 14,
+                                },
+                            },
+                        },
+                        Expr {
+                            expr: Call {
+                                expr: Identifier {
+                                    name: Identifier {
+                                        value: "println",
+                                        range: TextRange {
+                                            start: TextPos {
+                                                line: 4,
+                                                col: 5,
+                                            },
+                                            end: TextPos {
+                                                line: 4,
+                                                col: 12,
+                                            },
+                                        },
+                                    },
+                                    st_entry: None,
+                                },
+                                args: [
+                                    Literal {
+                                        literal: String {
+                                            value: ") It's dancing time!",
+                                            range: TextRange {
+                                                start: TextPos {
+                                                    line: 4,
+                                                    col: 13,
+                                                },
+                                                end: TextPos {
+                                                    line: 4,
+                                                    col: 35,
+                                                },
+                                            },
+                                        },
+                                    },
+                                ],
+                                st_entry: None,
+                                locations: All,
+                                input: {},
+                                result: {},
+                                metadata: {},
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 4,
+                                        col: 5,
+                                    },
+                                    end: TextPos {
+                                        line: 4,
+                                        col: 36,
+                                    },
+                                },
+                            },
+                            data_type: Any,
+                            attrs: [],
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 4,
+                                    col: 5,
+                                },
+                                end: TextPos {
+                                    line: 4,
+                                    col: 37,
+                                },
+                            },
+                        },
+                    ],
+                    table: RefCell {
+                        value: SymbolTable {
+                            parent: None,
+                            functions: {},
+                            classes: {},
+                            variables: {},
+                        },
+                    },
+                    ret_type: None,
+                    attrs: [],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 2,
+                            col: 38,
+                        },
+                        end: TextPos {
+                            line: 5,
+                            col: 2,
+                        },
+                    },
+                },
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 2,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 5,
+                        col: 2,
+                    },
+                },
+            },
+            For {
+                initializer: LetAssign {
+                    name: Identifier {
+                        value: "i",
+                        range: TextRange {
+                            start: TextPos {
+                                line: 9,
+                                col: 10,
+                            },
+                            end: TextPos {
+                                line: 9,
+                                col: 11,
+                            },
+                        },
+                    },
+                    value: Literal {
+                        literal: Integer {
+                            value: 0,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 9,
+                                    col: 15,
+                                },
+                                end: TextPos {
+                                    line: 9,
+                                    col: 16,
+                                },
+                            },
+                        },
+                    },
+                    st_entry: None,
+                    attrs: [],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 9,
+                            col: 6,
+                        },
+                        end: TextPos {
+                            line: 9,
+                            col: 17,
+                        },
+                    },
+                },
+                condition: BinOp {
+                    op: Lt {
+                        range: TextRange {
+                            start: TextPos {
+                                line: 9,
+                                col: 20,
+                            },
+                            end: TextPos {
+                                line: 9,
+                                col: 21,
+                            },
+                        },
+                    },
+                    lhs: VarRef {
+                        name: Identifier {
+                            value: "i",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 9,
+                                    col: 18,
+                                },
+                                end: TextPos {
+                                    line: 9,
+                                    col: 19,
+                                },
+                            },
+                        },
+                        st_entry: None,
+                    },
+                    rhs: Literal {
+                        literal: Integer {
+                            value: 10,
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 9,
+                                    col: 22,
+                                },
+                                end: TextPos {
+                                    line: 9,
+                                    col: 24,
+                                },
+                            },
+                        },
+                    },
+                    range: TextRange {
+                        start: TextPos {
+                            line: 9,
+                            col: 18,
+                        },
+                        end: TextPos {
+                            line: 9,
+                            col: 24,
+                        },
+                    },
+                },
+                increment: Assign {
+                    name: Identifier {
+                        value: "i",
+                        range: TextRange {
+                            start: TextPos {
+                                line: 9,
+                                col: 26,
+                            },
+                            end: TextPos {
+                                line: 9,
+                                col: 27,
+                            },
+                        },
+                    },
+                    value: BinOp {
+                        op: Add {
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 9,
+                                    col: 33,
+                                },
+                                end: TextPos {
+                                    line: 9,
+                                    col: 34,
+                                },
+                            },
+                        },
+                        lhs: VarRef {
+                            name: Identifier {
+                                value: "i",
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 9,
+                                        col: 31,
+                                    },
+                                    end: TextPos {
+                                        line: 9,
+                                        col: 32,
+                                    },
+                                },
+                            },
+                            st_entry: None,
+                        },
+                        rhs: Literal {
+                            literal: Integer {
+                                value: 1,
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 9,
+                                        col: 35,
+                                    },
+                                    end: TextPos {
+                                        line: 9,
+                                        col: 36,
+                                    },
+                                },
+                            },
+                        },
+                        range: TextRange {
+                            start: TextPos {
+                                line: 9,
+                                col: 31,
+                            },
+                            end: TextPos {
+                                line: 9,
+                                col: 36,
+                            },
+                        },
+                    },
+                    st_entry: None,
+                    attrs: [],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 9,
+                            col: 26,
+                        },
+                        end: TextPos {
+                            line: 9,
+                            col: 36,
+                        },
+                    },
+                },
+                consequent: Block {
+                    stmts: [
+                        LetAssign {
+                            name: Identifier {
+                                value: "a",
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 10,
+                                        col: 9,
+                                    },
+                                    end: TextPos {
+                                        line: 10,
+                                        col: 10,
+                                    },
+                                },
+                            },
+                            value: Literal {
+                                literal: Integer {
+                                    value: 42,
+                                    range: TextRange {
+                                        start: TextPos {
+                                            line: 10,
+                                            col: 14,
+                                        },
+                                        end: TextPos {
+                                            line: 10,
+                                            col: 16,
+                                        },
+                                    },
+                                },
+                            },
+                            st_entry: None,
+                            attrs: [],
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 10,
+                                    col: 5,
+                                },
+                                end: TextPos {
+                                    line: 10,
+                                    col: 17,
+                                },
+                            },
+                        },
+                        Expr {
+                            expr: Call {
+                                expr: Identifier {
+                                    name: Identifier {
+                                        value: "println",
+                                        range: TextRange {
+                                            start: TextPos {
+                                                line: 11,
+                                                col: 5,
+                                            },
+                                            end: TextPos {
+                                                line: 11,
+                                                col: 12,
+                                            },
+                                        },
+                                    },
+                                    st_entry: None,
+                                },
+                                args: [
+                                    BinOp {
+                                        op: Add {
+                                            range: TextRange {
+                                                start: TextPos {
+                                                    line: 11,
+                                                    col: 15,
+                                                },
+                                                end: TextPos {
+                                                    line: 11,
+                                                    col: 16,
+                                                },
+                                            },
+                                        },
+                                        lhs: VarRef {
+                                            name: Identifier {
+                                                value: "a",
+                                                range: TextRange {
+                                                    start: TextPos {
+                                                        line: 11,
+                                                        col: 13,
+                                                    },
+                                                    end: TextPos {
+                                                        line: 11,
+                                                        col: 14,
+                                                    },
+                                                },
+                                            },
+                                            st_entry: None,
+                                        },
+                                        rhs: VarRef {
+                                            name: Identifier {
+                                                value: "i",
+                                                range: TextRange {
+                                                    start: TextPos {
+                                                        line: 11,
+                                                        col: 17,
+                                                    },
+                                                    end: TextPos {
+                                                        line: 11,
+                                                        col: 18,
+                                                    },
+                                                },
+                                            },
+                                            st_entry: None,
+                                        },
+                                        range: TextRange {
+                                            start: TextPos {
+                                                line: 11,
+                                                col: 13,
+                                            },
+                                            end: TextPos {
+                                                line: 11,
+                                                col: 18,
+                                            },
+                                        },
+                                    },
+                                ],
+                                st_entry: None,
+                                locations: All,
+                                input: {},
+                                result: {},
+                                metadata: {},
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 11,
+                                        col: 5,
+                                    },
+                                    end: TextPos {
+                                        line: 11,
+                                        col: 19,
+                                    },
+                                },
+                            },
+                            data_type: Any,
+                            attrs: [],
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 11,
+                                    col: 5,
+                                },
+                                end: TextPos {
+                                    line: 11,
+                                    col: 20,
+                                },
+                            },
+                        },
+                    ],
+                    table: RefCell {
+                        value: SymbolTable {
+                            parent: None,
+                            functions: {},
+                            classes: {},
+                            variables: {},
+                        },
+                    },
+                    ret_type: None,
+                    attrs: [],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 9,
+                            col: 38,
+                        },
+                        end: TextPos {
+                            line: 12,
+                            col: 2,
+                        },
+                    },
+                },
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 9,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 12,
+                        col: 2,
+                    },
+                },
+            },
+        ],
+        table: RefCell {
+            value: SymbolTable {
+                parent: None,
+                functions: {},
+                classes: {},
+                variables: {},
+            },
+        },
+        ret_type: None,
+        attrs: [],
+        range: TextRange {
+            start: TextPos {
+                line: 2,
+                col: 1,
+            },
+            end: TextPos {
+                line: 12,
+                col: 2,
+            },
+        },
+    },
+    metadata: {},
+}
