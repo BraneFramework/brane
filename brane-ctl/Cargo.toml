@@ -1,7 +1,7 @@
 [package]
 name = "brane-ctl"
 edition = "2021"
-authors = ["Tim Müller"]
+authors = ["Tim Müller", "Daniel Voogsgserd"]
 default-run = "branectl"
 rust-version = "1.82"
 version.workspace = true
