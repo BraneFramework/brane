@@ -54,7 +54,7 @@ specifications.workspace = true
 policy-store = { workspace = true, features = ["sqlite-database", "sqlite-database-embedded-migrations"] }
 
 [build-dependencies]
-download.workspace = true
+download = { workspace = true, features = ["rustls-tls-webpki-roots"] }
 hex-literal = "0.4.0"
 clap = { version = "4.5.0", features = ["derive", "env"] }
 
