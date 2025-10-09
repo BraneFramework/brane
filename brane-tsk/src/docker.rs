@@ -967,7 +967,7 @@ pub async fn get_digest(path: impl AsRef<Path>) -> Result<String, Error> {
                 return Err(Error::ImageTarIllegalPath { path: path.to_path_buf(), source });
             },
         };
-        if entry_path == PathBuf::from("manifest.json") {
+        if entry_path == Path::new("manifest.json") {
             // Try to read it
             let mut manifest: Vec<u8> = vec![];
             entry.read_to_end(&mut manifest).await.map_err(|source| Error::ImageTarManifestReadError {

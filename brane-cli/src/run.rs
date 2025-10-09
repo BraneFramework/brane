@@ -757,7 +757,7 @@ pub async fn handle(
     keep_containers: bool,
 ) -> Result<(), Error> {
     // Either read the file or read stdin
-    let (source, source_code): (Cow<str>, String) = if file == PathBuf::from("-") {
+    let (source, source_code): (Cow<str>, String) = if file == Path::new("-") {
         let mut result: String = String::new();
         std::io::stdin().read_to_string(&mut result).map_err(|source| Error::StdinReadError { source })?;
         ("<stdin>".into(), result)
