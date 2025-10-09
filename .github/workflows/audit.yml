@@ -21,7 +21,7 @@ jobs:
       checks: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Audit dependencies (crates)
         uses: rustsec/audit-check@v2.0.0
@@ -36,7 +36,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run DevSkim scanner
         uses: microsoft/DevSkim-Action@v1
@@ -55,7 +55,7 @@ jobs:
   licenses:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check licenses
