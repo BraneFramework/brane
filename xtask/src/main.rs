@@ -59,6 +59,7 @@ async fn main() -> anyhow::Result<()> {
         XTaskSubcommand::Install { parents, force } => {
             install::completions(parents, force)?;
             install::binaries(parents, force)?;
+            install::images(parents, force)?;
             install::manpages(parents, force)?;
         },
         #[cfg(feature = "cli")]
