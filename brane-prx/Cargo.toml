@@ -9,7 +9,7 @@ license.workspace = true
 
 [dependencies]
 never-say-never = "6.6.666"
-socksx = { git = "https://github.com/braneframework/socksx", tag = "v2.0.0" }
+socksx = { git = "https://github.com/braneframework/socksx", tag = "v2.0.1" }
 tokio-rustls = "0.24.0"
 url = "2.5.0"
 
