@@ -25,7 +25,6 @@ use enum_debug::EnumDebug as _;
 use log::{debug, info, warn};
 use specifications::arch::Arch;
 use specifications::container::Image;
-use specifications::version::Version;
 use tempfile::TempDir;
 
 pub use crate::errors::DownloadError as Error;
@@ -169,7 +168,7 @@ pub async fn services(
     fix_dirs: bool,
     path: impl AsRef<Path>,
     arch: Arch,
-    version: Version,
+    version: semver::Version,
     force: bool,
     kind: DownloadServicesSubcommand,
 ) -> Result<(), Error> {
@@ -232,21 +231,21 @@ pub async fn services(
     match &kind {
         DownloadServicesSubcommand::Central => {
             // Resolve the address to use
-            let address: String = if version.is_latest() {
-                format!("https://github.com/braneframework/brane/releases/latest/download/instance-{}.tar.gz", arch.brane())
+            let address: String = if version.pre.as_str() == "nightly" {
+                format!("https://github.com/braneframework/brane/releases/download/nightly/central-instance-{}.tar.gz", arch.brane())
             } else {
-                format!("https://github.com/braneframework/brane/releases/download/v{}/instance-{}.tar.gz", version, arch.brane())
+                format!("https://github.com/braneframework/brane/releases/download/v{}/central-instance-{}.tar.gz", version, arch.brane())
             };
             debug!("Will download from: {}", address);
 
             // Hand it over the shared code
-            download_brane_services(address, path, format!("instance-{}", arch.brane()), force).await?;
+            download_brane_services(address, path, format!("central-instance-{}", arch.brane()), force).await?;
         },
 
         DownloadServicesSubcommand::Worker => {
             // Resolve the address to use
-            let address: String = if version.is_latest() {
-                format!("https://github.com/braneframework/brane/releases/latest/download/worker-instance-{}.tar.gz", arch.brane())
+            let address: String = if version.pre.as_str() == "nightly" {
+                format!("https://github.com/braneframework/brane/releases/download/nightly/worker-instance-{}.tar.gz", arch.brane())
             } else {
                 format!("https://github.com/braneframework/brane/releases/download/v{}/worker-instance-{}.tar.gz", version, arch.brane())
             };
