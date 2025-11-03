@@ -1582,8 +1582,10 @@ pub async fn unarchive_async(tarball: impl AsRef<Path>, target: impl AsRef<Path>
         let target_path: PathBuf = target.join(&entry_path);
         debug!("Extracting '{}/{}' to '{}'...", tarball.display(), entry_path.display(), target_path.display());
         match entry.unpack_in(&target).await {
-            Ok(true) => {},
-            Ok(false) => {
+            // NOTE: If we'd ever continue with this path, maybe interesting to look into what this
+            // is
+            Ok(Some(_)) => {},
+            Ok(None) => {
                 return Err(Error::PathWithParentDir { what: "nested target", path: target_path });
             },
             Err(err) => {

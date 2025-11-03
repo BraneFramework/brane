@@ -2,7 +2,7 @@
 name = "brane-prx"
 edition = "2021"
 authors = ["Tim Müller"]
-rust-version = "1.82"
+rust-version = "1.83"
 version.workspace = true
 repository.workspace = true
 license.workspace = true
