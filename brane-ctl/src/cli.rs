@@ -192,8 +192,8 @@ pub(crate) enum DownloadSubcommand {
         )]
         arch:    Arch,
         /// The version of the services to download.
-        #[clap(short, long, default_value=env!("CARGO_PKG_VERSION"), global=true, help="The version of the images to download from GitHub. You can specify 'latest' to download the latest version (but that might be incompatible with this CTL version)")]
-        version: Version,
+        #[clap(short, long, default_value=env!("CARGO_PKG_VERSION"), global=true, help="The version of the images to download from GitHub.")]
+        version: semver::Version,
         /// Whether to overwrite existing images or not.
         #[clap(
             short = 'F',
