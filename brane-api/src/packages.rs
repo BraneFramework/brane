@@ -28,7 +28,7 @@ use rand::distr::Alphanumeric;
 use scylla::macros::{FromUserType, IntoUserType};
 use scylla::{SerializeCql, Session};
 use specifications::package::PackageInfo;
-use specifications::version::Version;
+use specifications::version::AliasedFunctionVersion;
 // use tar::Archive;
 use tempfile::TempDir;
 use tokio::fs as tfs;
@@ -249,21 +249,21 @@ pub async fn download(name: String, version: String, context: Context) -> Result
 
     // Attempt to resolve the version from the Scylla database in the context
     debug!("Resolving version '{}'...", version);
-    let version: Version = if version.to_lowercase() == "latest" {
+    let version: AliasedFunctionVersion = if version.to_lowercase() == "latest" {
         let versions = match context.scylla.query("SELECT version FROM brane.packages WHERE name=?", vec![&name]).await {
             Ok(versions) => versions,
             Err(source) => {
                 fail!(Error::VersionsQueryError { name, source });
             },
         };
-        let mut latest: Option<Version> = None;
+        let mut latest: Option<AliasedFunctionVersion> = None;
         if let Some(rows) = versions.rows {
             for row in rows {
                 // Get the string value
                 let version: &str = row.columns[0].as_ref().unwrap().as_text().unwrap();
 
                 // Attempt to parse
-                let version: Version = match Version::from_str(version) {
+                let version: AliasedFunctionVersion = match AliasedFunctionVersion::from_str(version) {
                     Ok(version) => version,
                     Err(source) => {
                         fail!(Error::VersionParseError { raw: version.into(), source });
@@ -286,7 +286,7 @@ pub async fn download(name: String, version: String, context: Context) -> Result
             },
         }
     } else {
-        match Version::from_str(&version) {
+        match AliasedFunctionVersion::from_str(&version) {
             Ok(version) => version,
             Err(source) => {
                 fail!(Error::VersionParseError { raw: version, source });

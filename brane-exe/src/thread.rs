@@ -1301,7 +1301,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
 
                             name: &function.name,
                             package_name: package,
-                            package_version: version,
+                            package_version: &version.clone().into(),
                             requirements,
 
                             args,

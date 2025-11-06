@@ -19,8 +19,7 @@ use brane_shr::formatters::PrettyListFormatter;
 use enum_debug::EnumDebug as _;
 use reqwest::StatusCode;
 use scylla::transport::errors::NewSessionError;
-use specifications::address::Address;
-use specifications::version::Version;
+use specifications::{address::Address, version::AliasedFunctionVersion};
 
 
 /***** ERRORS *****/
@@ -142,16 +141,16 @@ pub enum PackageError {
     VersionsQueryError { name: String, source: scylla::transport::errors::QueryError },
     /// Failed to parse a Version string
     #[error("Failed to parse '{raw}' as a valid version string")]
-    VersionParseError { raw: String, source: specifications::version::ParseError },
+    VersionParseError { raw: String, source: specifications::version::SemverError },
     /// No versions found for the given package
     #[error("No versions found for package '{name}'")]
     NoVersionsFound { name: String },
     /// Failed to query the database for the file of the given package.
     #[error("Failed to get path of package '{name}', version {version}")]
-    PathQueryError { name: String, version: Version, source: scylla::transport::errors::QueryError },
+    PathQueryError { name: String, version: AliasedFunctionVersion, source: scylla::transport::errors::QueryError },
     /// The given package was unknown.
     #[error("No package '{name}' exists (or has version {version})")]
-    UnknownPackage { name: String, version: Version },
+    UnknownPackage { name: String, version: AliasedFunctionVersion },
     /// Failed to get the metadata of a file.
     #[error("Failed to get metadata of file '{}'", path.display())]
     FileMetadataError { path: PathBuf, source: std::io::Error },

@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use console::style;
 use log::{debug, info, warn};
 use serde::Serialize;
-use specifications::version::Version;
+use specifications::version::ConcreteFunctionVersion;
 
 use crate::old_configs::v1_0_0;
 use crate::spec::VersionFix;
@@ -68,7 +68,7 @@ pub enum Error {
     FileMetadataRead { path: PathBuf, err: std::io::Error },
 
     /// Failed to convert between the infos
-    Convert { what: &'static str, version: Version, err: Box<dyn error::Error> },
+    Convert { what: &'static str, version: ConcreteFunctionVersion, err: Box<dyn error::Error> },
     /// Failed to serialize the new info.
     Serialize { what: &'static str, err: serde_yaml::Error },
     /// Failed to create a new file.
@@ -132,7 +132,7 @@ impl error::Error for Error {
 fn upgrade<T: Serialize>(
     what: &'static str,
     path: impl Into<PathBuf>,
-    versions: Vec<(Version, VersionParser<T>)>,
+    versions: Vec<(ConcreteFunctionVersion, VersionParser<T>)>,
     dry_run: bool,
     overwrite: bool,
 ) -> Result<(), Error> {
@@ -314,16 +314,11 @@ pub fn data(path: impl Into<PathBuf>, dry_run: bool, overwrite: bool, version: V
     info!("Upgrading data.yml files in '{}'...", path.display());
 
     // Construct the list of versions
-    let mut versions: Vec<(Version, VersionParser<DataInfo>)> = vec![(
-        Version::new(1, 0, 0),
+    let mut versions: Vec<(ConcreteFunctionVersion, VersionParser<DataInfo>)> = vec![(
+        ConcreteFunctionVersion::new(1, 0, 0),
         Box::new(|raw: &str| -> Option<VersionConverter<DataInfo>> {
             // Attempt to read it with the file
-            let cfg: v1_0_0::DataInfo = match serde_yaml::from_str(raw) {
-                Ok(cfg) => cfg,
-                Err(_) => {
-                    return None;
-                },
-            };
+            let cfg: v1_0_0::DataInfo = serde_yaml::from_str(raw).ok()?;
 
             // Return a function for converting it to a new-style function
             Some(Box::new(move |_dir: &Path, _overwrite: bool| -> Result<DataInfo, Error> {

@@ -45,11 +45,11 @@ pub async fn handle(
     let document = ContainerInfo::from_reader(handle).map_err(|source| BuildError::ContainerInfoParseError { file: file.clone(), source })?;
 
     // Prepare package directory
-    let package_dir = ensure_package_dir(&document.name, Some(&document.version), true).map_err(|source| BuildError::PackageDirError { source })?;
+    let package_dir = ensure_package_dir(&document.name, Some(&document.version.clone().into()), true).map_err(|source| BuildError::PackageDirError { source })?;
 
     // Lock the directory, build, unlock the directory
     {
-        let _lock = FileLock::lock(&document.name, document.version, package_dir.join(".lock"))
+        let _lock = FileLock::lock(&document.name, &document.version, package_dir.join(".lock"))
             .map_err(|source| BuildError::LockCreateError { name: document.name.clone(), source })?;
         build(arch, document, context, &package_dir, branelet_path, keep_files, convert_crlf).await?;
     };

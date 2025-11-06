@@ -13,539 +13,196 @@
 //!   with
 //
 
-use std::cmp::Ordering;
-use std::fmt::{Display, Formatter, Result as FResult};
-use std::str::FromStr;
+use std::{cmp::Ordering, fmt::Display, str::FromStr};
 
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
+pub type ConcreteFunctionVersion = semver::Version;
+pub use semver::Error as SemverError;
 
-/***** UNIT TESTS *****/
-#[cfg(test)]
-mod tests {
-    use serde_test::{Token, assert_de_tokens, assert_de_tokens_error, assert_ser_tokens};
-
-    use super::*;
-
-
-    /// A test string that is used for serde, who requires 'static references
-    const ACCIDENTAL_LATEST_STRING: &str = const_format::formatcp!("{}.{}.{}", u64::MAX, u64::MAX, u64::MAX);
-
-
-
-    #[test]
-    fn test_eq() {
-        // Test if versions equal each other
-        assert!(Version::new(42, 21, 10) == Version::new(42, 21, 10));
-        assert!(Version::new(42, 21, 10) != Version::new(43, 21, 10));
-
-        // Test the ordering
-        assert!(Version::new(42, 21, 10) > Version::new(42, 21, 9));
-        assert!(Version::new(42, 21, 10) > Version::new(42, 20, 10));
-        assert!(Version::new(42, 21, 10) > Version::new(41, 21, 10));
-        assert!(Version::new(42, 21, 10) < Version::new(42, 21, 11));
-        assert!(Version::new(42, 21, 10) < Version::new(42, 22, 10));
-        assert!(Version::new(42, 21, 10) < Version::new(43, 21, 10));
-    }
-
-    #[test]
-    fn test_parse() {
-        // Test if it can parse string versions
-        assert_eq!(Version::from_str("42.21.10"), Ok(Version::new(42, 21, 10)));
-        assert_eq!(Version::from_str("42.21"), Ok(Version::new(42, 21, 0)));
-        assert_eq!(Version::from_str("42"), Ok(Version::new(42, 0, 0)));
-
-        // Test if it can parse latest
-        assert_eq!(Version::from_str("latest"), Ok(Version::latest()));
-
-        // Test if it fails properly too
-        assert_eq!(Version::from_str(&format!("{}.{}.{}", u64::MAX, u64::MAX, u64::MAX)), Err(ParseError::AccidentalLatest));
-        assert_eq!(Version::from_str("a"), Err(ParseError::MajorParseError { raw: String::from("a"), source: u64::from_str("a").unwrap_err() }));
-        assert_eq!(Version::from_str("42.a"), Err(ParseError::MinorParseError { raw: String::from("a"), source: u64::from_str("a").unwrap_err() }));
-        assert_eq!(
-            Version::from_str("42.21.a"),
-            Err(ParseError::PatchParseError { raw: String::from("a"), source: u64::from_str("a").unwrap_err() })
-        );
-        assert_eq!(Version::from_str("a.b.c"), Err(ParseError::MajorParseError { raw: String::from("a"), source: u64::from_str("a").unwrap_err() }));
-        assert_eq!(Version::from_str("42.b.c"), Err(ParseError::MinorParseError { raw: String::from("b"), source: u64::from_str("b").unwrap_err() }));
-    }
-
-    #[test]
-    fn test_resolve() {
-        // Create a 'latest' version
-        let mut latest = Version::latest();
-
-        // Resolve it with a list
-        let versions =
-            vec![Version::new(21, 21, 10), Version::new(42, 20, 10), Version::new(42, 21, 10), Version::new(42, 19, 10), Version::new(0, 0, 0)];
-        assert!(latest.resolve_latest(versions.clone()).is_ok());
-        assert_eq!(latest, Version::new(42, 21, 10));
-
-        // Next, check if the errors work
-        let mut latest = Version::new(42, 21, 10);
-        assert_eq!(latest.resolve_latest(versions), Err(ResolveError::AlreadyResolved { version: Version::new(42, 21, 10) }));
-
-        let mut latest = Version::latest();
-        let versions = vec![Version::new(21, 21, 10), Version::latest(), Version::new(42, 21, 10)];
-        assert_eq!(latest.resolve_latest(versions), Err(ResolveError::NotResolved));
-
-        let mut latest = Version::latest();
-        let versions = vec![];
-        assert_eq!(latest.resolve_latest(versions), Err(ResolveError::NoVersions));
-    }
-
-
-
-    #[test]
-    fn test_semver() {
-        // Make sure the from (consuming) makes sense
-        let semversion = semver::Version::new(42, 21, 10);
-        let version = Version::from(semversion.clone());
-        assert_eq!(semversion.major, version.major);
-        assert_eq!(semversion.minor, version.minor);
-        assert_eq!(semversion.patch, version.patch);
-
-        // Make sure the from (reference) makes sense
-        let semversion = semver::Version::new(10, 21, 42);
-        let version = Version::from(&semversion);
-        assert_eq!(semversion.major, version.major);
-        assert_eq!(semversion.minor, version.minor);
-        assert_eq!(semversion.patch, version.patch);
-
-        // Check the eq
-        assert_eq!(Version::new(42, 21, 10), semver::Version::new(42, 21, 10));
-        assert_ne!(Version::latest(), semver::Version::new(u64::MAX, u64::MAX, u64::MAX));
-
-        // Check the ord
-        assert!(Version::new(42, 21, 10) > semver::Version::new(42, 21, 9));
-        assert!(Version::new(42, 21, 10) > semver::Version::new(42, 20, 10));
-        assert!(Version::new(42, 21, 10) > semver::Version::new(41, 21, 10));
-        assert!(Version::new(42, 21, 10) < semver::Version::new(42, 21, 11));
-        assert!(Version::new(42, 21, 10) < semver::Version::new(42, 22, 10));
-        assert!(Version::new(42, 21, 10) < semver::Version::new(43, 21, 10));
-    }
-
-
-
-    #[test]
-    fn test_serde_serialize() {
-        // Try to convert some versions to serde tokens
-        assert_ser_tokens(&Version::new(42, 21, 10), &[Token::Str("42.21.10")]);
-        assert_ser_tokens(&Version::new(42, 0, 10), &[Token::Str("42.0.10")]);
-        assert_ser_tokens(&Version::latest(), &[Token::Str("latest")]);
-    }
-
-    #[test]
-    fn test_serde_deserialize() {
-        // Try to convert some versions to serde tokens
-        assert_de_tokens(&Version::new(42, 21, 10), &[Token::Str("42.21.10")]);
-        assert_de_tokens(&Version::new(42, 0, 10), &[Token::Str("42.0.10")]);
-        assert_de_tokens(&Version::latest(), &[Token::Str("latest")]);
-
-        // Check for the same errors as test_parse()
-        assert_de_tokens_error::<Version>(&[Token::Str(ACCIDENTAL_LATEST_STRING)], &format!("{}", ParseError::AccidentalLatest));
-        assert_de_tokens_error::<Version>(
-            &[Token::Str("a")],
-            &format!("{}", ParseError::MajorParseError { raw: String::from("a"), source: u64::from_str("a").unwrap_err() }),
-        );
-        assert_de_tokens_error::<Version>(
-            &[Token::Str("42.a")],
-            &format!("{}", ParseError::MinorParseError { raw: String::from("a"), source: u64::from_str("a").unwrap_err() }),
-        );
-        assert_de_tokens_error::<Version>(
-            &[Token::Str("42.21.a")],
-            &format!("{}", ParseError::PatchParseError { raw: String::from("a"), source: u64::from_str("a").unwrap_err() }),
-        );
-        assert_de_tokens_error::<Version>(
-            &[Token::Str("a.b.c")],
-            &format!("{}", ParseError::MajorParseError { raw: String::from("a"), source: u64::from_str("a").unwrap_err() }),
-        );
-        assert_de_tokens_error::<Version>(
-            &[Token::Str("42.b.c")],
-            &format!("{}", ParseError::MinorParseError { raw: String::from("b"), source: u64::from_str("b").unwrap_err() }),
-        );
-    }
+/// Version information for a Brane DSL function.
+/// This version can be specified along semver, or provided as "latest".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AliasedFunctionVersion {
+    Latest,
+    Version(semver::Version)
 }
 
-
-
-
-
-/***** ERRORS *****/
-/// Collects errors that relate to the Version.
-#[derive(Debug, Eq, PartialEq, thiserror::Error)]
-pub enum ResolveError {
-    /// Could not resolve the version as it's already resolved.
-    #[error("Cannot resolve already resolved version '{version}'")]
-    AlreadyResolved { version: Version },
-    /// One of the versions we use to resolve this version is not resolved
-    #[error("Cannot resolve version with unresolved versions")]
-    NotResolved,
-    /// Could not resolve this version, as no versions are given
-    #[error("Cannot resolve version without any versions given")]
-    NoVersions,
-}
-
-/// Collects errors that relate to the Version.
-#[derive(Debug, Eq, PartialEq, thiserror::Error)]
-pub enum ParseError {
-    /// We accidentally created a 'latest' version
-    #[error("A version with all numbers to {} (64-bit, unsigned integer max) cannot be created; use 'latest' instead", u64::MAX)]
-    AccidentalLatest,
-    /// Could not parse the major version number
-    #[error("Could not parse major version number '{raw}'")]
-    MajorParseError { raw: String, source: std::num::ParseIntError },
-    /// Could not parse the minor version number
-    #[error("Could not parse minor version number '{raw}'")]
-    MinorParseError { raw: String, source: std::num::ParseIntError },
-    /// Could not parse the patch version number
-    #[error("Could not parse patch version number '{raw}'")]
-    PatchParseError { raw: String, source: std::num::ParseIntError },
-
-    /// Got a NAME:VERSION pair with too many colons
-    #[error("Given 'NAME[:VERSION]' pair '{raw}' has too many colons (got {got}, expected at most 1)")]
-    TooManyColons { raw: String, got: usize },
-    /// Could not parse the Version in a given NAME:VERSION pair.
-    #[error("Could not parse version '{raw_version}' in '{raw}'")]
-    IllegalVersion { raw: String, raw_version: String, source: Box<Self> },
-}
-
-/***** HELPER STRUCTS *****/
-/// Implements a Visitor for the Version.
-struct VersionVisitor;
-
-impl Visitor<'_> for VersionVisitor {
-    type Value = Version;
-
-    fn expecting(&self, formatter: &mut Formatter<'_>) -> FResult { formatter.write_str("a semanting version") }
-
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        // Parse the value with the Version parser
-        Version::from_str(value).map_err(|err| E::custom(format!("{err}")))
-    }
-}
-
-
-
-
-
-/***** VERSION *****/
-/// Implements the Version, which is used to keep track of package versions.
-#[derive(Clone, Copy, Debug, Eq)]
-pub struct Version {
-    /// The major version number. If all three are set to `u64::MAX`, is interpreted as an unresolved 'latest' version number.
-    pub major: u64,
-    /// The minor version number. If all three are set to `u64::MAX`, is interpreted as an unresolved 'latest' version number.
-    pub minor: u64,
-    /// The patch version number. If all three are set to `u64::MAX`, is interpreted as an unresolved 'latest' version number.
-    pub patch: u64,
-}
-
-impl Version {
-    /// Constructor for the Version.  
-    /// Note that this function panics if you try to create a 'latest' function this way; use [`Version::latest()`] instead.
-    ///
-    /// **Arguments**
-    ///  * `major`: The major version number.
-    ///  * `minor`: The minor version number.
-    ///  * `patch`: The patch version number.
-    pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
-        // Create the version
-        let result = Self { major, minor, patch };
-
-        // If it's latest, panic; otherwise, return
-        if result.is_latest() {
-            panic!(
-                "A version with all numbers set to 9,223,372,036,854,775,807 (64-bit, unsigned integer max) cannot be created; use 'latest' instead"
-            );
-        }
-        result
-    }
-
-    /// Constructor for the Version that sets it to an (unresolved) 'latest' version.
-    #[inline]
-    pub const fn latest() -> Self { Self { major: u64::MAX, minor: u64::MAX, patch: u64::MAX } }
-
-    /// Special factory method that creates a package name and a version from a `NAME[:VERSION]` pair.
-    ///
-    /// If the `VERSION` is omitted, returns `Version::latest()`.
-    ///
-    /// # Arguments
-    /// - `package`: The package `NAME[:VERSION]` pair to parse.
-    ///
-    /// # Errors
-    /// This function may error if parsing failed, somehow.
-    pub fn from_package_pair(package: &str) -> Result<(String, Self), ParseError> {
-        // Get the number of colons in the string
-        let colons: usize = package.matches(':').count();
-
-        // Switch on version present or not
-        if colons == 0 {
-            // Simply return the name with the latest version
-            Ok((package.into(), Self::latest()))
-        } else if colons == 1 {
-            // Split on the colon
-            let colon_pos = package.find(':').unwrap();
-            let name: &str = &package[..colon_pos];
-            let version: &str = &package[colon_pos + 1..];
-
-            // Attempt to parse the Version
-            let version: Self = Self::from_str(version).map_err(|source| ParseError::IllegalVersion {
-                raw: package.into(),
-                raw_version: version.into(),
-                source: Box::new(source),
-            })?;
-
-            // Return them as a pair
-            Ok((name.to_string(), version))
-        } else {
-            Err(ParseError::TooManyColons { raw: package.into(), got: colons })
+impl Display for AliasedFunctionVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Latest => write!(f, "latest"),
+            Self::Version(s) => write!(f, "{s}"),
         }
     }
-
-    /// Resolves this version in case it's a 'latest' version.
-    ///
-    /// **Generic types**
-    ///  * `I`: The type of the iterator passed to this function.
-    ///
-    /// **Arguments**
-    ///  * `iter`: An iterator over resolved version numbers.
-    ///
-    /// **Returns**  
-    /// Nothing on success (except that this version now is equal to the latest version in the bunch), or a `VersionError` otherwise.
-    pub fn resolve_latest<I: IntoIterator<Item = Self>>(&mut self, iter: I) -> Result<(), ResolveError> {
-        // Crash if we're already resolved
-        if !self.is_latest() {
-            return Err(ResolveError::AlreadyResolved { version: *self });
-        }
-
-        // Go through the iterator
-        let mut last_version: Option<Version> = None;
-        for version in iter {
-            // If this one isn't resolved, error too
-            if version.is_latest() {
-                return Err(ResolveError::NotResolved);
-            }
-
-            // Then, check if we saw a version before
-            if let Some(lversion) = &last_version {
-                // Update if this version is newer
-                if &version > lversion {
-                    last_version = Some(version);
-                }
-            } else {
-                // Simply set, as this is the first one
-                last_version = Some(version);
-            }
-        }
-
-        // If we found any, set it; otherwise, return failure
-        if let Some(version) = last_version {
-            *self = version;
-            Ok(())
-        } else {
-            Err(ResolveError::NoVersions)
-        }
-    }
-
-    /// Returns whether or not this Version represents a 'latest' version.
-    #[inline]
-    pub const fn is_latest(&self) -> bool { self.major == u64::MAX && self.minor == u64::MAX && self.patch == u64::MAX }
 }
 
-impl Default for Version {
-    /// Default constructor for the Version, which initializes it to 0.0.0.
-    #[inline]
-    fn default() -> Self { Self::new(0, 0, 0) }
-}
-
-impl PartialEq for Version {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool { self.major == other.major && self.minor == other.minor && self.patch == other.patch }
-}
-
-impl Ord for Version {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // Compare the major number
-        let order = self.major.cmp(&other.major);
-        if order.is_ne() {
-            return order;
-        }
-
-        // Compare the minor number
-        let order = self.minor.cmp(&other.minor);
-        if order.is_ne() {
-            return order;
-        }
-
-        // Compare the patch
-        self.patch.cmp(&other.patch)
-    }
-}
-
-impl PartialOrd for Version {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
-}
-
-impl FromStr for Version {
-    type Err = ParseError;
+impl FromStr for AliasedFunctionVersion {
+    type Err = semver::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // If the (lowercase) string is 'latest', use that
-        if s.to_lowercase() == "latest" {
-            return Ok(Self::latest());
+        match s.to_lowercase().as_str() {
+            "latest" => Ok(Self::Latest),
+            v => Ok(Self::Version(FromStr::from_str(v)?))
         }
-
-        // Otherwise, see if we can split the string into multiple slices
-        // Compute the possible dot posses first
-        let dot1 = s.find('.');
-        let dot2 = match &dot1 {
-            Some(pos1) => s[*pos1 + 1..].find('.').map(|pos2| *pos1 + 1 + pos2),
-            None => None,
-        };
-
-        // Use those positions to populate the string parts for each version number
-        let smajor: &str = match &dot1 {
-            Some(pos1) => &s[..*pos1],
-            None => s,
-        };
-        let sminor: &str = match dot1 {
-            Some(pos1) => match &dot2 {
-                Some(pos2) => &s[pos1 + 1..*pos2],
-                None => &s[pos1 + 1..],
-            },
-            None => "",
-        };
-        let spatch: &str = match dot2 {
-            Some(pos2) => &s[pos2 + 1..],
-            None => "",
-        };
-
-        // If the version starts with a 'v', then skip that one (i.e., that's allowed)
-        let smajor = if !smajor.is_empty() && smajor.starts_with('v') { &smajor[1..] } else { smajor };
-
-        // Try to parse each part
-        let major = u64::from_str(smajor).map_err(|source| ParseError::MajorParseError { raw: smajor.to_string(), source })?;
-        let minor = if !sminor.is_empty() {
-            u64::from_str(sminor).map_err(|source| ParseError::MinorParseError { raw: sminor.to_string(), source })?
-        } else {
-            // Otherwise, use the standard minor value
-            0
-        };
-        let patch = if !spatch.is_empty() {
-            u64::from_str(spatch).map_err(|source| ParseError::PatchParseError { raw: spatch.to_string(), source })?
-        } else {
-            // Otherwise, use the standard patch value
-            0
-        };
-
-        // Put them together in a Version
-        let result = Self { major, minor, patch };
-
-        // If this version is latest, then error
-        if result.is_latest() {
-            return Err(ParseError::AccidentalLatest);
-        }
-        Ok(result)
     }
 }
 
-impl Display for Version {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        if self.is_latest() { write!(f, "latest") } else { write!(f, "{}.{}.{}", self.major, self.minor, self.patch) }
+impl From<&AliasedFunctionVersion> for String {
+    fn from(value: &AliasedFunctionVersion) -> Self {
+        format!("{value}")
     }
 }
 
-impl AsRef<Version> for Version {
-    #[inline]
-    fn as_ref(&self) -> &Self { self }
-}
-impl From<&Version> for Version {
-    #[inline]
-    fn from(value: &Version) -> Self { *value }
-}
-impl From<&mut Version> for Version {
-    #[inline]
-    fn from(value: &mut Version) -> Self { *value }
-}
 
-
-
-impl PartialEq<semver::Version> for Version {
-    #[inline]
-    fn eq(&self, other: &semver::Version) -> bool {
-        !self.is_latest() && self.major == other.major && self.minor == other.minor && self.patch == other.patch
-    }
-}
-
-impl PartialOrd<semver::Version> for Version {
-    #[inline]
-    fn partial_cmp(&self, other: &semver::Version) -> Option<Ordering> {
-        // Do not compare if latest
-        if self.is_latest() {
-            return None;
+// FIXME: Cannot compare alias with concrete version
+impl PartialEq for AliasedFunctionVersion {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Version(l0), Self::Version(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
-
-        // Compare the major number
-        let order = self.major.cmp(&other.major);
-        if order.is_ne() {
-            return Some(order);
-        }
-
-        // Compare the minor number
-        let order = self.minor.cmp(&other.minor);
-        if order.is_ne() {
-            return Some(order);
-        }
-
-        // Compare the patch
-        Some(self.patch.cmp(&other.patch))
     }
 }
 
-impl From<semver::Version> for Version {
-    #[inline]
-    fn from(version: semver::Version) -> Self { Self { major: version.major, minor: version.minor, patch: version.patch } }
-}
+impl PartialOrd for AliasedFunctionVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            // Latest is just latest
+            (AliasedFunctionVersion::Latest, AliasedFunctionVersion::Latest) => Some(Ordering::Equal),
 
-impl From<&semver::Version> for Version {
-    #[inline]
-    fn from(version: &semver::Version) -> Self { Self { major: version.major, minor: version.minor, patch: version.patch } }
-}
+            // We cannot determine the concrete version of latest
+            (AliasedFunctionVersion::Latest, AliasedFunctionVersion::Version(_)) => None,
+            (AliasedFunctionVersion::Version(_), AliasedFunctionVersion::Latest) => None,
 
-
-
-impl From<Version> for String {
-    #[inline]
-    fn from(value: Version) -> Self { format!("{value}") }
-}
-
-impl From<&Version> for String {
-    #[inline]
-    fn from(value: &Version) -> Self { format!("{value}") }
-}
-
-
-
-impl Serialize for Version {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
+            // Regular comparison
+            (AliasedFunctionVersion::Version(v_self), AliasedFunctionVersion::Version(v_other)) => v_self.partial_cmp(v_other)
+        }
     }
 }
 
-impl<'de> Deserialize<'de> for Version {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(VersionVisitor)
+
+impl AliasedFunctionVersion {
+    pub fn from_package_pair(package: &str) -> Result<(String, Self), VersionError> {
+
+        let mut parts = package.split(":");
+
+        match (parts.next(), parts.next(), parts.next()) {
+            (Some(package_name), None, None) => Ok((package_name.to_string(), AliasedFunctionVersion::Latest)),
+            (Some(package_name), Some(package_version), None) => Ok((package_name.to_string(), AliasedFunctionVersion::from_str(package_version)?)),
+            (_, _, _) => Err(VersionError::TooManyColons { raw: package.into(), got: parts.count() + 3 }),
+        }
+    }
+}
+
+impl From<ConcreteFunctionVersion> for AliasedFunctionVersion {
+    fn from(value: ConcreteFunctionVersion) -> Self {
+        AliasedFunctionVersion::Version(value)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum VersionError {
+    #[error("Something went wrong parsing a version as a semver version")]
+    SemVer(#[source] #[from] semver::Error),
+    #[error("Given 'NAME[:VERSION]' pair '{raw}' has too many colons (got {got}, expected at most 1)")]
+    TooManyColons { raw: String, got: usize },
+}
+
+
+//
+// impl ToString for FunctionVersion {
+//     fn to_string(&self) -> String {
+//         match self {
+//             FunctionVersion::Latest => String::from("latest"),
+//             FunctionVersion::Version(version) => version.to_string(),
+//         }
+//     }
+// }
+
+/// Version info for components of the Brane framework.
+/// Note that this object does not, and cannot implement PartialEq as there is no
+/// equivalence relation for nightly aliases.
+///
+/// Also its important to distinguish between the alias nightly: "nightly" and a nightly
+/// prereleased version "x.y.z-nightly+abcdef12".
+///
+/// PartialOrd/PartialEq has been implemneted for this type, but the order is absent for comparisons
+/// in which either side is nightly. Or in comparisons between concrete versions and aliased
+/// versions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BraneVersion {
+    Latest,
+    Nightly,
+    Version(semver::Version)
+}
+
+impl From<&BraneVersion> for String {
+    fn from(value: &BraneVersion) -> Self {
+        match value {
+            BraneVersion::Latest => String::from("latest"),
+            BraneVersion::Nightly => String::from("nightly"),
+            BraneVersion::Version(version) => version.to_string(),
+        }
+    }
+}
+
+impl Display for BraneVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BraneVersion::Latest => f.write_str("latest"),
+            BraneVersion::Nightly => f.write_str("nightly"),
+            BraneVersion::Version(version) => write!(f, "{version}"),
+        }
+    }
+}
+
+impl FromStr for BraneVersion {
+    type Err = semver::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "latest" => Ok(Self::Latest),
+            "nightly" => Ok(Self::Nightly),
+            v => Ok(Self::Version(semver::Version::from_str(v)?)),
+        }
+    }
+}
+
+impl PartialEq for BraneVersion {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (BraneVersion::Latest, BraneVersion::Latest) => true,
+
+            // Nightly aliases cannot be compared
+            (BraneVersion::Nightly, _) => false,
+            (_, BraneVersion::Nightly) => false,
+
+            // We cannot determine the concrete version of latest
+            (BraneVersion::Latest, BraneVersion::Version(_)) => false,
+            (BraneVersion::Version(_), BraneVersion::Latest) => false,
+
+            (BraneVersion::Version(v_self), BraneVersion::Version(v_other)) => v_self.eq(v_other)
+        }
+    }
+}
+
+impl PartialOrd for BraneVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            // Latest is just latest
+            (BraneVersion::Latest, BraneVersion::Latest) => Some(Ordering::Equal),
+
+            // Nightly aliases cannot be compared
+            (BraneVersion::Nightly, _) => None,
+            (_, BraneVersion::Nightly) => None,
+
+            // We cannot determine the concrete version of latest
+            (BraneVersion::Latest, BraneVersion::Version(_)) => None,
+            (BraneVersion::Version(_), BraneVersion::Latest) => None,
+
+            // Regular comparison
+            (BraneVersion::Version(v_self), BraneVersion::Version(v_other)) => v_self.partial_cmp(v_other)
+        }
     }
 }

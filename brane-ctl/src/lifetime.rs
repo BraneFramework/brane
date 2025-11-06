@@ -38,7 +38,7 @@ use rand::Rng;
 use rand::distr::Alphanumeric;
 use serde::Serialize;
 use specifications::container::Image;
-use specifications::version::Version;
+use specifications::version::BraneVersion;
 
 pub use crate::errors::LifetimeError as Error;
 use crate::spec::{LogsOpts, StartOpts, StartSubcommand};
@@ -202,7 +202,7 @@ fn resolve_exe(exe: impl AsRef<str>) -> Result<(String, Vec<String>), Error> {
 ///
 /// # Errors
 /// This function errors if we failed to verify the given file exists, or failed to unpack the builtin file.
-fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, mut version: Version) -> Result<PathBuf, Error> {
+fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, brane_version: &BraneVersion) -> Result<PathBuf, Error> {
     // Switch on whether it exists or not
     match file {
         Some(file) => {
@@ -223,15 +223,22 @@ fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, mut versio
             // It does not; unpack the builtins
 
             // Verify the version matches what we have
-            if version.is_latest() {
-                version = Version::from_str(env!("CARGO_PKG_VERSION")).unwrap();
-            }
-            if version != Version::from_str(env!("CARGO_PKG_VERSION")).unwrap() {
-                return Err(Error::DockerComposeNotBakedIn { kind, version });
+            let brane_version = match brane_version {
+                // FIXME: TODO
+                BraneVersion::Latest => todo!("What does latest mean in this sense. This is more akin to 'compatible'"),
+                BraneVersion::Nightly => todo!("What does nightly mean in this sense. This is more akin to 'compatible'"),
+                BraneVersion::Version(version) => version,
+            };
+
+            let ctl_version = semver::Version::from_str(env!("CARGO_PKG_VERSION")).expect("The defined Brane version should always adhere to semantic versioning");
+
+            if &ctl_version != brane_version {
+                // We only know the docker compose file for the same version as branectl
+                return Err(Error::DockerComposeNotBakedIn { kind, version: brane_version.clone() });
             }
 
             // Write the target location if it does not yet exist
-            let compose_path: PathBuf = PathBuf::from("/tmp").join(format!("docker-compose-{kind}-{version}.yml"));
+            let compose_path: PathBuf = PathBuf::from("/tmp").join(format!("docker-compose-{kind}-{brane_version}.yml"));
             if !compose_path.exists() {
                 debug!("Unpacking baked-in {} Docker Compose file to '{}'...", kind, compose_path.display());
 
@@ -460,7 +467,7 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
 ///
 /// # Errors
 /// This function errors if the given images could not be loaded.
-async fn load_images(docker: &Docker, images: HashMap<impl AsRef<str>, ImageSource>, version: &Version) -> Result<(), Error> {
+async fn load_images(docker: &Docker, images: HashMap<impl AsRef<str>, ImageSource>, version: &BraneVersion) -> Result<(), Error> {
     // Iterate over the images
     for (name, image_source) in images {
         let name: &str = name.as_ref();
@@ -507,7 +514,7 @@ async fn load_images(docker: &Docker, images: HashMap<impl AsRef<str>, ImageSour
 ///
 /// # Errors
 /// This function errors if we fail to canonicalize any of the paths in `node_config`.
-fn construct_envs(version: &Version, node_config_path: &Path, node_config: &NodeConfig) -> Result<HashMap<&'static str, OsString>, Error> {
+fn construct_envs(version: &BraneVersion, node_config_path: &Path, node_config: &NodeConfig) -> Result<HashMap<&'static str, OsString>, Error> {
     // Set the global ones first
     let mut res: HashMap<&str, OsString> = HashMap::from([
         ("BRANE_VERSION", OsString::from(version.to_string())),
@@ -768,7 +775,7 @@ pub async fn start(
 
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
-    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), opts.version)?;
+    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), &opts.version)?;
 
     // Match on the command
     match command {
@@ -928,10 +935,10 @@ pub fn stop(compose_verbose: bool, exe: impl AsRef<str>, file: Option<PathBuf>, 
 
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
-    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), Version::from_str(env!("CARGO_PKG_VERSION")).unwrap())?;
+    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), &BraneVersion::Version(semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap()))?;
 
     // Construct the environment variables
-    let envs: HashMap<&str, OsString> = construct_envs(&Version::latest(), &node_config_path, &node_config)?;
+    let envs: HashMap<&str, OsString> = construct_envs(&BraneVersion::Latest, &node_config_path, &node_config)?;
 
     // Resolve the filename and deduce the project name
     let file: PathBuf = resolve_node(file, match node_config.node.kind() {
@@ -991,11 +998,11 @@ pub async fn logs(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path:
     debug!("Loading node config file '{}'...", node_config_path.display());
     let node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
 
-    let version = Version::from_str(env!("CARGO_PKG_VERSION")).unwrap();
+    let version = BraneVersion::from_str(env!("CARGO_PKG_VERSION")).unwrap();
 
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
-    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), version)?;
+    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), &version)?;
 
     // Construct the environment variables
     let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;
