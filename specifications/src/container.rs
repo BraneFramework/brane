@@ -10,7 +10,7 @@ use serde_with::skip_serializing_none;
 
 use crate::common::{CallPattern, Parameter, Type};
 use crate::package::{Capability, PackageKind};
-use crate::version::Version;
+use crate::version::ConcreteFunctionVersion;
 
 
 /***** CUSTOM TYPES *****/
@@ -433,7 +433,7 @@ pub struct ContainerInfo {
     /// The name/programming ID of this package.
     pub name: String,
     /// The version of this package.
-    pub version: Version,
+    pub version: ConcreteFunctionVersion,
     /// The kind of this package.
     pub kind: PackageKind,
     /// The list of owners of this package.

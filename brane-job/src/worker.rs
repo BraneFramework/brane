@@ -57,7 +57,7 @@ use specifications::package::{Capability, PackageIndex, PackageInfo, PackageKind
 use specifications::pc::ProgramCounter;
 use specifications::profiling::{ProfileReport, ProfileScopeHandle};
 use specifications::registering::DownloadAssetRequest;
-use specifications::version::Version;
+use specifications::version::AliasedFunctionVersion;
 use specifications::wir::func_id::FunctionId;
 use specifications::wir::locations::Location;
 use specifications::wir::{ComputeTaskDef, TaskDef, Workflow};
@@ -213,7 +213,7 @@ pub struct TaskInfo {
     /// The name of the task's parent package.
     pub package_name: String,
     /// The version of the task's parent package.
-    pub package_version: Version,
+    pub package_version: AliasedFunctionVersion,
     /// The kind of the task to execute.
     pub kind: Option<PackageKind>,
     /// The image name of the package where the task is from. Note: won't be populated until later.
@@ -250,7 +250,7 @@ impl TaskInfo {
         name: impl Into<String>,
         pc: ProgramCounter,
         package_name: impl Into<String>,
-        package_version: impl Into<Version>,
+        package_version: impl Into<AliasedFunctionVersion>,
         input: HashMap<DataName, AccessKind>,
         result: Option<String>,
         args: HashMap<String, FullValue>,
@@ -1236,7 +1236,7 @@ async fn execute_task(
     };
 
     // Get the info
-    let info: &PackageInfo = match index.get(&tinfo.package_name, Some(&tinfo.package_version)) {
+    let info: &PackageInfo = match index.get(&tinfo.package_name, &tinfo.package_version) {
         Some(info) => info,
         None => {
             return err!(tx, ExecuteError::UnknownPackage { name: tinfo.package_name.clone(), version: tinfo.package_version });
@@ -1246,7 +1246,7 @@ async fn execute_task(
 
     // Deduce the image name from that
     tinfo.kind = Some(info.kind);
-    tinfo.image = Some(Image::new(&tinfo.package_name, Some(tinfo.package_version), info.digest.clone()));
+    tinfo.image = Some(Image::new(&tinfo.package_name, Some(&tinfo.package_version), info.digest.clone()));
 
     // Now load the credentials file to get things going
     let disk = prof.time("File loading");
@@ -1919,7 +1919,7 @@ impl JobService for WorkerServer {
                 call_pc.edge_idx as usize,
             ),
             task.package.clone(),
-            task.version,
+            task.version.clone(),
             input,
             result,
             args,

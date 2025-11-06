@@ -19,7 +19,7 @@ use std::io::Write;
 use brane_dsl::ast::Expr;
 use brane_dsl::{DataType, TextRange};
 use console::{Style, style};
-use specifications::version::Version;
+use specifications::version::AliasedFunctionVersion;
 use specifications::wir::builtins::BuiltinClasses;
 use specifications::wir::merge_strategy::MergeStrategy;
 
@@ -508,10 +508,10 @@ impl SanityError {
 pub enum ResolveError {
     /// Failed to parse a package version number.
     #[error("Failed to parse package version")]
-    VersionParseError { source: specifications::version::ParseError, range: TextRange },
+    VersionParseError { source: specifications::version::SemverError, range: TextRange },
     /// The given package/version pair was not found.
-    #[error("Package '{}' does not exist{}", name, if !version.is_latest() { format!(" or has no version '{version}'") } else { String::new() })]
-    UnknownPackageError { name: String, version: Version, range: TextRange },
+    #[error("Package '{}' does not exist{}", name, if !matches!(version, AliasedFunctionVersion::Latest) { format!(" or has no version '{version}'") } else { String::new() })]
+    UnknownPackageError { name: String, version: AliasedFunctionVersion, range: TextRange },
     /// Failed to declare an imported package function
     #[error("Could not import function '{name}' from package '{package_name}'")]
     FunctionImportError { package_name: String, name: String, source: brane_dsl::errors::SymbolTableError, range: TextRange },

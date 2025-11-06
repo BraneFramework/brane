@@ -22,7 +22,7 @@ use brane_tsk::docker::{ClientVersion, ImageSource};
 use clap::Subcommand;
 use enum_debug::EnumDebug;
 use specifications::address::Address;
-use specifications::version::Version;
+use specifications::version::{BraneVersion, ConcreteFunctionVersion};
 
 use crate::errors::{InclusiveRangeParseError, PairParseError, PolicyInputLanguageParseError};
 
@@ -93,14 +93,14 @@ impl FromStr for ResolvableNodeKind {
 }
 
 /// Parses a version number that scopes a particular operation down. In other words, can be a specific version number or `all`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct VersionFix(pub Option<Version>);
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VersionFix(pub Option<ConcreteFunctionVersion>);
 impl Display for VersionFix {
     #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "{}", if let Some(version) = self.0 { version.to_string() } else { "all".into() }) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "{}", if let Some(ref version) = self.0 { version.to_string() } else { "all".into() }) }
 }
 impl FromStr for VersionFix {
-    type Err = specifications::version::ParseError;
+    type Err = specifications::version::SemverError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Parse the auto first
@@ -108,7 +108,7 @@ impl FromStr for VersionFix {
             return Ok(Self(None));
         }
         // Otherwise, delegate to the version parser
-        Ok(Self(Some(Version::from_str(s)?)))
+        Ok(Self(Some(ConcreteFunctionVersion::from_str(s)?)))
     }
 }
 
@@ -278,7 +278,7 @@ pub struct StartOpts {
     pub compose_verbose: bool,
 
     /// The Brane version to start.
-    pub version:     Version,
+    pub version:     BraneVersion,
     /// The image base directory, which is used to easily switch between using `./target/release` and `./target/debug`.
     pub image_dir:   PathBuf,
     /// Use local .tars for auxillary images instead of DockerHub ones.

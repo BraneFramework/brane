@@ -23,7 +23,7 @@ use console::style;
 use enum_debug::EnumDebug as _;
 use jsonwebtoken::jwk::KeyAlgorithm;
 use specifications::container::Image;
-use specifications::version::Version;
+use specifications::version::AliasedFunctionVersion;
 
 
 /***** LIBRARY *****/
@@ -219,7 +219,7 @@ pub enum LifetimeError {
     DockerComposeNotAFile { path: PathBuf },
     /// Relied on a build-in for a Docker Compose version that is not the default one.
     #[error("No baked-in {kind} Docker Compose for Brane version v{version} exists (give it yourself using '--file')")]
-    DockerComposeNotBakedIn { kind: NodeKind, version: Version },
+    DockerComposeNotBakedIn { kind: NodeKind, version: semver::Version },
     /// Failed to open a new Docker Compose file.
     #[error("Failed to create Docker Compose file '{}'", path.display())]
     DockerComposeCreateError { path: PathBuf, source: std::io::Error },
@@ -298,7 +298,7 @@ pub enum PackagesError {
     FileNotAFile { path: PathBuf },
     /// Failed to parse the given `NAME[:VERSION]` pair.
     #[error("Failed to parse given image name[:version] pair '{raw}'")]
-    IllegalNameVersionPair { raw: String, source: specifications::version::ParseError },
+    IllegalNameVersionPair { raw: String, source: specifications::version::VersionError },
     /// Failed to read the given directory
     #[error("Failed to read {} directory '{}'", what, path.display())]
     DirReadError { what: &'static str, path: PathBuf, source: std::io::Error },
@@ -307,7 +307,7 @@ pub enum PackagesError {
     DirEntryReadError { what: &'static str, entry: usize, path: PathBuf, source: std::io::Error },
     /// The given `NAME[:VERSION]` pair did not have a candidate.
     #[error("No image for package '{}', version {} found in '{}'", name, version, path.display())]
-    UnknownImage { path: PathBuf, name: String, version: Version },
+    UnknownImage { path: PathBuf, name: String, version: AliasedFunctionVersion },
     /// Failed to hash the found image file.
     #[error("Failed to hash image")]
     HashError { source: brane_tsk::docker::Error },

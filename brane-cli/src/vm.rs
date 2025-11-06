@@ -102,11 +102,10 @@ impl VmPlugin for OfflinePlugin {
             (state.docker_opts.clone(), state.package_dir.clone(), state.results_dir.clone(), state.pindex.clone(), state.keep_containers)
         };
 
-        // Next, we resolve the package
         let pinfo: &PackageInfo =
-            match pindex.get(info.package_name, if info.package_version.is_latest() { None } else { Some(info.package_version) }) {
+            match pindex.get(info.package_name, info.package_version) {
                 Some(pinfo) => pinfo,
-                None => return Err(ExecuteError::UnknownPackage { name: info.package_name.into(), version: *info.package_version }),
+                None => return Err(ExecuteError::UnknownPackage { name: info.package_name.into(), version: info.package_version.clone() }),
             };
         get.stop();
 

@@ -168,7 +168,7 @@ fn move_task(task: &Rc<RefCell<FunctionEntry>>, table: &mut TableState) {
             requirements: entry.requirements.clone().unwrap(),
 
             package_name:    entry.package_name.clone().unwrap(),
-            package_version: entry.package_version.unwrap(),
+            package_version: entry.package_version.clone().unwrap(),
 
             range: entry.range.clone(),
         }
@@ -240,7 +240,7 @@ fn move_class(class: &Rc<RefCell<ClassEntry>>, table: &mut TableState) -> Result
             methods,
 
             package_name: entry.package_name.clone(),
-            package_version: entry.package_version,
+            package_version: entry.package_version.clone(),
 
             range: entry.range.clone(),
         }

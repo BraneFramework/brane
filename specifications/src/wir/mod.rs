@@ -45,7 +45,7 @@ use serde_json_any_key::any_key_map;
 
 use crate::data::{AvailabilityKind, DataName};
 use crate::package::Capability;
-use crate::version::Version;
+use crate::version::ConcreteFunctionVersion;
 
 
 /***** CONSTANTS *****/
@@ -466,7 +466,7 @@ pub struct ComputeTaskDef {
     pub package: String,
     /// The version of the package that this task belongs to.
     #[serde(rename = "v")]
-    pub version: Version,
+    pub version: ConcreteFunctionVersion,
 
     /// The definition of the function that this package implements.
     #[serde(rename = "d")]
@@ -492,7 +492,7 @@ pub struct ClassDef {
     pub package: Option<String>,
     /// The version of the package that this class belongs to.
     #[serde(rename = "v")]
-    pub version: Option<Version>,
+    pub version: Option<ConcreteFunctionVersion>,
 
     /// The properties in this class.
     #[serde(rename = "p")]

@@ -29,7 +29,7 @@ use specifications::data::DataName;
 use specifications::driving::ExecuteReply;
 use specifications::package::Capability;
 use specifications::pc::ProgramCounter;
-use specifications::version::Version;
+use specifications::version::AliasedFunctionVersion;
 use specifications::wir::Workflow;
 use specifications::wir::func_id::FunctionId;
 use specifications::wir::locations::{Location, Locations};
@@ -246,7 +246,7 @@ pub enum ExecuteError {
     // General errors
     /// We encountered a package call that we didn't know.
     #[error("Unknown package '{name}' (or it does not have version {version})")]
-    UnknownPackage { name: String, version: Version },
+    UnknownPackage { name: String, version: AliasedFunctionVersion },
     /// We encountered a dataset/result that we didn't know.
     #[error("Unknown {} '{}'", name.variant(), name.name())]
     UnknownData { name: DataName },
@@ -647,7 +647,7 @@ pub enum LocalError {
     UnreadableVersionEntry { path: PathBuf },
     /// The name of version directory in a package's dir is not a valid version
     #[error("Entry '{version}' for package '{package}' is not a valid version")]
-    IllegalVersionEntry { package: String, version: String, source: specifications::version::ParseError },
+    IllegalVersionEntry { package: String, version: String, source: specifications::version::SemverError },
     /// The given package has no versions registered to it
     #[error("Package '{package}' does not have any registered versions")]
     NoVersions { package: String },
@@ -697,7 +697,7 @@ pub enum ApiError {
     PackageKindParseError { address: String, index: usize, raw: String, source: specifications::package::PackageKindError },
     /// Failed to parse the package's version in a package info.
     #[error("Failed to parse '{raw}' as version in package {index} returned by '{address}'")]
-    VersionParseError { address: String, index: usize, raw: String, source: specifications::version::ParseError },
+    VersionParseError { address: String, index: usize, raw: String, source: specifications::version::SemverError },
     /// Failed to create a package index from the given infos.
     #[error("Failed to create a package index from the package infos given by '{address}'")]
     PackageIndexError { address: String, source: specifications::package::PackageIndexError },

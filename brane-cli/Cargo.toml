@@ -29,6 +29,7 @@ path-clean = "1.0.0"
 prettytable = "0.10.0"
 rustyline = { version = "15.0.0", default-features = false }
 rustyline-derive = "0.11.0"
+semver = "1.0.0"
 tar = "0.4.21"
 tempfile = "3.10.1"
 tokio-stream = "0.1.16"

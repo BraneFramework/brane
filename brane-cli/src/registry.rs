@@ -17,7 +17,7 @@ use prettytable::Table;
 use prettytable::format::FormatBuilder;
 use reqwest::{self, Body, Client};
 use specifications::package::{PackageInfo, PackageKind};
-use specifications::version::Version;
+use specifications::version::{AliasedFunctionVersion, ConcreteFunctionVersion};
 use tokio::fs::File as TokioFile;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use uuid::Uuid;
@@ -76,7 +76,7 @@ pub fn get_data_endpoint() -> Result<String, RegistryError> {
 ///
 /// # Errors
 /// This function may error for about a million different reasons, chief of which are the remote not being reachable, the user not being logged-in, not being able to write to the package folder, etc.
-pub async fn pull(packages: Vec<(String, Version)>) -> Result<(), RegistryError> {
+pub async fn pull(packages: Vec<(String, AliasedFunctionVersion)>) -> Result<(), RegistryError> {
     // Compile the GraphQL schema
     #[derive(GraphQLQuery)]
     #[graphql(schema_path = "src/graphql/api_schema.json", query_path = "src/graphql/get_package.graphql", response_derives = "Debug")]
@@ -163,7 +163,7 @@ pub async fn pull(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
             })?;
 
             // Next, the version
-            let version = Version::from_str(&package.version).map_err(|source| RegistryError::VersionParseError {
+            let version = ConcreteFunctionVersion::from_str(&package.version).map_err(|source| RegistryError::VersionParseError {
                 url: url.clone(),
                 raw: package.version.clone(),
                 source,
@@ -195,7 +195,7 @@ pub async fn pull(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
                 name: package.name.clone(),
                 owners: package.owners.clone(),
                 types,
-                version,
+                version: version.clone(),
             };
 
             // Create the directory
@@ -241,7 +241,7 @@ pub async fn pull(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
 ///
 /// **Returns**  
 /// Nothing on success, or an anyhow error on failure.
-pub async fn push(packages: Vec<(String, Version)>) -> Result<(), RegistryError> {
+pub async fn push(packages: Vec<(String, AliasedFunctionVersion)>) -> Result<(), RegistryError> {
     // Try to get the general package directory
     let packages_dir = ensure_packages_dir(false).map_err(|source| RegistryError::PackagesDirError { source })?;
     debug!("Using Brane package directory: {}", packages_dir.display());
@@ -252,29 +252,31 @@ pub async fn push(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
         let package_dir = packages_dir.join(&name);
 
         // Resolve the version number
-        let version = if version.is_latest() {
-            // Get the list of versions
-            let mut versions =
-                get_package_versions(&name, &package_dir).map_err(|source| RegistryError::VersionsError { name: name.clone(), source })?;
+        let version = match version {
+            AliasedFunctionVersion::Latest => {
+                // Get the list of versions
+                let versions =
+                    get_package_versions(&name, &package_dir).map_err(|source| RegistryError::VersionsError { name: name.clone(), source })?;
 
-            // Sort the versions and return the last one
-            versions.sort();
-            versions[versions.len() - 1]
-        } else {
-            // Simply use the version given
-            version
+                // FIXME: Handle error
+                assert!(!versions.is_empty(), "At least one version needs to be available for a package in order to take the latest");
+
+                // Sort the versions and return the last one
+                versions.into_iter().max().unwrap()
+            },
+            AliasedFunctionVersion::Version(version) => {
+                // Simply use the version given
+                version
+            },
         };
 
         // Construct the full package directory with version
-        let package_dir = ensure_package_dir(&name, Some(&version), false).map_err(|source| RegistryError::PackageDirError {
+        let package_dir = ensure_package_dir(&name, Some(&version.clone().into()), false).map_err(|source| RegistryError::PackageDirError {
             name: name.clone(),
-            version,
+            version: version.clone(),
             source,
         })?;
-        // let temp_file = match tempfile::NamedTempFile::new() {
-        //     Ok(file) => file,
-        //     Err(err) => { return Err(RegistryError::TempFileError{ err }); }
-        // };
+
         let temp_path: std::path::PathBuf = std::env::temp_dir().join("temp.tar.gz");
         let temp_file: File = File::create(&temp_path).unwrap();
 
@@ -288,17 +290,17 @@ pub async fn push(packages: Vec<(String, Version)>) -> Result<(), RegistryError>
         let mut tar = tar::Builder::new(gz);
         tar.append_path_with_name(package_dir.join("package.yml"), "package.yml").map_err(|source| RegistryError::CompressionError {
             name: name.clone(),
-            version,
+            version: version.clone(),
             path: temp_path.clone(),
             source,
         })?;
         tar.append_path_with_name(package_dir.join("image.tar"), "image.tar").map_err(|source| RegistryError::CompressionError {
             name: name.clone(),
-            version,
+            version: version.clone(),
             path: temp_path.clone(),
             source,
         })?;
-        tar.into_inner().map_err(|source| RegistryError::CompressionError { name: name.clone(), version, path: temp_path.clone(), source })?;
+        tar.into_inner().map_err(|source| RegistryError::CompressionError { name: name.clone(), version: version.clone(), path: temp_path.clone(), source })?;
         progress.finish();
 
         // Upload file (with progress bar, of course)
@@ -387,7 +389,7 @@ pub async fn search(term: Option<String>) -> Result<()> {
     Ok(())
 }
 
-pub async fn unpublish(name: String, version: Version, force: bool) -> Result<()> {
+pub async fn unpublish(name: String, version: AliasedFunctionVersion, force: bool) -> Result<()> {
     #[derive(GraphQLQuery)]
     #[graphql(schema_path = "src/graphql/api_schema.json", query_path = "src/graphql/unpublish_package.graphql", response_derives = "Debug")]
     pub struct UnpublishPackage;
@@ -409,7 +411,9 @@ pub async fn unpublish(name: String, version: Version, force: bool) -> Result<()
     }
 
     // Prepare GraphQL query.
-    if version.is_latest() {
+    // TODO: If we do not accept latest, maybe we should encode it in the typesystem and just parse
+    // as a semver version
+    if matches!(version, AliasedFunctionVersion::Latest) {
         return Err(anyhow!("Cannot unpublish 'latest' package version; choose a version."));
     }
     let variables = unpublish_package::Variables { name, version: version.to_string() };

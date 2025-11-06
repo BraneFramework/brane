@@ -17,7 +17,7 @@ use std::str::FromStr;
 use log::debug;
 use reqwest::{Response, StatusCode};
 use specifications::arch::Arch;
-use specifications::version::Version;
+use specifications::version::BraneVersion;
 
 use crate::errors::VersionError;
 use crate::instance::InstanceInfo;
@@ -30,7 +30,7 @@ struct LocalVersion {
     /// The architecture as reported by `uname -m`
     arch:    Arch,
     /// The version as reported by the env
-    version: Version,
+    version: BraneVersion,
 }
 
 impl LocalVersion {
@@ -42,7 +42,7 @@ impl LocalVersion {
     /// A new LocalVersion instance on success, or else a VersionError.
     fn new() -> Result<Self, VersionError> {
         // Parse the env
-        let version = Version::from_str(env!("CARGO_PKG_VERSION"))
+        let version = BraneVersion::from_str(env!("CARGO_PKG_VERSION"))
             .map_err(|source| VersionError::VersionParseError { raw: env!("CARGO_PKG_VERSION").to_string(), source })?;
 
         // Done, return the struct
@@ -58,7 +58,7 @@ struct RemoteVersion {
     /// The architecture as reported by the remote
     _arch:   Arch,
     /// The version as downloaded from the remote
-    version: Version,
+    version: BraneVersion,
 }
 
 impl RemoteVersion {
@@ -99,7 +99,7 @@ impl RemoteVersion {
 
         // Try to parse the version
         debug!(" > Parsing remote version...");
-        let version = Version::from_str(&version_body).map_err(|source| VersionError::VersionParseError { raw: version_body, source })?;
+        let version = BraneVersion::from_str(&version_body).map_err(|source| VersionError::VersionParseError { raw: version_body, source })?;
 
         // Done!
         debug!("Remote version number: {}", &version);

@@ -17,7 +17,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use specifications::package::PackageKind;
-use specifications::version::Version;
+use specifications::version::AliasedFunctionVersion;
 
 // use crate::{MIN_DOCKER_VERSION, MIN_BUILDX_VERSION};
 use crate::errors::UtilError;
@@ -32,14 +32,14 @@ pub enum DependencyError {
     DockerNotInstalled,
     /// Docker has a too low version
     #[error("Docker version is {got}, but Brane requires version {expected} or later")]
-    DockerMinNotMet { got: Version, expected: Version },
+    DockerMinNotMet { got: semver::Version, expected: semver::Version },
 
     /// The Buildkit plugin is not installed for Docker
     #[error("Local Docker instance does not have the Buildkit plugin installed")]
     BuildkitNotInstalled,
     /// The Buildkit plugin has an incorrect version
     #[error("Buildkit plugin for Docker version is {got}, but Brane requires version {expected} or later")]
-    BuildKitMinNotMet { got: Version, expected: Version },
+    BuildKitMinNotMet { got: semver::Version, expected: semver::Version },
 }
 
 /***** UTILITIES *****/
@@ -369,28 +369,30 @@ pub fn ensure_datasets_dir(create: bool) -> Result<PathBuf, UtilError> {
 ///
 /// **Returns**  
 /// A PathBuf with the directory if successfull, or an UtilError otherwise.
-pub fn get_package_dir(name: &str, version: Option<&Version>) -> Result<PathBuf, UtilError> {
+pub fn get_package_dir(name: &str, version: Option<AliasedFunctionVersion>) -> Result<PathBuf, UtilError> {
+    let version: Option<AliasedFunctionVersion> = version;
     // Try to get the general package directory + the name of the package
     let packages_dir = get_packages_dir()?;
     let package_dir = packages_dir.join(name);
 
     // If there is no version, call it quits here
-    if version.is_none() {
-        return Ok(package_dir);
-    }
+    let version = match version {
+        Some(version) => version,
+        None => return Ok(package_dir),
+    };
 
     // Otherwise, resolve the version number if its 'latest'
-    let version = version.unwrap();
-    let version = if version.is_latest() {
-        // Get the list of versions
-        let mut versions = brane_tsk::local::get_package_versions(name, &package_dir).map_err(|source| UtilError::VersionsError { source })?;
-
-        // Sort the versions and return the last one
-        versions.sort();
-        versions[versions.len() - 1]
-    } else {
-        // Simply use the given version
-        *version
+    let version = match version {
+        AliasedFunctionVersion::Latest => {
+            brane_tsk::local::get_package_versions(name, &package_dir)
+                .map_err(|source| UtilError::VersionsError { source })?
+                .into_iter()
+                .max()
+                .expect("We need at least one version in order to take the latest")
+        },
+        AliasedFunctionVersion::Version(version) => {
+            version.clone()
+        },
     };
 
     // Return the path with the version appended to it
@@ -408,9 +410,9 @@ pub fn get_package_dir(name: &str, version: Option<&Version>) -> Result<PathBuf,
 ///
 /// **Returns**  
 /// A PathBuf with the directory if successfull, or an UtilError otherwise.
-pub fn ensure_package_dir(name: &str, version: Option<&Version>, create: bool) -> Result<PathBuf, UtilError> {
+pub fn ensure_package_dir(name: &str, version: Option<&AliasedFunctionVersion>, create: bool) -> Result<PathBuf, UtilError> {
     // Retrieve the path for this version
-    let package_dir = get_package_dir(name, version)?;
+    let package_dir = get_package_dir(name, version.cloned())?;
 
     // Make sure it exists
     if !package_dir.exists() {
@@ -425,12 +427,12 @@ pub fn ensure_package_dir(name: &str, version: Option<&Version>, create: bool) -
                     // Now create the directory
                     fs::create_dir_all(&package_dir).map_err(|source| UtilError::VersionDirCreateError {
                         package: name.to_string(),
-                        version: *version,
+                        version: version.clone(),
                         path: package_dir.clone(),
                         source,
                     })?;
                 } else {
-                    return Err(UtilError::VersionDirNotFound { package: name.to_string(), version: *version, path: package_dir });
+                    return Err(UtilError::VersionDirNotFound { package: name.to_string(), version: version.clone(), path: package_dir });
                 }
             },
 

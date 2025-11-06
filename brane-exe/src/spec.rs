@@ -22,7 +22,7 @@ use specifications::data::{AccessKind, DataName, PreprocessKind};
 use specifications::package::Capability;
 use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileScopeHandle;
-use specifications::version::Version;
+use specifications::version::AliasedFunctionVersion;
 use specifications::wir::SymTable;
 use specifications::wir::locations::Location;
 
@@ -253,7 +253,7 @@ pub struct TaskInfo<'a> {
     /// The package name of the task to execute.
     pub package_name: &'a str,
     /// The package version of the task to execute.
-    pub package_version: &'a Version,
+    pub package_version: &'a AliasedFunctionVersion,
     /// The requirements that the task has.
     pub requirements: &'a HashSet<Capability>,
 
