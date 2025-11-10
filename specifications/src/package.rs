@@ -20,7 +20,6 @@ use std::str::FromStr;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use enum_debug::EnumDebug;
-// use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JValue;
 use serde_with::skip_serializing_none;
@@ -29,7 +28,7 @@ use uuid::Uuid;
 
 use crate::common::{Function, Type};
 use crate::container::ContainerInfo;
-use crate::version::Version;
+use crate::version::{AliasedFunctionVersion, ConcreteFunctionVersion};
 
 
 /***** CUSTOM TYPES *****/
@@ -248,7 +247,7 @@ pub struct PackageInfo {
     /// The name/programming ID of this package.
     pub name: String,
     /// The version of this package.
-    pub version: Version,
+    pub version: ConcreteFunctionVersion,
     /// The kind of this package.
     pub kind: PackageKind,
     /// The list of owners of this package.
@@ -280,7 +279,7 @@ impl PackageInfo {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         name: String,
-        version: Version,
+        version: ConcreteFunctionVersion,
         kind: PackageKind,
         owners: Vec<String>,
         description: String,
@@ -426,7 +425,7 @@ impl From<&ContainerInfo> for PackageInfo {
         // Put it and other clones in the new instance
         PackageInfo::new(
             container.name.clone(),
-            container.version,
+            container.version.clone(),
             container.kind,
             match container.owners.as_ref() {
                 Some(owners) => owners.clone(),
@@ -454,7 +453,7 @@ pub struct PackageIndex {
     /// The list of packages stored in the index.
     pub packages: Map<PackageInfo>,
     /// Cache of the standard 'latest' packages so we won't have to search every time.
-    pub latest:   Map<(Version, String)>,
+    pub latest:   Map<(ConcreteFunctionVersion, String)>,
 }
 
 impl PackageIndex {
@@ -468,19 +467,19 @@ impl PackageIndex {
     ///  * `packages`: The map of packages to base this index on. Each key should be `<name>-<version>` (i.e., every package version is a separate entry).
     pub fn new(packages: Map<PackageInfo>) -> Self {
         // Compute the latest versions for each package
-        let mut latest: Map<(Version, String)> = Map::with_capacity(packages.len());
+        let mut latest: Map<(ConcreteFunctionVersion, String)> = Map::with_capacity(packages.len());
         for (key, package) in &packages {
             // Check if the package name has already been added
             if !latest.contains_key(&package.name) {
-                latest.insert(package.name.clone(), (package.version, key.clone()));
+                latest.insert(package.name.clone(), (package.version.clone(), key.clone()));
                 continue;
             }
 
             // Check if the existing version is later or not
-            let latest_package: &mut (Version, String) = latest.get_mut(&package.name).unwrap();
+            let latest_package: &mut (ConcreteFunctionVersion, String) = latest.get_mut(&package.name).unwrap();
             if package.version >= latest_package.0 {
                 // It is; update the version to point to the latest version of this package
-                latest_package.0 = package.version;
+                latest_package.0 = package.version.clone();
                 latest_package.1.clone_from(key);
             }
         }
@@ -594,26 +593,19 @@ impl PackageIndex {
     ///
     /// **Returns**  
     /// An (immuteable) reference to the package if it exists, or else None.
-    pub fn get(&self, name: &str, version: Option<&Version>) -> Option<&PackageInfo> {
+    pub fn get(&self, name: &str, version: &AliasedFunctionVersion) -> Option<&PackageInfo> {
         // Resolve the package version
         let version = match version {
-            Some(version) => {
-                if version.is_latest() {
-                    match self.get_latest_version(name) {
-                        Some(version) => version,
-                        None => {
-                            return None;
-                        },
-                    }
-                } else {
-                    version
+            AliasedFunctionVersion::Latest => {
+                match self.get_latest_version(name) {
+                    Some(version) => version,
+                    None => {
+                        return None;
+                    },
                 }
             },
-            None => match self.get_latest_version(name) {
-                Some(version) => version,
-                None => {
-                    return None;
-                },
+            AliasedFunctionVersion::Version(version) => {
+                version
             },
         };
 
@@ -629,5 +621,5 @@ impl PackageIndex {
     /// **Returns**  
     /// An (immuteable) reference to the version if this package if known, or else None.
     #[inline]
-    fn get_latest_version(&self, name: &str) -> Option<&Version> { self.latest.get(name).map(|(version, _)| version) }
+    fn get_latest_version(&self, name: &str) -> Option<&ConcreteFunctionVersion> { self.latest.get(name).map(|(version, _)| version) }
 }

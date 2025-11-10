@@ -95,7 +95,9 @@ fn pass_table(writer: &mut impl Write, table: &SymTable, indent: usize) -> std::
                     "{}Task<Compute> {}{}::{}({}){};",
                     indent!(indent),
                     def.package,
-                    if !def.version.is_latest() { format!("<{}>", def.version) } else { String::new() },
+                    // FIXME: Removed latest alias
+                    // if let AliasedFunctionVersion::Version(semver) = &def.version { format!("<{}>", semver) } else { String::new() },
+                    format_args!("<{}>", &def.version),
                     &def.function.name,
                     def.function.args.iter().enumerate().map(|(i, a)| format!("{}: {}", def.args_names[i], a)).collect::<Vec<String>>().join(", "),
                     if def.function.ret != DataType::Void { format!(" -> {}", def.function.ret) } else { String::new() },
@@ -195,7 +197,9 @@ fn pass_edges(
                         TaskDef::Compute(def) => format!(
                             "{}{}::{}",
                             def.package,
-                            if !def.version.is_latest() { format!("<{}>", def.version) } else { String::new() },
+                            // FIXME:: Removed latest
+                            // if let AliasedFunctionVersion::Version(semver) = &def.version { format!("<{}>", semver) } else { String::new() },
+                            format_args!("<{}>", &def.version),
                             def.function.name
                         ),
                         TaskDef::Transfer => "__builtin::transfer".into(),

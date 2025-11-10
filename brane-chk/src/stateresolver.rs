@@ -25,7 +25,7 @@ use policy_store::spec::databaseconn::{DatabaseConnection as _, DatabaseConnecto
 use policy_store::spec::metadata::User;
 use reqwest::StatusCode;
 use specifications::address::Address;
-use specifications::version::Version;
+use specifications::version::ConcreteFunctionVersion;
 use thiserror::Error;
 use tracing::{debug, instrument, warn};
 
@@ -76,7 +76,7 @@ pub enum Error {
     DuplicateInputId { workflow: String, call: String, input: String },
     /// Found an illegal version string in a task string.
     #[error("Illegal version identifier {version:?} in task {task:?} in call {call:?} in workflow {workflow:?}")]
-    IllegalVersionFormat { workflow: String, call: String, task: String, version: String, source: specifications::version::ParseError },
+    IllegalVersionFormat { workflow: String, call: String, task: String, version: String, source: specifications::version::SemverError },
     /// Failed to get the package index from the remote registry.
     #[error("Failed to get package index from the central registry at {addr:?}")]
     PackageIndex { addr: String, source: brane_tsk::api::Error },
@@ -108,7 +108,7 @@ pub enum Error {
     UnknownCall { workflow: String, call: String },
     /// The function called on a package in a call was unknown to that package.
     #[error("Unknown function {function:?} in package {package:?} ({version}) in call {call:?} in workflow {workflow:?}")]
-    UnknownFunction { workflow: String, call: String, package: String, version: Version, function: String },
+    UnknownFunction { workflow: String, call: String, package: String, version: ConcreteFunctionVersion, function: String },
     /// Some input to a task was unknown to us.
     #[error("Unknown input {input:?} to call {call:?} in workflow {workflow:?}")]
     UnknownInput { workflow: String, call: String, input: String },
@@ -123,7 +123,7 @@ pub enum Error {
     UnknownOwnerUser { workflow: String, call: String, tag: String, user: String },
     /// The package extracted from a call was unknown to us.
     #[error("Unknown package {package:?} ({version}) in call {call:?} in workflow {workflow:?}")]
-    UnknownPackage { workflow: String, call: String, package: String, version: Version },
+    UnknownPackage { workflow: String, call: String, package: String, version: ConcreteFunctionVersion },
     /// The planned user of a task was unknown to us.
     #[error("Unknown planned user {user:?} in call {call:?} in workflow {workflow:?}")]
     UnknownPlannedUser { workflow: String, call: String, user: String },

@@ -22,7 +22,7 @@ use brane_dsl::data_type::{ClassSignature, FunctionSignature};
 use brane_dsl::symbol_table::{ClassEntry, FunctionEntry, SymbolTable, VarEntry};
 use brane_dsl::{DataType, TextRange};
 use specifications::package::Capability;
-use specifications::version::Version;
+use specifications::version::ConcreteFunctionVersion;
 use specifications::wir::builtins::{BuiltinClasses, BuiltinFunctions};
 use specifications::wir::{ClassDef, ComputeTaskDef, Edge, FunctionDef, SymTable, TaskDef, VarDef};
 use strum::IntoEnumIterator;
@@ -380,7 +380,7 @@ pub struct TaskState {
     /// The name of the package where this Task is stored.
     pub package_name:    String,
     /// The version of the package where this Task is stored.
-    pub package_version: Version,
+    pub package_version: ConcreteFunctionVersion,
 
     /// The range that links this task back to the source text.
     pub range: TextRange,
@@ -395,7 +395,7 @@ impl From<&TaskState> for FunctionEntry {
             params:    vec![],
 
             package_name:    Some(value.package_name.clone()),
-            package_version: Some(value.package_version),
+            package_version: Some(value.package_version.clone()),
             class_name:      None,
 
             arg_names:    value.arg_names.clone(),
@@ -441,7 +441,7 @@ pub struct ClassState {
     /// If this class is imported from a package, then the package's name is stored here.
     pub package_name:    Option<String>,
     /// If this class is imported from a package, then the package's version is stored here.
-    pub package_version: Option<Version>,
+    pub package_version: Option<ConcreteFunctionVersion>,
 
     /// The range that links this class back to the source text.
     pub range: TextRange,
@@ -526,7 +526,7 @@ impl ClassState {
             symbol_table: c_table,
 
             package_name:    self.package_name.clone(),
-            package_version: self.package_version,
+            package_version: self.package_version.clone(),
 
             index: usize::MAX,
 

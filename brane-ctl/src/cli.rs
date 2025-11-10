@@ -13,7 +13,7 @@ use jsonwebtoken::jwk::KeyAlgorithm;
 use specifications::address::{Address, AddressOpt};
 use specifications::arch::Arch;
 use specifications::package::Capability;
-use specifications::version::Version;
+use specifications::version::BraneVersion;
 
 /***** ARGUMENTS *****/
 /// The server-side Brane command-line interface.
@@ -78,7 +78,7 @@ pub(crate) enum CtlSubcommand {
 
         /// The specific Brane version to start.
         #[clap(short, long, default_value = env!("CARGO_PKG_VERSION"), help = "The Brane version to import.")]
-        version: Version,
+        version: BraneVersion,
 
         /// Sets the '$IMG_DIR' variable, which can easily switch the location of compiled binaries.
         #[clap(

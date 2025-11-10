@@ -22,7 +22,7 @@ use reqwest::Client;
 use specifications::common::{Function, Type};
 use specifications::data::{DataIndex, DataInfo};
 use specifications::package::{PackageIndex, PackageInfo, PackageKind};
-use specifications::version::Version;
+use specifications::version::ConcreteFunctionVersion;
 use uuid::Uuid;
 
 pub use crate::errors::ApiError as Error;
@@ -88,7 +88,7 @@ pub async fn get_package_index(endpoint: impl AsRef<str>) -> Result<PackageIndex
             raw: p.kind,
             source,
         })?;
-        let version: Version = Version::from_str(&p.version).map_err(|source| Error::VersionParseError {
+        let version: ConcreteFunctionVersion = ConcreteFunctionVersion::from_str(&p.version).map_err(|source| Error::VersionParseError {
             address: endpoint.into(),
             index: i,
             raw: p.version,

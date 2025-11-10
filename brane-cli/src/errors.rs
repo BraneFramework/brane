@@ -21,7 +21,7 @@ use reqwest::StatusCode;
 use specifications::address::Address;
 use specifications::container::{ContainerInfoError, Image, LocalContainerInfoError};
 use specifications::package::{PackageInfoError, PackageKindError};
-use specifications::version::{ParseError as VersionParseError, Version};
+use specifications::version::{AliasedFunctionVersion, ConcreteFunctionVersion, SemverError as VersionParseError};
 
 
 /***** GLOBALS *****/
@@ -99,7 +99,7 @@ pub enum CliError {
     IllegalPackageKind { kind: String, source: PackageKindError },
     /// Could not parse a NAME:VERSION pair
     #[error("Could not parse '{raw}'")]
-    PackagePairParseError { raw: String, source: specifications::version::ParseError },
+    PackagePairParseError { raw: String, source: specifications::version::VersionError },
 }
 
 /// Collects errors during the build subcommand
@@ -642,7 +642,7 @@ pub enum PackageError {
 
     /// Failed to resolve a specific package/version pair
     #[error("Package '{name}' does not exist or has no version {version}")]
-    PackageVersionError { name: String, version: Version, source: UtilError },
+    PackageVersionError { name: String, version: ConcreteFunctionVersion, source: UtilError },
     /// Failed to resolve a specific package
     #[error("Package '{name}' does not exist")]
     PackageError { name: String, source: UtilError },
@@ -651,13 +651,13 @@ pub enum PackageError {
     ConsentError { source: dialoguer::Error },
     /// Failed to remove a package directory
     #[error("Failed to remove package '{}' (version {}) at '{}'", name, version, dir.display())]
-    PackageRemoveError { name: String, version: Version, dir: PathBuf, source: std::io::Error },
+    PackageRemoveError { name: String, version: AliasedFunctionVersion, dir: PathBuf, source: std::io::Error },
     /// Failed to get the versions of a package
     #[error("Failed to get versions of package '{}' (at '{}')", name, dir.display())]
     VersionsError { name: String, dir: PathBuf, source: std::io::Error },
     /// Failed to parse the version of a package
     #[error("Could not parse '{raw}' as a version for package '{name}'")]
-    VersionParseError { name: String, raw: String, source: specifications::version::ParseError },
+    VersionParseError { name: String, raw: String, source: specifications::version::SemverError },
     /// Failed to load the PackageInfo of the given package
     #[error("Could not load package info file '{}'", path.display())]
     PackageInfoError { path: PathBuf, source: specifications::package::PackageInfoError },
@@ -714,7 +714,7 @@ pub enum RegistryError {
     KindParseError { url: String, raw: String, source: specifications::package::PackageKindError },
     /// Could not parse the version as a proper PackageInfo version
     #[error("Could not parse '{raw}' (received from '{url}') as package version")]
-    VersionParseError { url: String, raw: String, source: specifications::version::ParseError },
+    VersionParseError { url: String, raw: String, source: specifications::version::SemverError },
     /// Could not parse the list of requirements of the package.
     #[error("Could not parse '{raw}' (received from '{url}') as package requirement")]
     RequirementParseError { url: String, raw: String, source: serde_json::Error },
@@ -742,13 +742,13 @@ pub enum RegistryError {
     VersionsError { name: String, source: brane_tsk::local::Error },
     /// Failed to resolve the directory of a specific package
     #[error("Could not resolve package directory of package '{name}' (version {version})")]
-    PackageDirError { name: String, version: Version, source: UtilError },
+    PackageDirError { name: String, version: ConcreteFunctionVersion, source: UtilError },
     /// Could not create a new temporary file
     #[error("Could not create a new temporary file")]
     TempFileError { source: std::io::Error },
     /// Could not compress the package file
     #[error("Could not compress package '{}' (version {}) to '{}'", name, version, path.display())]
-    CompressionError { name: String, version: Version, path: PathBuf, source: std::io::Error },
+    CompressionError { name: String, version: ConcreteFunctionVersion, path: PathBuf, source: std::io::Error },
     /// Failed to re-open the compressed package file
     #[error("Could not re-open compressed package archive '{}'", path.display())]
     PackageArchiveOpenError { path: PathBuf, source: std::io::Error },
@@ -910,10 +910,10 @@ pub enum TestError {
     DatasetsDirError { source: UtilError },
     /// Failed to get the directory of a package.
     #[error("Failed to get directory of package '{name}' (version {version})")]
-    PackageDirError { name: String, version: Version, source: UtilError },
+    PackageDirError { name: String, version: ConcreteFunctionVersion, source: UtilError },
     /// Failed to read the PackageInfo of the given package.
     #[error("Failed to read package info for package '{name}' (version {version})")]
-    PackageInfoError { name: String, version: Version, source: specifications::package::PackageInfoError },
+    PackageInfoError { name: String, version: ConcreteFunctionVersion, source: specifications::package::PackageInfoError },
 
     /// Failed to initialize the offline VM.
     #[error("Failed to initialize offline VM")]
@@ -942,7 +942,7 @@ pub enum VersionError {
     HostArchError { source: specifications::arch::ArchError },
     /// Could not parse a Version number.
     #[error("Could parse '{raw}' as Version")]
-    VersionParseError { raw: String, source: specifications::version::ParseError },
+    VersionParseError { raw: String, source: specifications::version::SemverError },
 
     /// Could not discover if the instance existed.
     #[error("Could not check if active instance exists")]
@@ -1059,10 +1059,10 @@ pub enum UtilError {
     PackageDirNotFound { package: String, path: PathBuf },
     /// Could not create a new directory for the given version
     #[error("Could not create directory for package '{}', version: {} (path: '{}')", package, version, path.display())]
-    VersionDirCreateError { package: String, version: Version, path: PathBuf, source: std::io::Error },
+    VersionDirCreateError { package: String, version: AliasedFunctionVersion, path: PathBuf, source: std::io::Error },
     /// The target package/version directory does not exist
     #[error("Directory for package '{}', version: {} does not exist (path: '{}')", package, version, path.display())]
-    VersionDirNotFound { package: String, version: Version, path: PathBuf },
+    VersionDirNotFound { package: String, version: AliasedFunctionVersion, path: PathBuf },
 
     /// Could not create the dataset folder for a specific dataset
     #[error("Could not create Brane dataset directory '{}' for dataset '{}'", path.display(), name)]
