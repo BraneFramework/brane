@@ -57,9 +57,9 @@ members = [
 
 
 [workspace.package]
-version = "3.0.0"
+version = "4.0.0"
 edition = "2021"
-authors = ["Onno Valkering", "Tim Müller"]
+authors = ["Onno Valkering", "Tim Müller", "Daniel Voogsgerd"]
 description = "The Brane Framework is a workflow execution system that is capable of dealing with sensitive dataset. Created for the [EPI project](https://enablingpersonalizedinterventions.nl)."
 repository = "https://github.com/braneframework/brane"
 documentation = "https://wiki.enablingpersonalizedinterventions.nl"
