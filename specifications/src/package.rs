@@ -427,20 +427,11 @@ impl From<&ContainerInfo> for PackageInfo {
             container.name.clone(),
             container.version.clone(),
             container.kind,
-            match container.owners.as_ref() {
-                Some(owners) => owners.clone(),
-                None => Vec::new(),
-            },
-            match container.description.as_ref() {
-                Some(description) => description.clone(),
-                None => String::new(),
-            },
+            container.owners.clone().unwrap_or_default(),
+            container.description.clone().unwrap_or_default(),
             container.entrypoint.kind == *"service",
             functions,
-            match container.types.as_ref() {
-                Some(types) => types.clone(),
-                None => Map::new(),
-            },
+            container.types.clone().unwrap_or_default(),
         )
     }
 }
@@ -528,18 +519,13 @@ impl PackageIndex {
     /// The new `PackageIndex` if it all went fine, or a [`PackageIndexError`] if it didn't.
     pub async fn from_url(url: &str) -> Result<Self, PackageIndexError> {
         // try to get the file
-        let json = match reqwest::get(url).await {
-            Ok(response) => {
-                if response.status() == reqwest::StatusCode::OK {
-                    // We have the request; now try to get it as json
-                    response.json().await.map_err(|source| PackageIndexError::IllegalJsonFile { url: url.to_string(), source })?
-                } else {
-                    return Err(PackageIndexError::ResponseNot200 { url: url.to_string(), status: response.status() });
-                }
-            },
-            Err(reason) => {
-                return Err(PackageIndexError::RequestFailed { url: url.to_string(), source: reason });
-            },
+        let response = reqwest::get(url).await.map_err(|reason| PackageIndexError::RequestFailed { url: url.to_string(), source: reason })?;
+
+        let json = if response.status() == reqwest::StatusCode::OK {
+            // We have the request; now try to get it as json
+            response.json().await.map_err(|source| PackageIndexError::IllegalJsonFile { url: url.to_string(), source })?
+        } else {
+            return Err(PackageIndexError::ResponseNot200 { url: url.to_string(), status: response.status() });
         };
 
         // Done; pass the rest to the from_value() function
@@ -596,17 +582,8 @@ impl PackageIndex {
     pub fn get(&self, name: &str, version: &AliasedFunctionVersion) -> Option<&PackageInfo> {
         // Resolve the package version
         let version = match version {
-            AliasedFunctionVersion::Latest => {
-                match self.get_latest_version(name) {
-                    Some(version) => version,
-                    None => {
-                        return None;
-                    },
-                }
-            },
-            AliasedFunctionVersion::Version(version) => {
-                version
-            },
+            AliasedFunctionVersion::Latest => self.get_latest_version(name)?,
+            AliasedFunctionVersion::Version(version) => version,
         };
 
         // Try to return the package info matching to this name/version pair

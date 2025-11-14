@@ -258,7 +258,6 @@ pub async fn push(packages: Vec<(String, AliasedFunctionVersion)>) -> Result<(),
                 let versions =
                     get_package_versions(&name, &package_dir).map_err(|source| RegistryError::VersionsError { name: name.clone(), source })?;
 
-                // FIXME: Handle error
                 assert!(!versions.is_empty(), "At least one version needs to be available for a package in order to take the latest");
 
                 // Sort the versions and return the last one
@@ -300,7 +299,12 @@ pub async fn push(packages: Vec<(String, AliasedFunctionVersion)>) -> Result<(),
             path: temp_path.clone(),
             source,
         })?;
-        tar.into_inner().map_err(|source| RegistryError::CompressionError { name: name.clone(), version: version.clone(), path: temp_path.clone(), source })?;
+        tar.into_inner().map_err(|source| RegistryError::CompressionError {
+            name: name.clone(),
+            version: version.clone(),
+            path: temp_path.clone(),
+            source,
+        })?;
         progress.finish();
 
         // Upload file (with progress bar, of course)
@@ -389,7 +393,7 @@ pub async fn search(term: Option<String>) -> Result<()> {
     Ok(())
 }
 
-pub async fn unpublish(name: String, version: AliasedFunctionVersion, force: bool) -> Result<()> {
+pub async fn unpublish(name: String, version: ConcreteFunctionVersion, force: bool) -> Result<()> {
     #[derive(GraphQLQuery)]
     #[graphql(schema_path = "src/graphql/api_schema.json", query_path = "src/graphql/unpublish_package.graphql", response_derives = "Debug")]
     pub struct UnpublishPackage;
@@ -411,11 +415,7 @@ pub async fn unpublish(name: String, version: AliasedFunctionVersion, force: boo
     }
 
     // Prepare GraphQL query.
-    // TODO: If we do not accept latest, maybe we should encode it in the typesystem and just parse
-    // as a semver version
-    if matches!(version, AliasedFunctionVersion::Latest) {
-        return Err(anyhow!("Cannot unpublish 'latest' package version; choose a version."));
-    }
+    // TODO: Add support for "latest"
     let variables = unpublish_package::Variables { name, version: version.to_string() };
     let graphql_query = UnpublishPackage::build_query(variables);
 

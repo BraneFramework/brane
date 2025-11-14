@@ -102,11 +102,10 @@ impl VmPlugin for OfflinePlugin {
             (state.docker_opts.clone(), state.package_dir.clone(), state.results_dir.clone(), state.pindex.clone(), state.keep_containers)
         };
 
-        let pinfo: &PackageInfo =
-            match pindex.get(info.package_name, info.package_version) {
-                Some(pinfo) => pinfo,
-                None => return Err(ExecuteError::UnknownPackage { name: info.package_name.into(), version: info.package_version.clone() }),
-            };
+        let pinfo: &PackageInfo = match pindex.get(info.package_name, info.package_version) {
+            Some(pinfo) => pinfo,
+            None => return Err(ExecuteError::UnknownPackage { name: info.package_name.into(), version: info.package_version.clone() }),
+        };
         get.stop();
 
         // Resolve the input arguments, generating the folders we have to bind

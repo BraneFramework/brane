@@ -293,6 +293,7 @@ async fn run(options: Cli) -> Result<(), CliError> {
                     for package in &packages {
                         parsed.push(
                             AliasedFunctionVersion::from_package_pair(package)
+                                .map(|(package, version)| (package, version.unwrap_or(AliasedFunctionVersion::Latest)))
                                 .map_err(|source| CliError::PackagePairParseError { raw: package.into(), source })?,
                         );
                     }
@@ -309,7 +310,9 @@ async fn run(options: Cli) -> Result<(), CliError> {
                     let mut parsed: Vec<(String, AliasedFunctionVersion)> = Vec::with_capacity(packages.len());
                     for package in packages {
                         parsed.push(
-                            AliasedFunctionVersion::from_package_pair(&package).map_err(|source| CliError::PackagePairParseError { raw: package, source })?,
+                            AliasedFunctionVersion::from_package_pair(&package)
+                                .map(|(package, version)| (package, version.unwrap_or(AliasedFunctionVersion::Latest)))
+                                .map_err(|source| CliError::PackagePairParseError { raw: package, source })?,
                         );
                     }
 
@@ -322,10 +325,13 @@ async fn run(options: Cli) -> Result<(), CliError> {
                         println!("Nothing to do.");
                         return Ok(());
                     }
-                    let mut parsed: Vec<(String, AliasedFunctionVersion)> = Vec::with_capacity(packages.len());
+                    let mut parsed: Vec<(String, Option<AliasedFunctionVersion>)> = Vec::with_capacity(packages.len());
                     for package in packages {
                         parsed.push(
-                            AliasedFunctionVersion::from_package_pair(&package).map_err(|source| CliError::PackagePairParseError { raw: package, source })?,
+                            // FIXME: I really dislike the misuse of latest in this context to mean
+                            // all
+                            AliasedFunctionVersion::from_package_pair(&package)
+                                .map_err(|source| CliError::PackagePairParseError { raw: package, source })?,
                         );
                     }
 

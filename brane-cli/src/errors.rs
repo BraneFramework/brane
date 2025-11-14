@@ -642,7 +642,7 @@ pub enum PackageError {
 
     /// Failed to resolve a specific package/version pair
     #[error("Package '{name}' does not exist or has no version {version}")]
-    PackageVersionError { name: String, version: ConcreteFunctionVersion, source: UtilError },
+    PackageVersionError { name: String, version: AliasedFunctionVersion, source: UtilError },
     /// Failed to resolve a specific package
     #[error("Package '{name}' does not exist")]
     PackageError { name: String, source: UtilError },
@@ -650,8 +650,8 @@ pub enum PackageError {
     #[error("Failed to ask for your consent")]
     ConsentError { source: dialoguer::Error },
     /// Failed to remove a package directory
-    #[error("Failed to remove package '{}' (version {}) at '{}'", name, version, dir.display())]
-    PackageRemoveError { name: String, version: AliasedFunctionVersion, dir: PathBuf, source: std::io::Error },
+    #[error("Failed to remove package '{}' {}  at '{}'", name, match version { Some(version) => format!("{}", version), None => String::new() }, dir.display())]
+    PackageRemoveError { name: String, version: Option<AliasedFunctionVersion>, dir: PathBuf, source: std::io::Error },
     /// Failed to get the versions of a package
     #[error("Failed to get versions of package '{}' (at '{}')", name, dir.display())]
     VersionsError { name: String, dir: PathBuf, source: std::io::Error },
@@ -910,10 +910,10 @@ pub enum TestError {
     DatasetsDirError { source: UtilError },
     /// Failed to get the directory of a package.
     #[error("Failed to get directory of package '{name}' (version {version})")]
-    PackageDirError { name: String, version: ConcreteFunctionVersion, source: UtilError },
+    PackageDirError { name: String, version: AliasedFunctionVersion, source: UtilError },
     /// Failed to read the PackageInfo of the given package.
     #[error("Failed to read package info for package '{name}' (version {version})")]
-    PackageInfoError { name: String, version: ConcreteFunctionVersion, source: specifications::package::PackageInfoError },
+    PackageInfoError { name: String, version: AliasedFunctionVersion, source: specifications::package::PackageInfoError },
 
     /// Failed to initialize the offline VM.
     #[error("Failed to initialize offline VM")]

@@ -45,7 +45,8 @@ pub async fn handle(
     let document = ContainerInfo::from_reader(handle).map_err(|source| BuildError::ContainerInfoParseError { file: file.clone(), source })?;
 
     // Prepare package directory
-    let package_dir = ensure_package_dir(&document.name, Some(&document.version.clone().into()), true).map_err(|source| BuildError::PackageDirError { source })?;
+    let package_dir =
+        ensure_package_dir(&document.name, Some(&document.version.clone().into()), true).map_err(|source| BuildError::PackageDirError { source })?;
 
     // Lock the directory, build, unlock the directory
     {

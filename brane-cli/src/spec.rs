@@ -123,7 +123,9 @@ impl FromStr for Hostname {
 pub struct VersionFix(pub Option<ConcreteFunctionVersion>);
 impl Display for VersionFix {
     #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "{}", if let Some(ref version) = self.0 { version.to_string() } else { "all".into() }) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        write!(f, "{}", if let Some(ref version) = self.0 { version.to_string() } else { "all".into() })
+    }
 }
 impl FromStr for VersionFix {
     type Err = specifications::version::SemverError;
