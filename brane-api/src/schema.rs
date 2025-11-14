@@ -99,7 +99,7 @@ impl Query {
             if let Some(version) = version {
                 let target_version = AliasedFunctionVersion::from_str(&version)?;
                 let mut package: Option<Package> = None;
-                let mut version: Option<AliasedFunctionVersion> = None;
+                let mut version: Option<ConcreteFunctionVersion> = None;
                 if let AliasedFunctionVersion::Version(semver) = target_version {
                     for p in packages {
                         // Find the first matching one
@@ -122,7 +122,7 @@ impl Query {
                         // Find the one with the highest version
 
                         // Parse it as a version
-                        let pversion = match AliasedFunctionVersion::from_str(&p.version) {
+                        let pversion = match ConcreteFunctionVersion::from_str(&p.version) {
                             Ok(version) => version,
                             Err(_) => {
                                 continue;

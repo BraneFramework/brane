@@ -370,12 +370,11 @@ pub fn ensure_datasets_dir(create: bool) -> Result<PathBuf, UtilError> {
 /// **Returns**  
 /// A PathBuf with the directory if successfull, or an UtilError otherwise.
 pub fn get_package_dir(name: &str, version: Option<AliasedFunctionVersion>) -> Result<PathBuf, UtilError> {
-    let version: Option<AliasedFunctionVersion> = version;
     // Try to get the general package directory + the name of the package
     let packages_dir = get_packages_dir()?;
     let package_dir = packages_dir.join(name);
 
-    // If there is no version, call it quits here
+    // If there is no version, return the parent package dir (without version)
     let version = match version {
         Some(version) => version,
         None => return Ok(package_dir),
@@ -383,16 +382,12 @@ pub fn get_package_dir(name: &str, version: Option<AliasedFunctionVersion>) -> R
 
     // Otherwise, resolve the version number if its 'latest'
     let version = match version {
-        AliasedFunctionVersion::Latest => {
-            brane_tsk::local::get_package_versions(name, &package_dir)
-                .map_err(|source| UtilError::VersionsError { source })?
-                .into_iter()
-                .max()
-                .expect("We need at least one version in order to take the latest")
-        },
-        AliasedFunctionVersion::Version(version) => {
-            version.clone()
-        },
+        AliasedFunctionVersion::Latest => brane_tsk::local::get_package_versions(name, &package_dir)
+            .map_err(|source| UtilError::VersionsError { source })?
+            .into_iter()
+            .max()
+            .expect("We need at least one version in order to take the latest"),
+        AliasedFunctionVersion::Version(version) => version.clone(),
     };
 
     // Return the path with the version appended to it

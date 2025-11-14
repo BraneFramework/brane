@@ -510,7 +510,7 @@ pub enum ResolveError {
     #[error("Failed to parse package version")]
     VersionParseError { source: specifications::version::SemverError, range: TextRange },
     /// The given package/version pair was not found.
-    #[error("Package '{}' does not exist{}", name, if !matches!(version, AliasedFunctionVersion::Latest) { format!(" or has no version '{version}'") } else { String::new() })]
+    #[error("Package '{}' does not exist{}", name, if !version.is_latest() { format!(" or has no version '{version}'") } else { String::new() })]
     UnknownPackageError { name: String, version: AliasedFunctionVersion, range: TextRange },
     /// Failed to declare an imported package function
     #[error("Could not import function '{name}' from package '{package_name}'")]

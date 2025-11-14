@@ -526,7 +526,8 @@ pub(crate) enum PackageSubcommand {
         #[clap(
             name = "IMAGE",
             help = "The image to compute the hash of. If it's a path that exists, will attempt to hash that file; otherwise, will hash based on an \
-                    image in the local node's `packages` directory. You can use `name[:version]` syntax to specify the version."
+                    image in the local node's `packages` directory. You can use `name[:version]` syntax to specify the version. If the version is \
+                    omitted, the latest version is hashed."
         )]
         image: String,
     },

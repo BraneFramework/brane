@@ -22,7 +22,7 @@ use brane_tsk::input::prompt_for_input;
 use console::style;
 use specifications::data::DataIndex;
 use specifications::package::PackageInfo;
-use specifications::version::ConcreteFunctionVersion;
+use specifications::version::AliasedFunctionVersion;
 
 use crate::errors::TestError;
 use crate::repl::Snippet;
@@ -93,7 +93,7 @@ fn write_value(value: FullValue) -> String {
 /// This function errors if any part of that dance failed.
 pub async fn handle(
     name: impl Into<String>,
-    version: ConcreteFunctionVersion,
+    version: AliasedFunctionVersion,
     show_result: Option<PathBuf>,
     docker_opts: DockerOptions,
     keep_containers: bool,
@@ -101,8 +101,11 @@ pub async fn handle(
     let name: String = name.into();
 
     // Read the package info of the given package
-    let package_dir =
-        ensure_package_dir(&name, Some(&version.clone().into()), false).map_err(|source| TestError::PackageDirError { name: name.clone(), version: version.clone(), source })?;
+    let package_dir = ensure_package_dir(&name, Some(&version), false).map_err(|source| TestError::PackageDirError {
+        name: name.clone(),
+        version: version.clone(),
+        source,
+    })?;
 
     let package_info = PackageInfo::from_path(package_dir.join("package.yml")).map_err(|source| TestError::PackageInfoError {
         name: name.clone(),

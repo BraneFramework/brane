@@ -19,7 +19,8 @@ use brane_shr::formatters::PrettyListFormatter;
 use enum_debug::EnumDebug as _;
 use reqwest::StatusCode;
 use scylla::transport::errors::NewSessionError;
-use specifications::{address::Address, version::AliasedFunctionVersion};
+use specifications::address::Address;
+use specifications::version::AliasedFunctionVersion;
 
 
 /***** ERRORS *****/

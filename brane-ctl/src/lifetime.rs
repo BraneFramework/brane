@@ -230,7 +230,8 @@ fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, brane_vers
                 BraneVersion::Version(version) => version,
             };
 
-            let ctl_version = semver::Version::from_str(env!("CARGO_PKG_VERSION")).expect("The defined Brane version should always adhere to semantic versioning");
+            let ctl_version =
+                semver::Version::from_str(env!("CARGO_PKG_VERSION")).expect("The defined Brane version should always adhere to semantic versioning");
 
             if &ctl_version != brane_version {
                 // We only know the docker compose file for the same version as branectl
@@ -935,7 +936,11 @@ pub fn stop(compose_verbose: bool, exe: impl AsRef<str>, file: Option<PathBuf>, 
 
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
-    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), &BraneVersion::Version(semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap()))?;
+    let file: PathBuf = resolve_docker_compose_file(
+        file,
+        node_config.node.kind(),
+        &BraneVersion::Version(semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap()),
+    )?;
 
     // Construct the environment variables
     let envs: HashMap<&str, OsString> = construct_envs(&BraneVersion::Latest, &node_config_path, &node_config)?;

@@ -63,8 +63,10 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
         // TODO: It needs more work
 
         // Split the image into a name and possible version number
-        let (name, version) =
-            AliasedFunctionVersion::from_package_pair(&image).map_err(|source| Error::IllegalNameVersionPair { raw: image, source })?;
+        let (name, version) = AliasedFunctionVersion::from_package_pair(&image)
+            // Default to latest
+            .map(|(package, version)| (package, version.unwrap_or(AliasedFunctionVersion::Latest)))
+            .map_err(|source| Error::IllegalNameVersionPair { raw: image, source })?;
 
         // Start reading the packages directory
         let entries: ReadDir =
@@ -122,7 +124,7 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
                         largest_version_opt = Some(esemver.clone());
                         file = Some((entry.path(), AliasedFunctionVersion::Version(esemver)));
                     },
-                    _ => {}
+                    _ => {},
                 }
             }
         }
