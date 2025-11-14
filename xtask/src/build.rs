@@ -1,11 +1,12 @@
 //! Module with all things related to building Brane targets.
 use std::collections::HashSet;
 use std::env::consts::{ARCH, OS};
-use std::path::PathBuf;
 
+use anyhow::Context as _;
 use tracing::{info, warn};
 
 use crate::registry::{BuildFuncInfo, REGISTRY};
+use crate::utilities::get_cargo_target_directory;
 
 /// Build all given targets for the current operating system and architecture.
 /// # Arguments
@@ -27,10 +28,17 @@ pub fn build(targets: &[String]) -> anyhow::Result<()> {
         })
         .collect();
 
-    for target in build_targets {
-        info!("Building {target}", target = target.package_name);
-        (target.build_command)(BuildFuncInfo { out_dir: PathBuf::from("./target/release") })?
-    }
+    build_targets
+        .into_iter()
+        .try_for_each(|target| {
+            info!("Building {target}", target = target.package_name);
+            let out_dir = get_cargo_target_directory()?;
+            (target.build_command)(BuildFuncInfo { out_dir: out_dir.clone() })
+                .with_context(|| format!("Build function failed for package: {} in directory: {}", target.package_name, out_dir.display()))?;
+
+            Ok::<(), anyhow::Error>(())
+        })
+        .context("Could not build one of the requested targets")?;
 
     Ok(())
 }
