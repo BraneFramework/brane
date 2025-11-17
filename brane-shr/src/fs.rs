@@ -27,7 +27,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, warn};
 use reqwest::{Client, Request, Response, StatusCode, Url};
 use sha2::{Digest as _, Sha256};
-use specifications::version::Version;
+use specifications::version::ConcreteFunctionVersion;
 use tokio::fs as tfs;
 use tokio::io::{self as tio, AsyncWriteExt};
 use tokio_stream::StreamExt;
@@ -914,9 +914,8 @@ impl FileLock {
     ///
     /// # Returns
     /// A new instance of the FileLock that acts as a guard of the lock. As long as it's in scope, the exclusive lock will be held.
-    pub fn lock(name: impl AsRef<str>, version: impl AsRef<Version>, path: impl Into<PathBuf>) -> Result<Self, Error> {
+    pub fn lock(name: impl AsRef<str>, version: &ConcreteFunctionVersion, path: impl Into<PathBuf>) -> Result<Self, Error> {
         let name: &str = name.as_ref();
-        let version: &Version = version.as_ref();
         let path: PathBuf = path.into();
 
         // Attempt to get the file handle

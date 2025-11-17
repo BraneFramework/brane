@@ -19,7 +19,7 @@ use console::style;
 use enum_debug::EnumDebug as _;
 use specifications::data::DataName;
 use specifications::pc::ProgramCounter;
-use specifications::version::Version;
+use specifications::version::AliasedFunctionVersion;
 use specifications::wir::data_type::DataType;
 use specifications::wir::func_id::FunctionId;
 use specifications::wir::merge_strategy::MergeStrategy;
@@ -265,8 +265,8 @@ pub enum VmError {
     #[error("Encountered unknown result '{name}'")]
     UnknownResult { pc: ProgramCounter, name: String },
     /// The given package was not known.
-    #[error("Unknown package with name '{}'{}", name, if !version.is_latest() { format!(" and version {version}") } else { String::new() })]
-    UnknownPackage { pc: ProgramCounter, name: String, version: Version },
+    #[error("Unknown package with name '{}'{}", name, if let AliasedFunctionVersion::Version(semver) = version { format!(" and version {semver}") } else { String::new() })]
+    UnknownPackage { pc: ProgramCounter, name: String, version: AliasedFunctionVersion },
     /// Failed to serialize the given argument list.
     #[error("Could not serialize task arguments")]
     ArgumentsSerializeError { pc: ProgramCounter, source: serde_json::Error },

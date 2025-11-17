@@ -19,7 +19,7 @@ use std::rc::Rc;
 use std::str::FromStr as _;
 
 use enum_debug::EnumDebug;
-use specifications::version::{ParseError, Version};
+use specifications::version::{AliasedFunctionVersion, SemverError};
 
 use crate::data_type::DataType;
 use crate::location::AllowedLocations;
@@ -1563,10 +1563,10 @@ impl Literal {
     /// # Panics
     /// This function panics if the Literal is not a Semver.
     #[inline]
-    pub fn as_version(&self) -> Result<Version, ParseError> {
+    pub fn as_version(&self) -> Result<AliasedFunctionVersion, SemverError> {
         use Literal::*;
         if let Semver { value, .. } = self {
-            Version::from_str(value)
+            AliasedFunctionVersion::from_str(value)
         } else {
             panic!("Attempted to get Literal of type '{}' as 'Semver'", self.data_type());
         }

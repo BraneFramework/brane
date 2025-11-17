@@ -24,7 +24,7 @@ use dialoguer::{Confirm, Input as Prompt, Select};
 use log::debug;
 use specifications::data::DataIndex;
 use specifications::package::PackageInfo;
-use specifications::version::Version;
+use specifications::version::ConcreteFunctionVersion;
 use specifications::wir::builtins::BuiltinClasses;
 use specifications::wir::data_type::DataType;
 use specifications::wir::{ClassDef, VarDef};
@@ -35,9 +35,9 @@ use specifications::wir::{ClassDef, VarDef};
 #[derive(Debug)]
 pub enum Error {
     /// A package attempts to define a builtin function.
-    PackageDefinesBuiltin { name: String, version: Version, builtin: String },
+    PackageDefinesBuiltin { name: String, version: ConcreteFunctionVersion, builtin: String },
     /// The package uses an undefined class.
-    UndefinedClass { name: String, version: Version, class: String },
+    UndefinedClass { name: String, version: ConcreteFunctionVersion, class: String },
 
     /// Failed to query the user for the function they like to run.
     FunctionQueryError { err: dialoguer::Error },
@@ -104,7 +104,7 @@ pub fn prompt_for_input(data_index: &DataIndex, package: &PackageInfo) -> Result
             (t.0.clone(), ClassDef {
                 name:    t.1.name.clone(),
                 package: Some(package.name.clone()),
-                version: Some(package.version),
+                version: Some(package.version.clone()),
 
                 props:   t.1.properties.iter().map(|p| VarDef { name: p.name.clone(), data_type: DataType::from(&p.data_type) }).collect(),
                 methods: vec![],
@@ -121,7 +121,7 @@ pub fn prompt_for_input(data_index: &DataIndex, package: &PackageInfo) -> Result
             // We don't care for methods anyway
             methods: vec![],
         }) {
-            return Err(Error::PackageDefinesBuiltin { name: package.name.clone(), version: package.version, builtin: old.name });
+            return Err(Error::PackageDefinesBuiltin { name: package.name.clone(), version: package.version.clone(), builtin: old.name });
         }
     }
 
@@ -307,7 +307,7 @@ fn prompt_for_param(
             let def: &ClassDef = match types.get(&c_name) {
                 Some(def) => def,
                 None => {
-                    return Err(Error::UndefinedClass { name: package.name.clone(), version: package.version, class: c_name });
+                    return Err(Error::UndefinedClass { name: package.name.clone(), version: package.version.clone(), class: c_name });
                 },
             };
 

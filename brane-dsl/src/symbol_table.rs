@@ -20,7 +20,7 @@ use std::mem;
 use std::rc::Rc;
 
 use specifications::package::Capability;
-use specifications::version::Version;
+use specifications::version::ConcreteFunctionVersion;
 
 use crate::data_type::{ClassSignature, DataType, FunctionSignature};
 pub use crate::errors::SymbolTableError as Error;
@@ -103,7 +103,7 @@ pub struct FunctionEntry {
     /// If set to non-zero, then this function is imported from a package with the given name.
     pub package_name:    Option<String>,
     /// If set to non-zero, then this function is imported from a package with the given version.
-    pub package_version: Option<Version>,
+    pub package_version: Option<ConcreteFunctionVersion>,
     /// If set to non-zero, then this function is a method in the class with the given name.
     pub class_name:      Option<String>,
 
@@ -207,7 +207,7 @@ impl FunctionEntry {
         name: S1,
         signature: FunctionSignature,
         package: S2,
-        package_version: Version,
+        package_version: ConcreteFunctionVersion,
         arg_names: Vec<String>,
         requirements: HashSet<Capability>,
         range: TextRange,
@@ -277,7 +277,7 @@ pub struct ClassEntry {
     /// If populated, then this Class was defined in a package with the given name.
     pub package_name:    Option<String>,
     /// If set to non-zero, then this function is imported from a package with the given version.
-    pub package_version: Option<Version>,
+    pub package_version: Option<ConcreteFunctionVersion>,
 
     /// The index in the workflow buffer of this class.
     pub index: usize,
@@ -336,7 +336,7 @@ impl ClassEntry {
         signature: ClassSignature,
         symbol_table: Rc<RefCell<SymbolTable>>,
         package: S,
-        package_version: Version,
+        package_version: ConcreteFunctionVersion,
         range: TextRange,
     ) -> Self {
         Self { signature, symbol_table, package_name: Some(package.into()), package_version: Some(package_version), index: usize::MAX, range }
