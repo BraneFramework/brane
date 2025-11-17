@@ -134,33 +134,33 @@ pub enum VersionError {
 /// in which either side is nightly. Or in comparisons between concrete versions and aliased
 /// versions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum BraneVersion {
+pub enum BraneVersionAlias {
     Latest,
     Nightly,
     Version(semver::Version),
 }
 
-impl From<&BraneVersion> for String {
-    fn from(value: &BraneVersion) -> Self {
+impl From<&BraneVersionAlias> for String {
+    fn from(value: &BraneVersionAlias) -> Self {
         match value {
-            BraneVersion::Latest => String::from("latest"),
-            BraneVersion::Nightly => String::from("nightly"),
-            BraneVersion::Version(version) => version.to_string(),
+            BraneVersionAlias::Latest => String::from("latest"),
+            BraneVersionAlias::Nightly => String::from("nightly"),
+            BraneVersionAlias::Version(version) => version.to_string(),
         }
     }
 }
 
-impl Display for BraneVersion {
+impl Display for BraneVersionAlias {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BraneVersion::Latest => f.write_str("latest"),
-            BraneVersion::Nightly => f.write_str("nightly"),
-            BraneVersion::Version(version) => write!(f, "{version}"),
+            BraneVersionAlias::Latest => f.write_str("latest"),
+            BraneVersionAlias::Nightly => f.write_str("nightly"),
+            BraneVersionAlias::Version(version) => write!(f, "{version}"),
         }
     }
 }
 
-impl FromStr for BraneVersion {
+impl FromStr for BraneVersionAlias {
     type Err = semver::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -172,40 +172,57 @@ impl FromStr for BraneVersion {
     }
 }
 
-impl PartialEq for BraneVersion {
+impl PartialEq for BraneVersionAlias {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (BraneVersion::Latest, BraneVersion::Latest) => true,
+            (BraneVersionAlias::Latest, BraneVersionAlias::Latest) => true,
 
             // Nightly aliases cannot be compared
-            (BraneVersion::Nightly, _) => false,
-            (_, BraneVersion::Nightly) => false,
+            (BraneVersionAlias::Nightly, _) => false,
+            (_, BraneVersionAlias::Nightly) => false,
 
             // We cannot determine the concrete version of latest
-            (BraneVersion::Latest, BraneVersion::Version(_)) => false,
-            (BraneVersion::Version(_), BraneVersion::Latest) => false,
+            (BraneVersionAlias::Latest, BraneVersionAlias::Version(_)) => false,
+            (BraneVersionAlias::Version(_), BraneVersionAlias::Latest) => false,
 
-            (BraneVersion::Version(v_self), BraneVersion::Version(v_other)) => v_self.eq(v_other),
+            (BraneVersionAlias::Version(v_self), BraneVersionAlias::Version(v_other)) => v_self.eq(v_other),
         }
     }
 }
 
-impl PartialOrd for BraneVersion {
+impl PartialOrd for BraneVersionAlias {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
             // Latest is just latest
-            (BraneVersion::Latest, BraneVersion::Latest) => Some(Ordering::Equal),
+            (BraneVersionAlias::Latest, BraneVersionAlias::Latest) => Some(Ordering::Equal),
 
             // Nightly aliases cannot be compared
-            (BraneVersion::Nightly, _) => None,
-            (_, BraneVersion::Nightly) => None,
+            (BraneVersionAlias::Nightly, _) => None,
+            (_, BraneVersionAlias::Nightly) => None,
 
             // We cannot determine the concrete version of latest
-            (BraneVersion::Latest, BraneVersion::Version(_)) => None,
-            (BraneVersion::Version(_), BraneVersion::Latest) => None,
+            (BraneVersionAlias::Latest, BraneVersionAlias::Version(_)) => None,
+            (BraneVersionAlias::Version(_), BraneVersionAlias::Latest) => None,
 
             // Regular comparison
-            (BraneVersion::Version(v_self), BraneVersion::Version(v_other)) => v_self.partial_cmp(v_other),
+            (BraneVersionAlias::Version(v_self), BraneVersionAlias::Version(v_other)) => v_self.partial_cmp(v_other),
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
+pub struct BraneVersion(pub semver::Version);
+
+impl FromStr for BraneVersion {
+    type Err = semver::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(BraneVersion(semver::Version::from_str(s)?))
+    }
+}
+
+impl Display for BraneVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }
