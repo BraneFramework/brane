@@ -223,19 +223,12 @@ fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, brane_vers
             // It does not; unpack the builtins
 
             // Verify the version matches what we have
-            let brane_version = match brane_version {
-                // FIXME: TODO
-                BraneVersion::Latest => todo!("What does latest mean in this sense. This is more akin to 'compatible'"),
-                BraneVersion::Nightly => todo!("What does nightly mean in this sense. This is more akin to 'compatible'"),
-                BraneVersion::Version(version) => version,
-            };
-
             let ctl_version =
-                semver::Version::from_str(env!("CARGO_PKG_VERSION")).expect("The defined Brane version should always adhere to semantic versioning");
+                BraneVersion::from_str(env!("CARGO_PKG_VERSION")).expect("The defined Brane version should always adhere to semantic versioning");
 
             if &ctl_version != brane_version {
                 // We only know the docker compose file for the same version as branectl
-                return Err(Error::DockerComposeNotBakedIn { kind, version: brane_version.clone() });
+                return Err(Error::DockerComposeNotBakedIn { kind, version: brane_version.0.clone() });
             }
 
             // Write the target location if it does not yet exist
@@ -482,12 +475,12 @@ async fn load_images(docker: &Docker, images: HashMap<impl AsRef<str>, ImageSour
                 let digest: String = get_digest(path).await.map_err(|source| Error::ImageDigestError { path: path.into(), source })?;
 
                 // Return it
-                Image::new(name, Some(version), Some(digest))
+                Image::new(name, Some(version.to_string().replace("+", "_")), Some(digest))
             },
 
             ImageSource::Registry(source) => {
                 println!("Loading image {} from repository {}...", style(name).green().bold(), style(source).bold());
-                Image::new(name, Some(version), None::<&str>)
+                Image::new(name, Some(version.to_string().replace("+", "_")), None::<&str>)
             },
         };
 
@@ -934,16 +927,17 @@ pub fn stop(compose_verbose: bool, exe: impl AsRef<str>, file: Option<PathBuf>, 
     debug!("Loading node config file '{}'...", node_config_path.display());
     let node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
 
+    let brane_version = BraneVersion::from_str(env!("CARGO_PKG_VERSION")).unwrap();
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
     let file: PathBuf = resolve_docker_compose_file(
         file,
         node_config.node.kind(),
-        &BraneVersion::Version(semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap()),
+        &brane_version,
     )?;
 
     // Construct the environment variables
-    let envs: HashMap<&str, OsString> = construct_envs(&BraneVersion::Latest, &node_config_path, &node_config)?;
+    let envs: HashMap<&str, OsString> = construct_envs(&brane_version, &node_config_path, &node_config)?;
 
     // Resolve the filename and deduce the project name
     let file: PathBuf = resolve_node(file, match node_config.node.kind() {

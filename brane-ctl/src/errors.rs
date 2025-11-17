@@ -245,7 +245,7 @@ pub enum LifetimeError {
     #[error("Failed to get digest of image {}", style(path.display()).bold())]
     ImageDigestError { path: PathBuf, source: brane_tsk::docker::Error },
     /// Failed to load/import the given image.
-    #[error("Failed to load image {} from '{}'", style(image).bold(), style(source).bold())]
+    #[error("Failed to load image {} from '{}'", style(image_source).bold(), style(source).bold())]
     ImageLoadError { image: Box<Image>, image_source: Box<ImageSource>, source: brane_tsk::docker::Error },
 
     /// The user gave us a proxy service definition, but not a proxy file path.
