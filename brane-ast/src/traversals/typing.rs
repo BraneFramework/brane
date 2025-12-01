@@ -580,7 +580,7 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
             }
             // Make sure the types match
             for (i, a) in args.iter_mut().enumerate() {
-                *a = Box::new(force_cast(*a.clone(), fe.signature.args[i].clone(), symbol_table, errors));
+                **a = force_cast(*a.clone(), fe.signature.args[i].clone(), symbol_table, errors);
             }
 
             // It does; return the return type
@@ -608,7 +608,7 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
                     // Insert a cast in the value if necessary
                     if &expr_type != elem_type {
                         let range: TextRange = v.range().clone();
-                        *v = Box::new(Expr::new_cast(v.clone(), elem_type.clone(), range));
+                        **v = Expr::new_cast(v.clone(), elem_type.clone(), range);
                     }
                 } else {
                     elem_type = Some((expr_type, v.range().clone()));
@@ -634,7 +634,7 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
             *data_type = elem_type.clone();
 
             // Make sure the index is a number
-            *index = Box::new(force_cast((**index).clone(), DataType::Integer, symbol_table, errors));
+            **index = force_cast((**index).clone(), DataType::Integer, symbol_table, errors);
 
             // Return the element type as evaluated type
             elem_type
@@ -649,14 +649,14 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
             match op {
                 brane_dsl::ast::UnaOp::Not { .. } => {
                     // Expect boolean, return boolean
-                    *expr = Box::new(force_cast((**expr).clone(), DataType::Boolean, symbol_table, errors));
+                    **expr = force_cast((**expr).clone(), DataType::Boolean, symbol_table, errors);
                     DataType::Boolean
                 },
                 brane_dsl::ast::UnaOp::Neg { .. } => {
                     // Expect integer or real, return the same thing
                     let mut expr_type: DataType = pass_expr(expr, symbol_table, errors);
                     if expr_type != DataType::Integer && expr_type != DataType::Real {
-                        *expr = Box::new(force_cast((**expr).clone(), DataType::Integer, symbol_table, errors));
+                        **expr = force_cast((**expr).clone(), DataType::Integer, symbol_table, errors);
                         expr_type = DataType::Integer;
                     }
                     expr_type
@@ -677,8 +677,8 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
             match op {
                 brane_dsl::ast::BinOp::And { .. } | brane_dsl::ast::BinOp::Or { .. } => {
                     // Expect boolean, return boolean
-                    *lhs = Box::new(force_cast((**lhs).clone(), DataType::Boolean, symbol_table, errors));
-                    *rhs = Box::new(force_cast((**rhs).clone(), DataType::Boolean, symbol_table, errors));
+                    **lhs = force_cast((**lhs).clone(), DataType::Boolean, symbol_table, errors);
+                    **rhs = force_cast((**rhs).clone(), DataType::Boolean, symbol_table, errors);
                     DataType::Boolean
                 },
 
@@ -693,26 +693,26 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
                         // If the types are (runtime) strings, then treat as such
                         if (lhs_type == DataType::String || lhs_type == DataType::Any) && (rhs_type == DataType::String || rhs_type == DataType::Any)
                         {
-                            *lhs = Box::new(force_cast((**lhs).clone(), DataType::String, symbol_table, errors));
-                            *rhs = Box::new(force_cast((**rhs).clone(), DataType::String, symbol_table, errors));
+                            **lhs = force_cast((**lhs).clone(), DataType::String, symbol_table, errors);
+                            **rhs = force_cast((**rhs).clone(), DataType::String, symbol_table, errors);
                             lhs_type = DataType::String;
                         } else {
                             // Now either has to be an integer or a real, or casteable to one
                             if lhs_type != DataType::Integer && lhs_type != DataType::Real {
-                                *lhs = Box::new(force_cast((**lhs).clone(), DataType::Integer, symbol_table, errors));
+                                **lhs = force_cast((**lhs).clone(), DataType::Integer, symbol_table, errors);
                                 lhs_type = DataType::Integer;
                             }
                             if rhs_type != DataType::Integer && rhs_type != DataType::Real {
-                                *rhs = Box::new(force_cast((**rhs).clone(), DataType::Integer, symbol_table, errors));
+                                **rhs = force_cast((**rhs).clone(), DataType::Integer, symbol_table, errors);
                                 rhs_type = DataType::Integer;
                             }
 
                             // Finally, if either is real and the other not, promote it
                             if lhs_type == DataType::Real && rhs_type != DataType::Real {
-                                *rhs = Box::new(force_cast((**rhs).clone(), DataType::Real, symbol_table, errors));
+                                **rhs = force_cast((**rhs).clone(), DataType::Real, symbol_table, errors);
                             }
                             if lhs_type != DataType::Real && rhs_type == DataType::Real {
-                                *lhs = Box::new(force_cast((**lhs).clone(), DataType::Real, symbol_table, errors));
+                                **lhs = force_cast((**lhs).clone(), DataType::Real, symbol_table, errors);
                             }
                         }
                     }
@@ -727,20 +727,20 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
 
                     // Now either has to be an integer or a real, or casteable to one
                     if lhs_type != DataType::Integer && lhs_type != DataType::Real {
-                        *lhs = Box::new(force_cast((**lhs).clone(), DataType::Integer, symbol_table, errors));
+                        **lhs = force_cast((**lhs).clone(), DataType::Integer, symbol_table, errors);
                         lhs_type = DataType::Integer;
                     }
                     if rhs_type != DataType::Integer && rhs_type != DataType::Real {
-                        *rhs = Box::new(force_cast((**rhs).clone(), DataType::Integer, symbol_table, errors));
+                        **rhs = force_cast((**rhs).clone(), DataType::Integer, symbol_table, errors);
                         rhs_type = DataType::Integer;
                     }
 
                     // Finally, if either is real and the other not, promote it
                     if lhs_type == DataType::Real && rhs_type != DataType::Real {
-                        *rhs = Box::new(force_cast((**rhs).clone(), DataType::Real, symbol_table, errors));
+                        **rhs = force_cast((**rhs).clone(), DataType::Real, symbol_table, errors);
                     }
                     if lhs_type != DataType::Real && rhs_type == DataType::Real {
-                        *lhs = Box::new(force_cast((**lhs).clone(), DataType::Real, symbol_table, errors));
+                        **lhs = force_cast((**lhs).clone(), DataType::Real, symbol_table, errors);
                     }
 
                     // Return the type of the lhs (which is now the same as rhs)
@@ -748,8 +748,8 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
                 },
                 brane_dsl::ast::BinOp::Mod { .. } => {
                     // Expect two integers
-                    *lhs = Box::new(force_cast((**lhs).clone(), DataType::Integer, symbol_table, errors));
-                    *rhs = Box::new(force_cast((**rhs).clone(), DataType::Integer, symbol_table, errors));
+                    **lhs = force_cast((**lhs).clone(), DataType::Integer, symbol_table, errors);
+                    **rhs = force_cast((**rhs).clone(), DataType::Integer, symbol_table, errors);
                     DataType::Integer
                 },
 
@@ -771,20 +771,20 @@ fn pass_expr(expr: &mut Expr, symbol_table: &Rc<RefCell<SymbolTable>>, errors: &
 
                     // Now either has to be an integer or a real, or casteable to one
                     if lhs_type != DataType::Integer && lhs_type != DataType::Real {
-                        *lhs = Box::new(force_cast((**lhs).clone(), DataType::Integer, symbol_table, errors));
+                        **lhs = force_cast((**lhs).clone(), DataType::Integer, symbol_table, errors);
                         lhs_type = DataType::Integer;
                     }
                     if rhs_type != DataType::Integer && rhs_type != DataType::Real {
-                        *rhs = Box::new(force_cast((**rhs).clone(), DataType::Integer, symbol_table, errors));
+                        **rhs = force_cast((**rhs).clone(), DataType::Integer, symbol_table, errors);
                         rhs_type = DataType::Integer;
                     }
 
                     // Finally, if either is real and the other not, promote it
                     if lhs_type == DataType::Real && rhs_type != DataType::Real {
-                        *rhs = Box::new(force_cast((**rhs).clone(), DataType::Real, symbol_table, errors));
+                        **rhs = force_cast((**rhs).clone(), DataType::Real, symbol_table, errors);
                     }
                     if lhs_type != DataType::Real && rhs_type == DataType::Real {
-                        *lhs = Box::new(force_cast((**lhs).clone(), DataType::Real, symbol_table, errors));
+                        **lhs = force_cast((**lhs).clone(), DataType::Real, symbol_table, errors);
                     }
 
                     // Now return a boolean

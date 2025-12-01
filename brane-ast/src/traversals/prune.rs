@@ -141,7 +141,7 @@ fn pass_stmt(stmt: Stmt, attr_stack: &mut Vec<Vec<Attribute>>, errors: &mut Vec<
                 if new_m.len() != 1 {
                     panic!("Method statement was pruned to something else than 1 statement; this should never happen!");
                 }
-                *m = Box::new(new_m.pop().unwrap());
+                **m = new_m.pop().unwrap();
             }
             // The class definition itself never returns
             (vec![stmt], false)
