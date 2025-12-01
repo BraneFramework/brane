@@ -124,6 +124,27 @@ pub fn ensure_dir_with_cachetag(path: impl AsRef<Path>) -> anyhow::Result<()> {
 }
 
 
+pub(crate) fn get_cargo_target_directory() -> anyhow::Result<PathBuf> {
+    if let Ok(dir) = std::env::var("CARGO_TARGET_DIR") {
+        return Ok(PathBuf::from(dir));
+    }
+
+    let root_raw: String = String::from_utf8(
+        std::process::Command::new("cargo")
+            .args(["locate-project", "--message-format=plain", "--workspace"])
+            .output()
+            .context("Could not determine root location of the Cargo project")?
+            .stdout,
+    )
+    .context("Root location for `Cargo.toml` is not a valid UTF-8 string")?;
+
+    let toml_path = PathBuf::from(root_raw.trim());
+    let target_dir = toml_path.parent().ok_or_else(|| anyhow::anyhow!("Cargo.toml did not have a target directory"))?.join("target");
+
+    Ok(target_dir)
+}
+
+
 /// Iterator that iterates over all man pages that could be generated from this clap::Command
 /// For reference, clap::Commands can contain subcommands, recursively, which all can have their
 /// own man page.

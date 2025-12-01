@@ -6,13 +6,14 @@ use std::hash::Hash;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 
+use anyhow::Context as _;
 use tracing::trace;
 
 use crate::external_cli::{
     get_api_command, get_cc_command, get_cli_command, get_ctl_command, get_drv_command, get_job_command, get_let_command, get_plr_command,
     get_prx_command, get_reg_command,
 };
-use crate::utilities::ensure_dir_with_cachetag;
+use crate::utilities::{ensure_dir_with_cachetag, get_cargo_target_directory};
 
 /// The registry containing all binaries, images, and other outputs of the Brane framework. This
 /// can be used by xtask to query those outputs in various ways.
@@ -249,7 +250,7 @@ pub fn build_image_builder(package: &str) -> Arc<BuildFunc> {
     let package = package.to_owned();
 
     Arc::new(move |info: BuildFuncInfo| {
-        let image_dir = "./target/release";
+        let image_dir = get_cargo_target_directory().context("Could not find cargo target directory")?.join("release");
 
         // Since this is not handled by cargo and we are "borrowing" its target directory, we need to
         // set it up ourselves
@@ -262,7 +263,7 @@ pub fn build_image_builder(package: &str) -> Arc<BuildFunc> {
             "buildx",
             "build",
             "--output",
-            &format!(r#"type=docker,dest={image_dir}/{package}.tar"#),
+            &format!(r#"type=docker,dest={}/{package}.tar"#, image_dir.display()),
             "--file",
             "Dockerfile.rls",
             "--target",
