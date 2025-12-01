@@ -512,6 +512,7 @@ fn construct_envs(version: &BraneVersion, node_config_path: &Path, node_config: 
     // Set the global ones first
     let mut res: HashMap<&str, OsString> = HashMap::from([
         ("BRANE_VERSION", OsString::from(version.to_string())),
+        ("BRANE_IMAGE_VERSION", OsString::from(version.to_string().replace("+", "_"))),
         ("NODE_CONFIG_PATH", canonicalize(node_config_path)?.as_os_str().into()),
     ]);
 

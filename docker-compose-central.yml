@@ -5,7 +5,7 @@ services:
 
   # Database that contains package metadata
   aux-scylla:
-    image: aux-scylla:${BRANE_VERSION:-latest}
+    image: aux-scylla:${BRANE_IMAGE_VERSION:-latest}
     # ports:
     #   - "127.0.0.1:9042:9042"
     command: --smp 1
@@ -22,7 +22,7 @@ services:
 
   # "Proxy" service that can be targeted by local connections to be proxied (and encrypted with client auth) to remote hosts.
   brane-prx:
-    image: brane-prx:${BRANE_VERSION:-latest}
+    image: brane-prx:${BRANE_IMAGE_VERSION:-latest}
     container_name: ${PRX_NAME:-brane-prx}
     command: --debug
     restart: always
@@ -35,7 +35,7 @@ services:
 
   # The service in charge of package registry, downloading, uploading, etc
   brane-api:
-    image: brane-api:${BRANE_VERSION:-latest}
+    image: brane-api:${BRANE_IMAGE_VERSION:-latest}
     container_name: ${API_NAME:-brane-api}
     command: --debug
     restart: always
@@ -58,7 +58,7 @@ services:
 
   # The service that accepts client connections and executes workflow control flow
   brane-drv:
-    image: brane-drv:${BRANE_VERSION:-latest}
+    image: brane-drv:${BRANE_IMAGE_VERSION:-latest}
     container_name: ${DRV_NAME:-brane-drv}
     command: --debug
     restart: always
@@ -78,7 +78,7 @@ services:
 
   # # The service logging everything
   # brane-log:
-  #   image: brane-log:${BRANE_VERSION:-latest}
+  #   image: brane-log:${BRANE_IMAGE_VERSION:-latest}
   #   container_name: brane-log
   #   ports:
   #   - "127.0.0.1:50055:50055"
@@ -95,7 +95,7 @@ services:
 
   # The service that chooses the appropriate domain to run a job on
   brane-plr:
-    image: brane-plr:${BRANE_VERSION:-latest}
+    image: brane-plr:${BRANE_IMAGE_VERSION:-latest}
     container_name: ${PLR_NAME:-brane-plr}
     restart: always
     volumes:
