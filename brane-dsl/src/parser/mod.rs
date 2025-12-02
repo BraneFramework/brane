@@ -13,6 +13,10 @@
 //!   that is suited for analysing in `brane-ast`.
 //
 
+// TODO: This is needed because the clippy::precedence in nightly conflicts with the double_parens
+// in stable. We opt for the nightly variant here. Please fix once this problem has been resolved
+#![allow(clippy::double_parens)]
+
 // Declare private modules
 mod expression;
 mod identifier;
@@ -32,7 +36,7 @@ pub mod bscript;
 #[macro_export]
 macro_rules! tag_token (
     (Token::$variant:ident) => (
-        move |i: Tokens<'a>| {
+        (move |i: Tokens<'a>| {
             use nom::{Err, error_position, Needed};
             use nom::bytes::complete::take;
             use nom::error::ErrorKind;
@@ -80,6 +84,6 @@ macro_rules! tag_token (
                     }
                 }
             }
-        }
+        })
     );
 );
