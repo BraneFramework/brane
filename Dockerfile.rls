@@ -7,26 +7,28 @@
 # check Dockerfile.dev.
 #
 
+# Global arguments
+ARG DEBIAN_VERSION="trixie"
 
 ##### BUILD STAGE #####
 ### This file will act as the bottom for both builder images
-FROM rust:1 AS build-brane
+FROM rust:1-${DEBIAN_VERSION} AS build-brane
 LABEL org.opencontainers.image.source=https://github.com/BraneFramework/brane
 
 # Define some build args
 ARG USERID=1000
 ARG GROUPID=1000
 
-# Setup a user mirroring the main one
-RUN addgroup --gid $GROUPID brane
-RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password brane
-
-# Install build dependencies (that are not in the rust image already)
 RUN apt-get update && apt-get install -y \
+    adduser \
     cmake \
     curl \
     unzip \
  && rm -rf /var/lib/apt/lists/*
+
+# Setup a user mirroring the main one
+RUN addgroup --gid $GROUPID brane
+RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password brane
 
 # Copy over relevant crates & other files
 RUN mkdir /build && chown -R brane:brane /build
@@ -61,23 +63,30 @@ ENTRYPOINT [ "/bin/bash" ]
 
 
 ### This target does the eflint-repl binary
-FROM ubuntu:22.04 AS build-eflint-repl
+FROM debian:${DEBIAN_VERSION} AS build-eflint-repl
 
 # Define build args
 ARG USERID=1000
 ARG GROUPID=1000
 ARG EFLINT_COMMIT=87d2be70c400b6f252fa28b51a4b5afbc947117c
 
-# Setup a user mirroring the main one
-RUN addgroup --gid $GROUPID brane
-RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password brane
-
 # Install system deps for building Haskell
 # (See <https://www.haskell.org/ghcup/install/#version-2010-23>)
 RUN apt-get update && apt-get install -y \
-    build-essential curl libffi-dev libffi8ubuntu1 libgmp-dev libgmp10 libncurses-dev libncurses5 libtinfo5 \
+    adduser \
+    build-essential \
+    curl \
     unzip \
+
+    # Libraries
+    libgmp-dev \
+    libffi-dev \
+    libncurses-dev \
  && rm -rf /var/lib/apt/lists/*
+
+# Setup a user mirroring the main one
+RUN addgroup --gid $GROUPID brane
+RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password brane
 
 # Install GHC & friends through GHCup
 # NOTE: We use this over the Haskell image because that appears to be broken with hackage updating
@@ -108,12 +117,16 @@ RUN . /home/brane/.ghcup/env \
 
 ##### BASE IMAGE #####
 # This image defines the base image for all Brane service images.
-FROM ubuntu:22.04 AS brane-base
+FROM debian:${DEBIAN_VERSION} AS brane-base
 LABEL org.opencontainers.image.source=https://github.com/BraneFramework/brane
 
 # Define some build args
 ARG USERID=1000
 ARG GROUPID=1000
+
+RUN apt-get update && apt-get install -y \
+    adduser \
+ && rm -rf /var/lib/apt/lists/*
 
 # Setup a user mirroring the main one
 RUN addgroup --gid $GROUPID brane
@@ -122,15 +135,6 @@ RUN adduser --uid $USERID --gid $GROUPID --gecos "Brane" --disabled-password bra
 # Add the log directory
 RUN mkdir -p /logs/profile && chown -R brane:brane /logs/profile
 USER brane
-
-# # Add an ubuntu 21.10 source for libssl1.1 (insecure, but it's the dev image anyway)
-# # Can't get around that, even in release, since libssl1.1 is only available in old repos
-# RUN echo "deb http://old-releases.ubuntu.com/ubuntu impish-security main" >> /etc/apt/sources.list
-
-# # Install libssl (the Rust crate depends on it)
-# RUN apt-get update && apt-get install -y \
-#     libssl1.1 \
-#  && rm -rf /var/lib/apt/lists/*
 
 # If ever run, run a shell
 ENTRYPOINT [ "/bin/bash" ]
@@ -250,7 +254,7 @@ ENV POLICY_FILE="./main.eflint"
 USER root
 RUN apt-get update && apt-get install -y \
     sqlite3 \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy `policy-reasoner` from build stage
 COPY --from=build-brane --chown=brane:brane /home/brane/brane-chk /brane-chk
