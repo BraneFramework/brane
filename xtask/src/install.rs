@@ -8,7 +8,7 @@ use clap_complete::{Generator, Shell, generate};
 use tracing::{debug, info, warn};
 
 use crate::registry::REGISTRY;
-use crate::utilities::{CopyError, SubCommandIter, copy};
+use crate::utilities::{CopyError, SubCommandIter, copy, get_cargo_target_directory};
 
 /// Provides a map for the various user locations where shell completions are stored.
 pub fn completion_locations() -> anyhow::Result<[(Shell, PathBuf); 3]> {
@@ -72,7 +72,7 @@ pub(crate) fn completions(parents: bool, force: bool) -> anyhow::Result<()> {
 /// - force: overwrite files if they already exist
 pub(crate) fn binaries(parents: bool, force: bool) -> anyhow::Result<()> {
     info!("Installing binaries");
-    let target_directory = PathBuf::from("./target/release");
+    let target_directory = get_cargo_target_directory().context("Could not get target directory")?.join("release");
     let base_dir = directories::BaseDirs::new().context("Could not determine directories in which to install")?;
     let dest_dir = base_dir.executable_dir().context("Could not determine the directories in which to install")?;
 
