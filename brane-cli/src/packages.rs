@@ -42,7 +42,7 @@ fn insert_package_in_list(infos: &mut Vec<PackageInfo>, info: PackageInfo) {
         debug!("Package '{}' vs '{}'", &info.name, &pkg.name);
         if info.name.eq(&pkg.name) {
             // Only add if the new version is higher
-            debug!(" > Version '{}' vs '{}'", info.version, pkg.version.to_string());
+            debug!(" > Version '{}' vs '{}'", info.version, pkg.version);
             if info.version > pkg.version {
                 *pkg = info;
             }
