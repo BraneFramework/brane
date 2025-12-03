@@ -1,0 +1,39 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:recommended",
+        ":semanticCommitTypeAll(chore)",
+        "schedule:earlyMondays",
+    ],
+    "timezone": "Europe/Amsterdam",
+    "labels": ["C-Dependencies"],
+    "prConcurrentLimit": 5,
+    "prHourlyLimit": 5,
+    "vulnerabilityAlerts": {
+        "addLabels": ["P-Critical", "C-Security"],
+        "assignees": ["@DanielVoogsgerd"]
+    },
+    // "lockFileMaintenance": { "enabled": true },
+    "packageRules": [
+        {
+            "matchUpdateTypes": ["minor"],
+            "matchManagers": ["cargo"],
+            "matchCurrentValue": "!/^v?0\\./",
+            "groupName": "all non-major dependencies (exclude 0.x.y)",
+            "groupSlug": "all-minor-patch-semver",
+            "prPriority": 9,
+        },
+        {
+            "matchUpdateTypes": ["patch"],
+            "matchManagers": ["cargo"],
+            "matchCurrentValue": "!/^v?0\\.0\\./",
+            "groupName": "all non-major dependencies (exclude 0.x.y)",
+            "groupSlug": "all-minor-patch-semver",
+            "prPriority": 9,
+        },
+        {
+            "matchManagers": ["github-actions"],
+            "addLabels": ["A-CI", "A-CD"],
+        }
+    ]
+}
