@@ -68,7 +68,7 @@ license = "Apache-2.0"
 
 [workspace.dependencies]
 # Lut99 Crates
-download = { git = "https://github.com/Lut99/download-rs", tag = "v0.1.0", default-features = false, features = [
+download = { git = "https://github.com/Lut99/download-rs", tag = "v1.0.0", default-features = false, features = [
     "download",
 ] }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.1.0", features = ["derive"] }
