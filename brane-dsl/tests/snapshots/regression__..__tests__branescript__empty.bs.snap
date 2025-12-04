@@ -1,0 +1,30 @@
+---
+source: brane-dsl/tests/regression.rs
+expression: res
+---
+Program {
+    block: Block {
+        stmts: [],
+        table: RefCell {
+            value: SymbolTable {
+                parent: None,
+                functions: {},
+                classes: {},
+                variables: {},
+            },
+        },
+        ret_type: None,
+        attrs: [],
+        range: TextRange {
+            start: TextPos {
+                line: 18446744073709551615,
+                col: 18446744073709551615,
+            },
+            end: TextPos {
+                line: 18446744073709551615,
+                col: 18446744073709551615,
+            },
+        },
+    },
+    metadata: {},
+}

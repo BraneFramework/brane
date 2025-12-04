@@ -45,14 +45,28 @@ jobs:
       - name: Run unit tests with coverage
         run: cargo llvm-cov nextest --lib --workspace --codecov --output-path codecov-unittests.json
 
+      - name: Run regression tests with coverage
+        env:
+          CI: true
+        run: cargo llvm-cov nextest --test 'regression' --codecov --output-path codecov-regression.json
+
       - name: Run doctests
         run: cargo test --workspace --doc
 
-      - name: Upload coverage to Codecov
+      - name: Upload unit coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: BraneFramework/brane
           flags: tests,unit-tests
           files: codecov-unittests.json
+          fail_ci_if_error: true
+
+      - name: Upload regression coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: BraneFramework/brane
+          flags: tests,regression-tests
+          files: codecov-regression.json
           fail_ci_if_error: true

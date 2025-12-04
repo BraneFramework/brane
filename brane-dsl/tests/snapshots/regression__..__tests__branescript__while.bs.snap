@@ -1,0 +1,232 @@
+---
+source: brane-dsl/tests/regression.rs
+expression: res
+---
+Program {
+    block: Block {
+        stmts: [
+            LetAssign {
+                name: Identifier {
+                    value: "condition",
+                    range: TextRange {
+                        start: TextPos {
+                            line: 2,
+                            col: 5,
+                        },
+                        end: TextPos {
+                            line: 2,
+                            col: 14,
+                        },
+                    },
+                },
+                value: Literal {
+                    literal: Boolean {
+                        value: true,
+                        range: TextRange {
+                            start: TextPos {
+                                line: 2,
+                                col: 18,
+                            },
+                            end: TextPos {
+                                line: 2,
+                                col: 22,
+                            },
+                        },
+                    },
+                },
+                st_entry: None,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 2,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 2,
+                        col: 23,
+                    },
+                },
+            },
+            While {
+                condition: VarRef {
+                    name: Identifier {
+                        value: "condition",
+                        range: TextRange {
+                            start: TextPos {
+                                line: 3,
+                                col: 8,
+                            },
+                            end: TextPos {
+                                line: 3,
+                                col: 17,
+                            },
+                        },
+                    },
+                    st_entry: None,
+                },
+                consequent: Block {
+                    stmts: [
+                        Assign {
+                            name: Identifier {
+                                value: "condition",
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 4,
+                                        col: 5,
+                                    },
+                                    end: TextPos {
+                                        line: 4,
+                                        col: 14,
+                                    },
+                                },
+                            },
+                            value: Literal {
+                                literal: Boolean {
+                                    value: false,
+                                    range: TextRange {
+                                        start: TextPos {
+                                            line: 4,
+                                            col: 18,
+                                        },
+                                        end: TextPos {
+                                            line: 4,
+                                            col: 23,
+                                        },
+                                    },
+                                },
+                            },
+                            st_entry: None,
+                            attrs: [],
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 4,
+                                    col: 5,
+                                },
+                                end: TextPos {
+                                    line: 4,
+                                    col: 24,
+                                },
+                            },
+                        },
+                    ],
+                    table: RefCell {
+                        value: SymbolTable {
+                            parent: None,
+                            functions: {},
+                            classes: {},
+                            variables: {},
+                        },
+                    },
+                    ret_type: None,
+                    attrs: [],
+                    range: TextRange {
+                        start: TextPos {
+                            line: 3,
+                            col: 19,
+                        },
+                        end: TextPos {
+                            line: 5,
+                            col: 2,
+                        },
+                    },
+                },
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 3,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 5,
+                        col: 2,
+                    },
+                },
+            },
+            Expr {
+                expr: Call {
+                    expr: Identifier {
+                        name: Identifier {
+                            value: "println",
+                            range: TextRange {
+                                start: TextPos {
+                                    line: 6,
+                                    col: 1,
+                                },
+                                end: TextPos {
+                                    line: 6,
+                                    col: 8,
+                                },
+                            },
+                        },
+                        st_entry: None,
+                    },
+                    args: [
+                        Literal {
+                            literal: String {
+                                value: "That was one iteration :)",
+                                range: TextRange {
+                                    start: TextPos {
+                                        line: 6,
+                                        col: 9,
+                                    },
+                                    end: TextPos {
+                                        line: 6,
+                                        col: 36,
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                    st_entry: None,
+                    locations: All,
+                    input: {},
+                    result: {},
+                    metadata: {},
+                    range: TextRange {
+                        start: TextPos {
+                            line: 6,
+                            col: 1,
+                        },
+                        end: TextPos {
+                            line: 6,
+                            col: 37,
+                        },
+                    },
+                },
+                data_type: Any,
+                attrs: [],
+                range: TextRange {
+                    start: TextPos {
+                        line: 6,
+                        col: 1,
+                    },
+                    end: TextPos {
+                        line: 6,
+                        col: 38,
+                    },
+                },
+            },
+        ],
+        table: RefCell {
+            value: SymbolTable {
+                parent: None,
+                functions: {},
+                classes: {},
+                variables: {},
+            },
+        },
+        ret_type: None,
+        attrs: [],
+        range: TextRange {
+            start: TextPos {
+                line: 2,
+                col: 1,
+            },
+            end: TextPos {
+                line: 6,
+                col: 38,
+            },
+        },
+    },
+    metadata: {},
+}
