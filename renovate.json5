@@ -1,26 +1,62 @@
+// Brane's renovate config
+//
+// Some settings are set to their default value, this is not by accident.
+// Sometimes we are deliberate in our choice even if its default. Please annotate these choices with a comment.
+// Renovate was chosen over dependabot as dependabot does not handle minimal versions appropriately.
 {
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
     "extends": [
+        // I actively choose recommended over best practices.
+        // I'm unsure if digest pinning for docker and github actions is worthwhile for Brane at this moment
         "config:recommended",
         ":semanticCommitTypeAll(chore)",
+
+        // I would recommend earlyMondays during active development, and monthly in passive phases
         "schedule:earlyMondays",
+
+        // Create PRs for Renovate config updates
+        ":configMigration",
     ],
+
     "timezone": "Europe/Amsterdam",
     "labels": ["C-Dependencies"],
+
+    // I think automerge can be tricky with supply chain security.
+    // It also has a tendency to break MSRV I think.
+    "automerge": false,
+
+    // Make sure we do not get too crowded with PRs, if there are five open we should probably be focussing on those first.
+    // Only reason I can think of to remove or increase this limit is because I want the regular monthly update set
     "prConcurrentLimit": 5,
     "prHourlyLimit": 5,
+
+    // Vulnerability alerts are obviously important
     "vulnerabilityAlerts": {
         "addLabels": ["P-Critical", "C-Security"],
-        "assignees": ["@DanielVoogsgerd"]
     },
-    // "lockFileMaintenance": { "enabled": true },
+
+    // This is also a possibility quite similar to the current minor & patch rules.
+    // The upside of the other solution is that it allows for more finegrained control in the future.
+    // It also can provide more semantic information of what it actually upgraded instead of some big lockfile diff
+    // Note: This might be needed in the future if the package rules for patch & minor differ from
+    "lockFileMaintenance": { "enabled": false },
+
     "packageRules": [
+        // Add things to this section if you want them to apply to rust updates only
+        // TODO: Add all Rust related configuration options
+        {
+            "matchManagers": ["cargo"],
+        },
+
+        // Note: These updates are to the lockfile only as manifest dependencies
+        // specify the minimal version, wrile the lockfile specifies the actual version.
+        // Note: We group patch and minor together here
         {
             "matchUpdateTypes": ["minor"],
             "matchManagers": ["cargo"],
             "matchCurrentValue": "!/^v?0\\./",
             "groupName": "all non-major dependencies (exclude 0.x.y)",
-            "groupSlug": "all-minor-patch-semver",
+            "groupSlug": "cargo-minor-patch-semver",
             "prPriority": 9,
         },
         {
@@ -28,12 +64,30 @@
             "matchManagers": ["cargo"],
             "matchCurrentValue": "!/^v?0\\.0\\./",
             "groupName": "all non-major dependencies (exclude 0.x.y)",
-            "groupSlug": "all-minor-patch-semver",
+            "groupSlug": "cargo-minor-patch-semver",
             "prPriority": 9,
         },
+
+        // We can group github actions updates together, they almost always apply with very little intervention.
+        // Combining them reduces the noise a lot
         {
             "matchManagers": ["github-actions"],
             "addLabels": ["A-CI", "A-CD"],
+            "groupName": "GitHub actions",
+            "groupSlug": "gh-actions",
         }
-    ]
+
+        // TODO: We probably want to update Docker images as well here.
+    ],
+
+
+    // If Brane is not in active development I recommend changing this to false.
+    // The updates are still listed in the dashboard this way.
+    "major": {
+        "dependencyDashboardApproval": false,
+    },
+
+    // Do not take immediately update.
+    // The chances of a package being yanked in the first couple of days are not negligible.
+    "minimumReleaseAge": "3",
 }
