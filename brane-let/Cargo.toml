@@ -1,6 +1,6 @@
 [package]
 name = "brane-let"
-rust-version = "1.83"
+rust-version = "1.85"
 edition = "2021"
 version.workspace = true
 repository.workspace = true
