@@ -1,4 +1,4 @@
-name: Create the nightly release
+name: Nightly release
 on:
   schedule:
     # Take into account lut99's sleep schedule
