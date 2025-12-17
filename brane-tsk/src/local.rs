@@ -19,7 +19,7 @@ use std::str::FromStr;
 use serde_json::json;
 use specifications::data::{DataIndex, DataInfo};
 use specifications::package::{PackageIndex, PackageInfo};
-use specifications::version::Version;
+use specifications::version::ConcreteFunctionVersion;
 
 pub use crate::errors::LocalError as Error;
 
@@ -33,12 +33,12 @@ pub use crate::errors::LocalError as Error;
 ///
 /// # Returns
 /// The list of Versions found in the given package directory, or a PackageError if we couldn't.
-pub fn get_package_versions(package_name: &str, package_dir: &Path) -> Result<Vec<Version>, Error> {
+pub fn get_package_versions(package_name: &str, package_dir: &Path) -> Result<Vec<ConcreteFunctionVersion>, Error> {
     // Get the list of available versions
     let version_dirs = fs::read_dir(package_dir).map_err(|source| Error::PackageDirReadError { path: package_dir.to_path_buf(), source })?;
 
     // Convert the list of strings into a version
-    let mut versions: Vec<Version> = Vec::new();
+    let mut versions: Vec<ConcreteFunctionVersion> = Vec::new();
     for dir in version_dirs {
         let dir_path = match dir {
             Ok(dir) => dir.path(),
@@ -58,7 +58,7 @@ pub fn get_package_versions(package_name: &str, package_dir: &Path) -> Result<Ve
                 return Err(Error::UnreadableVersionEntry { path: dir_path });
             },
         };
-        let version = Version::from_str(&dir_name).map_err(|source| Error::IllegalVersionEntry {
+        let version = ConcreteFunctionVersion::from_str(&dir_name).map_err(|source| Error::IllegalVersionEntry {
             package: package_name.to_string(),
             version: dir_name,
             source,

@@ -22,7 +22,7 @@ use brane_cfg::info::Info as _;
 use brane_cfg::node::{NodeConfig, NodeKind, NodeSpecificConfig};
 use brane_tsk::docker;
 use log::{debug, info, warn};
-use specifications::version::Version;
+use specifications::version::{AliasedFunctionVersion, ConcreteFunctionVersion};
 
 pub use crate::errors::PackagesError as Error;
 
@@ -60,16 +60,21 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
             return Err(Error::FileNotAFile { path: image_path });
         }
     } else {
-        // It needs more work
+        // TODO: It needs more work
 
         // Split the image into a name and possible version number
-        let (name, version): (String, Version) =
-            Version::from_package_pair(&image).map_err(|source| Error::IllegalNameVersionPair { raw: image, source })?;
+        let (name, version) = AliasedFunctionVersion::from_package_pair(&image)
+            // Default to latest
+            .map(|(package, version)| (package, version.unwrap_or(AliasedFunctionVersion::Latest)))
+            .map_err(|source| Error::IllegalNameVersionPair { raw: image, source })?;
 
         // Start reading the packages directory
         let entries: ReadDir =
             fs::read_dir(&packages_path).map_err(|source| Error::DirReadError { what: "packages", path: packages_path.clone(), source })?;
-        let mut file: Option<(PathBuf, Version)> = None;
+
+        let mut file: Option<(PathBuf, AliasedFunctionVersion)> = None;
+        let mut largest_version_opt: Option<ConcreteFunctionVersion> = None;
+
         for (i, entry) in entries.enumerate() {
             // Unwrap the entry
             let entry: DirEntry =
@@ -78,25 +83,19 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
             // Attempt to analyse the filename by parsing it as a (name, version) pair
             let entry_name: OsString = entry.file_name();
             let entry_name: Cow<str> = entry_name.to_string_lossy();
-            let dash_pos: usize = match entry_name.find('-') {
-                Some(pos) => pos,
-                None => {
-                    warn!("Missing dash ('-') in file '{}' (skipping)", entry.path().display());
-                    continue;
-                },
+
+            let Some((ename, entry_name)) = entry_name.split_once('-') else {
+                warn!("Missing dash ('-') in file '{}' (skipping)", entry.path().display());
+                continue;
             };
-            let dot_pos: usize = match entry_name.rfind('.') {
-                Some(pos) => pos,
-                None => {
-                    warn!("Missing extension dot ('.') in file '{}' (skipping)", entry.path().display());
-                    continue;
-                },
+
+            let Some((eversion, _)) = entry_name.rsplit_once('.') else {
+                warn!("Missing extension dot ('.') in file '{}' (skipping)", entry.path().display());
+                continue;
             };
-            let ename: &str = &entry_name[..dash_pos];
-            let eversion: &str = &entry_name[dash_pos + 1..dot_pos];
 
             // Attempt to parse the eversion
-            let eversion: Version = match Version::from_str(eversion) {
+            let eversion = match AliasedFunctionVersion::from_str(eversion) {
                 Ok(eversion) => eversion,
                 Err(err) => {
                     warn!("File '{}' has illegal version number '{}': {} (skipping)", entry.path().display(), eversion, err);
@@ -107,19 +106,25 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
             // Check if this package checks out
             if name == ename {
                 // Only write it if the version makes sense
-                if version.is_latest() {
-                    // Check if it's 'latest' too or the highest
-                    if eversion.is_latest() || file.is_none() || eversion > file.as_ref().unwrap().1 {
-                        let is_latest: bool = eversion.is_latest();
-                        file = Some((entry.path(), eversion));
-                        if is_latest {
-                            break;
+                match (&version, eversion) {
+                    (AliasedFunctionVersion::Version(semver), AliasedFunctionVersion::Version(esemver)) if semver == &esemver => {
+                        file = Some((entry.path(), AliasedFunctionVersion::Version(esemver)));
+                        break;
+                    },
+                    (AliasedFunctionVersion::Latest, AliasedFunctionVersion::Latest) => {
+                        file = Some((entry.path(), AliasedFunctionVersion::Latest));
+                        break;
+                    },
+                    (AliasedFunctionVersion::Latest, AliasedFunctionVersion::Version(esemver)) => {
+                        if let Some(ref largest_version) = largest_version_opt {
+                            if &esemver < largest_version {
+                                continue;
+                            }
                         }
-                    }
-                } else if version == eversion {
-                    // Always accept it and stop searching
-                    file = Some((entry.path(), eversion));
-                    break;
+                        largest_version_opt = Some(esemver.clone());
+                        file = Some((entry.path(), AliasedFunctionVersion::Version(esemver)));
+                    },
+                    _ => {},
                 }
             }
         }

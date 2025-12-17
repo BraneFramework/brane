@@ -19,7 +19,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use juniper::{EmptySubscription, FieldResult, GraphQLObject, RootNode, graphql_object};
 use log::{debug, info};
 use scylla::IntoTypedRows;
-use specifications::version::Version;
+use specifications::version::{AliasedFunctionVersion, ConcreteFunctionVersion};
 
 use crate::packages::PackageUdt;
 use crate::spec::Context;
@@ -97,15 +97,32 @@ impl Query {
 
             // Now find the target version if relevant
             if let Some(version) = version {
-                let target_version: Version = Version::from_str(&version)?;
+                let target_version = AliasedFunctionVersion::from_str(&version)?;
                 let mut package: Option<Package> = None;
-                let mut version: Option<Version> = None;
-                if target_version.is_latest() {
+                let mut version: Option<ConcreteFunctionVersion> = None;
+                if let AliasedFunctionVersion::Version(semver) = target_version {
+                    for p in packages {
+                        // Find the first matching one
+
+                        // Parse it as a version
+                        let pversion = match ConcreteFunctionVersion::from_str(&p.version) {
+                            Ok(version) => version,
+                            Err(_) => {
+                                continue;
+                            },
+                        };
+
+                        // Compare
+                        if semver == pversion {
+                            package = Some(p);
+                        }
+                    }
+                } else {
                     for p in packages {
                         // Find the one with the highest version
 
                         // Parse it as a version
-                        let pversion: Version = match Version::from_str(&p.version) {
+                        let pversion = match ConcreteFunctionVersion::from_str(&p.version) {
                             Ok(version) => version,
                             Err(_) => {
                                 continue;
@@ -116,23 +133,6 @@ impl Query {
                         if package.is_none() || &pversion > version.as_ref().unwrap() {
                             package = Some(p);
                             version = Some(pversion);
-                        }
-                    }
-                } else {
-                    for p in packages {
-                        // Find the first matching one
-
-                        // Parse it as a version
-                        let pversion: Version = match Version::from_str(&p.version) {
-                            Ok(version) => version,
-                            Err(_) => {
-                                continue;
-                            },
-                        };
-
-                        // Compare
-                        if target_version == pversion {
-                            package = Some(p);
                         }
                     }
                 }

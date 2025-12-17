@@ -13,7 +13,7 @@ services:
 
   # "Proxy" service that can be targeted by local connections to be proxied (and encrypted with client auth) to remote hosts.
   brane-prx:
-    image: brane-prx:${BRANE_VERSION:-latest}
+    image: brane-prx:${BRANE_IMAGE_VERSION:-latest}
     container_name: ${PRX_NAME:-brane-prx}
     command: --debug
     restart: always
@@ -26,7 +26,7 @@ services:
 
   # The service in charge of policy
   brane-chk:
-    image: brane-chk:${BRANE_VERSION:-latest}
+    image: brane-chk:${BRANE_IMAGE_VERSION:-latest}
     init: true
     container_name: ${CHK_NAME:-brane-chk}
     ports:
@@ -50,7 +50,7 @@ services:
 
   # The service in charge of the local container- and data registry
   brane-reg:
-    image: brane-reg:${BRANE_VERSION:-latest}
+    image: brane-reg:${BRANE_IMAGE_VERSION:-latest}
     container_name: ${REG_NAME:-brane-reg}
     command: --debug --delib-token "${CHECKER_DELIB_TOKEN}"
     ports:
@@ -67,7 +67,7 @@ services:
 
   # The service that is the 'main' service on the worker.
   brane-job:
-    image: brane-job:${BRANE_VERSION:-latest}
+    image: brane-job:${BRANE_IMAGE_VERSION:-latest}
     container_name: ${JOB_NAME:-brane-job}
     command: --debug --delib-token "${CHECKER_DELIB_TOKEN}"
     ports:
