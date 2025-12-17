@@ -281,6 +281,9 @@ pub enum LifetimeError {
     /// Failed to generate a new JWT given the given key.
     #[error("Failed to generate a JWT with the given key {key:?}")]
     TokenGenerate { key: PathBuf, source: specifications::policy::Error },
+
+    #[error("Failed to generate a temporary file")]
+    TempFile { what: String, source: std::io::Error },
 }
 
 /// Errors that relate to package subcommands.

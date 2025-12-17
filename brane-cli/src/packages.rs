@@ -359,8 +359,11 @@ pub async fn remove(force: bool, packages: Vec<(String, Option<AliasedFunctionVe
         match version {
             Some(version) => {
                 // Try to resolve the directory for this pair
-                let package_dir = ensure_package_dir(&name, Some(&version.clone()), false)
-                    .map_err(|source| PackageError::PackageVersionError { name: name.clone(), version: version.clone(), source })?;
+                let package_dir = ensure_package_dir(&name, Some(&version.clone()), false).map_err(|source| PackageError::PackageVersionError {
+                    name: name.clone(),
+                    version: version.clone(),
+                    source,
+                })?;
 
                 // Ask for permission if needed
                 if !force {

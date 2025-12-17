@@ -120,7 +120,7 @@ impl FromStr for Hostname {
 
 /// Parses a version number that scopes a particular operation down. In other words, can be a specific version number or `all`.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VersionFix(pub Option<ConcreteFunctionVersion>);
+pub struct VersionFix(pub Option<semver::Version>);
 impl Display for VersionFix {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {

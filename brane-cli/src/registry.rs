@@ -239,7 +239,7 @@ pub async fn pull(packages: Vec<(String, AliasedFunctionVersion)>) -> Result<(),
 /// **Arguments**
 ///  * `packages`: A list with name/ID / version pairs of the packages to push.
 ///
-/// **Returns**  
+/// **Returns**
 /// Nothing on success, or an anyhow error on failure.
 pub async fn push(packages: Vec<(String, AliasedFunctionVersion)>) -> Result<(), RegistryError> {
     // Try to get the general package directory
@@ -258,7 +258,9 @@ pub async fn push(packages: Vec<(String, AliasedFunctionVersion)>) -> Result<(),
                 let versions =
                     get_package_versions(&name, &package_dir).map_err(|source| RegistryError::VersionsError { name: name.clone(), source })?;
 
-                assert!(!versions.is_empty(), "At least one version needs to be available for a package in order to take the latest");
+                if versions.is_empty() {
+                    panic!("At least one version needs to be available for a package in order to take the latest");
+                }
 
                 // Sort the versions and return the last one
                 versions.into_iter().max().unwrap()

@@ -327,8 +327,6 @@ async fn run(options: Cli) -> Result<(), CliError> {
                     let mut parsed: Vec<(String, Option<AliasedFunctionVersion>)> = Vec::with_capacity(packages.len());
                     for package in packages {
                         parsed.push(
-                            // FIXME: I really dislike the misuse of latest in this context to mean
-                            // all
                             AliasedFunctionVersion::from_package_pair(&package)
                                 .map_err(|source| CliError::PackagePairParseError { raw: package, source })?,
                         );

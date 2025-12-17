@@ -1301,7 +1301,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
 
                             name: &function.name,
                             package_name: package,
-                            package_version: &version.clone().into(),
+                            package_version: &version.clone(),
                             requirements,
 
                             args,
@@ -1943,7 +1943,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     ///
     /// # Arguments
     /// - `prof`: A ProfileScopeHandleOwned that is used to provide more details about the execution times of a workflow execution. Note that this is _not_ user-relevant, only debug/framework-relevant.
-    ///   
+    ///
     ///   The reason it is owned is due to the boxed return future. It's your responsibility to keep the parent into scope after the future returns; if you don't any collected profile results will likely not be printed.
     ///
     /// # Returns
@@ -1983,7 +1983,7 @@ impl<G: CustomGlobalState, L: CustomLocalState> Thread<G, L> {
     ///
     /// # Arguments
     /// - `prof`: A ProfileScopeHandleOwned that is used to provide more details about the execution times of a workflow execution. Note that this is _not_ user-relevant, only debug/framework-relevant.
-    ///   
+    ///
     ///   The reason it is owned is due to the boxed return future. It's your responsibility to keep the parent into scope after the future returns; if you don't any collected profile results will likely not be printed.
     ///
     /// # Returns
