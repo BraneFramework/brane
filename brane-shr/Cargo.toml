@@ -18,6 +18,7 @@ sha2 = "0.10.6"
 tokio-stream = "0.1.16"
 astral-tokio-tar = "0.5.0"
 url = "2.5.0"
+tempfile = "3.10.1"
 
 # Workspace dependencies
 enum-debug.workspace = true

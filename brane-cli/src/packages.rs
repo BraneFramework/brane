@@ -24,8 +24,8 @@ use tokio::fs::File as TFile;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use crate::errors::PackageError;
-use crate::utils::{ensure_package_dir, ensure_packages_dir};
+use crate::errors::{PackageError, UtilError};
+use crate::utils::{ensure_package_dir, ensure_packages_dir, get_packages_dir};
 
 
 /***** HELPER FUNCTIONS *****/
@@ -197,7 +197,7 @@ pub fn inspect(name: String, version: AliasedFunctionVersion, syntax: String) ->
 /// **Arguments**
 ///  * `latest`: If set to true, only shows latest version of each package.
 ///
-/// **Returns**  
+/// **Returns**
 /// Nothing other than prints on stdout if successfull, or an ExecutorError otherwise.
 pub fn list(latest: bool) -> Result<(), PackageError> {
     // Get the directory with the packages
@@ -283,7 +283,7 @@ pub fn list(latest: bool) -> Result<(), PackageError> {
 ///  * `name`: The name of the package to load.
 ///  * `version`: The Version of the package to load. Might be an unresolved 'latest'.
 ///
-/// **Returns**  
+/// **Returns**
 /// Nothing on success, or else an error.
 pub async fn load(name: String, version: AliasedFunctionVersion) -> Result<()> {
     debug!("Loading package '{}' (version {})", name, &version);
@@ -347,10 +347,11 @@ pub async fn load(name: String, version: AliasedFunctionVersion) -> Result<()> {
 ///
 /// # Arguments
 ///  - `force`: Whether or not to force removal (remove the image from the Docker daemon even if there are still containers using it).
-///  - `packages`: The list of (name, Version) pairs to remove.
+///  - `packages`: The list of (name, Version) pairs to remove. Version can be set to None if all
+///    versions need to be removed.
 ///  - `docker_opts`: Configuration for how to connect to the local Docker daemon.
 ///
-/// # Returns  
+/// # Returns
 /// Nothing on success, or else an error.
 pub async fn remove(force: bool, packages: Vec<(String, Option<AliasedFunctionVersion>)>, docker_opts: DockerOptions) -> Result<(), PackageError> {
     // Iterate over the packages
@@ -358,8 +359,20 @@ pub async fn remove(force: bool, packages: Vec<(String, Option<AliasedFunctionVe
         // Remove without confirmation if explicity stated package version.
         match version {
             Some(version) => {
+                let packages_dir = get_packages_dir()?;
+                let package_dir = packages_dir.join(&name);
+
+                let version = match version.clone() {
+                    AliasedFunctionVersion::Latest => brane_tsk::local::get_package_versions(&name, &package_dir)
+                        .map_err(|source| UtilError::VersionsError { source })?
+                        .into_iter()
+                        .max()
+                        .expect("We need at least one version in order to take the latest"),
+                    AliasedFunctionVersion::Version(version) => version.clone(),
+                };
+
                 // Try to resolve the directory for this pair
-                let package_dir = ensure_package_dir(&name, Some(&version.clone()), false)
+                let package_dir = ensure_package_dir(&name, Some(&version.clone().into()), false)
                     .map_err(|source| PackageError::PackageVersionError { name: name.clone(), version: version.clone(), source })?;
 
                 // Ask for permission if needed
@@ -380,7 +393,7 @@ pub async fn remove(force: bool, packages: Vec<(String, Option<AliasedFunctionVe
                 let digest = package_info.digest.ok_or_else(|| PackageError::PackageInfoNoDigest { path: package_info_path.clone() })?;
 
                 // Remove that image from the Docker daemon
-                let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
+                let image: Image = Image::new(&package_info.name, Some(package_info.version.to_string()), Some(digest));
                 docker::remove_image(&docker_opts, &image)
                     .await
                     .map_err(|source| PackageError::DockerRemoveError { image: Box::new(image), source })?;
@@ -388,7 +401,7 @@ pub async fn remove(force: bool, packages: Vec<(String, Option<AliasedFunctionVe
                 // Also remove the package files
                 fs::remove_dir_all(&package_dir).map_err(|source| PackageError::PackageRemoveError {
                     name: name.clone(),
-                    version: version.clone().into(),
+                    version: Some(version.clone().into()),
                     dir: package_dir,
                     source,
                 })?;
@@ -407,7 +420,7 @@ pub async fn remove(force: bool, packages: Vec<(String, Option<AliasedFunctionVe
                     // Attempt to remove the main dir
                     fs::remove_dir_all(&package_dir).map_err(|source| PackageError::PackageRemoveError {
                         name: name.clone(),
-                        version: version.clone().into(),
+                        version: Some(version.clone().into()),
                         dir: package_dir.clone(),
                         source,
                     })?;
@@ -472,7 +485,7 @@ pub async fn remove(force: bool, packages: Vec<(String, Option<AliasedFunctionVe
                     let digest = package_info.digest.ok_or_else(|| PackageError::PackageInfoNoDigest { path: package_info_path.clone() })?;
 
                     // Remove that image from the Docker daemon
-                    let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
+                    let image: Image = Image::new(&package_info.name, Some(package_info.version.to_string()), Some(digest));
                     docker::remove_image(&docker_opts, &image)
                         .await
                         .map_err(|source| PackageError::DockerRemoveError { image: Box::new(image), source })?;

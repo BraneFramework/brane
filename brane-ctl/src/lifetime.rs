@@ -31,9 +31,10 @@ use brane_cfg::node::{
     ProxyServices, WorkerConfig, WorkerPaths, WorkerServices,
 };
 use brane_cfg::proxy;
+use brane_shr::fs::MaybeTempPath;
 use brane_tsk::docker::{DockerOptions, ImageSource, ensure_image, get_digest};
 use console::style;
-use log::{debug, info};
+use log::{debug, info, warn};
 use rand::Rng;
 use rand::distr::Alphanumeric;
 use serde::Serialize;
@@ -202,7 +203,7 @@ fn resolve_exe(exe: impl AsRef<str>) -> Result<(String, Vec<String>), Error> {
 ///
 /// # Errors
 /// This function errors if we failed to verify the given file exists, or failed to unpack the builtin file.
-fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, brane_version: &BraneVersion) -> Result<PathBuf, Error> {
+fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind) -> Result<MaybeTempPath, Error> {
     // Switch on whether it exists or not
     match file {
         Some(file) => {
@@ -216,52 +217,47 @@ fn resolve_docker_compose_file(file: Option<PathBuf>, kind: NodeKind, brane_vers
 
             // OK
             debug!("Using given file '{}'", file.display());
-            Ok(file)
+            Ok(MaybeTempPath::Fixed(file))
         },
 
         None => {
             // It does not; unpack the builtins
 
-            // Verify the version matches what we have
-            let ctl_version =
-                BraneVersion::from_str(env!("CARGO_PKG_VERSION")).expect("The defined Brane version should always adhere to semantic versioning");
-
-            if &ctl_version != brane_version {
-                // We only know the docker compose file for the same version as branectl
-                return Err(Error::DockerComposeNotBakedIn { kind, version: brane_version.0.clone() });
-            }
-
             // Write the target location if it does not yet exist
-            let compose_path: PathBuf = PathBuf::from("/tmp").join(format!("docker-compose-{kind}-{brane_version}.yml"));
-            if !compose_path.exists() {
-                debug!("Unpacking baked-in {} Docker Compose file to '{}'...", kind, compose_path.display());
+            let compose_path = tempfile::Builder::new()
+                .prefix(&format!("docker-compose-{kind}"))
+                .suffix(".yml")
+                .tempfile()
+                .map_err(|source| Error::TempFile { what: format!("docker-compose-{kind}.yml"), source })?
+                .into_temp_path();
 
-                // Attempt to open the target location
-                let mut handle: File =
-                    File::create(&compose_path).map_err(|source| Error::DockerComposeCreateError { path: compose_path.clone(), source })?;
+            debug!("Unpacking baked-in {} Docker Compose file to '{}'...", kind, compose_path.display());
 
-                // Write the correct file to it
-                match kind {
-                    NodeKind::Central => {
-                        write!(handle, "{}", include_str!("../../docker-compose-central.yml"))
-                            .map_err(|source| Error::DockerComposeWriteError { path: compose_path.clone(), source })?;
-                    },
+            // Attempt to open the target location
+            let mut handle: File =
+                File::create(&compose_path).map_err(|source| Error::DockerComposeCreateError { path: compose_path.to_path_buf(), source })?;
 
-                    NodeKind::Worker => {
-                        write!(handle, "{}", include_str!("../../docker-compose-worker.yml"))
-                            .map_err(|source| Error::DockerComposeWriteError { path: compose_path.clone(), source })?;
-                    },
+            // Write the correct file to it
+            match kind {
+                NodeKind::Central => {
+                    write!(handle, "{}", include_str!("../../docker-compose-central.yml"))
+                        .map_err(|source| Error::DockerComposeWriteError { path: compose_path.to_path_buf(), source })?;
+                },
 
-                    NodeKind::Proxy => {
-                        write!(handle, "{}", include_str!("../../docker-compose-proxy.yml"))
-                            .map_err(|source| Error::DockerComposeWriteError { path: compose_path.clone(), source })?;
-                    },
-                }
+                NodeKind::Worker => {
+                    write!(handle, "{}", include_str!("../../docker-compose-worker.yml"))
+                        .map_err(|source| Error::DockerComposeWriteError { path: compose_path.to_path_buf(), source })?;
+                },
+
+                NodeKind::Proxy => {
+                    write!(handle, "{}", include_str!("../../docker-compose-proxy.yml"))
+                        .map_err(|source| Error::DockerComposeWriteError { path: compose_path.to_path_buf(), source })?;
+                },
             }
 
             // OK
             debug!("Using baked-in file '{}'", compose_path.display());
-            Ok(compose_path)
+            Ok(MaybeTempPath::Temp(compose_path))
         },
     }
 }
@@ -768,9 +764,25 @@ pub async fn start(
     debug!("Loading node config file '{}'...", node_config_path.display());
     let node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
 
+
+    if file.is_none() {
+        let ctl_version = semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap();
+        let version_req = semver::VersionReq::parse(&format!("^{}", opts.version)).unwrap();
+
+        // We advise using branectl that is the same major version and at least as old
+        if !version_req.matches(&ctl_version) {
+            warn!(
+                "using an incompatible branectl version for the provided brane version. This can cause issues. branectl version: {}; provided \
+                 version: {}",
+                env!("CARGO_PKG_VERSION"),
+                opts.version
+            );
+        }
+    }
+
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
-    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), &opts.version)?;
+    let file = resolve_docker_compose_file(file, node_config.node.kind())?;
 
     // Match on the command
     match command {
@@ -931,11 +943,7 @@ pub fn stop(compose_verbose: bool, exe: impl AsRef<str>, file: Option<PathBuf>, 
     let brane_version = BraneVersion::from_str(env!("CARGO_PKG_VERSION")).unwrap();
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
-    let file: PathBuf = resolve_docker_compose_file(
-        file,
-        node_config.node.kind(),
-        &brane_version,
-    )?;
+    let file = resolve_docker_compose_file(file, node_config.node.kind())?;
 
     // Construct the environment variables
     let envs: HashMap<&str, OsString> = construct_envs(&brane_version, &node_config_path, &node_config)?;
@@ -998,11 +1006,11 @@ pub async fn logs(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path:
     debug!("Loading node config file '{}'...", node_config_path.display());
     let node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
 
-    let version = BraneVersion::from_str(env!("CARGO_PKG_VERSION")).unwrap();
+    let version = BraneVersion::from_str(env!("CARGO_PKG_VERSION")).expect("Brane versions must always be semver compatible");
 
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
-    let file: PathBuf = resolve_docker_compose_file(file, node_config.node.kind(), &version)?;
+    let file = resolve_docker_compose_file(file, node_config.node.kind())?;
 
     // Construct the environment variables
     let envs: HashMap<&str, OsString> = construct_envs(&version, &node_config_path, &node_config)?;

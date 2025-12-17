@@ -635,14 +635,14 @@ pub enum InstanceError {
 pub enum PackageError {
     /// Something went wrong while calling utilities
     #[error(transparent)]
-    UtilError { source: UtilError },
+    UtilError { #[from] source: UtilError },
     /// Something went wrong when fetching an index.
     #[error("Failed to fetch a local package index")]
     IndexError { source: brane_tsk::local::Error },
 
     /// Failed to resolve a specific package/version pair
     #[error("Package '{name}' does not exist or has no version {version}")]
-    PackageVersionError { name: String, version: AliasedFunctionVersion, source: UtilError },
+    PackageVersionError { name: String, version: ConcreteFunctionVersion, source: UtilError },
     /// Failed to resolve a specific package
     #[error("Package '{name}' does not exist")]
     PackageError { name: String, source: UtilError },
@@ -650,7 +650,7 @@ pub enum PackageError {
     #[error("Failed to ask for your consent")]
     ConsentError { source: dialoguer::Error },
     /// Failed to remove a package directory
-    #[error("Failed to remove package '{}' {}  at '{}'", name, match version { Some(version) => format!("{}", version), None => String::new() }, dir.display())]
+    #[error("Failed to remove package '{}' {}  at '{}'", name, match version { Some(version) => version.to_string(), None => String::new() }, dir.display())]
     PackageRemoveError { name: String, version: Option<AliasedFunctionVersion>, dir: PathBuf, source: std::io::Error },
     /// Failed to get the versions of a package
     #[error("Failed to get versions of package '{}' (at '{}')", name, dir.display())]
@@ -1059,10 +1059,10 @@ pub enum UtilError {
     PackageDirNotFound { package: String, path: PathBuf },
     /// Could not create a new directory for the given version
     #[error("Could not create directory for package '{}', version: {} (path: '{}')", package, version, path.display())]
-    VersionDirCreateError { package: String, version: AliasedFunctionVersion, path: PathBuf, source: std::io::Error },
+    VersionDirCreateError { package: String, version: ConcreteFunctionVersion, path: PathBuf, source: std::io::Error },
     /// The target package/version directory does not exist
     #[error("Directory for package '{}', version: {} does not exist (path: '{}')", package, version, path.display())]
-    VersionDirNotFound { package: String, version: AliasedFunctionVersion, path: PathBuf },
+    VersionDirNotFound { package: String, version: ConcreteFunctionVersion, path: PathBuf },
 
     /// Could not create the dataset folder for a specific dataset
     #[error("Could not create Brane dataset directory '{}' for dataset '{}'", path.display(), name)]

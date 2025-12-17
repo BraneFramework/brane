@@ -962,6 +962,20 @@ impl Drop for FileLock {
     }
 }
 
+/// Small wrapper
+pub enum MaybeTempPath {
+    Fixed(PathBuf),
+    Temp(tempfile::TempPath),
+}
+
+impl AsRef<Path> for MaybeTempPath {
+    fn as_ref(&self) -> &Path {
+        match self {
+            MaybeTempPath::Fixed(path) => path,
+            MaybeTempPath::Temp(path) => path,
+        }
+    }
+}
 
 
 /// Changes the permissions of the given file to the given triplet.

@@ -27,7 +27,7 @@ use console::style;
 use log::{debug, info, warn};
 use serde::Serialize;
 use specifications::address::Host;
-use specifications::version::ConcreteFunctionVersion;
+use specifications::version::BraneVersion;
 
 use crate::old_configs::v1_0_0;
 use crate::spec::VersionFix;
@@ -73,7 +73,7 @@ pub enum Error {
     FileMetadataRead { path: PathBuf, err: std::io::Error },
 
     /// Failed to convert between the infos
-    Convert { what: &'static str, version: ConcreteFunctionVersion, err: Box<dyn error::Error> },
+    Convert { what: &'static str, version: BraneVersion, err: Box<dyn error::Error> },
     /// Failed to serialize the new info.
     Serialize { what: &'static str, err: serde_yaml::Error },
     /// Failed to create a new file.
@@ -137,7 +137,7 @@ impl error::Error for Error {
 fn upgrade<T: Serialize>(
     what: &'static str,
     path: impl Into<PathBuf>,
-    versions: Vec<(ConcreteFunctionVersion, VersionParser<T>)>,
+    versions: Vec<(BraneVersion, VersionParser<T>)>,
     dry_run: bool,
     overwrite: bool,
 ) -> Result<(), Error> {
@@ -345,8 +345,8 @@ pub fn node(path: impl Into<PathBuf>, dry_run: bool, overwrite: bool, version: V
     };
 
     // Construct the list of versions
-    let mut versions: Vec<(semver::Version, VersionParser<NodeConfig>)> = vec![(
-        semver::Version::new(1, 0, 0),
+    let mut versions: Vec<(BraneVersion, VersionParser<NodeConfig>)> = vec![(
+        BraneVersion(semver::Version::new(1, 0, 0)),
         Box::new(|raw: &str| -> Option<VersionConverter<NodeConfig>> {
             // Attempt to read it with the file
             let cfg: v1_0_0::NodeConfig = match serde_yaml::from_str(raw) {
@@ -493,7 +493,7 @@ pub fn node(path: impl Into<PathBuf>, dry_run: bool, overwrite: bool, version: V
     )];
     // Limit the version to only the given one if applicable
     if let Some(version) = version.0 {
-        versions.retain(|(v, _)| v == &version);
+        versions.retain(|(v, _)| v.0 == version);
     }
 
     // Call the function that does the heavy lifting
