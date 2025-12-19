@@ -46,6 +46,13 @@
         // TODO: Add all Rust related configuration options
         {
             "matchManagers": ["cargo"],
+            // Set this to false if Brane is in active development and relatively up to date.
+            // If there is little time for major updates, enable this setting.
+            // With this setting enabled, updates are still listed in the dashboard, but only
+            // PRs are created when you're ready. Updating major dependencies in Brane can be
+            // a lot of work.
+            // Note: This setting is overridden for patch and minor versions
+            "dependencyDashboardApproval": true,
         },
 
         // Note: These updates are to the lockfile only as manifest dependencies
@@ -58,6 +65,7 @@
             "groupName": "all non-major dependencies (exclude 0.x.y)",
             "groupSlug": "cargo-minor-patch-semver",
             "prPriority": 9,
+            "dependencyDashboardApproval": false,
         },
         {
             "matchUpdateTypes": ["patch"],
@@ -66,6 +74,7 @@
             "groupName": "all non-major dependencies (exclude 0.x.y)",
             "groupSlug": "cargo-minor-patch-semver",
             "prPriority": 9,
+            "dependencyDashboardApproval": false,
         },
 
         // We can group github actions updates together, they almost always apply with very little intervention.
@@ -79,16 +88,6 @@
 
         // TODO: We probably want to update Docker images as well here.
     ],
-
-
-    // Set this to false if Brane is in active development and relatively up to date.
-    // If there is little time for major updates, enable this setting.
-    // With this setting enabled, updates are still listed in the dashboard, but only
-    // PRs are created when you're ready. Updating major dependencies in Brane can be
-    // a lot of work.
-    "major": {
-        "dependencyDashboardApproval": false,
-    },
 
     // Do not take immediately update.
     // The chances of a package being yanked in the first couple of days are not negligible.
