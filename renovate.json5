@@ -84,9 +84,13 @@
             "addLabels": ["A-CI", "A-CD"],
             "groupName": "GitHub actions",
             "groupSlug": "gh-actions",
-        }
+        },
 
-        // TODO: We probably want to update Docker images as well here.
+        // TODO: Enable this
+        {
+            "matchManagers": ["docker", "docker-compose"],
+            "enabled": false,
+        }
     ],
 
     // Do not take immediately update.
