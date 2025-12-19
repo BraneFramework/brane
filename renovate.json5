@@ -81,8 +81,11 @@
     ],
 
 
-    // If Brane is not in active development I recommend changing this to false.
-    // The updates are still listed in the dashboard this way.
+    // Set this to false if Brane is in active development and relatively up to date.
+    // If there is little time for major updates, enable this setting.
+    // With this setting enabled, updates are still listed in the dashboard, but only
+    // PRs are created when you're ready. Updating major dependencies in Brane can be
+    // a lot of work.
     "major": {
         "dependencyDashboardApproval": false,
     },
