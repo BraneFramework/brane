@@ -85,7 +85,9 @@ pub fn pass_table(writer: &mut impl Write, table: &TableState, indent: usize) ->
             "{}Task<Compute> {}{}::{}({}){};",
             indent!(indent),
             t.package_name,
-            if !t.package_version.is_latest() { format!("<{}>", t.package_version) } else { String::new() },
+            // FIXME: Removed latest
+            // if let AliasedFunctionVersion::Version(semver) = &t.package_version { format!("<{semver}>") } else { String::new() },
+            format_args!("<{:?}>", &t.package_version),
             &t.name,
             t.signature.args.iter().enumerate().map(|(i, a)| format!("{}: {}", t.arg_names[i], a)).collect::<Vec<String>>().join(", "),
             if t.signature.ret != DataType::Void { format!(" -> {}", t.signature.ret) } else { String::new() },
@@ -105,11 +107,13 @@ pub fn pass_table(writer: &mut impl Write, table: &TableState, indent: usize) ->
                 format!(
                     "{}{}::",
                     package,
-                    if !c.package_version.as_ref().unwrap().is_latest() {
-                        format!("<{}>", c.package_version.as_ref().unwrap())
-                    } else {
-                        String::new()
-                    }
+                    // FIXME: Unnecessary unwrap (probably)
+                    // if let AliasedFunctionVersion::Version(semver) = &c.package_version.as_ref().unwrap() {
+                    //     format!("<{semver}>")
+                    // } else {
+                    //     String::new()
+                    // }
+                    format_args!("<{:?}>", &c.package_version),
                 )
             } else {
                 String::new()
@@ -338,7 +342,9 @@ pub fn pass_edge(writer: &mut impl Write, edge: &Edge, table: &TableState, inden
             let task: String = format!(
                 "{}{}::{}",
                 task.package_name,
-                if !task.package_version.is_latest() { format!("<{}>", task.package_version) } else { String::new() },
+                // FIXME: Removed latest
+                // if let AliasedFunctionVersion::Version(semver) = &task.package_version { format!("<{semver}>") } else { String::new() },
+                format_args!("<{}>", &task.package_version),
                 task.name
             );
 

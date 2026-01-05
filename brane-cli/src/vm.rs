@@ -38,6 +38,7 @@ use specifications::data::{AccessKind, DataIndex, DataInfo, DataName, Preprocess
 use specifications::package::{PackageIndex, PackageInfo};
 use specifications::pc::ProgramCounter;
 use specifications::profiling::ProfileScopeHandle;
+use specifications::version::AliasedFunctionVersion;
 use specifications::wir::Workflow;
 use specifications::wir::locations::Location;
 use tokio::fs as tfs;
@@ -102,12 +103,11 @@ impl VmPlugin for OfflinePlugin {
             (state.docker_opts.clone(), state.package_dir.clone(), state.results_dir.clone(), state.pindex.clone(), state.keep_containers)
         };
 
-        // Next, we resolve the package
-        let pinfo: &PackageInfo =
-            match pindex.get(info.package_name, if info.package_version.is_latest() { None } else { Some(info.package_version) }) {
-                Some(pinfo) => pinfo,
-                None => return Err(ExecuteError::UnknownPackage { name: info.package_name.into(), version: *info.package_version }),
-            };
+        let aliased_version = AliasedFunctionVersion::Version(info.package_version.clone());
+        let pinfo: &PackageInfo = match pindex.get(info.package_name, &aliased_version) {
+            Some(pinfo) => pinfo,
+            None => return Err(ExecuteError::UnknownPackage { name: info.package_name.into(), version: aliased_version }),
+        };
         get.stop();
 
         // Resolve the input arguments, generating the folders we have to bind
@@ -117,7 +117,7 @@ impl VmPlugin for OfflinePlugin {
         let params: String = serde_json::to_string(&info.args).map_err(|source| ExecuteError::ArgsEncodeError { source })?;
 
         // Create an ExecuteInfo with that
-        let image: Image = Image::new(info.package_name, Some(info.package_version), Some(pinfo.digest.as_ref().unwrap()));
+        let image: Image = Image::new(info.package_name, Some(format!("{}", info.package_version)), Some(pinfo.digest.as_ref().unwrap()));
         let einfo: ExecuteInfo = ExecuteInfo {
             name: info.name.into(),
             image: image.clone(),

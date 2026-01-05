@@ -25,7 +25,6 @@ use enum_debug::EnumDebug as _;
 use log::trace;
 use specifications::data::DataIndex;
 use specifications::package::{PackageIndex, PackageInfo};
-use specifications::version::Version;
 use specifications::wir::builtins::{BuiltinClasses, BuiltinFunctions};
 use specifications::wir::merge_strategy::MergeStrategy;
 
@@ -159,7 +158,7 @@ fn pass_stmt(
 
         Import { name, version, st_funcs, st_classes, attrs: _, range } => {
             // First: parse the version
-            let semver: Version = match version.as_version() {
+            let semver = match version.as_version() {
                 Ok(version) => version,
                 Err(source) => {
                     errors.push(Error::VersionParseError { source, range: version.range().clone() });
@@ -168,7 +167,7 @@ fn pass_stmt(
             };
 
             // Attempt to resolve this (name, version) pair in the package index.
-            let info: &PackageInfo = match package_index.get(&name.value, if !semver.is_latest() { Some(&semver) } else { None }) {
+            let info: &PackageInfo = match package_index.get(&name.value, &semver) {
                 Some(info) => info,
                 None => {
                     errors.push(Error::UnknownPackageError { name: name.value.clone(), version: semver, range: range.clone() });
@@ -190,7 +189,7 @@ fn pass_stmt(
                     name,
                     FunctionSignature::new(arg_types, ret_type),
                     &info.name,
-                    info.version,
+                    info.version.clone(),
                     arg_names,
                     f.requirements.clone().unwrap_or_default(),
                     TextRange::none(),
@@ -232,7 +231,7 @@ fn pass_stmt(
                     ClassSignature { name: name.clone() },
                     c_symbol_table,
                     &info.name,
-                    info.version,
+                    info.version.clone(),
                     TextRange::none(),
                 )) {
                     Ok(entry) => {

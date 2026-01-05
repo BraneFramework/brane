@@ -8,7 +8,7 @@ use serde_json::{Value as JValue, json};
 use serde_with::skip_serializing_none;
 
 use crate::package::{Capability, PackageKind};
-use crate::version::Version;
+use crate::version::AliasedFunctionVersion;
 
 
 /***** CUSTOM TYPES *****/
@@ -373,7 +373,7 @@ pub struct FunctionExt {
     pub name: String,
     pub package: String,
     pub parameters: Vec<Parameter>,
-    pub version: Version,
+    pub version: AliasedFunctionVersion,
 }
 
 /* TIM */

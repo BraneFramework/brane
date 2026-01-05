@@ -19,13 +19,13 @@ use prettytable::Table;
 use prettytable::format::FormatBuilder;
 use specifications::container::Image;
 use specifications::package::PackageInfo;
-use specifications::version::Version;
+use specifications::version::{AliasedFunctionVersion, ConcreteFunctionVersion};
 use tokio::fs::File as TFile;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use crate::errors::PackageError;
-use crate::utils::{ensure_package_dir, ensure_packages_dir};
+use crate::errors::{PackageError, UtilError};
+use crate::utils::{ensure_package_dir, ensure_packages_dir, get_packages_dir};
 
 
 /***** HELPER FUNCTIONS *****/
@@ -70,7 +70,7 @@ fn insert_package_in_list(infos: &mut Vec<PackageInfo>, info: PackageInfo) {
 ///
 /// # Returns
 /// Nothing
-pub fn inspect(name: String, version: Version, syntax: String) -> Result<()> {
+pub fn inspect(name: String, version: AliasedFunctionVersion, syntax: String) -> Result<()> {
     let package_dir = ensure_package_dir(&name, Some(&version), false)?;
     let package_file = package_dir.join("package.yml");
 
@@ -197,7 +197,7 @@ pub fn inspect(name: String, version: Version, syntax: String) -> Result<()> {
 /// **Arguments**
 ///  * `latest`: If set to true, only shows latest version of each package.
 ///
-/// **Returns**  
+/// **Returns**
 /// Nothing other than prints on stdout if successfull, or an ExecutorError otherwise.
 pub fn list(latest: bool) -> Result<(), PackageError> {
     // Get the directory with the packages
@@ -233,7 +233,7 @@ pub fn list(latest: bool) -> Result<(), PackageError> {
     }
 
     // With the list constructed, add each entry
-    let now = Utc::now().timestamp();
+    let now = Utc::now();
     for entry in infos {
         // Derive the pathname for this package
         let package_path = packages_dir.join(&entry.name).join(entry.version.to_string());
@@ -246,8 +246,20 @@ pub fn list(latest: bool) -> Result<(), PackageError> {
         let version = pad_str(&sversion, 10, Alignment::Left, Some(".."));
         let skind = format!("{}", entry.kind);
         let kind = pad_str(&skind, 10, Alignment::Left, Some(".."));
-        let elapsed = Duration::from_secs((now - entry.created.timestamp()) as u64);
-        let created = format!("{} ago", HumanDuration(elapsed));
+        // let elapsed = Duration::from_secs((now - entry.created.timestamp()) as u64);
+        let created = match (now - entry.created).to_std() {
+            Ok(elapsed) => format!("{} ago", HumanDuration(elapsed)),
+            // This function errors when duration is less than zero.
+            // As standard library implementation is limited to non-negative values.
+            Err(_) => {
+                if entry.created.date_naive() == now.date_naive() {
+                    format!("{} (future)", entry.created.time())
+                } else {
+                    format!("{} (future)", entry.created.date_naive())
+                }
+            },
+        };
+
         let created = pad_str(&created, 15, Alignment::Left, None);
         let size = DecimalBytes(dir::get_size(package_path).unwrap());
 
@@ -271,9 +283,9 @@ pub fn list(latest: bool) -> Result<(), PackageError> {
 ///  * `name`: The name of the package to load.
 ///  * `version`: The Version of the package to load. Might be an unresolved 'latest'.
 ///
-/// **Returns**  
+/// **Returns**
 /// Nothing on success, or else an error.
-pub async fn load(name: String, version: Version) -> Result<()> {
+pub async fn load(name: String, version: AliasedFunctionVersion) -> Result<()> {
     debug!("Loading package '{}' (version {})", name, &version);
 
     let package_dir = ensure_package_dir(&name, Some(&version), false)?;
@@ -335,141 +347,162 @@ pub async fn load(name: String, version: Version) -> Result<()> {
 ///
 /// # Arguments
 ///  - `force`: Whether or not to force removal (remove the image from the Docker daemon even if there are still containers using it).
-///  - `packages`: The list of (name, Version) pairs to remove.
+///  - `packages`: The list of (name, Version) pairs to remove. Version can be set to None if all
+///    versions need to be removed.
 ///  - `docker_opts`: Configuration for how to connect to the local Docker daemon.
 ///
-/// # Returns  
+/// # Returns
 /// Nothing on success, or else an error.
-pub async fn remove(force: bool, packages: Vec<(String, Version)>, docker_opts: DockerOptions) -> Result<(), PackageError> {
+pub async fn remove(force: bool, packages: Vec<(String, Option<AliasedFunctionVersion>)>, docker_opts: DockerOptions) -> Result<(), PackageError> {
     // Iterate over the packages
     for (name, version) in packages {
         // Remove without confirmation if explicity stated package version.
-        if !version.is_latest() {
-            // Try to resolve the directory for this pair
-            let package_dir = ensure_package_dir(&name, Some(&version), false).map_err(|source| PackageError::PackageVersionError {
-                name: name.clone(),
-                version,
-                source,
-            })?;
+        match version {
+            Some(version) => {
+                let packages_dir = get_packages_dir()?;
+                let package_dir = packages_dir.join(&name);
 
-            // Ask for permission if needed
-            if !force {
-                println!("Are you sure you want to remove package {} version {}?", style(&name).bold().cyan(), style(&version).bold().cyan());
-                println!();
-                let consent: bool = Confirm::new().interact().map_err(|source| PackageError::ConsentError { source })?;
+                let version = match version.clone() {
+                    AliasedFunctionVersion::Latest => brane_tsk::local::get_package_versions(&name, &package_dir)
+                        .map_err(|source| UtilError::VersionsError { source })?
+                        .into_iter()
+                        .max()
+                        .expect("We need at least one version in order to take the latest"),
+                    AliasedFunctionVersion::Version(version) => version.clone(),
+                };
 
-                if !consent {
-                    return Ok(());
+                // Try to resolve the directory for this pair
+                let package_dir = ensure_package_dir(&name, Some(&version.clone().into()), false)
+                    .map_err(|source| PackageError::PackageVersionError { name: name.clone(), version: version.clone(), source })?;
+
+                // Ask for permission if needed
+                if !force {
+                    println!("Are you sure you want to remove package {} version {}?", style(&name).bold().cyan(), style(&version).bold().cyan());
+                    println!();
+                    let consent: bool = Confirm::new().interact().map_err(|source| PackageError::ConsentError { source })?;
+
+                    if !consent {
+                        return Ok(());
+                    }
                 }
-            }
 
-            // If we got permission, get the digest of this version
-            let package_info_path = package_dir.join("package.yml");
-            let package_info = PackageInfo::from_path(package_info_path.clone())
-                .map_err(|source| PackageError::PackageInfoError { path: package_info_path.clone(), source })?;
-            let digest = package_info.digest.ok_or_else(|| PackageError::PackageInfoNoDigest { path: package_info_path.clone() })?;
+                // If we got permission, get the digest of this version
+                let package_info_path = package_dir.join("package.yml");
+                let package_info = PackageInfo::from_path(package_info_path.clone())
+                    .map_err(|source| PackageError::PackageInfoError { path: package_info_path.clone(), source })?;
+                let digest = package_info.digest.ok_or_else(|| PackageError::PackageInfoNoDigest { path: package_info_path.clone() })?;
 
-            // Remove that image from the Docker daemon
-            let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
-            docker::remove_image(&docker_opts, &image).await.map_err(|source| PackageError::DockerRemoveError { image: Box::new(image), source })?;
+                // Remove that image from the Docker daemon
+                let image: Image = Image::new(&package_info.name, Some(package_info.version.to_string()), Some(digest));
+                docker::remove_image(&docker_opts, &image)
+                    .await
+                    .map_err(|source| PackageError::DockerRemoveError { image: Box::new(image), source })?;
 
-            // Also remove the package files
-            fs::remove_dir_all(&package_dir).map_err(|source| PackageError::PackageRemoveError {
-                name: name.clone(),
-                version,
-                dir: package_dir,
-                source,
-            })?;
+                // Also remove the package files
+                fs::remove_dir_all(&package_dir).map_err(|source| PackageError::PackageRemoveError {
+                    name: name.clone(),
+                    version: Some(version.clone().into()),
+                    dir: package_dir,
+                    source,
+                })?;
 
-            // If there are now no more packages left, remove the package directory itself as well
-            let package_dir = ensure_package_dir(&name, None, false).map_err(|source| PackageError::PackageError { name: name.clone(), source })?;
-            match fs::read_dir(&package_dir) {
-                Ok(versions) => {
-                    if versions.count() == 0 {
-                        // Attempt to remove the main dir
-                        fs::remove_dir_all(&package_dir).map_err(|source| PackageError::PackageRemoveError {
+                // If there are now no more packages left, remove the package directory itself as well
+                let package_dir =
+                    ensure_package_dir(&name, None, false).map_err(|source| PackageError::PackageError { name: name.clone(), source })?;
+
+                let versions = fs::read_dir(&package_dir).map_err(|source| PackageError::VersionsError {
+                    name: name.clone(),
+                    dir: package_dir.clone(),
+                    source,
+                })?;
+
+                if versions.count() == 0 {
+                    // Attempt to remove the main dir
+                    fs::remove_dir_all(&package_dir).map_err(|source| PackageError::PackageRemoveError {
+                        name: name.clone(),
+                        version: Some(version.clone().into()),
+                        dir: package_dir.clone(),
+                        source,
+                    })?;
+                }
+
+                println!("Successfully removed version {} of package {}", style(&version).bold().cyan(), style(&name).bold().cyan());
+                return Ok(());
+            },
+            None => {
+                // Otherwise, resolve the package directory only
+                let package_dir =
+                    ensure_package_dir(&name, None, false).map_err(|source| PackageError::PackageError { name: name.clone(), source })?;
+
+                // Look for packages.
+                let versions = fs::read_dir(&package_dir).map_err(|source| PackageError::VersionsError {
+                    name: name.clone(),
+                    dir: package_dir.clone(),
+                    source,
+                })?;
+
+                // Parse them all
+                let result = versions
+                    .map(|version| {
+                        let version =
+                            version.map_err(|source| PackageError::VersionsError { name: name.clone(), dir: package_dir.clone(), source })?;
+
+                        // Parse the path as a Version
+                        let version = String::from(version.file_name().to_string_lossy());
+                        let version = ConcreteFunctionVersion::from_str(&version).map_err(|source| PackageError::VersionParseError {
                             name: name.clone(),
-                            version,
-                            dir: package_dir,
+                            raw: version,
                             source,
                         })?;
-                    }
-                },
-                Err(source) => {
-                    return Err(PackageError::VersionsError { name, dir: package_dir, source });
-                },
-            };
 
-            // Donelet versions =
-            println!("Successfully removed version {} of package {}", style(&version).bold().cyan(), style(&name).bold().cyan());
-            return Ok(());
-        }
-
-        // Otherwise, resolve the package directory only
-        let package_dir = ensure_package_dir(&name, None, false).map_err(|source| PackageError::PackageError { name: name.clone(), source })?;
-
-        // Look for packages.
-        let versions: Vec<Version> = match fs::read_dir(&package_dir) {
-            Ok(versions) => {
-                // Parse them all
-                let mut result = Vec::with_capacity(3);
-                for version in versions {
-                    // Resolve the entry
-                    let version = version.map_err(|source| PackageError::VersionsError { name: name.clone(), dir: package_dir.clone(), source })?;
-
-                    // Parse the path as a Version
-                    let version = String::from(version.file_name().to_string_lossy());
-                    let version =
-                        Version::from_str(&version).map_err(|source| PackageError::VersionParseError { name: name.clone(), raw: version, source })?;
-
-                    // Add it to the list
-                    result.push(version);
-                }
+                        Ok(version)
+                    })
+                    .collect::<Result<Vec<_>, PackageError>>()?;
 
                 // Done
-                result
+                let versions: Vec<ConcreteFunctionVersion> = result;
+
+
+                // Ask for permission, if --force is not provided
+                if !force {
+                    println!("Are you sure you want to remove the following version(s) of package {}?", style(&name).bold().cyan());
+                    for version in &versions {
+                        println!("- {}", style(&version).bold().cyan());
+                    }
+                    println!();
+                    let consent: bool = Confirm::new().interact().map_err(|source| PackageError::ConsentError { source })?;
+                    if !consent {
+                        continue;
+                    }
+                }
+
+                // Check if image is locally loaded in Docker and if so, remove it there first
+                for version in &versions {
+                    // Get the digest of this version
+                    let package_info_path = package_dir.join(version.to_string()).join("package.yml");
+                    let package_info = PackageInfo::from_path(package_info_path.clone())
+                        .map_err(|source| PackageError::PackageInfoError { path: package_info_path.clone(), source })?;
+                    let digest = package_info.digest.ok_or_else(|| PackageError::PackageInfoNoDigest { path: package_info_path.clone() })?;
+
+                    // Remove that image from the Docker daemon
+                    let image: Image = Image::new(&package_info.name, Some(package_info.version.to_string()), Some(digest));
+                    docker::remove_image(&docker_opts, &image)
+                        .await
+                        .map_err(|source| PackageError::DockerRemoveError { image: Box::new(image), source })?;
+                }
+
+                // Remove the package files
+                fs::remove_dir_all(&package_dir).map_err(|source| PackageError::PackageRemoveError {
+                    name: name.clone(),
+                    version,
+                    dir: package_dir,
+                    source,
+                })?;
+
+                // Done
+                println!("Successfully removed package {}", style(&name).bold().cyan());
             },
-            Err(source) => {
-                return Err(PackageError::VersionsError { name, dir: package_dir, source });
-            },
-        };
-
-        // Ask for permission, if --force is not provided
-        if !force {
-            println!("Are you sure you want to remove the following version(s) of package {}?", style(&name).bold().cyan());
-            for version in &versions {
-                println!("- {}", style(&version).bold().cyan());
-            }
-            println!();
-            let consent: bool = Confirm::new().interact().map_err(|source| PackageError::ConsentError { source })?;
-            if !consent {
-                continue;
-            }
         }
-
-        // Check if image is locally loaded in Docker and if so, remove it there first
-        for version in &versions {
-            // Get the digest of this version
-            let package_info_path = package_dir.join(version.to_string()).join("package.yml");
-            let package_info = PackageInfo::from_path(package_info_path.clone())
-                .map_err(|source| PackageError::PackageInfoError { path: package_info_path.clone(), source })?;
-            let digest = package_info.digest.ok_or_else(|| PackageError::PackageInfoNoDigest { path: package_info_path.clone() })?;
-
-            // Remove that image from the Docker daemon
-            let image: Image = Image::new(&package_info.name, Some(format!("{}", package_info.version)), Some(digest));
-            docker::remove_image(&docker_opts, &image).await.map_err(|source| PackageError::DockerRemoveError { image: Box::new(image), source })?;
-        }
-
-        // Remove the package files
-        fs::remove_dir_all(&package_dir).map_err(|source| PackageError::PackageRemoveError {
-            name: name.clone(),
-            version,
-            dir: package_dir,
-            source,
-        })?;
-
-        // Done
-        println!("Successfully removed package {}", style(&name).bold().cyan());
     }
 
     // Done!

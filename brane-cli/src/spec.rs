@@ -23,7 +23,7 @@ use brane_tsk::docker::DockerOptions;
 use parking_lot::Mutex;
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
-use specifications::version::Version;
+use specifications::version::ConcreteFunctionVersion;
 
 use crate::errors::HostnameParseError;
 
@@ -119,14 +119,16 @@ impl FromStr for Hostname {
 
 
 /// Parses a version number that scopes a particular operation down. In other words, can be a specific version number or `all`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct VersionFix(pub Option<Version>);
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VersionFix(pub Option<semver::Version>);
 impl Display for VersionFix {
     #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "{}", if let Some(version) = self.0 { version.to_string() } else { "all".into() }) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        write!(f, "{}", if let Some(ref version) = self.0 { version.to_string() } else { "all".into() })
+    }
 }
 impl FromStr for VersionFix {
-    type Err = specifications::version::ParseError;
+    type Err = specifications::version::SemverError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Parse the auto first
@@ -134,7 +136,7 @@ impl FromStr for VersionFix {
             return Ok(Self(None));
         }
         // Otherwise, delegate to the version parser
-        Ok(Self(Some(Version::from_str(s)?)))
+        Ok(Self(Some(ConcreteFunctionVersion::from_str(s)?)))
     }
 }
 

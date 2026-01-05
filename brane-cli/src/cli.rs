@@ -5,7 +5,7 @@ use brane_tsk::docker::ClientVersion;
 use brane_tsk::spec::AppId;
 use clap::Parser;
 use specifications::arch::Arch;
-use specifications::version::Version as SemVersion;
+use specifications::version::{AliasedFunctionVersion, ConcreteFunctionVersion};
 
 /***** ARGUMENTS *****/
 /// The Brane command-line interface.
@@ -416,7 +416,7 @@ pub(crate) enum PackageSubcommand {
         #[clap(name = "NAME", help = "Name of the package")]
         name:    String,
         #[clap(name = "VERSION", default_value = "latest", help = "Version of the package")]
-        version: SemVersion,
+        version: AliasedFunctionVersion,
 
         // Alternative syntax to use.
         #[clap(
@@ -439,7 +439,7 @@ pub(crate) enum PackageSubcommand {
         #[clap(name = "NAME", help = "Name of the package")]
         name:    String,
         #[clap(short, long, default_value = "latest", help = "Version of the package")]
-        version: SemVersion,
+        version: AliasedFunctionVersion,
     },
 
     // #[clap(name = "logout", about = "Log out from a registry")]
@@ -507,7 +507,7 @@ pub(crate) enum PackageSubcommand {
         #[clap(name = "NAME", help = "Name of the package")]
         name: String,
         #[clap(name = "VERSION", default_value = "latest", help = "Version of the package")]
-        version: SemVersion,
+        version: AliasedFunctionVersion,
         #[clap(
             short = 'r',
             long,
@@ -557,7 +557,7 @@ pub(crate) enum PackageSubcommand {
         #[clap(name = "NAME", help = "Name of the package")]
         name:    String,
         #[clap(name = "VERSION", help = "Version of the package")]
-        version: SemVersion,
+        version: ConcreteFunctionVersion,
         #[clap(short, long, action, help = "Don't ask for confirmation")]
         force:   bool,
     },

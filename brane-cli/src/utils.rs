@@ -17,7 +17,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use specifications::package::PackageKind;
-use specifications::version::Version;
+use specifications::version::AliasedFunctionVersion;
 
 // use crate::{MIN_DOCKER_VERSION, MIN_BUILDX_VERSION};
 use crate::errors::UtilError;
@@ -32,14 +32,14 @@ pub enum DependencyError {
     DockerNotInstalled,
     /// Docker has a too low version
     #[error("Docker version is {got}, but Brane requires version {expected} or later")]
-    DockerMinNotMet { got: Version, expected: Version },
+    DockerMinNotMet { got: semver::Version, expected: semver::Version },
 
     /// The Buildkit plugin is not installed for Docker
     #[error("Local Docker instance does not have the Buildkit plugin installed")]
     BuildkitNotInstalled,
     /// The Buildkit plugin has an incorrect version
     #[error("Buildkit plugin for Docker version is {got}, but Brane requires version {expected} or later")]
-    BuildKitMinNotMet { got: Version, expected: Version },
+    BuildKitMinNotMet { got: semver::Version, expected: semver::Version },
 }
 
 /***** UTILITIES *****/
@@ -47,7 +47,7 @@ pub enum DependencyError {
 ///
 /// Checks the runtime dependencies of brane-cli (Docker + BuildKit)
 ///
-/// **Returns**  
+/// **Returns**
 /// Nothing if the dependencies are met, a DependencyError if it wasn't, or a UtilError if we couldn't determine.
 pub async fn check_dependencies() -> Result<Result<(), DependencyError>, UtilError> {
     // We checked all the runtime dependencies! (:sweat:)
@@ -65,7 +65,7 @@ pub async fn check_dependencies() -> Result<Result<(), DependencyError>, UtilErr
 /// **Arguments**
 ///  * `dir`: The directory the is the root of a package.
 ///
-/// **Returns**  
+/// **Returns**
 /// A PathBuf pointing to what we think is the package file, or else a CliError if we could not determine it or something went wrong.
 pub fn determine_file(dir: &Path) -> Result<PathBuf, UtilError> {
     // Open an iterator over the directory's files
@@ -97,7 +97,7 @@ pub fn determine_file(dir: &Path) -> Result<PathBuf, UtilError> {
 /// **Arguments**
 ///  * `path`: Path to file from which we'd like to deduce the kind.
 ///
-/// **Returns**  
+/// **Returns**
 /// The PackageKind if we could deduce it, or some sort of CliError if we could not or something went wrong.
 pub fn determine_kind(path: &Path) -> Result<PackageKind, UtilError> {
     // See if the filename convention allows us to choose a package kind
@@ -142,7 +142,7 @@ pub fn determine_kind(path: &Path) -> Result<PackageKind, UtilError> {
 ///
 /// Returns the path of the configuration directory. Is guaranteed to be an absolute path when it returns successfully (but _not_ that it also exists!).
 ///
-/// **Returns**  
+/// **Returns**
 /// The path of the Brane configuration directory if successful, or a UtilError otherwise.
 pub fn get_config_dir() -> Result<PathBuf, UtilError> {
     // Try to get the user directory
@@ -157,7 +157,7 @@ pub fn get_config_dir() -> Result<PathBuf, UtilError> {
 /// **Arguments**
 ///  * `create`: If true, creates the directory if it does not exist; if false, throws an error.
 ///
-/// **Returns**  
+/// **Returns**
 /// The path of the Brane configuration directory if successful, or a UtilError otherwise.
 pub fn ensure_config_dir(create: bool) -> Result<PathBuf, UtilError> {
     // Get the brane directory
@@ -181,7 +181,7 @@ pub fn ensure_config_dir(create: bool) -> Result<PathBuf, UtilError> {
 ///
 /// Returns the location of the history file for Brane.
 ///
-/// **Returns**  
+/// **Returns**
 /// The path of the HistoryFile or a UtilError otherwise.
 pub fn get_history_file() -> Result<PathBuf, UtilError> {
     // Get the config dir
@@ -196,7 +196,7 @@ pub fn get_history_file() -> Result<PathBuf, UtilError> {
 /// **Arguments**
 ///  * `create`: If true, creates the directory if it does not exist; if false, throws an error.
 ///
-/// **Returns**  
+/// **Returns**
 /// The path of the HistoryFile or a UtilError otherwise.
 pub fn ensure_history_file(create: bool) -> Result<PathBuf, UtilError> {
     // Get the path to the history file
@@ -227,7 +227,7 @@ pub fn ensure_history_file(create: bool) -> Result<PathBuf, UtilError> {
 /// **Arguments**
 ///  * `create`: If set to true, creates the missing file and directories instead of throwing errors.
 ///
-/// **Returns**  
+/// **Returns**
 /// A PathBuf with the absolute path that is guaranteed to exist, or an UtilError otherwise.
 pub fn get_data_dir() -> Result<PathBuf, UtilError> {
     // Try to get the user directory
@@ -242,7 +242,7 @@ pub fn get_data_dir() -> Result<PathBuf, UtilError> {
 /// **Arguments**
 ///  * `create`: If true, creates the directory if it does not exist; if false, throws an error.
 ///
-/// **Returns**  
+/// **Returns**
 /// A PathBuf with the absolute path that is guaranteed to exist, or an UtilError otherwise.
 pub fn ensure_data_dir(create: bool) -> Result<PathBuf, UtilError> {
     // Get the data directory
@@ -264,11 +264,11 @@ pub fn ensure_data_dir(create: bool) -> Result<PathBuf, UtilError> {
 
 /// **Edited: Changed to return UtilErrors.**
 ///
-/// Returns the general package directory based on the user's home folder.  
-/// Basically, tries to resolve the folder '~/.local/share/brane/packages`.  
+/// Returns the general package directory based on the user's home folder.
+/// Basically, tries to resolve the folder '~/.local/share/brane/packages`.
 /// Note that this does not mean that this directory exists.
 ///
-/// **Returns**  
+/// **Returns**
 /// A PathBuf with an absolute path to the packages dir, or an UtilError otherwise.
 pub fn get_packages_dir() -> Result<PathBuf, UtilError> {
     // Get the data directory
@@ -278,13 +278,13 @@ pub fn get_packages_dir() -> Result<PathBuf, UtilError> {
     Ok(data_dir.join("packages"))
 }
 
-/// Makes sure that Brane's packages directory exists, and then returns its path.  
+/// Makes sure that Brane's packages directory exists, and then returns its path.
 /// Basically, tries to resolve the folder '~/.local/share/brane/packages`.
 ///
 /// **Arguments**
 ///  * `create`: If set to true, creates the missing file and directories instead of throwing errors.
 ///
-/// **Returns**  
+/// **Returns**
 /// A PathBuf with the absolute path that is guaranteed to exist, or an UtilError otherwise.
 pub fn ensure_packages_dir(create: bool) -> Result<PathBuf, UtilError> {
     // Get the packages directory
@@ -308,8 +308,8 @@ pub fn ensure_packages_dir(create: bool) -> Result<PathBuf, UtilError> {
     Ok(packages_dir)
 }
 
-/// Returns the general data directory based on the user's home folder.  
-/// Basically, tries to resolve the folder `~/.local/share/brane/data`.  
+/// Returns the general data directory based on the user's home folder.
+/// Basically, tries to resolve the folder `~/.local/share/brane/data`.
 /// Note that this does not mean that this directory exists.
 ///
 /// # Returns
@@ -325,7 +325,7 @@ pub fn get_datasets_dir() -> Result<PathBuf, UtilError> {
     Ok(data_dir.join("data"))
 }
 
-/// Makes sure that Brane's dataset directory exists, and then returns its path.  
+/// Makes sure that Brane's dataset directory exists, and then returns its path.
 /// Basically, tries to resolve the folder `~/.local/share/brane/data`.
 ///
 /// # Arguments
@@ -358,47 +358,44 @@ pub fn ensure_datasets_dir(create: bool) -> Result<PathBuf, UtilError> {
 
 /// **Edited: Now returning UtilErrors.**
 ///
-/// Gets the directory where we likely stored the package.  
-/// If the given version is omitted, just returns the package directory for this name.  
-/// If the given version is latest, tries to find the latest version directory to return that; otherwise, errors that there are no versions to choose from.  
+/// Gets the directory where we likely stored the package.
+/// If the given version is omitted, just returns the package directory for this name.
+/// If the given version is latest, tries to find the latest version directory to return that; otherwise, errors that there are no versions to choose from.
 /// Does not guarantee that the directory also exists; check ensure_package_dir() for that.
 ///
 /// **Arguments**
 ///  * `name`: The name of the package we want to get the directory from.
 ///  * `version`: The version of the package. Is optional to have a package directory that ignores versions.
 ///
-/// **Returns**  
+/// **Returns**
 /// A PathBuf with the directory if successfull, or an UtilError otherwise.
-pub fn get_package_dir(name: &str, version: Option<&Version>) -> Result<PathBuf, UtilError> {
+pub fn get_package_dir(name: &str, version: Option<&AliasedFunctionVersion>) -> Result<PathBuf, UtilError> {
     // Try to get the general package directory + the name of the package
     let packages_dir = get_packages_dir()?;
     let package_dir = packages_dir.join(name);
 
-    // If there is no version, call it quits here
-    if version.is_none() {
-        return Ok(package_dir);
-    }
+    // If there is no version, return the parent package dir (without version)
+    let version = match version {
+        Some(version) => version,
+        None => return Ok(package_dir),
+    };
 
     // Otherwise, resolve the version number if its 'latest'
-    let version = version.unwrap();
-    let version = if version.is_latest() {
-        // Get the list of versions
-        let mut versions = brane_tsk::local::get_package_versions(name, &package_dir).map_err(|source| UtilError::VersionsError { source })?;
-
-        // Sort the versions and return the last one
-        versions.sort();
-        versions[versions.len() - 1]
-    } else {
-        // Simply use the given version
-        *version
+    let version = match version {
+        AliasedFunctionVersion::Latest => brane_tsk::local::get_package_versions(name, &package_dir)
+            .map_err(|source| UtilError::VersionsError { source })?
+            .into_iter()
+            .max()
+            .expect("We need at least one version in order to take the latest"),
+        AliasedFunctionVersion::Version(version) => version.clone(),
     };
 
     // Return the path with the version appended to it
     Ok(package_dir.join(version.to_string()))
 }
 
-/// Makes sure that the package directory for the given name/version pair exists, then returns the path to it.  
-/// If the given version is omitted, just returns the package directory for this name.  
+/// Makes sure that the package directory for the given name/version pair exists, then returns the path to it.
+/// If the given version is omitted, just returns the package directory for this name.
 /// If the given version is latest, tries to find the latest version directory to return that; otherwise, always errors (regardless of 'create').
 ///
 /// **Arguments**
@@ -406,11 +403,27 @@ pub fn get_package_dir(name: &str, version: Option<&Version>) -> Result<PathBuf,
 ///  * `version`: The version of the package. Is optional to have a package directory without any nested versions.
 ///  * `create`: If set to true, creates the missing file and directories instead of throwing errors.
 ///
-/// **Returns**  
+/// **Returns**
 /// A PathBuf with the directory if successfull, or an UtilError otherwise.
-pub fn ensure_package_dir(name: &str, version: Option<&Version>, create: bool) -> Result<PathBuf, UtilError> {
+pub fn ensure_package_dir(name: &str, version: Option<&AliasedFunctionVersion>, create: bool) -> Result<PathBuf, UtilError> {
+    let packages_dir = get_packages_dir()?;
+    let package_dir = packages_dir.join(name);
+
+    // Otherwise, resolve the version number if its 'latest'
+    let version = match version {
+        Some(AliasedFunctionVersion::Latest) => Some(
+            brane_tsk::local::get_package_versions(name, &package_dir)
+                .map_err(|source| UtilError::VersionsError { source })?
+                .into_iter()
+                .max()
+                .expect("We need at least one version in order to take the latest"),
+        ),
+        Some(AliasedFunctionVersion::Version(version)) => Some(version.clone()),
+        None => None,
+    };
+
     // Retrieve the path for this version
-    let package_dir = get_package_dir(name, version)?;
+    let package_dir = get_package_dir(name, version.clone().map(|v| v.into()).as_ref())?;
 
     // Make sure it exists
     if !package_dir.exists() {
@@ -425,12 +438,12 @@ pub fn ensure_package_dir(name: &str, version: Option<&Version>, create: bool) -
                     // Now create the directory
                     fs::create_dir_all(&package_dir).map_err(|source| UtilError::VersionDirCreateError {
                         package: name.to_string(),
-                        version: *version,
+                        version: version.clone(),
                         path: package_dir.clone(),
                         source,
                     })?;
                 } else {
-                    return Err(UtilError::VersionDirNotFound { package: name.to_string(), version: *version, path: package_dir });
+                    return Err(UtilError::VersionDirNotFound { package: name.to_string(), version: version.clone(), path: package_dir });
                 }
             },
 
@@ -457,7 +470,7 @@ pub fn ensure_package_dir(name: &str, version: Option<&Version>, create: bool) -
     Ok(package_dir)
 }
 
-/// Gets the directory where we likely stored a dataset.  
+/// Gets the directory where we likely stored a dataset.
 /// Does not guarantee that the directory also exists; check `ensure_dataset_dir()` for that.
 ///
 /// # Generic arguments
@@ -650,7 +663,7 @@ pub fn get_active_instance_link() -> Result<PathBuf, UtilError> {
 /// **Arguments**
 ///  * `s`: The string to capitalize.
 ///
-/// **Returns**  
+/// **Returns**
 /// A copy of the given string with the first letter in uppercase.
 pub fn uppercase_first_letter(s: &str) -> String {
     let mut c = s.chars();
@@ -667,7 +680,7 @@ pub fn uppercase_first_letter(s: &str) -> String {
 /// **Arguments**
 ///  * `name`: The name to check.
 ///
-/// **Returns**  
+/// **Returns**
 /// Nothing if the name is valid, or a UtilError otherwise.
 pub fn assert_valid_bakery_name(name: &str) -> Result<(), UtilError> {
     if name.chars().all(|c| c.is_alphanumeric() || c == '_') { Ok(()) } else { Err(UtilError::InvalidBakeryName { name: name.to_string() }) }
