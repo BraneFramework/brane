@@ -411,11 +411,13 @@ pub fn ensure_package_dir(name: &str, version: Option<&AliasedFunctionVersion>, 
 
     // Otherwise, resolve the version number if its 'latest'
     let version = match version {
-        Some(AliasedFunctionVersion::Latest) => Some(brane_tsk::local::get_package_versions(name, &package_dir)
-            .map_err(|source| UtilError::VersionsError { source })?
-            .into_iter()
-            .max()
-            .expect("We need at least one version in order to take the latest")),
+        Some(AliasedFunctionVersion::Latest) => Some(
+            brane_tsk::local::get_package_versions(name, &package_dir)
+                .map_err(|source| UtilError::VersionsError { source })?
+                .into_iter()
+                .max()
+                .expect("We need at least one version in order to take the latest"),
+        ),
         Some(AliasedFunctionVersion::Version(version)) => Some(version.clone()),
         None => None,
     };

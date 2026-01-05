@@ -635,7 +635,10 @@ pub enum InstanceError {
 pub enum PackageError {
     /// Something went wrong while calling utilities
     #[error(transparent)]
-    UtilError { #[from] source: UtilError },
+    UtilError {
+        #[from]
+        source: UtilError,
+    },
     /// Something went wrong when fetching an index.
     #[error("Failed to fetch a local package index")]
     IndexError { source: brane_tsk::local::Error },
