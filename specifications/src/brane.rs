@@ -7,6 +7,7 @@ use tracing::{debug, warn};
 pub enum ServiceKind {
     Central(CentralKind),
     Worker(WorkerKind),
+    Proxy(ProxyKind),
 }
 
 static BRANE_LOG_VAR: &str = "BRANE_LOG";
@@ -17,6 +18,7 @@ impl ServiceKind {
         match self {
             Self::Central(central_kind) => central_kind.to_service_name(),
             Self::Worker(worker_kind) => worker_kind.to_service_name(),
+            Self::Proxy(worker_kind) => worker_kind.to_service_name(),
         }
     }
 
@@ -25,6 +27,7 @@ impl ServiceKind {
         match self {
             Self::Central(central_kind) => central_kind.to_env_var(),
             Self::Worker(worker_kind) => worker_kind.to_env_var(),
+            Self::Proxy(worker_kind) => worker_kind.to_env_var(),
         }
     }
 
@@ -105,6 +108,27 @@ impl WorkerKind {
             Self::Reg => "BRANE_REG",
             Self::Job => "BRANE_JOB",
             Self::Chk => "BRANE_CHK",
+            Self::Prx => "BRANE_PRX",
+        }
+    }
+}
+
+#[derive(EnumIter, Copy, Clone, Debug)]
+pub enum ProxyKind {
+    Prx,
+}
+
+impl ProxyKind {
+    #[inline]
+    pub fn to_service_name(&self) -> &'static str {
+        match self {
+            Self::Prx => "brane-prx",
+        }
+    }
+
+    #[inline]
+    pub fn to_env_var(&self) -> &'static str {
+        match self {
             Self::Prx => "BRANE_PRX",
         }
     }

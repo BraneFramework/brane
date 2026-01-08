@@ -37,7 +37,7 @@ use console::style;
 use rand::Rng;
 use rand::distr::Alphanumeric;
 use serde::Serialize;
-use specifications::brane::{CentralKind, ServiceKind, WorkerKind};
+use specifications::brane::{CentralKind, ProxyKind, ServiceKind, WorkerKind};
 use specifications::container::Image;
 use specifications::version::BraneVersion;
 use strum::IntoEnumIterator;
@@ -359,9 +359,6 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
                     if let Some(env_filter) = ServiceKind::Central(service).get_tracing_env_filter() {
                         service_override.environment.push(format!("BRANE_{}_LOG={}", service.to_env_var(), env_filter));
                         // FIXME: Not really warnings
-                        tracing::warn!("Setting loglevel for {} to {}", service.to_service_name(), env_filter);
-                    } else {
-                        tracing::warn!("Leaving loglevel for {} at its default", service.to_service_name());
                     }
                     (service.to_service_name(), service_override)
                 })
@@ -393,7 +390,7 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
                     let mut service_override = svc.clone();
 
                     if let Some(env_filter) = ServiceKind::Worker(service).get_tracing_env_filter() {
-                        service_override.environment.push(format!("{}_LOG={}", service.to_env_var(), env_filter));
+                        service_override.environment.push(format!("BRANE_{}_LOG={}", service.to_env_var(), env_filter));
                     }
                     (service.to_service_name(), service_override)
                 })
@@ -433,6 +430,11 @@ fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAd
         NodeSpecificConfig::Proxy(node) => {
             // Prepare a proxy service override
             let mut prx_svc: ComposeOverrideFileService = svc;
+
+            // Note: A bit convoluted in this case, but it kinda matches the pattern for Worker and Central
+            if let Some(env_filter) = ServiceKind::Proxy(ProxyKind::Prx).get_tracing_env_filter() {
+                prx_svc.environment.push(format!("BRANE_{}_LOG={}", ProxyKind::Prx.to_env_var(), env_filter));
+            }
 
             // Read the management port
             let manage_port: u16 = node.services.prx.bind.port();
