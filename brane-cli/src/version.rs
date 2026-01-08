@@ -96,10 +96,11 @@ impl RemoteVersion {
             return Err(VersionError::RequestFailure { url, status: response.status() });
         }
         let version_body: String = response.text().await.map_err(|source| VersionError::RequestBodyError { url: url.clone(), source })?;
+        let version_str = version_body.strip_prefix("v").unwrap_or(&version_body);
 
         // Try to parse the version
         debug!(" > Parsing remote version...");
-        let version = BraneVersion::from_str(&version_body).map_err(|source| VersionError::VersionParseError { raw: version_body, source })?;
+        let version = BraneVersion::from_str(version_str).map_err(|source| VersionError::VersionParseError { raw: version_body, source })?;
 
         // Done!
         debug!("Remote version number: {}", &version);
