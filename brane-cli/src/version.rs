@@ -89,7 +89,7 @@ impl RemoteVersion {
     async fn from_instance_info(info: InstanceInfo) -> Result<Self, VersionError> {
         // Use reqwest for the API call
         debug!(" > Querying...");
-        let mut url: String = info.api.to_string();
+        let mut url: String = format!("http://{}", info.api);
         url.push_str("/version");
         let response: Response = reqwest::get(&url).await.map_err(|source| VersionError::RequestError { url: url.clone(), source })?;
         if response.status() != StatusCode::OK {
