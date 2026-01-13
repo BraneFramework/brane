@@ -821,7 +821,7 @@ pub async fn start(
                 opts.compose_verbose,
                 resolve_exe(exe)?,
                 DockerComposeCommand::Up,
-                resolve_node(file, "central"),
+                resolve_node(&file, "central"),
                 &node_config.namespace,
                 overridefile,
                 envs,
@@ -864,7 +864,7 @@ pub async fn start(
                 opts.compose_verbose,
                 resolve_exe(exe)?,
                 DockerComposeCommand::Up,
-                resolve_node(file, "worker"),
+                resolve_node(&file, "worker"),
                 &node_config.namespace,
                 overridefile,
                 envs,
@@ -897,7 +897,7 @@ pub async fn start(
                 opts.compose_verbose,
                 resolve_exe(exe)?,
                 DockerComposeCommand::Up,
-                resolve_node(file, "proxy"),
+                resolve_node(&file, "proxy"),
                 &node_config.namespace,
                 overridefile,
                 envs,
@@ -949,7 +949,7 @@ pub fn stop(compose_verbose: bool, exe: impl AsRef<str>, file: Option<PathBuf>, 
     let envs: HashMap<&str, OsString> = construct_envs(&brane_version, &node_config_path, &node_config)?;
 
     // Resolve the filename and deduce the project name
-    let file: PathBuf = resolve_node(file, match node_config.node.kind() {
+    let file: PathBuf = resolve_node(&file, match node_config.node.kind() {
         NodeKind::Central => "central",
         NodeKind::Worker => "worker",
         NodeKind::Proxy => "proxy",
@@ -1020,7 +1020,7 @@ pub async fn logs(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path:
         opts.compose_verbose,
         resolve_exe(exe)?,
         DockerComposeCommand::Logs,
-        resolve_node(file, "$NODE"),
+        resolve_node(&file, "$NODE"),
         &node_config.namespace,
         None,
         envs,
