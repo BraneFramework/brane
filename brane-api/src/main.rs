@@ -27,7 +27,7 @@ use brane_cfg::node::{CentralConfig, NodeConfig};
 use brane_prx::client::ProxyClient;
 use clap::Parser;
 use dotenvy::dotenv;
-use error_trace::trace;
+use error_trace::{trace, ErrorTrace as _};
 use juniper::EmptySubscription;
 use log::{LevelFilter, debug, error, info, warn};
 use scylla::{Session, SessionBuilder};
@@ -58,7 +58,7 @@ async fn main() {
     let node_config: NodeConfig = match NodeConfig::from_path(&opts.node_config_path) {
         Ok(config) => config,
         Err(err) => {
-            error!("Failed to load NodeConfig file: {}", err);
+            error!("Failed to load NodeConfig file: {}", err.trace());
             std::process::exit(1);
         },
     };
