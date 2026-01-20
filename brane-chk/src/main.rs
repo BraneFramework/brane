@@ -107,7 +107,7 @@ async fn main() {
 
     // Setup the logger
     tracing_subscriber::fmt().with_max_level(if args.trace { Level::TRACE } else { Level::DEBUG }).init();
-    info!("{} - v{}", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION"));
+    info!("Initializing {} v{}...", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION"));
 
 
     /* Step 1: Prepare the servers */
@@ -182,7 +182,7 @@ async fn main() {
     // Also inject the reasoner context endpoint
     let paths: Router<()> = inject_reasoner_api(store.clone(), reasoner, AxumServer::routes(store.clone()));
 
-
+    info!("Initialization completed successfully");
 
     /* Step 3: Host them concurrently */
     tokio::select! {
