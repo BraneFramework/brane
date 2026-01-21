@@ -282,7 +282,7 @@ pub async fn download(name: String, version: String, context: Context) -> Result
         match latest {
             Some(version) => version,
             None => {
-                error!("{}", Error::NoVersionsFound { name });
+                error!("{}", Error::NoVersionsFound { name }.trace());
                 return Err(warp::reject::not_found());
             },
         }
@@ -302,7 +302,7 @@ pub async fn download(name: String, version: String, context: Context) -> Result
             Ok(file) => {
                 if let Some(rows) = file.rows {
                     if rows.is_empty() {
-                        error!("{}", Error::UnknownPackage { name, version });
+                        error!("{}", Error::UnknownPackage { name, version }.trace());
                         return Err(warp::reject::not_found());
                     }
                     if rows.len() > 1 {
@@ -310,7 +310,7 @@ pub async fn download(name: String, version: String, context: Context) -> Result
                     }
                     rows[0].columns[0].as_ref().unwrap().as_text().unwrap().into()
                 } else {
-                    error!("{}", Error::UnknownPackage { name, version });
+                    error!("{}", Error::UnknownPackage { name, version }.trace());
                     return Err(warp::reject::not_found());
                 }
             },
