@@ -22,6 +22,7 @@ use async_compression::tokio::bufread::GzipDecoder;
 use brane_cfg::info::Info as _;
 use brane_cfg::node::{CentralConfig, NodeConfig, NodeKind};
 use bytes::Buf;
+use error_trace::{ErrorTrace as _, trace};
 use log::{debug, error, info, warn};
 use rand::Rng;
 use rand::distr::Alphanumeric;
@@ -59,7 +60,7 @@ macro_rules! fail {
 
         // Now write the error to stderr and the internal error to the client
         let err = $err;
-        error!("{}", err);
+        error!("{}", err.trace());
         return Err(warp::reject::custom(InternalError));
     }};
 
@@ -68,11 +69,11 @@ macro_rules! fail {
         let path = &$path;
         if path.is_file() {
             if let Err(err) = tfs::remove_file(&path).await {
-                warn!("Failed to remove temporary download result '{}': {}", path.display(), err);
+                warn!("{}", trace!(("Failed to remove temporary download result '{}'", path.display()), err));
             }
         } else if path.is_dir() {
             if let Err(err) = tfs::remove_dir_all(&path).await {
-                warn!("Failed to remove temporary download results '{}': {}", path.display(), err);
+                warn!("{}", trace!(("Failed to remove temporary download results '{}'", path.display()), err));
             }
         }
 
@@ -281,7 +282,7 @@ pub async fn download(name: String, version: String, context: Context) -> Result
         match latest {
             Some(version) => version,
             None => {
-                error!("{}", Error::NoVersionsFound { name });
+                error!("{}", Error::NoVersionsFound { name }.trace());
                 return Err(warp::reject::not_found());
             },
         }
@@ -301,7 +302,7 @@ pub async fn download(name: String, version: String, context: Context) -> Result
             Ok(file) => {
                 if let Some(rows) = file.rows {
                     if rows.is_empty() {
-                        error!("{}", Error::UnknownPackage { name, version });
+                        error!("{}", Error::UnknownPackage { name, version }.trace());
                         return Err(warp::reject::not_found());
                     }
                     if rows.len() > 1 {
@@ -309,7 +310,7 @@ pub async fn download(name: String, version: String, context: Context) -> Result
                     }
                     rows[0].columns[0].as_ref().unwrap().as_text().unwrap().into()
                 } else {
-                    error!("{}", Error::UnknownPackage { name, version });
+                    error!("{}", Error::UnknownPackage { name, version }.trace());
                     return Err(warp::reject::not_found());
                 }
             },

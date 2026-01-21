@@ -18,6 +18,7 @@ use brane_cfg::info::Info as _;
 use brane_cfg::infra::{InfraFile, InfraLocation};
 use brane_cfg::node::NodeConfig;
 use brane_prx::spec::NewPathRequestTlsOptions;
+use error_trace::{ErrorTrace as _, trace};
 use log::{debug, error};
 use specifications::address::Address;
 use specifications::package::Capability;
@@ -47,7 +48,7 @@ pub async fn registries(context: Context) -> Result<impl Reply, Rejection> {
     let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
-            error!("Failed to load NodeConfig file: {}", err);
+            error!("{}", trace!(("Failed to load NodeConfig file"), err));
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -60,7 +61,7 @@ pub async fn registries(context: Context) -> Result<impl Reply, Rejection> {
     let infra: InfraFile = match InfraFile::from_path(&node_config.node.central().paths.infra) {
         Ok(infra) => infra,
         Err(source) => {
-            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source });
+            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -75,7 +76,7 @@ pub async fn registries(context: Context) -> Result<impl Reply, Rejection> {
     let body: String = match serde_json::to_string(&locations) {
         Ok(body) => body,
         Err(source) => {
-            error!("{}", Error::SerializeError { what: "list of all registry endpoints", source });
+            error!("{}", Error::SerializeError { what: "list of all registry endpoints", source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -109,7 +110,7 @@ pub async fn get_registry(loc: String, context: Context) -> Result<impl Reply, R
     let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
-            error!("Failed to load NodeConfig file: {}", err);
+            error!("{}", trace!(("Failed to load NodeConfig file"), err));
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -122,7 +123,7 @@ pub async fn get_registry(loc: String, context: Context) -> Result<impl Reply, R
     let infra: InfraFile = match InfraFile::from_path(&node_config.node.central().paths.infra) {
         Ok(infra) => infra,
         Err(source) => {
-            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source });
+            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -167,7 +168,7 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
-            error!("Failed to load NodeConfig file: {}", err);
+            error!("{}", trace!(("Failed to load NodeConfig file"), err));
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -180,7 +181,7 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     let infra: InfraFile = match InfraFile::from_path(&node_config.node.central().paths.infra) {
         Ok(infra) => infra,
         Err(source) => {
-            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source });
+            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -199,17 +200,17 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
         Ok(res) => match res {
             Ok(res) => res,
             Err(source) => {
-                error!("{}", Error::RequestError { address: reg_addr, source });
+                error!("{}", Error::RequestError { address: reg_addr, source }.trace());
                 return Err(warp::reject::custom(Error::SecretError));
             },
         },
         Err(source) => {
-            error!("{}", Error::ProxyError { source });
+            error!("{}", Error::ProxyError { source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
     if !res.status().is_success() {
-        error!("{}", Error::RequestFailure { address: reg_addr, code: res.status(), message: res.text().await.ok() });
+        error!("{}", Error::RequestFailure { address: reg_addr, code: res.status(), message: res.text().await.ok() }.trace());
         return Err(warp::reject::custom(Error::SecretError));
     }
 
@@ -217,14 +218,14 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     let capabilities: String = match res.text().await {
         Ok(caps) => caps,
         Err(source) => {
-            error!("{}", Error::ResponseBodyError { address: reg_addr, source });
+            error!("{}", Error::ResponseBodyError { address: reg_addr, source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
     let capabilities: HashSet<Capability> = match serde_json::from_str(&capabilities) {
         Ok(caps) => caps,
         Err(source) => {
-            error!("{}", Error::ResponseParseError { address: reg_addr, raw: capabilities, source });
+            error!("{}", Error::ResponseParseError { address: reg_addr, raw: capabilities, source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -233,7 +234,7 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     let body: String = match serde_json::to_string(&capabilities) {
         Ok(body) => body,
         Err(source) => {
-            error!("{}", Error::CapabilitiesSerializeError { source });
+            error!("{}", Error::CapabilitiesSerializeError { source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
