@@ -533,7 +533,15 @@ pub(crate) enum PackageSubcommand {
 /// Defines data- and intermediate results-related subcommands for the `branectl` tool.
 #[derive(Debug, Subcommand)]
 #[clap(name = "data", about = "Manage data and intermediate results stored on this node.")]
-pub(crate) enum DataSubcommand {}
+pub(crate) enum DataSubcommand {
+    Import {
+        #[clap(name = "asset_path", help = "The dataset you want to import")]
+        asset_path: PathBuf,
+
+        #[clap(long, help = "Do you want to copy the data. Or simply refer to the data")]
+        copy: bool,
+    },
+}
 
 /// Defines policy-related subcommands for the `branectl` tool.
 #[derive(Debug, Subcommand)]

@@ -15,6 +15,7 @@
 
 // Declare modules
 // pub mod args;
+pub mod data;
 pub mod download;
 pub mod errors;
 pub mod generate;
