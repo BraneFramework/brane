@@ -86,7 +86,7 @@ async fn main() {
         {
             Ok(scylla) => break scylla,
             Err(reason) => {
-                error!("{} (Retrying in {retry_delay:?})", ApiError::ScyllaConnectError {
+                warn!("{} (Retrying in {retry_delay:?})", ApiError::ScyllaConnectError {
                     host:   central.services.aux_scylla.address.clone(),
                     source: reason,
                 });

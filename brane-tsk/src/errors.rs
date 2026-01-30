@@ -60,7 +60,7 @@ pub enum TaskError {
     #[error("Failed to plan workflow")]
     PlanError { source: PlanError },
     /// Something went wrong while executing.
-    #[error("Failed to execute workflow")]
+    #[error("Failed to execute workflow (tsk)")]
     ExecError { source: brane_exe::errors::VmError },
 }
 

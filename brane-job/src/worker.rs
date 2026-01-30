@@ -67,7 +67,7 @@ use tokio::sync::mpsc::{self, Sender};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 // use kube::config::Kubeconfig;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 
 /***** CONSTANTS *****/
@@ -910,6 +910,7 @@ async fn get_container_ids(
 ///
 /// # Errors
 /// This function may error if we failed to reach the remote host, download the file or write the file. If it is cached, then we may fail if we failed to read any of the cached files.
+#[instrument(skip_all, fields(image=image.name))]
 async fn ensure_container(
     worker_cfg: &WorkerConfig,
     proxy: Arc<ProxyClient>,
@@ -950,6 +951,7 @@ async fn ensure_container(
 /// # Errors
 /// This function errors if the task fails for whatever reason or we didn't even manage to launch it.
 #[allow(clippy::too_many_arguments)]
+#[instrument(skip_all)]
 async fn execute_task_local(
     worker_cfg: &WorkerConfig,
     host_worker_paths: &WorkerPaths,
@@ -1204,6 +1206,7 @@ async fn execute_task_local(
 /// # Errors
 /// This fnction may error for many many reasons, but chief among those are unavailable backends or a crashing task.
 #[allow(clippy::too_many_arguments)]
+#[instrument(skip_all, fields(task=tinfo.name))]
 async fn execute_task(
     worker_cfg: &WorkerConfig,
     host_worker_paths: &WorkerPaths,

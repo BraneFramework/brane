@@ -20,6 +20,7 @@ use brane_cfg::info::Info as _;
 use brane_cfg::infra::InfraFile;
 use brane_cfg::node::NodeConfig;
 use brane_prx::spec::NewPathRequestTlsOptions;
+use error_trace::ErrorTrace;
 use reqwest::StatusCode;
 use specifications::data::{AssetInfo, DataInfo};
 use tracing::{debug, error};
@@ -80,7 +81,7 @@ pub async fn list(context: Context) -> Result<impl Reply, Rejection> {
     let infra: InfraFile = match InfraFile::from_path(&infra_path) {
         Ok(infra) => infra,
         Err(source) => {
-            error!("{}", error_trace::trace!(("Oops"), Error::InfrastructureOpenError { path: infra_path, source }));
+            error!("{}", Error::InfrastructureOpenError { path: infra_path, source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -95,7 +96,7 @@ pub async fn list(context: Context) -> Result<impl Reply, Rejection> {
                 Ok(res) => match res {
                     Ok(res) => res,
                     Err(source) => {
-                        error!("{} (skipping domain)", Error::RequestError { address, source });
+                        error!("{} (skipping domain)", Error::RequestError { address, source }.trace());
                         continue;
                     },
                 },
@@ -194,13 +195,7 @@ pub async fn get(name: String, context: Context) -> Result<impl Reply, Rejection
     let infra: InfraFile = match InfraFile::from_path(&infra_path) {
         Ok(infra) => infra,
         Err(source) => {
-            error!(
-                "{}",
-                error_trace::trace!(("A problem occured opening the infrastructure config"), Error::InfrastructureOpenError {
-                    path: infra_path.clone(),
-                    source
-                })
-            );
+            error!("{}", Error::InfrastructureOpenError { path: infra_path.clone(), source }.trace());
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -215,7 +210,7 @@ pub async fn get(name: String, context: Context) -> Result<impl Reply, Rejection
                 Ok(res) => match res {
                     Ok(res) => res,
                     Err(source) => {
-                        error!("{} (skipping domain)", Error::RequestError { address, source });
+                        error!("{} (skipping domain)", Error::RequestError { address, source }.trace());
                         continue;
                     },
                 },

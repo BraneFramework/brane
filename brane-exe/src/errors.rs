@@ -361,6 +361,6 @@ pub enum LocalVmError {
 #[derive(Debug, thiserror::Error)]
 pub enum DummyVmError {
     /// Failed to run a workflow.
-    #[error("Failed to execute workflow")]
+    #[error("Failed to execute workflow (exe)")]
     ExecError { source: VmError },
 }

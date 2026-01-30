@@ -815,6 +815,7 @@ dependencies = [
  "brane-exe",
  "clap",
  "dotenvy",
+ "error-trace",
  "libc",
  "serde",
  "serde_json",

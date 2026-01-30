@@ -40,7 +40,7 @@ use specifications::working::TransferRegistryTar;
 use specifications::{driving as driving_grpc, working as working_grpc};
 use tokio::sync::mpsc::Sender;
 use tonic::{Response, Status, Streaming};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, instrument, warn};
 
 pub use crate::errors::RemoteVmError as Error;
 use crate::planner::InstancePlanner;
@@ -155,6 +155,7 @@ impl VmPlugin for InstancePlugin {
         Ok(access)
     }
 
+    #[instrument(skip_all)]
     async fn execute(
         global: &Arc<RwLock<Self::GlobalState>>,
         _local: &Self::LocalState,

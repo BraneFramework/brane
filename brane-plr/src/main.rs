@@ -25,7 +25,7 @@ use brane_plr::planner;
 use brane_prx::client::ProxyClient;
 use clap::Parser;
 use dotenvy::dotenv;
-use error_trace::trace;
+use error_trace::{ErrorTrace as _, trace};
 use parking_lot::Mutex;
 use tokio::signal::unix::{Signal, SignalKind, signal};
 use tracing::{debug, error, info, warn};
@@ -55,7 +55,7 @@ async fn main() {
     let mut node_config: NodeConfig = match NodeConfig::from_path(&opts.node_config_path) {
         Ok(config) => config,
         Err(err) => {
-            error!("Failed to load NodeConfig file: {}", err);
+            error!("Failed to load NodeConfig file: {}", err.trace());
             std::process::exit(1);
         },
     };

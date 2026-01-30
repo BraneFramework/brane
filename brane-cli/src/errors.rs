@@ -1121,7 +1121,7 @@ pub enum OfflineVmError {
     #[error("Failed to plan workflow")]
     PlanError { source: brane_tsk::errors::PlanError },
     /// Failed to run a workflow.
-    #[error("Failed to execute workflow")]
+    #[error("Failed to execute workflow (cli)")]
     ExecError { source: brane_exe::Error },
 }
 

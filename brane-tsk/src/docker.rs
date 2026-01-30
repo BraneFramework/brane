@@ -39,7 +39,7 @@ use tokio::fs::{self as tfs, File as TFile};
 use tokio::io::{self as tio, AsyncReadExt as _, AsyncWriteExt as _};
 use tokio_tar::Archive;
 use tokio_util::codec::{BytesCodec, FramedRead};
-use tracing::debug;
+use tracing::{debug, instrument};
 
 pub use crate::errors::DockerError as Error;
 use crate::errors::{ClientVersionParseError, ExecuteError};
@@ -457,6 +457,7 @@ impl ExecuteInfo {
 ///
 /// # Errors
 /// This function errors if we didn't know the input set or if we failed to create new volume binds.
+#[instrument(skip_all, fields(name=name.as_ref()))]
 fn preprocess_arg(
     data_dir: Option<impl AsRef<Path>>,
     results_dir: impl AsRef<Path>,

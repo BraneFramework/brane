@@ -25,6 +25,7 @@ use brane_let::{exec_ecu, exec_nop};
 use clap::Parser;
 use cli::*;
 use dotenvy::dotenv;
+use error_trace::ErrorTrace as _;
 use serde::de::DeserializeOwned;
 use tracing::level_filters::LevelFilter;
 use tracing::{debug, warn};
@@ -95,8 +96,10 @@ async fn main() {
     // Wrap actual execution, so we can always log errors.
     match run(sub_command).await {
         Ok(code) => process::exit(code),
-        Err(err) => {
-            tracing::error!("{}", err);
+        Err(source) => {
+            // FIXME: The response type for this process is json, maybe return some json, however
+            // vague it may be.
+            tracing::error!("An error occurred while executing a package:\n{}", source.trace());
             process::exit(-1);
         },
     }
@@ -110,7 +113,7 @@ async fn main() {
 ///  * `sub_command`: The subcommand to execute (is it code, oas or nop?)
 ///  * `callback`: The Callback future that asynchronously constructs a Callback instance.
 ///
-/// **Returns**  
+/// **Returns**
 /// The exit code of the nested application on success, or a LetError otherwise.
 async fn run(
     sub_command: SubCommand,
@@ -202,7 +205,7 @@ async fn run(
 /// **Arguments**
 ///  * `input`: The input to decode/parse.
 ///
-/// **Returns**  
+/// **Returns**
 /// The parsed data as the appropriate type, or a LetError otherwise.
 fn decode_b64<T>(input: String) -> Result<T, LetError>
 where

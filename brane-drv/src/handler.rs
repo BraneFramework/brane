@@ -385,6 +385,7 @@ impl DriverService for DriverHandler {
                             if !reasons.is_empty() {
                                 format!("\n\nReasons:\n{}\n", reasons.iter().map(|r| format!(" - {r}")).collect::<Vec<String>>().join("\n"))
                             } else {
+                                error!("Workflow was denied without any reason :(");
                                 String::new()
                             }
                         ))

@@ -22,6 +22,7 @@ use async_compression::tokio::bufread::GzipDecoder;
 use brane_cfg::info::Info as _;
 use brane_cfg::node::{CentralConfig, NodeConfig, NodeKind};
 use bytes::Buf;
+use error_trace::ErrorTrace as _;
 use rand::Rng;
 use rand::distr::Alphanumeric;
 use scylla::macros::{FromUserType, IntoUserType};
@@ -59,7 +60,7 @@ macro_rules! fail {
 
         // Now write the error to stderr and the internal error to the client
         let err = $err;
-        error!("{}", err);
+        error!("{}", err.trace());
         return Err(warp::reject::custom(InternalError));
     }};
 

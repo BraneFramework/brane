@@ -22,7 +22,7 @@ pub enum RemoteVmError {
     #[error("Failed to plan workflow")]
     PlanError { source: brane_tsk::errors::PlanError },
     /// Failed to run a workflow.
-    #[error("Failed to execute workflow")]
+    #[error("Failed to execute workflow (drv)")]
     ExecError { source: brane_exe::Error },
 
     /// The given node config was not for this type of node.
