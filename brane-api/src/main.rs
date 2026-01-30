@@ -27,7 +27,7 @@ use brane_cfg::node::{CentralConfig, NodeConfig};
 use brane_prx::client::ProxyClient;
 use clap::Parser;
 use dotenvy::dotenv;
-use error_trace::{trace, ErrorTrace as _};
+use error_trace::{ErrorTrace as _, trace};
 use juniper::EmptySubscription;
 use scylla::{Session, SessionBuilder};
 use tokio::signal::unix::{Signal, SignalKind, signal};
