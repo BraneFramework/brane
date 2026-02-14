@@ -89,7 +89,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -100,7 +100,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -503,7 +503,7 @@ version = "3.0.0"
 dependencies = [
  "brane-dsl",
  "brane-shr",
- "console",
+ "console 0.15.11",
  "enum-debug",
  "lazy_static",
  "log",
@@ -606,7 +606,7 @@ dependencies = [
  "brane-tsk",
  "chrono",
  "clap",
- "console",
+ "console 0.15.11",
  "dialoguer",
  "dirs 6.0.0",
  "dotenvy",
@@ -619,7 +619,7 @@ dependencies = [
  "human-panic",
  "humanlog",
  "hyper 1.8.1",
- "indicatif",
+ "indicatif 0.18.0",
  "lazy_static",
  "log",
  "names",
@@ -655,7 +655,7 @@ dependencies = [
  "brane-cli",
  "brane-exe",
  "brane-tsk",
- "console",
+ "console 0.15.11",
  "humanlog",
  "libc",
  "log",
@@ -676,7 +676,7 @@ dependencies = [
  "brane-tsk",
  "chrono",
  "clap",
- "console",
+ "console 0.15.11",
  "dialoguer",
  "diesel_migrations",
  "dirs 6.0.0",
@@ -760,7 +760,7 @@ dependencies = [
  "base64 0.22.1",
  "brane-ast",
  "brane-shr",
- "console",
+ "console 0.15.11",
  "enum-debug",
  "futures",
  "humanlog",
@@ -912,13 +912,13 @@ version = "3.0.0"
 dependencies = [
  "astral-tokio-tar",
  "async-compression",
- "console",
+ "console 0.15.11",
  "dialoguer",
  "enum-debug",
  "fs2",
  "hex",
  "humanlog",
- "indicatif",
+ "indicatif 0.18.0",
  "log",
  "rand 0.9.2",
  "regex",
@@ -947,7 +947,7 @@ dependencies = [
  "brane-shr",
  "chrono",
  "clap",
- "console",
+ "console 0.15.11",
  "dialoguer",
  "enum-debug",
  "futures-util",
@@ -1143,6 +1143,19 @@ dependencies = [
  "once_cell",
  "unicode-width 0.2.2",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "console"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b430743a6eb14e9764d4260d4c0d8123087d504eeb9c48f2b2a5e810dd369df4"
+dependencies = [
+ "encode_unicode",
+ "libc",
+ "once_cell",
+ "unicode-width 0.2.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1418,7 +1431,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "658bce805d770f407bc62102fca7c2c64ceef2fbcb2b8bd19d2765ce093980de"
 dependencies = [
- "console",
+ "console 0.15.11",
  "shell-words",
  "tempfile",
  "thiserror 1.0.69",
@@ -1530,7 +1543,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.2",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1582,9 +1595,9 @@ name = "download"
 version = "1.0.0"
 source = "git+https://github.com/Lut99/download-rs?tag=v1.0.0#c3a1a47a67e94ee28325caf0431bebdf12031e73"
 dependencies = [
- "console",
+ "console 0.15.11",
  "hex",
- "indicatif",
+ "indicatif 0.17.11",
  "reqwest",
  "sha2",
  "url",
@@ -1699,7 +1712,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2248,7 +2261,7 @@ version = "0.2.0"
 source = "git+https://github.com/Lut99/humanlog-rs?tag=v0.2.0#0bceaaeb6426a6c990017c1d3c0aa7f51adbbfa1"
 dependencies = [
  "chrono",
- "console",
+ "console 0.15.11",
  "log",
  "parking_lot",
 ]
@@ -2551,10 +2564,23 @@ version = "0.17.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "183b3088984b400f4cfac3620d5e076c84da5364016b4f49473de574b2586235"
 dependencies = [
- "console",
+ "console 0.15.11",
  "number_prefix",
  "portable-atomic",
  "unicode-width 0.2.2",
+ "web-time",
+]
+
+[[package]]
+name = "indicatif"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70a646d946d06bedbbc4cac4c218acf4bbf2d87757a784857025f4d447e4e1cd"
+dependencies = [
+ "console 0.16.1",
+ "portable-atomic",
+ "unicode-width 0.2.2",
+ "unit-prefix",
  "web-time",
 ]
 
@@ -2582,7 +2608,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3034,7 +3060,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3901,7 +3927,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4685,7 +4711,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5216,6 +5242,12 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unit-prefix"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81e544489bf3d8ef66c953931f56617f423cd4b5494be343d9b9d3dda037b9a3"
 
 [[package]]
 name = "unsafe-libyaml"
