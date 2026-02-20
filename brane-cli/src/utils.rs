@@ -298,7 +298,7 @@ pub fn ensure_packages_dir(create: bool) -> Result<PathBuf, UtilError> {
             ensure_data_dir(create)?;
 
             // Now create the directory
-            fs::create_dir(&packages_dir).map_err(|source| UtilError::BranePackageDirCreateError { path: packages_dir.clone(), source })?;
+            fs::create_dir_all(&packages_dir).map_err(|source| UtilError::BranePackageDirCreateError { path: packages_dir.clone(), source })?;
         } else {
             return Err(UtilError::BranePackageDirNotFound { path: packages_dir });
         }
@@ -346,7 +346,7 @@ pub fn ensure_datasets_dir(create: bool) -> Result<PathBuf, UtilError> {
         if create {
             // Make sure the parent directory exists, then create this directory
             ensure_data_dir(create)?;
-            fs::create_dir(&data_dir).map_err(|source| UtilError::BraneDatasetsDirCreateError { path: data_dir.clone(), source })?;
+            fs::create_dir_all(&data_dir).map_err(|source| UtilError::BraneDatasetsDirCreateError { path: data_dir.clone(), source })?;
         } else {
             return Err(UtilError::BraneDatasetsDirNotFound { path: data_dir });
         }
