@@ -339,14 +339,19 @@ fn prepare_host(node_config: &NodeConfig) -> Result<(), Error> {
 ///
 /// # Errors
 /// This function errors if we failed to write the file.
-fn generate_override_file(node_config: &NodeConfig, hosts: &HashMap<String, IpAddr>, profile_dir: Option<PathBuf>) -> Result<Option<PathBuf>, Error> {
+fn generate_override_file(
+    node_config: &NodeConfig,
+    host_node_config_path: &Path,
+    hosts: &HashMap<String, IpAddr>,
+    profile_dir: Option<PathBuf>,
+) -> Result<Option<PathBuf>, Error> {
     // Generate the ComposeOverrideFileService
     let svc: ComposeOverrideFileService = ComposeOverrideFileService {
         volumes: if let Some(dir) = profile_dir { vec![format!("{}:/logs/profile", dir.display())] } else { vec![] },
         extra_hosts: hosts.iter().map(|(hostname, ip)| format!("{hostname}:{ip}")).collect(),
         profiles: vec![],
         ports: vec![],
-        environment: vec![],
+        environment: vec![format!("BRANE_HOST_NODE_CONFIG={}", host_node_config_path.display())],
     };
 
     // Match on the kind of node
@@ -534,6 +539,7 @@ fn construct_envs(version: &BraneVersion, node_config_path: &Path, node_config: 
         ("BRANE_VERSION", OsString::from(version.to_string())),
         ("BRANE_IMAGE_VERSION", OsString::from(version.to_string().replace("+", "_"))),
         ("NODE_CONFIG_PATH", canonicalize(node_config_path)?.as_os_str().into()),
+        ("BRANE_CONTAINERIZED", OsString::from("1")),
     ]);
 
     // Match on the node kind
@@ -786,8 +792,9 @@ pub async fn start(
 
     // Start by loading the node config file
     debug!("Loading node config file '{}'...", node_config_path.display());
-    let node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
+    let mut node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
 
+    node_config.node.resolve_paths(node_config_path.parent().expect("node.yml must be stored somewhere"));
 
     if file.is_none() {
         let ctl_version = semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap();
@@ -803,6 +810,11 @@ pub async fn start(
             );
         }
     }
+
+    let host_node_config_path = match std::env::var("BRANE_HOST_NODE_CONFIG") {
+        Ok(var) => PathBuf::from(var),
+        Err(_) => node_config_path.clone(),
+    };
 
     // Resolve the Docker Compose file
     debug!("Resolving Docker Compose file...");
@@ -820,7 +832,8 @@ pub async fn start(
             let docker: Docker = brane_tsk::docker::connect_local(docker_opts).map_err(|source| Error::DockerConnectError { source })?;
 
             // Generate hosts file
-            let overridefile: Option<PathBuf> = generate_override_file(&node_config, &node_config.hostnames, opts.profile_dir)?;
+            let overridefile: Option<PathBuf> =
+                generate_override_file(&node_config, &host_node_config_path, &node_config.hostnames, opts.profile_dir)?;
 
             // Map the images & load them
             if !opts.skip_import {
@@ -865,7 +878,8 @@ pub async fn start(
             prepare_host(&node_config)?;
 
             // Generate hosts file
-            let overridefile: Option<PathBuf> = generate_override_file(&node_config, &node_config.hostnames, opts.profile_dir)?;
+            let overridefile: Option<PathBuf> =
+                generate_override_file(&node_config, &host_node_config_path, &node_config.hostnames, opts.profile_dir)?;
 
             // Map the images & load them
             if !opts.skip_import {
@@ -905,7 +919,8 @@ pub async fn start(
             let docker: Docker = brane_tsk::docker::connect_local(docker_opts).map_err(|source| Error::DockerConnectError { source })?;
 
             // Generate hosts file
-            let overridefile: Option<PathBuf> = generate_override_file(&node_config, &node_config.hostnames, opts.profile_dir)?;
+            let overridefile: Option<PathBuf> =
+                generate_override_file(&node_config, &host_node_config_path, &node_config.hostnames, opts.profile_dir)?;
 
             // Map the images & load them
             if !opts.skip_import {
@@ -962,7 +977,9 @@ pub fn stop(compose_verbose: bool, exe: impl AsRef<str>, file: Option<PathBuf>, 
 
     // Start by loading the node config file
     debug!("Loading node config file '{}'...", node_config_path.display());
-    let node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
+    let mut node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
+
+    node_config.node.resolve_paths(node_config_path.parent().expect("node.yml must be stored somewhere"));
 
     let brane_version = BraneVersion::from_str(env!("CARGO_PKG_VERSION")).unwrap();
     // Resolve the Docker Compose file
@@ -1028,7 +1045,9 @@ pub async fn logs(exe: impl AsRef<str>, file: Option<PathBuf>, node_config_path:
 
     // Start by loading the node config file
     debug!("Loading node config file '{}'...", node_config_path.display());
-    let node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
+    let mut node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
+
+    node_config.node.resolve_paths(node_config_path.parent().expect("node.yml must be stored somewhere"));
 
     let version = BraneVersion::from_str(env!("CARGO_PKG_VERSION")).expect("Brane versions must always be semver compatible");
 

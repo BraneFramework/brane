@@ -54,13 +54,15 @@ async fn main() {
 
     // Load the config, making sure it's a worker config
     debug!("Loading node.yml file '{}'...", args.node_config_path.display());
-    let node_config: NodeConfig = match NodeConfig::from_path(&args.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&args.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             error!("{}", trace!(("Failed to load NodeConfig file"), err));
             std::process::exit(1);
         },
     };
+
+    node_config.node.resolve_paths(args.node_config_path.parent().expect("node.yml must be stored somewhere"));
 
     // Load the proxy file
     let proxy_config: ProxyConfig = 'proxy: {

@@ -131,8 +131,10 @@ fn resolve_worker_config(node_config_path: impl AsRef<Path>, worker: Option<Work
         let node_config_path: &Path = node_config_path.as_ref();
 
         debug!("Loading node configuration file '{}'...", node_config_path.display());
-        let node: NodeConfig =
+        let mut node: NodeConfig =
             NodeConfig::from_path(node_config_path).map_err(|source| Error::NodeConfigLoad { path: node_config_path.into(), source })?;
+
+        node.node.resolve_paths(node_config_path.parent().expect("node.yml must be stored somewhere"));
 
         // Assert it's of the correct type
         match node.node {

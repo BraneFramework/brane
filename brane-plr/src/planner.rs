@@ -588,12 +588,15 @@ pub async fn handle(context: Arc<Context>, body: PlanningRequest) -> Result<Resp
     // Fetch the most recent NodeConfig
     let oh = report.time("Environment loading");
     debug!("Loading node.yml file '{}'...", context.node_config_path.display());
-    let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             return err_response!(internal_error "Failed to load NodeConfig file: {}", err);
         },
     };
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     let central: CentralConfig = match node_config.node.try_into_central() {
         Some(central) => central,
         None => {

@@ -28,8 +28,8 @@ services:
     restart: always
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
-    - ${PROXY:-}:${PROXY:-}
-    - ${CERTS}:${CERTS}
+    - ${PROXY:-}:/config/proxy.yml
+    - ${CERTS}:/config/certs
     extra_hosts:
     - host.docker.internal:host-gateway
 
@@ -43,9 +43,9 @@ services:
     - "0.0.0.0:${API_PORT}:${API_PORT}"
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
-    - ${INFRA}:${INFRA}
-    - ${CERTS}:${CERTS}
-    - ${PACKAGES}:${PACKAGES}
+    - ${INFRA}:/config/infra.yml
+    - ${CERTS}:/config/certs
+    - ${PACKAGES}:/packages
     depends_on:
     - aux-scylla
     - brane-prx
@@ -66,7 +66,7 @@ services:
     - "0.0.0.0:${DRV_PORT}:${DRV_PORT}"
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
-    - ${INFRA}:${INFRA}
+    - ${INFRA}:/config/infra.yml
     depends_on:
     - brane-prx
     - brane-api
@@ -100,7 +100,7 @@ services:
     restart: always
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
-    - ${INFRA}:${INFRA}
+    - ${INFRA}:/config/infra.yml
     extra_hosts:
     - host.docker.internal:host-gateway
 

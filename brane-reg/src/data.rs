@@ -232,10 +232,12 @@ pub async fn list(context: Arc<Context>) -> Result<impl Reply, Rejection> {
     info!("Handling GET on `/data/info` (i.e., list all datasets)...");
 
     // Load the config file
-    let node_config: NodeConfig = NodeConfig::from_path(&context.node_config_path).map_err(|source| {
+    let mut node_config: NodeConfig = NodeConfig::from_path(&context.node_config_path).map_err(|source| {
         error!("{}", trace!(("Failed to load NodeConfig file"), source));
         warp::reject::reject()
     })?;
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml should be a file"));
 
     if !node_config.node.is_worker() {
         error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display());
@@ -287,7 +289,7 @@ pub async fn get(name: String, context: Arc<Context>) -> Result<impl Reply, Reje
     info!("Handling GET on `/data/info/{}` (i.e., get dataset metdata)...", name);
 
     // Load the config file
-    let node_config: NodeConfig = NodeConfig::from_path(&context.node_config_path).map_err(|source| {
+    let mut node_config: NodeConfig = NodeConfig::from_path(&context.node_config_path).map_err(|source| {
         error!("{}", trace!(("Failed to load NodeConfig file"), source));
         warp::reject::reject()
     })?;
@@ -295,6 +297,8 @@ pub async fn get(name: String, context: Arc<Context>) -> Result<impl Reply, Reje
         error!("Given NodeConfig file '{}' does not have properties for a worker node.", context.node_config_path.display());
         return Err(warp::reject::reject());
     }
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
 
     // Start profiling (F first function, but now we can use the location)
     let report = ProfileReport::auto_reporting_file(
@@ -371,10 +375,12 @@ pub async fn download_data(
     };
 
     // Load the config file
-    let node_config: NodeConfig = NodeConfig::from_path(&context.node_config_path).map_err(|source| {
+    let mut node_config: NodeConfig = NodeConfig::from_path(&context.node_config_path).map_err(|source| {
         error!("{}", trace!(("Failed to load NodeConfig file"), source));
         warp::reject::reject()
     })?;
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
 
     let worker_config: WorkerConfig = if let NodeSpecificConfig::Worker(worker) = node_config.node {
         worker
@@ -556,10 +562,13 @@ pub async fn download_result(
     };
 
     // Load the config file
-    let node_config: NodeConfig = NodeConfig::from_path(&context.node_config_path).map_err(|source| {
+    let mut node_config: NodeConfig = NodeConfig::from_path(&context.node_config_path).map_err(|source| {
         error!("{}", trace!(("Failed to load NodeConfig file"), source));
         warp::reject::reject()
     })?;
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     let worker_config: WorkerConfig = if let NodeSpecificConfig::Worker(worker) = node_config.node {
         worker
     } else {

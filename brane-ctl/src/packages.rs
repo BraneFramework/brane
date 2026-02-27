@@ -45,7 +45,10 @@ pub async fn hash(node_config_path: impl Into<PathBuf>, image: impl Into<String>
 
     // Load the node config file
     debug!("Loading node config file '{}'...", node_config_path.display());
-    let node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
+    let mut node_config: NodeConfig = NodeConfig::from_path(&node_config_path).map_err(|source| Error::NodeConfigLoadError { source })?;
+
+    node_config.node.resolve_paths(node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     let packages_path: PathBuf = match node_config.node {
         NodeSpecificConfig::Central(node) => node.paths.packages,
         NodeSpecificConfig::Worker(node) => node.paths.packages,

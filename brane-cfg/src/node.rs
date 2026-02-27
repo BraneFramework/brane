@@ -15,8 +15,9 @@
 
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FResult};
+use std::fs::canonicalize;
 use std::net::{IpAddr, SocketAddr};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use enum_debug::EnumDebug;
@@ -105,6 +106,28 @@ impl NodeSpecificConfig {
             Central(_) => NodeKind::Central,
             Worker(_) => NodeKind::Worker,
             Proxy(_) => NodeKind::Proxy,
+        }
+    }
+
+    /// Resolve the paths in the node config to the correct paths given the environment in which
+    /// it is running. This is either mapping it to its containerized fixed paths, or this can be
+    /// resolving the relative paths with respect to the node.yml
+    pub fn resolve_paths(&mut self, base_dir: &Path) {
+        if std::env::var("BRANE_CONTAINERIZED").is_ok() {
+            // Brane is running is running in a containerized environment. We should not look for
+            // the files in locations in the node.yml, but they will be mapped in their predefined
+            // locations
+            match self {
+                NodeSpecificConfig::Central(ref mut central) => central.paths.containerize_paths(base_dir),
+                NodeSpecificConfig::Worker(worker) => worker.paths.containerize_paths(base_dir),
+                NodeSpecificConfig::Proxy(proxy) => proxy.paths.containerize_paths(base_dir),
+            }
+        } else {
+            match self {
+                NodeSpecificConfig::Central(central) => central.paths.resolve_paths(base_dir),
+                NodeSpecificConfig::Worker(worker) => worker.paths.resolve_paths(base_dir),
+                NodeSpecificConfig::Proxy(proxy) => proxy.paths.resolve_paths(base_dir),
+            }
         }
     }
 
@@ -362,6 +385,28 @@ pub struct CentralPaths {
     pub proxy: Option<PathBuf>,
 }
 
+fn try_canonicalize(path: impl AsRef<Path>) -> PathBuf {
+    let path = path.as_ref();
+    canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+impl CentralPaths {
+    pub fn resolve_paths(&mut self, base_dir: &Path) {
+        self.certs = try_canonicalize(base_dir.join(&self.certs));
+        self.packages = try_canonicalize(base_dir.join(&self.packages));
+        self.infra = try_canonicalize(base_dir.join(&self.infra));
+        self.proxy = self.proxy.as_ref().map(|p| try_canonicalize(base_dir.join(p)));
+    }
+
+    /// Alters the paths to the containerized paths
+    pub fn containerize_paths(&mut self, base_dir: &Path) {
+        self.certs = base_dir.join("config/certs");
+        self.packages = base_dir.join("packages");
+        self.infra = base_dir.join("config/infra.yml");
+        self.proxy = self.proxy.as_ref().map(|_path| base_dir.join("config/proxy.yml"));
+    }
+}
+
 /// Defines the services for the central node.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CentralServices {
@@ -445,6 +490,40 @@ pub struct WorkerPaths {
     pub temp_results: PathBuf,
 }
 
+impl WorkerPaths {
+    pub fn resolve_paths(&mut self, base_dir: &Path) {
+        self.certs = try_canonicalize(base_dir.join(&self.certs));
+        self.packages = try_canonicalize(base_dir.join(&self.packages));
+        self.backend = try_canonicalize(base_dir.join(&self.backend));
+        self.policy_database = try_canonicalize(base_dir.join(&self.policy_database));
+        self.policy_delib_secret = try_canonicalize(base_dir.join(&self.policy_delib_secret));
+        self.policy_store_secret = try_canonicalize(base_dir.join(&self.policy_store_secret));
+        self.policy_audit_log = self.policy_audit_log.as_mut().map(|path| try_canonicalize(base_dir.join(path)));
+        self.proxy = self.proxy.as_mut().map(|p| try_canonicalize(base_dir.join(p)));
+        self.data = try_canonicalize(base_dir.join(&self.data));
+        self.results = try_canonicalize(base_dir.join(&self.results));
+        self.temp_data = try_canonicalize(base_dir.join(&self.temp_data));
+        self.temp_results = try_canonicalize(base_dir.join(&self.temp_results));
+    }
+
+    pub fn containerize_paths(&mut self, base_dir: &Path) {
+        self.certs = try_canonicalize(base_dir.join("config/certs"));
+        self.packages = try_canonicalize(base_dir.join("packages"));
+        self.backend = try_canonicalize(base_dir.join("config/backend.yml"));
+        // FIXME: This should probably be a different path, change in docker-compose.yml too
+        self.policy_database = try_canonicalize("/home/brane/policy.db");
+        self.policy_delib_secret = try_canonicalize("/home/brane/delib_keys.json");
+        self.policy_store_secret = try_canonicalize("/home/brane/store_keys.json");
+        // FIXME: Probably wrong, but there is no path in the docker-compose.yml \o/
+        self.policy_audit_log = self.policy_audit_log.as_mut().map(|_| try_canonicalize("/home/brane/audit.log"));
+        self.proxy = self.proxy.as_mut().map(|_path| try_canonicalize(base_dir.join("config/proxy.yml")));
+        self.data = try_canonicalize(base_dir.join("data"));
+        self.results = try_canonicalize(base_dir.join("results"));
+        self.temp_data = try_canonicalize("/tmp/data");
+        self.temp_results = try_canonicalize("/tmp/results");
+    }
+}
+
 /// Defines the services for the worker node.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct WorkerServices {
@@ -480,6 +559,18 @@ pub struct ProxyPaths {
     pub certs: PathBuf,
     /// The path to the proxy file.
     pub proxy: PathBuf,
+}
+
+impl ProxyPaths {
+    fn resolve_paths(&mut self, base_dir: &Path) {
+        self.certs = try_canonicalize(base_dir.join(&self.certs));
+        self.proxy = try_canonicalize(base_dir.join(&self.proxy));
+    }
+
+    pub fn containerize_paths(&mut self, base_dir: &Path) {
+        self.certs = try_canonicalize(base_dir.join("config/certs"));
+        self.proxy = try_canonicalize(base_dir.join("config/proxy.yml"));
+    }
 }
 
 /// Defines the services for the proxy node.

@@ -27,7 +27,7 @@ use base64::engine::general_purpose::STANDARD;
 use bollard::API_DEFAULT_VERSION;
 use brane_cfg::backend::{BackendFile, Credentials};
 use brane_cfg::info::Info as _;
-use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig};
+use brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerConfig, WorkerPaths};
 use brane_chk::workflow::compile::pc_to_id;
 use brane_exe::FullValue;
 use brane_prx::client::ProxyClient;
@@ -615,7 +615,7 @@ async fn check_workflow_or_task(
     debug!("Consulting checker to find validity for use-case {:?}", request.usecase());
 
     // Load the worker config from the node config to setup the profiler
-    let worker_cfg: WorkerConfig = match NodeConfig::from_path(node_config_path) {
+    let mut worker_cfg: WorkerConfig = match NodeConfig::from_path(node_config_path) {
         Ok(node_config) => match node_config.node.try_into_worker() {
             Some(node) => node,
             None => {
@@ -628,6 +628,9 @@ async fn check_workflow_or_task(
             return Err(Status::internal("An internal error occurred"));
         },
     };
+
+    worker_cfg.paths.resolve_paths(node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     let report =
         ProfileReport::auto_reporting_file("brane-job WorkerServer::check-workflow", format!("brane-job_{}_check-workflow", worker_cfg.name));
 
@@ -946,8 +949,10 @@ async fn ensure_container(
 ///
 /// # Errors
 /// This function errors if the task fails for whatever reason or we didn't even manage to launch it.
+#[allow(clippy::too_many_arguments)]
 async fn execute_task_local(
     worker_cfg: &WorkerConfig,
+    host_worker_paths: &WorkerPaths,
     dinfo: DockerOptions,
     tx: &Sender<Result<ExecuteReply, Status>>,
     container_path: impl AsRef<Path>,
@@ -964,7 +969,7 @@ async fn execute_task_local(
     let binds: Vec<VolumeBind> = match prof
         .time_fut(
             "preprocessing",
-            docker::preprocess_args(&mut tinfo.args, &tinfo.input, &tinfo.result, Some(&worker_cfg.paths.data), &worker_cfg.paths.results),
+            docker::preprocess_args(&mut tinfo.args, &tinfo.input, &tinfo.result, Some(&host_worker_paths.data), &host_worker_paths.results),
         )
         .await
     {
@@ -1201,6 +1206,7 @@ async fn execute_task_local(
 #[allow(clippy::too_many_arguments)]
 async fn execute_task(
     worker_cfg: &WorkerConfig,
+    host_worker_paths: &WorkerPaths,
     proxy: Arc<ProxyClient>,
     tx: Sender<Result<ExecuteReply, Status>>,
     use_case: &str,
@@ -1317,7 +1323,9 @@ async fn execute_task(
 
             // Do the call
             match prof
-                .nest_fut("execution (local)", |scope| execute_task_local(worker_cfg, dinfo, &tx, container_path, tinfo, keep_container, scope))
+                .nest_fut("execution (local)", |scope| {
+                    execute_task_local(worker_cfg, host_worker_paths, dinfo, &tx, container_path, tinfo, keep_container, scope)
+                })
                 .await
             {
                 Ok(value) => value,
@@ -1609,10 +1617,13 @@ impl WorkerServer {
     pub fn new(node_config_path: impl Into<PathBuf>, keep_containers: bool, delib_token: String, proxy: Arc<ProxyClient>) -> Result<Self, Error> {
         // Read the node config to construct a map of caches
         let node_config_path: PathBuf = node_config_path.into();
-        let node: NodeConfig = match NodeConfig::from_path(&node_config_path) {
+        let mut node: NodeConfig = match NodeConfig::from_path(&node_config_path) {
             Ok(node) => node,
             Err(err) => return Err(Error::NodeConfigLoad { path: node_config_path, err }),
         };
+
+        node.node.resolve_paths(node_config_path.parent().expect("node.yml must be stored somewhere"));
+
         let worker: WorkerConfig = match node.node {
             NodeSpecificConfig::Worker(worker) => worker,
             kind => {
@@ -1706,13 +1717,16 @@ impl JobService for WorkerServer {
 
         // Load the node config file
         let disk = report.time("File loading");
-        let node_config: NodeConfig = match NodeConfig::from_path(&self.node_config_path) {
+        let mut node_config: NodeConfig = match NodeConfig::from_path(&self.node_config_path) {
             Ok(config) => config,
             Err(err) => {
                 error!("{}", err.trace());
                 return Err(Status::internal("An internal error occurred"));
             },
         };
+
+        node_config.node.resolve_paths(self.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
         let worker: WorkerConfig = match node_config.node.try_into_worker() {
             Some(worker) => worker,
             None => {
@@ -1886,6 +1900,18 @@ impl JobService for WorkerServer {
 
         // Load the node config file
         let disk = overhead.time("File loading");
+
+
+        // Okay this is going to get tricky. We have a docker in docker situation here. Brane-job
+        // is running in a container, but is also going to spawn a container.
+        // This causes tricky situations with volumes. Because we are using the docker socket of
+        // the host. Volumes on the external side are relative to the host, not the container
+        // spawning the new container.
+        //
+        // One peculiarity arises. When loading the node config, we need to use the path as
+        // inside *this* (brane-job) container, but when canonicalizalizing the paths we need to do
+        // that relative to the host node config path so the volumes are mounted correctly.
+
         let node_config: NodeConfig = match NodeConfig::from_path(&self.node_config_path) {
             Ok(config) => config,
             Err(err) => {
@@ -1893,13 +1919,27 @@ impl JobService for WorkerServer {
                 return Err(Status::internal("An internal error occurred"));
             },
         };
-        let worker: WorkerConfig = match node_config.node.try_into_worker() {
+
+        let host_node_config_path = if let Ok(node_config_path) = std::env::var("BRANE_HOST_NODE_CONFIG") {
+            PathBuf::from(&node_config_path)
+        } else {
+            self.node_config_path.clone()
+        };
+
+        // FIXME: Okay this is wrong, but I don't know how to fix it. How do we know here what the
+        // host path is.
+        let mut worker: WorkerConfig = match node_config.node.try_into_worker() {
             Some(worker) => worker,
             None => {
                 error!("Provided a non-worker `node.yml`; please provide one for a worker node");
                 return Err(Status::internal("An internal error occurred"));
             },
         };
+
+        let mut host_worker_paths = worker.paths.clone();
+        host_worker_paths.resolve_paths(host_node_config_path.parent().expect("File paths should have a parent"));
+        worker.paths.resolve_paths(self.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
         disk.stop();
 
         // Fetch the use-case's API address
@@ -1937,7 +1977,7 @@ impl JobService for WorkerServer {
             let worker: WorkerConfig = worker;
             report
                 .nest_fut("execution", |scope| {
-                    execute_task(&worker, proxy, tx, &use_case, &delib_token, workflow, cinfo, tinfo, keep_containers, scope)
+                    execute_task(&worker, &host_worker_paths, proxy, tx, &use_case, &delib_token, workflow, cinfo, tinfo, keep_containers, scope)
                 })
                 .await
         });
@@ -1971,13 +2011,16 @@ impl JobService for WorkerServer {
 
         // Load the node config file
         let disk = report.time("File loading");
-        let node_config: NodeConfig = match NodeConfig::from_path(&self.node_config_path) {
+        let mut node_config: NodeConfig = match NodeConfig::from_path(&self.node_config_path) {
             Ok(config) => config,
             Err(err) => {
                 error!("{}", err.trace());
                 return Err(Status::internal("An internal error occurred"));
             },
         };
+
+        node_config.node.resolve_paths(self.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
         let worker: WorkerConfig = match node_config.node.try_into_worker() {
             Some(worker) => worker,
             None => {

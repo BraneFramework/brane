@@ -44,13 +44,16 @@ pub async fn registries(context: Context) -> Result<impl Reply, Rejection> {
     debug!("Handling GET on `/infra/registries` (i.e., list all registry endpoints)...");
 
     // Load the node config file
-    let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             error!("Failed to load NodeConfig file: {}", err);
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     if !node_config.node.is_central() {
         error!("Provided node config file '{}' is not for a central node", context.node_config_path.display());
         return Err(warp::reject::custom(Error::SecretError));
@@ -106,13 +109,16 @@ pub async fn get_registry(loc: String, context: Context) -> Result<impl Reply, R
     debug!("Handling GET on `/infra/registries/{}` (i.e., get location registry address)...", loc);
 
     // Load the node config file
-    let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             error!("Failed to load NodeConfig file: {}", err);
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     if !node_config.node.is_central() {
         error!("Provided node config file '{}' is not for a central node", context.node_config_path.display());
         return Err(warp::reject::custom(Error::SecretError));
@@ -164,13 +170,16 @@ pub async fn get_capabilities(loc: String, context: Context) -> Result<impl Repl
     debug!("Handling GET on `/infra/capabilities/{}` (i.e., get location capabilities)...", loc);
 
     // Load the node config file
-    let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             error!("Failed to load NodeConfig file: {}", err);
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     if !node_config.node.is_central() {
         error!("Provided node config file '{}' is not for a central node", context.node_config_path.display());
         return Err(warp::reject::custom(Error::SecretError));

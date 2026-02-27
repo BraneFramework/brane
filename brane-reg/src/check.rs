@@ -45,13 +45,16 @@ async fn check_data_or_result(name: DataName, body: CheckTransferRequest, contex
 
     // Load the config file
     debug!("Loading node.yml file '{}'...", context.node_config_path.display());
-    let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             error!("{}", trace!(("Failed to load NodeConfig file"), err));
             return Err(warp::reject::reject());
         },
     };
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml should be a file"));
+
     let worker_config: WorkerConfig = if let NodeSpecificConfig::Worker(worker) = node_config.node {
         worker
     } else {

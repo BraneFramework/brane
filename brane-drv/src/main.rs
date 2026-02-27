@@ -50,13 +50,16 @@ async fn main() {
 
     // Load the config, making sure it's a central config
     debug!("Loading node.yml file '{}'...", opts.node_config_path.display());
-    let node_config: NodeConfig = match NodeConfig::from_path(&opts.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&opts.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             error!("{}", trace!(("Failed to load NodeConfig file"), err));
             std::process::exit(1);
         },
     };
+
+    node_config.node.resolve_paths(opts.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     let central: CentralConfig = match node_config.node.try_into_central() {
         Some(central) => central,
         None => {

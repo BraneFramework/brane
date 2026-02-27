@@ -14,6 +14,7 @@
 //
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use brane_cfg::info::Info as _;
 use brane_cfg::infra::InfraFile;
@@ -57,23 +58,29 @@ pub async fn list(context: Context) -> Result<impl Reply, Rejection> {
     debug!("Handling GET on `/data/info` (i.e., list all datasets)...");
 
     // Load the node config file
-    let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(source) => {
             error!("Failed to load NodeConfig file: {}", source);
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     if !node_config.node.is_central() {
         error!("Provided node config file '{}' is not for a central node", context.node_config_path.display());
         return Err(warp::reject::custom(Error::SecretError));
     }
 
     // Load the infrastructure file
-    let infra: InfraFile = match InfraFile::from_path(&node_config.node.central().paths.infra) {
+    let raw_infra_path = Path::new("/").join(&node_config.node.central().paths.infra);
+    let infra_path = std::fs::canonicalize(&raw_infra_path).unwrap_or_else(|_| raw_infra_path.clone());
+    debug!("Reading config file from: {}", infra_path.display());
+    let infra: InfraFile = match InfraFile::from_path(&infra_path) {
         Ok(infra) => infra,
         Err(source) => {
-            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source });
+            error!("{}", error_trace::trace!(("Oops"), Error::InfrastructureOpenError { path: infra_path, source }));
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
@@ -165,23 +172,35 @@ pub async fn get(name: String, context: Context) -> Result<impl Reply, Rejection
     debug!("Handling GET on `/data/info/{}` (i.e., get dataset info)...", name);
 
     // Load the node config file
-    let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             error!("Failed to load NodeConfig file: {}", err);
             return Err(warp::reject::custom(Error::SecretError));
         },
     };
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     if !node_config.node.is_central() {
         error!("Provided node config file '{}' is not for a central node", context.node_config_path.display());
         return Err(warp::reject::custom(Error::SecretError));
     }
 
     // Load the infrastructure file
-    let infra: InfraFile = match InfraFile::from_path(&node_config.node.central().paths.infra) {
+    let raw_infra_path = Path::new("/").join(&node_config.node.central().paths.infra);
+    let infra_path = std::fs::canonicalize(&raw_infra_path).unwrap_or_else(|_| raw_infra_path.clone());
+    debug!("Reading config file from: {}", infra_path.display());
+    let infra: InfraFile = match InfraFile::from_path(&infra_path) {
         Ok(infra) => infra,
         Err(source) => {
-            error!("{}", Error::InfrastructureOpenError { path: node_config.node.central().paths.infra.clone(), source });
+            error!(
+                "{}",
+                error_trace::trace!(("A problem occured opening the infrastructure config"), Error::InfrastructureOpenError {
+                    path: infra_path.clone(),
+                    source
+                })
+            );
             return Err(warp::reject::custom(Error::SecretError));
         },
     };

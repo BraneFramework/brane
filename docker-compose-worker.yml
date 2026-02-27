@@ -19,8 +19,8 @@ services:
     restart: always
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
-    - ${PROXY:-}:${PROXY:-}
-    - ${CERTS}:${CERTS}
+    - ${PROXY:-}:/config/proxy.yml
+    - ${CERTS}:/config/certs
     extra_hosts:
     - host.docker.internal:host-gateway
 
@@ -58,10 +58,10 @@ services:
     restart: always
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
-    - ${BACKEND}:${BACKEND}
-    - ${CERTS}:${CERTS}
-    - ${DATA}:${DATA}
-    - ${RESULTS}:${RESULTS}
+    - ${BACKEND}:/config/backend.yml
+    - ${CERTS}:/config/certs
+    - ${DATA}:/data
+    - ${RESULTS}:/results
     extra_hosts:
     - host.docker.internal:host-gateway
 
@@ -75,13 +75,13 @@ services:
     restart: always
     volumes:
     - ${NODE_CONFIG_PATH}:/node.yml
-    - ${BACKEND}:${BACKEND}
-    - ${CERTS}:${CERTS}
-    - ${PACKAGES}:${PACKAGES}
-    - ${DATA}:${DATA}
-    - ${RESULTS}:${RESULTS}
-    - ${TEMP_DATA}:${TEMP_DATA}
-    - ${TEMP_RESULTS}:${TEMP_RESULTS}
+    - ${BACKEND}:/config/backend.yml
+    - ${CERTS}:/config/certs
+    - ${PACKAGES}:/packages
+    - ${DATA}:/data
+    - ${RESULTS}:/results
+    - ${TEMP_DATA}:/tmp/data
+    - ${TEMP_RESULTS}:/tmp/results
     - /var/run/docker.sock:/var/run/docker.sock:uid=1000
     extra_hosts:
     - host.docker.internal:host-gateway

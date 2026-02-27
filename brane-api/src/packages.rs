@@ -395,12 +395,15 @@ where
 
     /* Step 0: Load config files */
     // Load the node config file
-    let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(source) => {
             fail!(Error::NodeConfigLoadError { source });
         },
     };
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     let central: &CentralConfig = match node_config.node.try_central() {
         Some(central) => central,
         None => {

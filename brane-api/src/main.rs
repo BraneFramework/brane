@@ -27,7 +27,7 @@ use brane_cfg::node::{CentralConfig, NodeConfig};
 use brane_prx::client::ProxyClient;
 use clap::Parser;
 use dotenvy::dotenv;
-use error_trace::{trace, ErrorTrace as _};
+use error_trace::{ErrorTrace as _, trace};
 use juniper::EmptySubscription;
 use scylla::{Session, SessionBuilder};
 use tokio::signal::unix::{Signal, SignalKind, signal};
@@ -50,17 +50,20 @@ async fn main() {
     let cli_log_level = opts.logging.log_level(DEFAULT_LOG_LEVEL);
     specifications::tracing::setup_subscriber(LOG_LEVEL_ENV_VAR, cli_log_level);
 
-    info!("Initializing brane-job v{}...", env!("CARGO_PKG_VERSION"));
+    info!("Initializing brane-api v{}...", env!("CARGO_PKG_VERSION"));
 
     // Load the config, making sure it's a worker config
     debug!("Loading node.yml file '{}'...", opts.node_config_path.display());
-    let node_config: NodeConfig = match NodeConfig::from_path(&opts.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&opts.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             error!("Failed to load NodeConfig file: {}", err.trace());
             std::process::exit(1);
         },
     };
+
+    node_config.node.resolve_paths(opts.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     let central: CentralConfig = match node_config.node.try_into_central() {
         Some(central) => central,
         None => {

@@ -524,21 +524,24 @@ impl InstanceVm {
         // Step 0: Load files
         let plr_addr: Address = {
             let mut global = self.state.global.write().unwrap();
+            let path: PathBuf = global.node_config_path.clone();
 
             debug!("Loading node config file '{}'...", global.node_config_path.display());
-            let central_cfg: CentralConfig = match NodeConfig::from_path(&global.node_config_path) {
-                Ok(cfg) => match cfg.node {
-                    NodeSpecificConfig::Central(central) => central,
-                    NodeSpecificConfig::Worker(_) | NodeSpecificConfig::Proxy(_) => {
-                        let path: PathBuf = global.node_config_path.clone();
-                        drop(global);
-                        return (self, Err(Error::IllegalNodeConfig { path, got: cfg.node.variant().to_string() }));
-                    },
-                },
+            let mut node_config = match NodeConfig::from_path(&global.node_config_path) {
+                Ok(node) => node,
                 Err(source) => {
-                    let path: PathBuf = global.node_config_path.clone();
                     drop(global);
                     return (self, Err(Error::NodeConfigLoad { path, source }));
+                },
+            };
+
+            node_config.node.resolve_paths(global.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
+            let central_cfg: CentralConfig = match node_config.node {
+                NodeSpecificConfig::Central(central) => central,
+                NodeSpecificConfig::Worker(_) | NodeSpecificConfig::Proxy(_) => {
+                    drop(global);
+                    return (self, Err(Error::IllegalNodeConfig { path, got: node_config.node.variant().to_string() }));
                 },
             };
 

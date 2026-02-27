@@ -41,13 +41,16 @@ pub async fn get_capabilities(context: Arc<Context>) -> Result<impl Reply, Rejec
     info!("Handling GET on `/infra/capabilities` (i.e., get domain capabilities)...");
 
     // Read the node file
-    let node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
+    let mut node_config: NodeConfig = match NodeConfig::from_path(&context.node_config_path) {
         Ok(config) => config,
         Err(err) => {
             error!("{}", trace!(("Failed to load NodeConfig file"), err));
             return Err(warp::reject::reject());
         },
     };
+
+    node_config.node.resolve_paths(context.node_config_path.parent().expect("node.yml must be stored somewhere"));
+
     let worker_config: WorkerConfig = if let NodeSpecificConfig::Worker(config) = node_config.node {
         config
     } else {

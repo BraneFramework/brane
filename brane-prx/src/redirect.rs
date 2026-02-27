@@ -218,13 +218,15 @@ pub async fn path_server(
             debug!(":{}->{}: Setting up TLS for location '{}'...", socket_addr.port(), address, tls.location);
 
             // Load the node config file
-            let node_config: NodeConfig = match NodeConfig::from_path(&node_config_path) {
+            let mut node_config: NodeConfig = match NodeConfig::from_path(&node_config_path) {
                 Ok(config) => config,
                 Err(err) => {
                     error!(":{}->{}: Failed to load NodeConfig file: {}", socket_addr.port(), address, err);
                     std::process::exit(1);
                 },
             };
+
+            node_config.node.resolve_paths(node_config_path.parent().expect("node.yml must be stored somewhere"));
 
             // Load the certificate path
             let cert_path: &Path = match &node_config.node {
