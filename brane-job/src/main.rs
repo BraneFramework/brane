@@ -86,28 +86,27 @@ async fn main() {
     };
 
     // Start gRPC server with callback service.
-    debug!("gRPC server ready to serve on '{}'", worker.services.job.bind);
-    if let Err(err) = Server::builder()
-        .add_service(JobServiceServer::new(server))
-        .serve_with_shutdown(worker.services.job.bind, async {
-            // Register a SIGTERM handler to be Docker-friendly
-            let mut handler: Signal = match signal(SignalKind::terminate()) {
-                Ok(handler) => handler,
-                Err(err) => {
-                    error!("{}", trace!(("Failed to register SIGTERM signal handler"), err));
-                    warn!("Service will NOT shutdown gracefully on SIGTERM");
-                    loop {
-                        tokio::time::sleep(Duration::from_secs(24 * 3600)).await;
-                    }
-                },
-            };
+    let handle = Server::builder().add_service(JobServiceServer::new(server)).serve_with_shutdown(worker.services.job.bind, async {
+        // Register a SIGTERM handler to be Docker-friendly
+        let mut handler: Signal = match signal(SignalKind::terminate()) {
+            Ok(handler) => handler,
+            Err(err) => {
+                error!("{}", trace!(("Failed to register SIGTERM signal handler"), err));
+                warn!("Service will NOT shutdown gracefully on SIGTERM");
+                loop {
+                    tokio::time::sleep(Duration::from_secs(24 * 3600)).await;
+                }
+            },
+        };
 
-            // Wait until we receive such a signal after which we terminate the server
-            handler.recv().await;
-            info!("Received SIGTERM, shutting down gracefully...");
-        })
-        .await
-    {
+        // Wait until we receive such a signal after which we terminate the server
+        handler.recv().await;
+        info!("Received SIGTERM, shutting down gracefully...");
+    });
+
+    info!("Initialization completed successfully");
+    info!("Now serving (gRPC) @ '{}'", worker.services.job.bind);
+    if let Err(err) = handle.await {
         error!("{}", trace!(("Failed to start gRPC server"), err));
         std::process::exit(1);
     }

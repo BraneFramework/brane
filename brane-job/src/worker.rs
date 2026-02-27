@@ -774,7 +774,7 @@ async fn get_container(
     debug!("Downloading image '{}' from '{}'...", image, endpoint);
 
     // Send a GET-request to the correct location
-    let address: String = format!("{}/packages/{}/{}", endpoint, image.name, image.version.as_ref().unwrap_or(&"latest".into()));
+    let address: String = format!("http://{}/packages/{}/{}", endpoint, image.name, image.version.as_ref().unwrap_or(&"latest".into()));
     debug!("Performing request to '{}'...", address);
     let res = proxy
         .get(&address, None)

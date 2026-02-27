@@ -15,7 +15,7 @@
 pub mod cli;
 use brane_cfg::proxy::ForwardConfig;
 use brane_ctl::spec::{LogsOpts, StartOpts};
-use brane_ctl::{download, generate, lifetime, packages, policies, unpack, upgrade, wizard};
+use brane_ctl::{data, download, generate, lifetime, packages, policies, unpack, upgrade, wizard};
 use brane_tsk::docker::DockerOptions;
 use clap::Parser;
 use cli::*;
@@ -163,7 +163,14 @@ async fn main() {
                 }
             },
         },
-        CtlSubcommand::Data(subcommand) => match *subcommand {},
+        CtlSubcommand::Data(subcommand) => match *subcommand {
+            DataSubcommand::Import { asset_path, copy } => {
+                if let Err(err) = data::import(args.node_config, asset_path, copy).await {
+                    error!("{}", err.trace());
+                    std::process::exit(1);
+                }
+            },
+        },
         CtlSubcommand::Policies(subcommand) => match *subcommand {
             PolicySubcommand::Activate { version, address, token } => {
                 // Call the thing

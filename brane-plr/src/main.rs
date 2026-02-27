@@ -113,6 +113,7 @@ async fn main() {
 
     match handle {
         Ok((addr, srv)) => {
+            info!("Initialization completed successfully");
             info!("Now serving @ '{addr}'");
             srv.await
         },

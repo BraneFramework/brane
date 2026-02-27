@@ -53,6 +53,7 @@ brane-tsk.workspace = true
 specifications.workspace = true
 
 policy-store = { workspace = true, features = ["sqlite-database", "sqlite-database-embedded-migrations"] }
+anyhow.workspace = true
 
 [build-dependencies]
 download = { workspace = true, features = ["rustls-tls-webpki-roots"] }

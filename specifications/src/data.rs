@@ -88,6 +88,12 @@ pub enum AssetInfoError {
     /// Failed to parse the given reader.
     #[error("Failed to parse given reader as a asset info file")]
     ReaderParseError { source: serde_yaml::Error },
+    #[error("Failed to write the asset info file to given writer")]
+    WriterWriteError { source: serde_yaml::Error },
+    #[error("Failed to write to asset info file '{}'", path.display())]
+    FileWriteError { path: PathBuf, source: serde_yaml::Error },
+    #[error("Failed to create asset info file '{}'", path.display())]
+    FileCreateError { path: PathBuf, source: std::io::Error },
 }
 
 // /***** HELPER STRUCTS *****/
@@ -664,6 +670,42 @@ impl AssetInfo {
     #[inline]
     pub fn from_reader<R: Read>(reader: R) -> Result<Self, AssetInfoError> {
         serde_yaml::from_reader::<R, Self>(reader).map_err(|source| AssetInfoError::ReaderParseError { source })
+    }
+
+    /// Writes the `AssetInfo` to the given path.
+    ///
+    /// # Arguments
+    /// - `path`: The path to write the `AssetInfo` to.
+    ///
+    /// # Returns
+    /// Nothing, but does write a new file at the given path.
+    ///
+    /// # Errors
+    /// This function errors if we could not create or write to the new file.
+    pub fn to_path(&self, path: impl AsRef<Path>) -> Result<(), AssetInfoError> {
+        // Open the file
+        let handle: File = File::create(path.as_ref()).map_err(|source| AssetInfoError::FileCreateError { path: path.as_ref().into(), source })?;
+
+        // Do the rest by virtue of `AssetInfo::to_writer()`
+        match self.to_writer(handle) {
+            Err(AssetInfoError::WriterWriteError { source }) => Err(AssetInfoError::FileWriteError { path: path.as_ref().into(), source }),
+            x => x,
+        }
+    }
+
+    /// Writes the `AssetInfo` to the given writer.
+    ///
+    /// # Arguments
+    /// - `writer` The Writer to write the AssetInfo to.
+    ///
+    /// # Returns
+    /// Nothing, but does write the `AssetInfo` to the given writer.
+    ///
+    /// # Errors
+    /// This function errors if we could not write to the given writer.
+    #[inline]
+    pub fn to_writer(&self, writer: impl Write) -> Result<(), AssetInfoError> {
+        serde_yaml::to_writer(writer, self).map_err(|source| AssetInfoError::WriterWriteError { source })
     }
 
     /// Converts this `AssetInfo` into a [`DataInfo`] under the given domain.

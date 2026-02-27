@@ -977,6 +977,7 @@ impl AsRef<Path> for MaybeTempPath {
     }
 }
 
+
 /// Changes the permissions of the given file to the given triplet.
 ///
 /// # Arguments

@@ -108,7 +108,8 @@ where
 
 
     // Enter the game loop; we await new connections
-    info!("Ready for connections...");
+    info!("Initialization completed successfully");
+    info!("Now serving @ '{address}'");
     loop {
         // Select between address or signal
         tokio::select! {
