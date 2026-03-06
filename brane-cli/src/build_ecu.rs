@@ -13,7 +13,7 @@ use specifications::arch::Arch;
 use specifications::container::{ContainerInfo, LocalContainerInfo};
 use specifications::package::PackageInfo;
 
-use crate::build_common::{BRANELET_URL, build_docker_image, clean_directory};
+use crate::build_common::{build_docker_image, clean_directory};
 use crate::errors::BuildError;
 use crate::utils::ensure_package_dir;
 
@@ -159,7 +159,7 @@ async fn build(
 ///  * `context`: The directory to find the executable in.
 ///  * `override_branelet`: Whether or not to override the branelet executable. If so, assumes the new one is copied to the temporary build folder by the time the DockerFile is run.
 ///
-/// **Returns**  
+/// **Returns**
 /// A String that is the new DockerFile on success, or a BuildError otherwise.
 fn generate_dockerfile(document: &ContainerInfo, context: &Path, override_branelet: bool) -> Result<String, BuildError> {
     let mut contents = String::new();
@@ -208,7 +208,16 @@ fn generate_dockerfile(document: &ContainerInfo, context: &Path, override_branel
         writeln_build!(contents, "ADD ./container/branelet /branelet")?;
     } else {
         // It's the prebuild one
-        writeln_build!(contents, "ADD {}-$BRANELET_ARCH /branelet", BRANELET_URL)?;
+
+        // Versions that go by pre-release alias instead of a version number
+        let special_versions = ["nightly", "test"];
+
+        let release_name =
+            if special_versions.contains(&env!("CARGO_PKG_VERSION_PRE")) { env!("CARGO_PKG_VERSION_PRE") } else { env!("CARGO_PKG_VERSION") };
+
+        let url = format!("https://github.com/BraneFramework/brane/releases/download/{release_name}/branelet-linux");
+
+        writeln_build!(contents, "ADD {url}-$BRANELET_ARCH /branelet")?;
     }
     // Always make it executable
     writeln_build!(contents, "RUN chmod +x /branelet")?;
@@ -269,7 +278,7 @@ fn generate_dockerfile(document: &ContainerInfo, context: &Path, override_branel
 ///  * `package_dir`: The directory where we can build the package and store it once done.
 /// - `convert_crlf`: If true, will not ask to convert CRLF files but instead just do it.
 ///
-/// **Returns**  
+/// **Returns**
 /// Nothing if the directory was created successfully, or a BuildError otherwise.
 fn prepare_directory(
     document: &ContainerInfo,
