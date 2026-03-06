@@ -13,7 +13,7 @@ use specifications::arch::Arch;
 use specifications::container::{ContainerInfo, LocalContainerInfo};
 use specifications::package::PackageInfo;
 
-use crate::build_common::{BRANELET_URL, build_docker_image, clean_directory};
+use crate::build_common::{build_docker_image, clean_directory};
 use crate::errors::BuildError;
 use crate::utils::ensure_package_dir;
 
@@ -213,7 +213,7 @@ fn generate_dockerfile(document: &ContainerInfo, context: &Path, override_branel
 
         let release_name = if special_versions.contains(&env!("CARGO_PKG_VERSION_PRE")) { env!("CARGO_PKG_VERSION_PRE") } else { env!("CARGO_PKG_VERSION") };
 
-        let url = format!("https://github.com/BraneFramework/brane/releases/download/{release_name}/branelet-linux-x86_64");
+        let url = format!("https://github.com/BraneFramework/brane/releases/download/{release_name}/branelet-linux");
 
         writeln_build!(contents, "ADD {url}-$BRANELET_ARCH /branelet")?;
     }
