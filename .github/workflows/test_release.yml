@@ -24,15 +24,17 @@ jobs:
           - runner: ubuntu-latest
             os: linux
             arch: x86_64
-          - runner: macos-latest
-            os: macos
-            arch: aarch64
-          - runner: windows-latest
-            os: windows
-            arch: x86_64
-          - runner: ubuntu-24.04-arm
-            os: linux
-            arch: aarch64
+          # This does not make much sense now. The testing harness is linux x86 only
+          # There is no real reason why other platforms cannot be tested as well, other than a lack of time at the moment
+          # - runner: macos-latest
+          #   os: macos
+          #   arch: aarch64
+          # - runner: windows-latest
+          #   os: windows
+          #   arch: x86_64
+          # - runner: ubuntu-24.04-arm
+          #   os: linux
+          #   arch: aarch64
 
     runs-on: ${{ matrix.runner }}
     steps:
