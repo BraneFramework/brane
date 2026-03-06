@@ -1,0 +1,99 @@
+name: Automated test release
+on:
+  push:
+    tags:
+      - test
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  build:
+    name: "Build & package"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            os: linux
+            arch: x86_64
+          - runner: macos-latest
+            os: macos
+            arch: aarch64
+          - runner: windows-latest
+            os: windows
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: aarch64
+
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-tags: true
+      - name: Set up Docker Buildx
+        if: ${{ matrix.os == 'linux' }}
+        uses: docker/setup-buildx-action@v3
+      - name: Install Go
+        if: ${{ matrix.os == 'macos' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: '^1.23.4'
+      - name: Build xtask
+        run: |
+          cargo build --release --no-default-features --package xtask -F ci
+      - name: Update package version in Cargo.toml
+        run: |
+          cargo run --release --no-default-features --package xtask -F ci set-version -p test -m '$git_hash$git_dirty'
+      - name: Build
+        run: |
+          cargo run --release --no-default-features --package xtask -F ci build all
+      - name: Package
+        run: |
+          cargo run --release --no-default-features --package xtask -F ci package github
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}-${{ matrix.arch }}-test
+          path: |
+            target/package/release/*
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: "Release artifacts to GitHub"
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        # without further specification, downloads all artifacts from the run
+        with:
+          path: release
+          merge-multiple: true
+      - name: Delete previous test release
+        run: gh -R "$GITHUB_REPOSITORY" release delete test --yes || true
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*
+          fail_on_unmatched_files: true
+          tag_name: test
+          name: Test Release
+          prerelease: true
+          body: This is an automated test release. This release as a test release for the brane-test framework. Once the changes necessary for the testing framework land on the main branch, the nightly can be used instead. But until those changes are vetted this release will make automated testing possible.
+          draft: false
+          make_latest: false
