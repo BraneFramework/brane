@@ -997,7 +997,7 @@ async fn execute_task_local(
         image,
         ImageSource::Path(container_path.into()),
         vec![
-            "-d".into(),
+            "--debug".into(),
             "--application-id".into(),
             "unspecified".into(),
             "--location-id".into(),
