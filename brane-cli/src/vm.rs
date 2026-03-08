@@ -124,7 +124,7 @@ impl VmPlugin for OfflinePlugin {
             image_source: ImageSource::Path(package_dir.join(info.package_name).join(info.package_version.to_string()).join("image.tar")),
 
             command: vec![
-                "-d".into(),
+                "--debug".into(),
                 "--application-id".into(),
                 "test".into(),
                 "--location-id".into(),

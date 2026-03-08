@@ -41,15 +41,6 @@ macro_rules! writeln_build {
 
 
 
-/***** COMMON CONSTANTS */
-/// The URL which we use to pull the latest branelet executable from.
-pub const BRANELET_URL: &str =
-    concat!("https://github.com/braneframework/brane/releases/download/", concat!("v", env!("CARGO_PKG_VERSION")), "/branelet");
-
-
-
-
-
 /***** COMMON FUNCTIONS *****/
 /// **Edited: now returning BuildErrors. Also leaving .lock removal to the main handle function.**
 ///
@@ -59,7 +50,7 @@ pub const BRANELET_URL: &str =
 ///  * `package_dir`: The directory to clean (we assume this has been canonicalized and thus exists).
 ///  * `files`: The files to remove from the build directory.
 ///
-/// **Returns**  
+/// **Returns**
 /// Nothing - although this function will print BuildErrors as warnings to stderr using the logger.
 pub fn clean_directory(package_dir: &Path, files: Vec<&str>) {
     // Remove the build files
