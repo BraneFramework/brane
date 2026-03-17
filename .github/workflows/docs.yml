@@ -33,7 +33,7 @@ jobs:
           echo '<meta http-equiv="refresh" content="0; url=unstable/overview/index.html">' > gh-pages/index.html
 
       - name: Upload to GitHub Pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: gh-pages
 
